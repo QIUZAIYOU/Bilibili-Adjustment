@@ -1,0 +1,25 @@
+{
+  "name": "bilibili-adjustment",
+  "description": "哔哩哔哩（bilibili.com）调整 Development",
+  "author": "QIAN",
+  "version": "1.0.0",
+  "license": "MIT",
+  "scripts": {
+    "build": "rm -rf dist/ && NODE_ENV=production webpack",
+    "publish": "./scripts/publish",
+    "dev": "webpack serve --mode development",
+    "test": "yarn tsc --noEmit",
+    "lint": "eslint . --ext .js",
+    "lint:fix": "eslint . --ext .js --fix"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "eslint": "^9.21.0",
+    "eslint-import-resolver-node": "^0.3.9",
+    "eslint-plugin-import": "^2.31.0",
+    "globals": "^16.0.0",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.0",
+    "webpack-userscript": "^3.2.3"
+  }
+}

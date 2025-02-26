@@ -1,0 +1,16 @@
+{
+    "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always"
+    },
+    "eslint.validate": [
+        "javascript",
+        "typescript"
+    ],
+    "eslint.workingDirectories": ["./src"],
+    "editor.formatOnSave": false,
+    "cSpell.words": [
+        "Userscript"
+    ],
+    "marscode.chatLanguage": "cn",
+    
+}
