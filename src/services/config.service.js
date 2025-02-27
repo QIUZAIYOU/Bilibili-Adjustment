@@ -1,9 +1,8 @@
-import { StorageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
+import { storageService } from '@/services/storage.service'
 
 export class ConfigService {
     static #logger = new LoggerService('ConfigService')
-    static #storage = new StorageService()
     static #initialized = false
     static #cache = new Map()
     static DEFAULT_VALUES = [
@@ -48,7 +47,7 @@ export class ConfigService {
         let attempts = 0
         while (attempts < maxRetries) {
             try {
-                await this.#storage.init()
+                await storageService.init()
                 await this.initializeDefaults()
                 return
             } catch (error) {
@@ -63,7 +62,7 @@ export class ConfigService {
                 // 优先从缓存检查
                 if (this.#cache.has(item.name)) return
 
-                const exists = await this.#storage.get(item.name)
+                const exists = await storageService.get(item.name)
                 if (exists === null || exists === undefined) {
                     await this.setValue(item.name, item.value)
                     this.#cache.set(item.name, item.value) // 初始化时填充缓存
@@ -80,7 +79,7 @@ export class ConfigService {
                 return this.#cache.get(name)
             }
 
-            const value = await this.#storage.get(name)
+            const value = await storageService.get(name)
             this.#cache.set(name, value) // 更新缓存
             return value
         } catch (error) {
@@ -92,7 +91,7 @@ export class ConfigService {
         try {
             // 同步更新缓存
             this.#cache.set(name, value)
-            await this.#storage.set(name, value)
+            await storageService.set(name, value)
         } catch (error) {
             this.#cache.delete(name) // 回滚缓存
             this.#logger.error('配置存储失败', error)

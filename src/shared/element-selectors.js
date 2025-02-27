@@ -6,6 +6,7 @@ const elementCache = new Map()
 const selectors = {
     app: '#app',
     header: '#biliMainHeader',
+    headerMini: '#biliMainHeader .bili-header .mini-header',
     player: '#bilibili-player',
     playerWrap: '#playerWrap',
     playerWebscreen: '#bilibili-player.mode-webscreen',

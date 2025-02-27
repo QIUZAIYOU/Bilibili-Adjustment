@@ -5,9 +5,7 @@ import { LoggerService } from '@/services/logger.service'
 
 const logger = new LoggerService('EntryPoint')
 await ConfigService.initialize()
-
-const moduleContext = require.context('./modules', true, /\.module\.js$/ )
-
+const moduleContext = require.context('./modules', true, /\.module\.js$/)
 moduleContext.keys().forEach(key => {
     const module = moduleContext(key).default
     const deps = module.dependencies || []
@@ -16,5 +14,4 @@ moduleContext.keys().forEach(key => {
 
 moduleSystem.init().then(() => {
     eventBus.emit('app:ready')
-    logger.info('所有模块已加载')
 })

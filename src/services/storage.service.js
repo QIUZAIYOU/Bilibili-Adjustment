@@ -1,10 +1,9 @@
 import { createIndexedDBService } from '@/services/indexdb.service'
-import { LoggerService } from '@/services/logger.service'
 
 export class StorageService {
     static #instance
     #db
-    #logger = new LoggerService('StorageService')
+    #logger
     #dbConfig = {
         dbName: 'BilibiliAdjustmentStorage',
         version: 2,
@@ -27,53 +26,44 @@ export class StorageService {
         if (StorageService.#instance) {
             return StorageService.#instance
         }
+        this.#logger = new (require('@/services/logger.service').LoggerService)('StorageService')
 
-        // 初始化增强版数据库服务
         this.#db = createIndexedDBService(this.#dbConfig)
         StorageService.#instance = this
     }
     async init() {
         try {
             await this.#db.connect()
-            // 验证存储是否存在
-            if (!this.#db.storeExists('keyval')) {
-                throw new Error('keyval 存储未成功创建')
+            if (!this.#db.isStoreExists('keyval')) {
+                throw new Error('数据库初始化丨数据表不存在')
             }
-            this.#logger.debug('Database initialized')
+            this.#logger.debug('数据库初始化丨成功')
         } catch (error) {
-            this.#logger.error('Database init failed', error)
+            this.#logger.error('数据库初始化丨失败', error)
             throw error
         }
     }
     async set(key, value) {
-        return this.#db.executeWithRetry(async () => {
-            await this.#db.update('keyval', {
-                key,
-                value,
-                timestamp: Date.now()
-            })
+        await this.#db.update('keyval', {
+            key,
+            value,
+            timestamp: Date.now()
         })
     }
     async get(key) {
-        return this.#db.executeWithRetry(async () => {
-            return this.#db.get('keyval', key).then(data => data?.value)
-        })
+        return this.#db.get('keyval', key).then(data => data?.value)
     }
     async getAll(indexName, queryRange, pageSize) {
-        return this.#db.executeWithRetry(async () => {
-            // 直接返回对象格式数据，移除数组映射
-            return this.#db.getAll('keyval', indexName, queryRange, pageSize)
-        })
+        const result = await this.#db.getAll('keyval', indexName, queryRange, pageSize)
+        return result.results
     }
     async getAllRaw(indexName, queryRange, pageSize) {
-        return this.#db.executeWithRetry(async () => {
-            const result = await this.#db._executeCursorQuery('keyval', indexName, queryRange, pageSize)
-            return result.results.map(item => ({
-                key: item.key,
-                value: item.value,
-                timestamp: item.timestamp
-            }))
-        })
+        const result = await this.#db._executeCursorQuery('keyval', indexName, queryRange, pageSize)
+        return result.results.map(item => ({
+            key: item.key,
+            value: item.value,
+            timestamp: item.timestamp
+        }))
     }
     async getByTimeRange(startTime, endTime, pageSize = 100) {
         const range = IDBKeyRange.bound(startTime, endTime)
@@ -95,3 +85,5 @@ export class StorageService {
         })
     }
 }
+
+export const storageService = new StorageService()
