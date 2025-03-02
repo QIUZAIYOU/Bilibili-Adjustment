@@ -340,31 +340,31 @@
         videoTime: '#contents > a[data-type="seek"][data-video-time]'
     }
     const vals = {
-        is_vip: () => { return utils.getValue('is_vip') },
-        player_type: () => { return utils.getValue('player_type') },
-        offset_top: () => { return Math.trunc(utils.getValue('offset_top')) },
-        auto_locate: () => { return utils.getValue('auto_locate') },
-        get_offset_method: () => { return utils.getValue('get_offset_method') },
-        auto_locate_video: () => { return utils.getValue('auto_locate_video') },
-        auto_locate_bangumi: () => { return utils.getValue('auto_locate_bangumi') },
-        click_player_auto_locate: () => { return utils.getValue('click_player_auto_locate') },
-        video_player_offset_top: () => { return Math.trunc(utils.getValue('video_player_offset_top')) },
-        bangumi_player_offset_top: () => { return Math.trunc(utils.getValue('bangumi_player_offset_top')) },
-        current_screen_mode: () => { return utils.getValue('current_screen_mode') },
-        selected_screen_mode: () => { return utils.getValue('selected_screen_mode') },
-        auto_select_video_highest_quality: () => { return utils.getValue('auto_select_video_highest_quality') },
-        contain_quality_4k: () => { return utils.getValue('contain_quality_4k') },
-        contain_quality_8k: () => { return utils.getValue('contain_quality_8k') },
-        webfull_unlock: () => { return utils.getValue('webfull_unlock') },
-        auto_reload: () => { return utils.getValue('auto_reload') },
-        auto_skip: () => { return utils.getValue('auto_skip') },
-        insert_video_description_to_comment: () => { return utils.getValue('insert_video_description_to_comment') },
-        web_video_link: () => { return utils.getValue('web_video_link') },
-        signIn_date: () => { return utils.getValue('signIn_date') },
-        dev_checkScreenModeSwitchSuccess_method: () => { return utils.getValue('dev_checkScreenModeSwitchSuccess_method') },
-        pause_video: () => { return utils.getValue('pause_video') },
-        continue_play: () => { return utils.getValue('continue_play') },
-        auto_subtitle: () => { return utils.getValue('auto_subtitle') }
+        is_vip: () => utils.getValue('is_vip'),
+        player_type: () => utils.getValue('player_type'),
+        offset_top: () => Math.trunc(utils.getValue('offset_top')),
+        auto_locate: () => utils.getValue('auto_locate'),
+        get_offset_method: () => utils.getValue('get_offset_method'),
+        auto_locate_video: () => utils.getValue('auto_locate_video'),
+        auto_locate_bangumi: () => utils.getValue('auto_locate_bangumi'),
+        click_player_auto_locate: () => utils.getValue('click_player_auto_locate'),
+        video_player_offset_top: () => Math.trunc(utils.getValue('video_player_offset_top')),
+        bangumi_player_offset_top: () => Math.trunc(utils.getValue('bangumi_player_offset_top')),
+        current_screen_mode: () => utils.getValue('current_screen_mode'),
+        selected_screen_mode: () => utils.getValue('selected_screen_mode'),
+        auto_select_video_highest_quality: () => utils.getValue('auto_select_video_highest_quality'),
+        contain_quality_4k: () => utils.getValue('contain_quality_4k'),
+        contain_quality_8k: () => utils.getValue('contain_quality_8k'),
+        webfull_unlock: () => utils.getValue('webfull_unlock'),
+        auto_reload: () => utils.getValue('auto_reload'),
+        auto_skip: () => utils.getValue('auto_skip'),
+        insert_video_description_to_comment: () => utils.getValue('insert_video_description_to_comment'),
+        web_video_link: () => utils.getValue('web_video_link'),
+        signIn_date: () => utils.getValue('signIn_date'),
+        dev_checkScreenModeSwitchSuccess_method: () => utils.getValue('dev_checkScreenModeSwitchSuccess_method'),
+        pause_video: () => utils.getValue('pause_video'),
+        continue_play: () => utils.getValue('continue_play'),
+        auto_subtitle: () => utils.getValue('auto_subtitle')
     }
     const styles = {
         BilibiliAdjustment: '::-webkit-scrollbar{width:6px!important;height:6px!important}::-webkit-scrollbar-track-piece{border-radius:0!important;background-color:#212121!important}::-webkit-scrollbar-thumb:vertical{height:5px!important;border-radius:6px!important;background-color:#00a1d6!important}::-webkit-scrollbar-thumb:horizontal{width:5px!important;border-radius:6px!important;background-color:#00a1d6!important}::-webkit-scrollbar-corner{border-radius:0!important;background-color:#141414!important}.adjustment_popover{position:fixed;top:50%;left:50%;box-sizing:border-box;margin:0;padding:15px;width:400px;max-height:70vh;border:0;border-radius:6px;font-size:1em;transform:translate(-50%,-50%);overscroll-behavior:contain;background:#212121;overflow-y:auto;color:#868686;border:1px solid #424242}.adjustment_popover::backdrop{backdrop-filter:blur(3px)}.adjustment_popoverTitle{margin-bottom:15px;text-align:center;font-weight:700;font-size:22px}.adjustment_popoverTitle .subTitle{font-size:14px}.recommend{padding:3px;border:1px solid #424242;border-radius:6px;box-sizing:border-box;text-align:center;margin-bottom:15px;font-size:14px}.recommend a{color:#00a1d6;text-decoration:none}.adjustment_buttonGroup{display:flex;margin-top:10px;align-items:center;justify-content:end;gap:10px}.adjustment_button{display:inline-block;box-sizing:border-box;margin:0;padding:10px 20px;outline:0;border:1px solid #424242;border-radius:4px;background:#fff;color:#606266;text-align:center;white-space:nowrap;font-weight:500;font-size:14px;line-height:1;cursor:pointer;transition:.1s;-webkit-appearance:none;-moz-user-select:none;-webkit-user-select:none;-ms-user-select:none}.adjustment_button.plain:disabled,.adjustment_button.plain:disabled:active,.adjustment_button.plain:disabled:focus,.adjustment_button.plain:disabled:hover,.adjustment_button:disabled,.adjustment_button:disabled:active,.adjustment_button:disabled:focus,.adjustment_button:disabled:hover{border-color:#ebeef5;background-color:#fff;background-image:none;color:#c0c4cc;cursor:not-allowed}.adjustment_button.primary{border-color:#00a1d6;background-color:#00a1d6;color:#fff}.adjustment_button.success{border-color:#67c23a;background-color:#67c23a;color:#fff}.adjustment_button.info{border-color:#909399;background-color:#909399;color:#fff}.adjustment_button.warning{border-color:#e6a23c;background-color:#e6a23c;color:#fff}.adjustment_button.danger{border-color:#f56c6c;background-color:#f56c6c;color:#fff}.adjustment_button.primary:focus,.adjustment_button.primary:hover{border-color:#66b1ff;background:#66b1ff;color:#fff}.adjustment_button.success:focus,.adjustment_button.success:hover{border-color:#85ce61;background:#85ce61;color:#fff}.adjustment_button.info:focus,.adjustment_button.info:hover{border-color:#a6a9ad;background:#a6a9ad;color:#fff}.adjustment_button.warning:focus,.adjustment_button.warning:hover{border-color:#ebb563;background:#ebb563;color:#fff}.adjustment_button.danger:focus,.adjustment_button.danger:hover{border-color:#f78989;background:#f78989;color:#fff}.adjustment_button.primary.plain{border-color:#b3d8ff;background:#ecf5ff;color:#409eff}.adjustment_button.success.plain{border-color:#c2e7b0;background:#f0f9eb;color:#67c23a}.adjustment_button.info.plain{border-color:#a6a9ad;background:#a6a9ad;color:#fff}.adjustment_button.warning.plain{border-color:#f5dab1;background:#fdf6ec;color:#e6a23c}.adjustment_button.danger.plain{border-color:#fbc4c4;background:#fef0f0;color:#f56c6c}.adjustment_button.primary.plain:focus,.adjustment_button.primary.plain:hover{border-color:#409eff;background:#409eff;color:#fff}.adjustment_button.success.plain:focus,.adjustment_button.success.plain:hover{border-color:#67c23a;background-color:#67c23a;color:#fff}.adjustment_button.info.plain:focus,.adjustment_button.info.plain:hover{border-color:#909399;background-color:#909399;color:#fff}.adjustment_button.warning.plain:focus,.adjustment_button.warning.plain:hover{border-color:#e6a23c;background-color:#e6a23c;color:#fff}.adjustment_button.danger.plain:focus,.adjustment_button.danger.plain:hover{border-color:#f56c6c;background-color:#f56c6c;color:#fff}.adjustment_button.primary:disabled,.adjustment_button.primary:disabled:active,.adjustment_button.primary:disabled:focus,.adjustment_button.primary:disabled:hover{border-color:#a0cfff;background-color:#a0cfff;color:#fff}.adjustment_button.success:disabled,.adjustment_button.success:disabled:active,.adjustment_button.success:disabled:focus,.adjustment_button.success:disabled:hover{border-color:#b3e19d;background-color:#b3e19d;color:#fff}.adjustment_button.info:disabled,.adjustment_button.info:disabled:active,.adjustment_button.info:disabled:focus,.adjustment_button.info:disabled:hover{border-color:#c8c9cc;background-color:#c8c9cc;color:#fff}.adjustment_button.warning:disabled,.adjustment_button.warning:disabled:active,.adjustment_button.warning:disabled:focus,.adjustment_button.warning:disabled:hover{border-color:#f3d19e;background-color:#f3d19e;color:#fff}.adjustment_button.danger:disabled,.adjustment_button.danger:disabled:active,.adjustment_button.danger:disabled:focus,.adjustment_button.danger:disabled:hover{border-color:#fab6b6;background-color:#fab6b6;color:#fff}.adjustment_button.primary.plain:disabled,.adjustment_button.primary.plain:disabled:active,.adjustment_button.primary.plain:disabled:focus,.adjustment_button.primary.plain:disabled:hover{border-color:#d9ecff;background-color:#ecf5ff;color:#8cc5ff}.adjustment_button.success.plain:disabled,.adjustment_button.success.plain:disabled:active,.adjustment_button.success.plain:disabled:focus,.adjustment_button.success.plain:disabled:hover{border-color:#e1f3d8;background-color:#f0f9eb;color:#a4da89}.adjustment_button.info.plain:disabled,.adjustment_button.info.plain:disabled:active,.adjustment_button.info.plain:disabled:focus,.adjustment_button.info.plain:disabled:hover{border-color:#e9e9eb;background-color:#f4f4f5;color:#bcbec2}.adjustment_button.warning.plain:disabled,.adjustment_button.warning.plain:disabled:active,.adjustment_button.warning.plain:disabled:focus,.adjustment_button.warning.plain:disabled:hover{border-color:#faecd8;background-color:#fdf6ec;color:#f0c78a}.adjustment_button.danger.plain:disabled,.adjustment_button.danger.plain:disabled:active,.adjustment_button.danger.plain:disabled:focus,.adjustment_button.danger.plain:disabled:hover{border-color:#fde2e2;background-color:#fef0f0;color:#f9a7a7}.adjustment_tips{display:inline-block;box-sizing:border-box;padding:3px 5px;height:fit-content;border:1px solid #d9ecff;border-radius:4px;background-color:#272727;color:#409eff;font-size:14px;line-height:1.5}.adjustment_tips.info{border-color:#424242;background-color:#272727;color:#868686}.adjustment_tips.success{border-color:#e1f3d8;background-color:#f0f9eb;color:#67c23a}.adjustment_tips.warning{border-color:#faecd8;background-color:#fdf6ec;color:#e6a23c}.adjustment_tips.danger{border-color:#fde2e2;background-color:#fef0f0;color:#f56c6c}.adjustment_form,.adjustment_form_item{display:flex;flex-direction:column}.adjustment_form{gap:15px}.adjustment_form_item{gap:15px;background:#2c2c2c;padding:15px;border-radius:6px}.adjustment_checkbox,.adjustment_form_item_content{display:flex;align-items:center;justify-content:space-between}.adjustment_checkbox_btn .knob,.adjustment_checkbox_btn .btn-bg{position:absolute;top:0;right:0;bottom:0;left:0}.adjustment_checkbox_btn,.adjustment_radio_btn{position:relative;top:50%;width:54px;height:26px;overflow:hidden}.adjustment_checkbox_btn.btn-pill,.adjustment_checkbox_btn.btn-pill>.btn-bg{border-radius:100px}.adjustment_checkbox_btn .checkbox,.adjustment_checkbox .radio{position:relative;width:100%;height:100%;padding:0;margin:0;opacity:0;cursor:pointer;z-index:3}.adjustment_checkbox_btn .knob{z-index:2}.adjustment_checkbox_btn .btn-bg{width:100%;background-color:#fcebeb;transition:.3s ease all;z-index:1}.adjustment_checkbox_btn .knob::before{content:"";position:absolute;top:3px;left:3px;width:9px;height:4px;color:#fff;font-size:10px;font-weight:bold;text-align:center;line-height:1;padding:8px 6px;background-color:#f44336;border-radius:50%;transition:.3s cubic-bezier(0.18,0.89,0.35,1.15) all}.adjustment_checkbox_btn .checkbox:checked+.knob::before{content:"";left:30px;background-color:#00a1d6}.adjustment_checkbox_btn .checkbox:checked ~ .btn-bg{background-color:#ebf7fc}.adjustment_checkbox_btn .knob,.adjustment_checkbox_btn .knob::before,.adjustment_checkbox_btn .btn-bg{transition:.3s ease all}.adjustment_radio_btn{gap:15px;width:66px;overflow:auto;height:26px;display:flex;align-items:center;justify-content:flex-start}.adjustment_radio_btn .radio{width:auto;height:auto}.adjustment_radio_btn .circle{position:absolute;top:0;right:0;bottom:0;left:0;z-index:2}.adjustment_radio_btn .radio+.circle::before{content:"";position:absolute;top:7px;left:5px;width:8px;height:8px;border-radius:50%;background:#424242;border:3px solid #272727;outline:2px solid #424242}.adjustment_radio_btn .radio:checked+.circle::before{background-color:#00a1d6;border-color:#ebf7fc;outline-color:#00a1d6}.adjustment_form_item label{font-size:18px}.adjustment_checkboxGroup{display:flex;flex-direction:column;align-items:center;justify-content:flex-start;gap:10px}.adjustment_checkboxGroup span{color:#666}.adjustment_checkbox{width:100%;font-size:16px;gap:3px}.adjustment_input{display:inline-flex;padding:1px 11px;outline:0;border:1px solid #424242;border-radius:6px;background:#272727;line-height:32px;cursor:text;align-items:center;justify-content:center;color:#868686;width:100%;box-sizing:border-box}',
@@ -1650,9 +1650,7 @@
                 message = '最高画质｜VIP｜4K｜切换成功'
             }
             const selectNo4K8K = () => {
-                qualitySwitchButtonsArray.filter(quality => {
-                    return +quality[0] < 120
-                })[0][1].click()
+                qualitySwitchButtonsArray.filter(quality => +quality[0] < 120)[0][1].click()
                 message = '最高画质｜VIP｜不包含4K及8K｜切换成功'
             }
             if (vals.is_vip()) {
@@ -1683,9 +1681,7 @@
                     }
                 }
             } else {
-                qualitySwitchButtonsArray.filter(button => {
-                    return button[1].children.length < 2
-                })[0][1].click()
+                qualitySwitchButtonsArray.filter(button => button[1].children.length < 2)[0][1].click()
                 message = '最高画质｜非VIP｜切换成功'
             }
             // utils.logger.info(message)
@@ -1846,15 +1842,7 @@
                 const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
                 const resetVideoDescriptionInfoHtml = decodeURIComponent(encodeURIComponent($videoDescriptionInfo.innerHTML).replace(specialBlankRegexp, '%20'))
                 // 先将 % 编码为 %25 防止后续执行 decodeURIComponent() 报错，因为 % 为非法字符
-                const videoDescriptionInfoHtml = resetVideoDescriptionInfoHtml.replaceAll('%', '%25').replace(nbspToBlankRegexp, ' ').replace(timeStringRegexp, match => {
-                    return `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`
-                }).replace(urlRegexp, match => {
-                    return `<a href="${match}" target="_blank">${match}</a>`
-                }).replace(plaintVideoIdRegexp, match => {
-                    return `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`
-                }).replace(plaintReadIdRegexp, match => {
-                    return `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`
-                }).replace(blankRegexp, '')
+                const videoDescriptionInfoHtml = resetVideoDescriptionInfoHtml.replaceAll('%', '%25').replace(nbspToBlankRegexp, ' ').replace(timeStringRegexp, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`).replace(urlRegexp, match => `<a href="${match}" target="_blank">${match}</a>`).replace(plaintVideoIdRegexp, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`).replace(plaintReadIdRegexp, match => `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`).replace(blankRegexp, '')
                 // const upAvatarDecorationLink = document.querySelector(selectors.upAvatarDecoration) ? document.querySelector(selectors.upAvatarDecoration).dataset.src.replace('@144w_144h_!web-avatar', '@240w_240h_!web-avatar-comment') : ''
                 const shadowRootVideoDescriptionReplyTemplate = `
           <bili-adjustment-comment-thread-renderer>
@@ -1891,15 +1879,7 @@
                 if ($videoCommentReplyListShadowRoot) utils.createElementAndInsert(shadowRootVideoDescriptionReplyTemplate, $videoCommentReplyListShadowRoot, 'prepend')
                 document.querySelector('#comment-description:not(:first-child)')?.remove()
             } else {
-                $videoDescriptionInfo.innerHTML = $videoDescriptionInfo.innerHTML.replace(nbspToBlankRegexp, ' ').replace(timeStringRegexp, match => {
-                    return `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`
-                }).replace(urlRegexp, match => {
-                    return `<a href="${match}" target="_blank">${match}</a>`
-                }).replace(plaintVideoIdRegexp, match => {
-                    return `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`
-                }).replace(plaintReadIdRegexp, match => {
-                    return `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`
-                }).replace(blankRegexp, '')
+                $videoDescriptionInfo.innerHTML = $videoDescriptionInfo.innerHTML.replace(nbspToBlankRegexp, ' ').replace(timeStringRegexp, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`).replace(urlRegexp, match => `<a href="${match}" target="_blank">${match}</a>`).replace(plaintVideoIdRegexp, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`).replace(plaintReadIdRegexp, match => `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`).replace(blankRegexp, '')
             }
         },
         // #endregion 视频简介优化
@@ -1915,19 +1895,19 @@
                 const videoSkipTimeNodesList = localforage.createInstance({
                     name: 'videoSkipTimeNodesList'
                 })
-                const result = videoSkipTimeNodesList.setItem(videoID, videoSkipTimeNodesArray).then(() => {
+                const result = videoSkipTimeNodesList.setItem(videoID, videoSkipTimeNodesArray).then(() =>
                     // logger.info(`自动跳过丨节点储存丨${value}丨成功丨本地`)
-                    return {
+                    ({
                         code: 200,
                         message: '节点上传丨本地：成功'
-                    }
-                }).catch(error => {
+                    })
+                ).catch(error =>
                     // logger.error(error)
-                    return {
+                    ({
                         code: 0,
                         message: error
-                    }
-                })
+                    })
+                )
                 return result
             } else {
                 utils.logger.error('videoID丨获取失败')
@@ -1992,11 +1972,9 @@
                             message: err_msg
                         }
                     }
-                }).catch(error => {
-                    return {
-                        message: error
-                    }
-                })
+                }).catch(error => ({
+                    message: error
+                }))
                 return result
             } else {
                 utils.logger.error('videoID丨获取失败')
@@ -2111,9 +2089,7 @@
                 return isAscending
             }
             // [[10,20],[30,40]] → [[10,30],[20,40]]
-            const convertArrayReadableToSave = arr => {
-                return arr[0].map((col, i) => arr.map(row => row[i]))
-            }
+            const convertArrayReadableToSave = arr => arr[0].map((col, i) => arr.map(row => row[i]))
             // [10,20,30,40] → [[10,30],[20,40]]
             // const convertArrayRecordToSave = (arr) => {
             //     return arr.reduce((acc, num, i) => {
@@ -2122,14 +2098,12 @@
             //     }, [[], []]);
             // }
             // [10,20,30,40] → [[10,20],[30,40]]
-            const convertArrayRecordToReadable = arr => {
-                return arr.reduce((acc, _, i) => {
-                    if (i % 2 === 0) {
-                        acc.push(arr.slice(i, i + 2))
-                    }
-                    return acc
-                }, [])
-            }
+            const convertArrayRecordToReadable = arr => arr.reduce((acc, _, i) => {
+                if (i % 2 === 0) {
+                    acc.push(arr.slice(i, i + 2))
+                }
+                return acc
+            }, [])
             const setSkipTimeNodesPopoverToggleButtonHtml = `
           <button id="${selectors.setSkipTimeNodesPopoverToggleButton.slice(1)}" popovertarget="${selectors.setSkipTimeNodesPopover.slice(1)}" class="bpx-player-ctrl-btn bpx-player-ctrl-skip" role="button" aria-label="插入时间节点" tabindex="0">
               <div class="bpx-player-ctrl-btn-icon">

@@ -367,13 +367,11 @@ class ShadowDOMHelper {
         }
         throw new TypeError('样式必须是字符串或对象')
     }
-
     // static #findByTagName(host, nodeName, checkHostTree) {
     //     const root = this.getShadowRoot(host) ?? host
     //     const elements = [...root.querySelectorAll('*')].filter(el => el.nodeName.toLowerCase() === nodeName.toLowerCase())
     //     return checkHostTree ? elements.filter(el => this.#isInHostTree(el, host)) : elements
     // }
-
     static #isInHostTree(element, host) {
         let root = element.getRootNode()
         while (root) {
@@ -414,13 +412,11 @@ class ShadowDOMHelper {
         }
         return styleTag
     }
-
     // static #validateElement(el) {
     //   if (!(el instanceof HTMLElement)) {
     //     throw new TypeError('宿主元素必须是有效的 HTML 元素')
     //   };
     // }
-
     static #validateSelector(selector) {
         if (typeof selector !== 'string' || !selector.trim()) throw new TypeError('选择器必须是有效的非空字符串')
     }

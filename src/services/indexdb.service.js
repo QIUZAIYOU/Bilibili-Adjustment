@@ -134,6 +134,4 @@ class IndexedDBService {
     }
 }
 
-export const createIndexedDBService = config => {
-    return new IndexedDBService(config.dbName, config.version, config.storeConfig)
-}
+export const createIndexedDBService = config => new IndexedDBService(config.dbName, config.version, config.storeConfig)

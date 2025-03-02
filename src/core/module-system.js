@@ -153,11 +153,9 @@ export class ModuleSystem {
             }
         }
     }
-    #resolveDependencies = moduleName => {
-        return Array.from(this.#dependencies.get(moduleName) || [])
-            .map(depName => this.getModule(depName))
-            .filter(Boolean)
-    }
+    #resolveDependencies = moduleName => Array.from(this.#dependencies.get(moduleName) || [])
+        .map(depName => this.getModule(depName))
+        .filter(Boolean)
     #topologicalSort() {
         const visited = new Set()
         const result = []

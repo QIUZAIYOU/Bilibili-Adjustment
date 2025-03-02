@@ -1,7 +1,11 @@
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const detectivePageType = () => {
-    const { pathname } = window.location
-    if (/^(\/video\/|\/bangumi\/)/.test(pathname)) return pathname.startsWith('/video') ? 'video' : 'bangumi'
+    const { host, pathname, origin } = window.location
+    if (pathname.startsWith('/video/')) return 'video'
+    if (pathname.startsWith('/bangumi/')) return 'bangumi'
+    if (host === 'www.bilibili.com' && pathname === '/') return 'home'
+    if (origin === 'https://t.bilibili.com') return 'dynamic'
+    return 'other'
 }
 
 export const isElementSizeChange = (el, callback) => {
@@ -91,4 +95,33 @@ export const getElementComputedStyle = (element, propertyName) => {
         obj[property] = style.getPropertyValue(property)
         return obj
     }, {})
+}
+export const addEventListenerToElement = (target, type, callback, options = {}) => {
+    if (options && typeof options !== 'object') {
+        throw new Error('Options must be an object or undefined')
+    }
+    target.addEventListener(type, callback, options)
+    return () => {
+        target.removeEventListener(type, callback, options)
+    }
+}
+export const isAsyncFunction = targetFunction => targetFunction.constructor.name === 'AsyncFunction'
+
+export const executeFunctionsSequentially = functionsArray => {
+    if (functionsArray.length > 0) {
+        const currentFunction = functionsArray.shift()
+        if (isAsyncFunction(currentFunction)) {
+            currentFunction().then(result => {
+                if (result) {
+                    const { callback } = result
+                    if (callback && Array.isArray(callback)) executeFunctionsSequentially(callback)
+                }
+                executeFunctionsSequentially(functionsArray)
+            }).catch(error => {
+                console.log(error)
+            })
+        } else {
+            currentFunction()
+        }
+    }
 }

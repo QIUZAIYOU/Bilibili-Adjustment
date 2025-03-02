@@ -2,7 +2,7 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle } from '@/utils/common'
+import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially } from '@/utils/common'
 
 const logger = new LoggerService('VideoModule')
 
@@ -11,7 +11,7 @@ export default {
     dependencies: [],
     version: '1.7.0',
     async install() {
-        eventBus.on('app:ready', ()=>{
+        eventBus.on('app:ready', () => {
             logger.info('视频模块｜已加载')
             this.preFunctions()
         })
@@ -22,8 +22,12 @@ export default {
         this.checkVideoCanplaythrough(await elementSelectors.video)
     },
     async initEventListeners() {
+        eventBus.on('logger:show', (_, message) => {
+            logger.info(message)
+        })
         eventBus.on('video:canplaythrough', this.autoSelectPlayerMode)
         eventBus.on('video:playerModeSelected', this.autoLocateToPlayer)
+        eventBus.on('video:startOtherFunctions', this.handleExecuteFunctionsSequentially)
     },
     isVideoCanplaythrough(videoElement) {
         return new Promise(resolve => {
@@ -116,14 +120,30 @@ export default {
             eventBus.emit('video:locateToPlayer')
         }
         await sleep(300)
+        this.locateToPlayer()
+        logger.info('自动定位丨成功')
+        eventBus.emit('video:locateToPlayer')
+    },
+    async locateToPlayer() {
         const playerContainerOffsetTop = await getElementOffsetToDocumentTop(await elementSelectors.playerContainer)
         const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position',
                                                                                                 'height'])
         // logger.debug(headerComputedStyle.position, headerComputedStyle.height)
         const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
-
         documentScrollTo(playerOffsetTop - this.userConfigs.offset_top)
-        logger.info('自动定位丨成功')
-        eventBus.emit('video:locateToPlayer')
+        eventBus.emit('video:startOtherFunctions')
+    },
+    async clickPlayerAutoLocate() {
+        if (!this.userConfigs.click_player_auto_locate) return
+        addEventListenerToElement(await elementSelectors.video, 'click', () => {
+            this.locateToPlayer()
+            eventBus.emit('logger:show', '点击播放器自动定位丨成功')
+        })
+    },
+    handleExecuteFunctionsSequentially() {
+        const functions = [
+            this.clickPlayerAutoLocate
+        ]
+        executeFunctionsSequentially(functions)
     }
 }

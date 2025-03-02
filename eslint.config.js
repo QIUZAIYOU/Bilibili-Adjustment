@@ -34,6 +34,9 @@ module.exports = [
             'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
             'padded-blocks': ['error', 'never'],
             'lines-between-class-members': ['error', 'never'],
+            "arrow-spacing": ["error", { "before": true, "after": true }],
+            "arrow-parens": ["error", "as-needed"],
+            "arrow-body-style": ["error", "as-needed"],
             // 最佳实践
             'no-unused-vars': 'warn',
             'no-var': 'error',
