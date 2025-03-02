@@ -2,7 +2,7 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially } from '@/utils/common'
+import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange } from '@/utils/common'
 
 const logger = new LoggerService('VideoModule')
 
@@ -19,15 +19,24 @@ export default {
     async preFunctions() {
         this.userConfigs = await storageService.getAll()
         this.initEventListeners()
-        this.checkVideoCanplaythrough(await elementSelectors.video)
+        this.initMonitors()
+        if (isTabActive()) {
+            logger.info('标签页｜已激活')
+            this.checkVideoCanplaythrough(await elementSelectors.video)
+        }
     },
     async initEventListeners() {
-        eventBus.on('logger:show', (_, message) => {
-            logger.info(message)
+        eventBus.on('logger:show', (_, { type, message }) => {
+            logger[type](message)
         })
         eventBus.on('video:canplaythrough', this.autoSelectPlayerMode)
         eventBus.on('video:playerModeSelected', this.autoLocateToPlayer)
         eventBus.on('video:startOtherFunctions', this.handleExecuteFunctionsSequentially)
+    },
+    initMonitors() {
+        monitorHrefChange(() => {
+            this.locateToPlayer()
+        })
     },
     isVideoCanplaythrough(videoElement) {
         return new Promise(resolve => {
@@ -50,11 +59,12 @@ export default {
                 videoElement.addEventListener(event, handler, { signal: ac.signal })
             )
 
-            const TIMEOUT = 5_000
-            setTimeout(() => {
-                ac.abort()
-                resolve(false)
-            }, TIMEOUT)
+            // const TIMEOUT = 1e4
+            // setTimeout(() => {
+            //     ac.abort()
+            //     logger.debug('视频资源丨加载超时')
+            //     resolve(false)
+            // }, TIMEOUT)
         })
     },
     async checkVideoCanplaythrough(videoElement) {
@@ -100,9 +110,11 @@ export default {
     },
     async isPlayerModeSwitchSuccess(selectedPlayerMode, videoElement) {
         const playerContainer = await elementSelectors.playerContainer
+        storageService.set('player_offset_top', await getElementOffsetToDocumentTop(playerContainer))
         const playerMode = playerContainer.getAttribute('data-screen')
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
+        // eslint-disable-next-line no-unused-vars
         const observer = isElementSizeChange(videoElement, async (changed, _) => {
             if (changed) {
                 const currentPlayerMode = playerContainer.getAttribute('data-screen')
@@ -125,7 +137,9 @@ export default {
         eventBus.emit('video:locateToPlayer')
     },
     async locateToPlayer() {
-        const playerContainerOffsetTop = await getElementOffsetToDocumentTop(await elementSelectors.playerContainer)
+        const playerContainer = await elementSelectors.playerContainer
+        const playerMode = playerContainer.getAttribute('data-screen')
+        const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocumentTop(playerContainer) : this.userConfigs.player_offset_top
         const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position',
                                                                                                 'height'])
         // logger.debug(headerComputedStyle.position, headerComputedStyle.height)
@@ -137,7 +151,6 @@ export default {
         if (!this.userConfigs.click_player_auto_locate) return
         addEventListenerToElement(await elementSelectors.video, 'click', () => {
             this.locateToPlayer()
-            eventBus.emit('logger:show', '点击播放器自动定位丨成功')
         })
     },
     handleExecuteFunctionsSequentially() {

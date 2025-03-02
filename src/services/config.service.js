@@ -9,6 +9,7 @@ export class ConfigService {
         { name: 'is_vip', value: true },
         { name: 'player_type', value: 'video' },
         { name: 'offset_top', value: 5 },
+        { name: 'player_offset_top', value: 168 },
         { name: 'video_player_offset_top', value: 168 },
         { name: 'bangumi_player_offset_top', value: 104 },
         { name: 'auto_locate', value: true },

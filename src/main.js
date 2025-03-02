@@ -1,10 +1,10 @@
 import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
-import { LoggerService } from '@/services/logger.service'
+// import { LoggerService } from '@/services/logger.service'
 import { detectivePageType } from '@/utils/common'
 
-const logger = new LoggerService('EntryPoint')
+// const logger = new LoggerService('EntryPoint')
 await ConfigService.initialize()
 const moduleContext = require.context('./modules', true, /\.module\.js$/)
 moduleContext.keys().forEach(key => {

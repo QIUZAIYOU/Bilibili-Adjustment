@@ -49,7 +49,7 @@ export const documentScrollTo = (offset, options = {}) => {
             try {
                 window.scrollTo({
                     top: offset,
-                    behavior: 'smooth'
+                    behavior: 'instant'
                 })
 
                 await new Promise(r => setTimeout(r, 200))
@@ -123,5 +123,74 @@ export const executeFunctionsSequentially = functionsArray => {
         } else {
             currentFunction()
         }
+    }
+}
+export const isTabActive = () => {
+    let active = true
+
+    // 处理浏览器前缀并选择最优检测方案
+    const visibilityInfo = (() => {
+        const prefixes = ['',
+                          'webkit',
+                          'ms',
+                          'moz']
+        for (const prefix of prefixes) {
+            const key = prefix ? `${prefix}Hidden` : 'hidden'
+            if (key in document) {
+                return {
+                    event: prefix ? `${prefix}visibilitychange` : 'visibilitychange',
+                    state: prefix ? `${prefix}VisibilityState` : 'visibilityState'
+                }
+            }
+        }
+        return null
+    })()
+
+    if (visibilityInfo) {
+        // 现代浏览器使用原生API
+        document.addEventListener(visibilityInfo.event, () => {
+            active = document[visibilityInfo.state] === 'visible'
+        }, { passive: true })
+    } else {
+        // 兼容旧版浏览器方案
+        window.addEventListener('focus', () => active = true)
+        window.addEventListener('blur', () => active = false)
+        active = document.hasFocus()
+    }
+
+    return () => active
+}
+export const monitorHrefChange = callback => {
+    let lastHref = location.href
+
+    const checkAndTrigger = () => {
+        const currentHref = location.href
+        if (currentHref !== lastHref) {
+            lastHref = currentHref
+            callback(currentHref)
+        }
+    }
+
+    // 监听 hashchange 和 popstate 事件
+    window.addEventListener('hashchange', checkAndTrigger)
+    window.addEventListener('popstate', checkAndTrigger)
+
+    // 重写 history API 方法
+    const { pushState, replaceState } = history
+    history.pushState = function (...args) {
+        pushState.apply(this, args)
+        checkAndTrigger()
+    }
+    history.replaceState = function (...args) {
+        replaceState.apply(this, args)
+        checkAndTrigger()
+    }
+
+    // 返回清理函数，用于移除监听和恢复原生方法
+    return () => {
+        window.removeEventListener('hashchange', checkAndTrigger)
+        window.removeEventListener('popstate', checkAndTrigger)
+        history.pushState = pushState
+        history.replaceState = replaceState
     }
 }
