@@ -20,6 +20,7 @@ export class ConfigService {
         { name: 'current_player_mode', value: 'normal' },
         { name: 'selected_player_mode', value: 'wide' },
         { name: 'auto_select_video_highest_quality', value: true },
+        { name: 'auto_cancel_mute', value: true },
         { name: 'contain_quality_4k', value: false },
         { name: 'contain_quality_8k', value: false },
         { name: 'webfull_unlock', value: false },

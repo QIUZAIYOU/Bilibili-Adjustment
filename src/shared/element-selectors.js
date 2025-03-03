@@ -117,26 +117,32 @@ const selectors = {
     AutoSubtitle: '#AutoSubtitle'
 }
 
-const createCachedQuery = async selector => {
-    if (elementCache.has(selector)) {
-        const cached = elementCache.get(selector)
-        if (cached.element?.isConnected && cached.element.matches(selector)) {
-            return cached.element
+const createCachedQuery = async (selector, all = false) => {
+    const cacheKey = `${selector}|${all}`
+
+    if (elementCache.has(cacheKey)) {
+        const cached = elementCache.get(cacheKey)
+        const elements = Array.isArray(cached.element) ? cached.element : [cached.element]
+
+        if (elements.every(el => el?.isConnected && el.matches?.(selector))) {
+            return all ? elements : elements[0]
         }
-        elementCache.delete(selector)
+        elementCache.delete(cacheKey)
     }
 
-    // 新增元素等待机制
-    const waitForElement = () => {
-        const result = document.querySelector(selector)
-        if (result) return result
+    // 新增批量查询支持
+    const queryMethod = all ? 'querySelectorAll' : 'querySelector'
+    const waitForElements = () => {
+        const result = document[queryMethod](selector)
+        if (result && !all && result !== null) return result
+        if (all && result?.length > 0) return result
 
         return new Promise(resolve => {
-            const observer = new MutationObserver((_, obs) => {
-                const el = document.querySelector(selector)
-                if (el) {
-                    obs.disconnect()
-                    resolve(el)
+            const observer = new MutationObserver(() => {
+                const els = document[queryMethod](selector)
+                if ((all && els.length > 0) || (!all && els)) {
+                    observer.disconnect()
+                    resolve(els)
                 }
             })
 
@@ -145,35 +151,54 @@ const createCachedQuery = async selector => {
                 subtree: true
             })
 
-            // 10秒后自动取消监听
             setTimeout(() => {
                 observer.disconnect()
-                resolve(null)
+                resolve(all ? [] : null)
             }, 10000)
         })
     }
 
     // 同步尝试获取 + 异步监听获取组合
-    const result = document.querySelector(selector) || await waitForElement()
+    let result = document[queryMethod](selector) || await waitForElements()
 
-    elementCache.set(selector, {
-        element: result,
-        observer: new MutationObserver(() => elementCache.delete(selector))
+    if (all && !(result instanceof NodeList)) {
+        result = result ? [result] : []
+    }
+
+    elementCache.set(cacheKey, {
+        element: all ? [...result] : result,
+        observer: new MutationObserver(() => elementCache.delete(cacheKey))
     })
 
-    // 新增父元素监听
-    if (result?.parentElement) {
-        elementCache.get(selector).observer.observe(result.parentElement, {
+    // 监听父元素变化
+    if (result && !all && result.parentElement) {
+        elementCache.get(cacheKey).observer.observe(result.parentElement, {
             childList: true
         })
     }
-    return result || null
+
+    return all ? [...result] : result
 }
 
+// 新增批量查询方法
+export const batchQuery = async selectorsObj => {
+    const queries = Object.entries(selectorsObj).map(async ([key,
+                                                             selector]) => {
+        const elements = await createCachedQuery(selector, true)
+        return [key,
+                elements]
+    })
+
+    const results = await Promise.all(queries)
+    return Object.fromEntries(results)
+}
+
+// 扩展原有Proxy功能
 export const elementSelectors = new Proxy(selectors, {
     get(target, prop) {
-        const selector = target[prop]
-        return createCachedQuery(selector)
+        if (prop === 'batch') return selArray => Promise.all(selArray.map(selector => createCachedQuery(selectors[selector])))
+        if (prop === 'all') return selector => createCachedQuery(selectors[selector], true)
+        return createCachedQuery(target[prop])
     }
 })
 

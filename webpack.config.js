@@ -70,7 +70,7 @@ module.exports = {
                 name: production ? '哔哩哔哩（bilibili.com）调整' : '哔哩哔哩（bilibili.com）调整 Development',
                 author: pkg.author,
                 description: pkg.description,
-                version: production ? `[buildNo]-${Date.now()}` : `[buildNo]-build.${Date.now()}`,
+                version: !production ? `[buildNo]-${Date.now()}` : `[buildNo]-build.${Date.now()}`,
                 match: ['*://www.bilibili.com/*', '*://www.bilibili.com/video/*', '*://www.bilibili.com/bangumi/play/*', '*://www.bilibili.com/list/*', '*://t.bilibili.com/*'],
                 grant: ['GM_addStyle', 'GM_getValue', 'GM_setValue', 'GM_registerMenuCommand', 'unsafeWindow', 'window.onurlchange'],
             }

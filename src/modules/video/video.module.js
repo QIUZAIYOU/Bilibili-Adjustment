@@ -153,9 +153,82 @@ export default {
             this.locateToPlayer()
         })
     },
+    async autoSelectVideoHighestQuality() {
+        if (!this.userConfigs.auto_select_video_highest_quality) return
+        const qualityList = Array.from(await elementSelectors.all('qualitySwitchButtons'))
+            .map(btn => ({
+                value: +btn.dataset.value,
+                element: btn,
+                isVIP: btn.children.length < 2
+            }))
+            .sort((a, b) => b.value - a.value)
+        const availableQualities = qualityList.filter(q =>
+            this.userConfigs.is_vip ? true : q.isVIP
+        )
+        const targetQuality = availableQualities.find(q => {
+            if (!this.userConfigs.is_vip) return true
+            if (this.userConfigs.contain_quality_8k && q.value === 127) return true
+            if (this.userConfigs.contain_quality_4k && q.value === 120) return true
+            return q.value < 120
+        })
+        if (targetQuality) {
+            targetQuality.element.click()
+            const qualityMap = {
+                127: '8K',
+                120: '4K',
+                116: '1080P60',
+                80: '1080P',
+                64: '720P',
+                32: '480P',
+                16: '360P'
+            }
+            logger.info(`最高画质｜${this.userConfigs.is_vip ? 'VIP' : '非VIP'}｜${qualityMap[targetQuality.value] || targetQuality.value
+            }｜切换成功`)
+        }
+    },
+    async autoCancelMute() {
+        if (!this.userConfigs.auto_cancel_mute) return
+        const [
+            [mutedButton],
+            [mutedStyle,
+             volumeStyle]
+        ] = await Promise.all([
+            elementSelectors.batch(['mutedButton']),
+            elementSelectors.batch(['mutedButton',
+                                    'volumeButton']).then(([muted,
+                                                            volume]) => [
+                muted && getComputedStyle(muted),
+                volume && getComputedStyle(volume)
+            ])
+        ])
+        if (!mutedButton || !mutedStyle || !volumeStyle) {
+            return logger.debug('静音控制元素未找到')
+        }
+        const shouldUnmute = mutedStyle.display === 'block'
+            || volumeStyle.display === 'none'
+        if (shouldUnmute) {
+            mutedButton.click()
+            logger.info('静音丨已关闭')
+
+            // 添加防抖避免重复操作
+            this.debouncedUnmute?.abort()
+            this.debouncedUnmute = new AbortController()
+            mutedButton.addEventListener('click', () => {
+                logger.debug('防抖丨已阻止重复点击')
+            }, {
+                signal: this.debouncedUnmute.signal,
+                once: true
+            })
+        }
+    },
+    async autoEnableSubtitle() {
+        if (!this.userConfigs.auto_subtitle) return
+    },
     handleExecuteFunctionsSequentially() {
         const functions = [
-            this.clickPlayerAutoLocate
+            this.clickPlayerAutoLocate,
+            this.autoSelectVideoHighestQuality,
+            this.autoCancelMute
         ]
         executeFunctionsSequentially(functions)
     }
