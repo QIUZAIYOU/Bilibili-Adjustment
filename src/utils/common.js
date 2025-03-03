@@ -1,4 +1,63 @@
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+export const debounce = (func, delay = 300, immediate = false) => {
+    let timer = null
+    let lastArgs = null
+    let abortController = new AbortController()
+
+    const debounced = function (...args) {
+        lastArgs = args
+        abortController.abort()
+        abortController = new AbortController()
+
+        if (immediate && !timer) {
+            func.apply(this, args)
+        }
+
+        timer = setTimeout(() => {
+            if (!immediate) {
+                func.apply(this, lastArgs)
+            }
+            timer = null
+        }, delay)
+
+        abortController.signal.addEventListener('abort', () => {
+            clearTimeout(timer)
+            timer = null
+        })
+    }
+
+    debounced.cancel = () => abortController.abort()
+    return debounced
+}
+
+export const throttle = (func, limit = 300, trailing = true) => {
+    let lastFunc
+    let lastRan
+    const abortController = new AbortController()
+
+    const throttled = function (...args) {
+        abortController.signal.addEventListener('abort', () => {
+            clearTimeout(lastFunc)
+            lastRan = null
+        })
+
+        if (!lastRan) {
+            func.apply(this, args)
+            lastRan = Date.now()
+        } else if (trailing) {
+            clearTimeout(lastFunc)
+            lastFunc = setTimeout(() => {
+                if (Date.now() - lastRan >= limit) {
+                    func.apply(this, args)
+                    lastRan = Date.now()
+                }
+            }, limit - (Date.now() - lastRan))
+        }
+    }
+
+    throttled.cancel = () => abortController.abort()
+    return throttled
+}
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
     if (pathname.startsWith('/video/')) return 'video'

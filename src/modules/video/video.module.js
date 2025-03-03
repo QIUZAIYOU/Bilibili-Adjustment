@@ -2,7 +2,7 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange } from '@/utils/common'
+import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange } from '@/utils/common'
 
 const logger = new LoggerService('VideoModule')
 
@@ -29,9 +29,9 @@ export default {
         eventBus.on('logger:show', (_, { type, message }) => {
             logger[type](message)
         })
-        eventBus.on('video:canplaythrough', this.autoSelectPlayerMode)
-        eventBus.on('video:playerModeSelected', this.autoLocateToPlayer)
-        eventBus.on('video:startOtherFunctions', this.handleExecuteFunctionsSequentially)
+        eventBus.on('video:canplaythrough', debounce(this.autoSelectPlayerMode, 500, true))
+        eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, 500, true))
+        eventBus.on('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
     },
     initMonitors() {
         monitorHrefChange(() => {
@@ -174,13 +174,14 @@ export default {
         if (targetQuality) {
             targetQuality.element.click()
             const qualityMap = {
-                127: '8K',
-                120: '4K',
+                127: '8K超清',
+                120: '4K超清',
                 116: '1080P60',
-                80: '1080P',
-                64: '720P',
-                32: '480P',
-                16: '360P'
+                112: '1080P高码率',
+                80: '1080P高清',
+                64: '720P高清',
+                32: '480P清晰',
+                16: '360P流畅'
             }
             logger.info(`最高画质｜${this.userConfigs.is_vip ? 'VIP' : '非VIP'}｜${qualityMap[targetQuality.value] || targetQuality.value
             }｜切换成功`)
@@ -188,47 +189,39 @@ export default {
     },
     async autoCancelMute() {
         if (!this.userConfigs.auto_cancel_mute) return
-        const [
-            [mutedButton],
-            [mutedStyle,
-             volumeStyle]
-        ] = await Promise.all([
-            elementSelectors.batch(['mutedButton']),
-            elementSelectors.batch(['mutedButton',
-                                    'volumeButton']).then(([muted,
-                                                            volume]) => [
-                muted && getComputedStyle(muted),
-                volume && getComputedStyle(volume)
-            ])
+        const [mutedButton,
+               volumeButton] = await elementSelectors.batch([
+            'mutedButton',
+            'volumeButton'
         ])
-        if (!mutedButton || !mutedStyle || !volumeStyle) {
-            return logger.debug('静音控制元素未找到')
+
+        if (!mutedButton || !volumeButton) return
+
+        const styles = {
+            muted: getComputedStyle(mutedButton),
+            volume: getComputedStyle(volumeButton)
         }
-        const shouldUnmute = mutedStyle.display === 'block'
-            || volumeStyle.display === 'none'
-        if (shouldUnmute) {
+
+        if (styles.muted.display === 'block' || styles.volume.display === 'none') {
             mutedButton.click()
             logger.info('静音丨已关闭')
-
-            // 添加防抖避免重复操作
-            this.debouncedUnmute?.abort()
-            this.debouncedUnmute = new AbortController()
-            mutedButton.addEventListener('click', () => {
-                logger.debug('防抖丨已阻止重复点击')
-            }, {
-                signal: this.debouncedUnmute.signal,
-                once: true
-            })
         }
     },
     async autoEnableSubtitle() {
         if (!this.userConfigs.auto_subtitle) return
+        const switchSubtitleButton = await elementSelectors.switchSubtitleButton
+        const enableStatus = switchSubtitleButton.children[0].children[0].children[0].children[1].childElementCount === 1
+        if (!enableStatus) {
+            switchSubtitleButton.children[0].children[0].click()
+            logger.info('视频字幕丨已开启')
+        }
     },
     handleExecuteFunctionsSequentially() {
         const functions = [
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
-            this.autoCancelMute
+            this.autoCancelMute,
+            this.autoEnableSubtitle
         ]
         executeFunctionsSequentially(functions)
     }
