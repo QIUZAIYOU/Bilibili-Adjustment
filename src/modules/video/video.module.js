@@ -155,25 +155,41 @@ export default {
             this.locateToPlayer()
         })
     },
+    handleJumpToVideoTime(video, target) {
+        const targetTime = target.dataset.videoTime
+        if (targetTime > video.duration) alert('当前时间点大于视频总时长，将跳到视频结尾！')
+        video.currentTime = targetTime
+        video.play()
+    },
     async clickVideoTimeAutoLocation() {
         const [video,
                host] = await elementSelectors.batch([
             'video',
             'videoCommentRoot'
         ])
-        const handleJumpToVideoTime = target => {
-            const targetTime = target.dataset.videoTime
-            if (targetTime > video.duration) alert('当前时间点大于视频总时长，将跳到视频结尾！')
-            video.currentTime = targetTime
-            video.play()
-        }
         const descriptionClickTargets = this.userConfigs.player_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, '#feed > #bili-adjustment-contents > [data-type="seek"]') : []
         if (descriptionClickTargets.length > 0) {
             descriptionClickTargets.forEach(target => {
                 addEventListenerToElement(target, 'click', event => {
                     event.stopPropagation()
                     this.locateToPlayer()
-                    handleJumpToVideoTime(target)
+                    this.handleJumpToVideoTime(video, target)
+                })
+            })
+        }
+    },
+    async doSomethingToCommentElements() {
+        const [video,
+               host] = await elementSelectors.batch([
+            'video',
+            'videoCommentRoot'
+        ])
+        const insertLocation = (element, location) => {
+            const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
+            const pubdate = shadowDOMHelper.querySelectorAll(element, '#footer >> bili-comment-action-buttons-renderer >> #pubdate')
+            queueMicrotask(() => {
+                pubdate.forEach(date => {
+                    createElementAndInsert(locationWrapperHtml, date, 'after')
                 })
             })
         }
@@ -181,16 +197,24 @@ export default {
             host,
             '#feed',
             async item => {
-                const links = shadowDOMHelper.batchQuery(item, {
+                const replyElements = shadowDOMHelper.batchQuery(item, {
+                    replies: 'bili-comment-replies-renderer',
+                    reply: 'bili-comment-replies-renderer >> bili-comment-reply-renderer'
+                })
+                const videoTimeElements = shadowDOMHelper.batchQuery(item, {
                     seekLinks: '#comment >> bili-rich-text >> #contents > a[data-type="seek"]',
                     replySeekLinks: 'bili-comment-replies-renderer >> bili-comment-reply-renderer >> bili-rich-text >> #contents > a[data-type="seek"]'
                 })
-                links.forEach(link => {
-                    addEventListenerToElement(link, 'click', event => {
+
+                videoTimeElements.forEach(element => {
+                    addEventListenerToElement(element, 'click', event => {
                         event.stopPropagation()
                         this.locateToPlayer()
-                        handleJumpToVideoTime(link)
+                        this.handleJumpToVideoTime(video, element)
                     })
+                })
+                replyElements.forEach(reply => {
+                    insertLocation(reply, reply.data.reply_control.location)
                 })
             },
             {
@@ -201,7 +225,17 @@ export default {
                 scanInterval: 1000
             }
         )
+        const a = shadowDOMHelper.querySelector(host, '#feed > bili-comment-thread-renderer > bili-comment-replies-renderer')
+        shadowDOMHelper.watchQuery(a, '#expander-contents > bili-comment-reply-renderer', async reply => {
+            logger.debug(reply)
+        }, {
+            debounce: 100,
+            maxRetries: 5,
+            observeExisting: true,
+            scanInterval: 1000
+        })
     },
+
     async autoSelectVideoHighestQuality() {
         if (!this.userConfigs.auto_select_video_highest_quality) return
         const qualityList = Array.from(await elementSelectors.all('qualitySwitchButtons'))
@@ -354,7 +388,8 @@ export default {
             this.autoEnableSubtitle,
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButton,
-            this.clickVideoTimeAutoLocation
+            this.clickVideoTimeAutoLocation,
+            this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)
     }
