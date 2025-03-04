@@ -25,6 +25,7 @@ const selectors = {
     videoTitleArea: '#viewbox_report',
     videoFloatNav: '.fixed-sidenav-storage',
     videoComment: '#commentapp',
+    videoCommentRoot: '#commentapp > bili-comments',
     videoCommentReplyList: '#comment .reply-list',
     videoRootReplyContainer: '#comment .root-reply-container',
     videoTime: 'a[data-type="seek"]',
@@ -198,6 +199,7 @@ export const elementSelectors = new Proxy(selectors, {
     get(target, prop) {
         if (prop === 'batch') return selArray => Promise.all(selArray.map(selector => createCachedQuery(selectors[selector])))
         if (prop === 'all') return selector => createCachedQuery(selectors[selector], true)
+        if (prop === 'css') return selector => createCachedQuery(selector)
         return createCachedQuery(target[prop])
     }
 })

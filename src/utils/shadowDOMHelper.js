@@ -1,6 +1,3 @@
-import { LoggerService } from '@/services/logger.service'
-const logger = new LoggerService('ShadowDOMHelper')
-
 class ShadowDOMHelper {
     static #shadowRoots = new WeakMap()
     static #observers = new WeakMap()
@@ -10,6 +7,7 @@ class ShadowDOMHelper {
     static #MAX_CACHE_SIZE = 100
     // ==================== 核心初始化 ====================
     static init() {
+        if (this.initialized) return
         if (Element.prototype.attachShadow?.__monkeyPatched) return
         const originalAttachShadow = Element.prototype.attachShadow
 
@@ -20,6 +18,7 @@ class ShadowDOMHelper {
         }
 
         Element.prototype.attachShadow.__monkeyPatched = true
+        this.initialized = true
         this.#processExistingElements()
     }
     static #processExistingElements() {
@@ -78,7 +77,7 @@ class ShadowDOMHelper {
                         const matches = root?.querySelectorAll(part.selector) ?? context.querySelectorAll(part.selector)
                         newElements.push(...matches)
                     } catch (error) {
-                        logger.error(`选择器错误: "${part.selector}"`, error)
+                        console.error(`选择器错误: "${part.selector}"`, error)
                         throw error
                     }
                 })
@@ -298,30 +297,30 @@ class ShadowDOMHelper {
     }
     // ==================== 调试工具 ====================
     static debugQuery(host, selector) {
-        logger.groupCollapsed('[ShadowDOMHelper] 查询路径调试')
+        console.groupCollapsed('[ShadowDOMHelper] 查询路径调试')
         const result = this.querySelector(host, selector)
         const parts = this.#parseSelector(selector)
         parts.forEach((part, index) => {
-            logger.group(`层级 ${index + 1}: ${part.isShadow ? 'Shadow' : 'DOM'} 选择器 "${part.selector}"`)
-            logger.info('上下文元素:', part.contexts)
-            logger.info('匹配元素:', part.results)
-            logger.groupEnd()
+            console.group(`层级 ${index + 1}: ${part.isShadow ? 'Shadow' : 'DOM'} 选择器 "${part.selector}"`)
+            console.info('上下文元素:', part.contexts)
+            console.info('匹配元素:', part.results)
+            console.groupEnd()
         })
-        logger.info('最终结果:', result)
-        logger.groupEnd()
+        console.info('最终结果:', result)
+        console.groupEnd()
         return result
     }
     static debugShadowRoot(host) {
-        logger.groupCollapsed('[ShadowDOMHelper] ShadowRoot 诊断')
+        console.groupCollapsed('[ShadowDOMHelper] ShadowRoot 诊断')
         try {
             const root = this.getShadowRoot(host)
-            logger.info('宿主:', host)
-            logger.info('模式:', host.shadowRoot ? 'open' : 'closed')
-            logger.info('内容摘要:', root?.innerHTML?.slice(0, 200) + (root?.innerHTML?.length > 200 ? '...' : ''))
+            console.info('宿主:', host)
+            console.info('模式:', host.shadowRoot ? 'open' : 'closed')
+            console.info('内容摘要:', root?.innerHTML?.slice(0, 200) + (root?.innerHTML?.length > 200 ? '...' : ''))
         } catch (error) {
-            logger.error('诊断失败:', error)
+            console.error('诊断失败:', error)
         }
-        logger.groupEnd()
+        console.groupEnd()
     }
     // ==================== 私有工具方法 ====================
     static #parseSelector(selector) {
@@ -391,7 +390,7 @@ class ShadowDOMHelper {
         try {
             el?.isConnected && callback(el)
         } catch (error) {
-            logger.error('回调执行失败:', error)
+            console.error('回调执行失败:', error)
         }
     }
     static #getStyleTag(element, isolate) {
@@ -438,9 +437,20 @@ class ShadowDOMHelper {
             await new Promise(r => setTimeout(r, interval))
             elapsed = Date.now() - start
         }
-        // logger.warn(`查询超时: ${selector}`);
+        // console.warn(`查询超时: ${selector}`);
         return null
     }
 }
 
-export const shadowDOMHelper = new ShadowDOMHelper()
+export const shadowDOMHelper = Object.freeze({
+    querySelector: (host, selector) => ShadowDOMHelper.querySelector(host, selector),
+    querySelectorAll: (host, selector) => ShadowDOMHelper.querySelectorAll(host, selector),
+    batchQuery: (host, selector, callback) => ShadowDOMHelper.batchQuery(host, selector, callback),
+    watchQuery: (host, selector, callback, options) => ShadowDOMHelper.watchQuery(host, selector, callback, options),
+    addStyle: (host, selector, styles, options) => ShadowDOMHelper.addStyle(host, selector, styles, options),
+    queryUntil: (host, selector, options) => ShadowDOMHelper.queryUntil(host, selector, options),
+    debugQuery: (host, selector) => ShadowDOMHelper.debugQuery(host, selector),
+    debugShadowRoot: host => ShadowDOMHelper.debugShadowRoot(host)
+})
+
+ShadowDOMHelper.init()

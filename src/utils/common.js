@@ -1,3 +1,4 @@
+import { regexps } from '@/shared/regexps'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
@@ -60,8 +61,8 @@ export const throttle = (func, limit = 300, trailing = true) => {
 }
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
-    if (pathname.startsWith('/video/')) return 'video'
-    if (pathname.startsWith('/bangumi/')) return 'bangumi'
+    if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/')) return 'video'
+    // if (pathname.startsWith('/bangumi/')) return 'bangumi'
     if (host === 'www.bilibili.com' && pathname === '/') return 'home'
     if (origin === 'https://t.bilibili.com') return 'dynamic'
     return 'other'
@@ -253,3 +254,30 @@ export const monitorHrefChange = callback => {
         history.replaceState = replaceState
     }
 }
+export const createElementAndInsert = (HtmlString, target, method) => {
+    const template = document.createElement('template')
+    template.innerHTML = HtmlString.trim()
+    const fragment = template.content
+    const clonedFragment = fragment.cloneNode(true)
+    const insertedNodes = [...clonedFragment.children]
+    target[method](clonedFragment)
+    return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
+}
+
+export const getTotalSecondsFromTimeString = timeString => {
+    if (timeString.length === 5) timeString = timeString.padStart(8, '00:')
+    const [hours,
+           minutes,
+           seconds] = timeString.split(':').map(Number)
+    return hours * 3600 + minutes * 60 + seconds
+}
+export const processVideoCommentDescriptionHtml = html => html
+    .replace(regexps.specialBlank, '%20')
+    .replace(regexps.nbspToBlank, ' ')
+    .replace(regexps.timeString, match => `<a data-type="seek" data-video-part="-1" 
+               data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
+    .replace(regexps.url, match => `<a href="${match}" target="_blank">${match}</a>`)
+    .replace(regexps.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`)
+    .replace(regexps.readId, match =>
+        `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
+    .replace(regexps.blankLine, '')
