@@ -334,7 +334,12 @@ export default {
             template.innerHTML = shadowRootVideoDescriptionReplyTemplate
             const clone = template.content.cloneNode(true)
             videoCommentReplyListShadowRoot?.prepend(clone)
-            logger.info('视频简介丨已插入')
+            await sleep(300)
+            if (await shadowDOMHelper.querySelector(host, '#feed > bili-adjustment-comment-thread-renderer')) {
+                logger.info('视频简介丨已插入')
+            } else {
+                this.insertVideoDescriptionToComment()
+            }
         } else {
             videoDescriptionInfo.innerHTML = processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
             logger.info('视频简介丨已替换')
