@@ -31,7 +31,7 @@ module.exports = [
             'space-infix-ops': 'error', 
             'comma-spacing': ['error', { before: false, after: true }],
             'key-spacing': ['error', { beforeColon: false, afterColon: true, mode: 'strict' }],
-            'no-multiple-empty-lines': ['error', { max: 1, maxEOF: 0, maxBOF: 0 }],
+            'no-multiple-empty-lines': ['error', { max: 0, maxEOF: 0, maxBOF: 0 }],
             'padded-blocks': ['error', 'never'],
             'lines-between-class-members': ['error', 'never'],
             "arrow-spacing": ["error", { "before": true, "after": true }],
@@ -73,7 +73,8 @@ module.exports = [
             'src/assets',
             'public',
             '*.user.js',
-            '*.meta.js'
+            '*.meta.js',
+            'everythingIsBasedOnThisFile.js'
         ]
     }
 ]

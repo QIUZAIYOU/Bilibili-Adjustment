@@ -2,11 +2,10 @@ import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { elementSelectors } from '@/shared/element-selectors'
+import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, processVideoCommentDescriptionHtml } from '@/utils/common'
 import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
-
 export default {
     name: 'video',
     dependencies: [],
@@ -36,8 +35,12 @@ export default {
         eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
     },
     initMonitors() {
+        const hrefChangeFunctions = [
+            this.doSomethingToCommentElements,
+            this.locateToPlayer
+        ]
         monitorHrefChange(() => {
-            this.locateToPlayer()
+            executeFunctionsSequentially(hrefChangeFunctions)
         })
     },
     isVideoCanplaythrough(videoElement) {
@@ -45,22 +48,18 @@ export default {
             if (videoElement?.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
                 return resolve(true)
             }
-
             const ac = new AbortController()
-
             const handler = () => {
                 if (videoElement.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
                     ac.abort()
                     resolve(true)
                 }
             }
-
             const events = ['canplaythrough',
                             'loadeddata']
             events.forEach(event =>
                 videoElement.addEventListener(event, handler, { signal: ac.signal })
             )
-
             // const TIMEOUT = 1e4
             // setTimeout(() => {
             //     ac.abort()
@@ -100,7 +99,6 @@ export default {
                 }
             }
         ]
-
         selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode).action()
         await sleep(350)
         if (this.userConfigs.selected_player_mode !== 'normal') {
@@ -167,7 +165,7 @@ export default {
             'video',
             'videoCommentRoot'
         ])
-        const descriptionClickTargets = this.userConfigs.player_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, '#feed > #bili-adjustment-contents > [data-type="seek"]') : []
+        const descriptionClickTargets = this.userConfigs.player_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
         if (descriptionClickTargets.length > 0) {
             descriptionClickTargets.forEach(target => {
                 addEventListenerToElement(target, 'click', event => {
@@ -186,26 +184,32 @@ export default {
         ])
         const insertLocation = (element, location) => {
             const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
-            const pubdate = shadowDOMHelper.querySelectorAll(element, '#footer >> bili-comment-action-buttons-renderer >> #pubdate')
+            const pubdate = shadowDOMHelper.querySelectorAll(element, shadowDomSelectors.replyPublicDate)
             queueMicrotask(() => {
                 pubdate.forEach(date => {
                     createElementAndInsert(locationWrapperHtml, date, 'after')
                 })
             })
         }
+        const watchMoreRepliesElements = element => {
+            shadowDOMHelper.watchQuery(element, '', async reply => {
+                insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
+            }, {
+                nodeNameFilter: 'bili-comment-reply-renderer',
+                debounce: 100,
+                maxRetries: 5,
+                observeExisting: true,
+                scanInterval: 1000
+            })
+        }
         shadowDOMHelper.watchQuery(
             host,
-            '#feed',
+            shadowDomSelectors.commentRenderderContainer,
             async item => {
-                const replyElements = shadowDOMHelper.batchQuery(item, {
-                    replies: 'bili-comment-replies-renderer',
-                    reply: 'bili-comment-replies-renderer >> bili-comment-reply-renderer'
-                })
                 const videoTimeElements = shadowDOMHelper.batchQuery(item, {
-                    seekLinks: '#comment >> bili-rich-text >> #contents > a[data-type="seek"]',
-                    replySeekLinks: 'bili-comment-replies-renderer >> bili-comment-reply-renderer >> bili-rich-text >> #contents > a[data-type="seek"]'
+                    videoTime: shadowDomSelectors.videoTime,
+                    replyVideoTime: shadowDomSelectors.replyVideoTime
                 })
-
                 videoTimeElements.forEach(element => {
                     addEventListenerToElement(element, 'click', event => {
                         event.stopPropagation()
@@ -213,9 +217,18 @@ export default {
                         this.handleJumpToVideoTime(video, element)
                     })
                 })
-                replyElements.forEach(reply => {
-                    insertLocation(reply, reply.data.reply_control.location)
-                })
+                if(this.userConfigs.show_location){
+                    const replyElements = shadowDOMHelper.batchQuery(item, {
+                        comment: shadowDomSelectors.commentRenderder,
+                        replies: shadowDomSelectors.commentRepliesRenderer
+                    })
+                    replyElements.forEach(reply => {
+                        insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
+                        if(reply.nodeName.toLowerCase() === 'bili-comment-replies-renderer'){
+                            watchMoreRepliesElements(reply)
+                        }
+                    })
+                }
             },
             {
                 nodeNameFilter: 'bili-comment-thread-renderer',
@@ -225,17 +238,7 @@ export default {
                 scanInterval: 1000
             }
         )
-        const a = shadowDOMHelper.querySelector(host, '#feed > bili-comment-thread-renderer > bili-comment-replies-renderer')
-        shadowDOMHelper.watchQuery(a, '#expander-contents > bili-comment-reply-renderer', async reply => {
-            logger.debug(reply)
-        }, {
-            debounce: 100,
-            maxRetries: 5,
-            observeExisting: true,
-            scanInterval: 1000
-        })
     },
-
     async autoSelectVideoHighestQuality() {
         if (!this.userConfigs.auto_select_video_highest_quality) return
         const qualityList = Array.from(await elementSelectors.all('qualitySwitchButtons'))
@@ -277,14 +280,11 @@ export default {
             'mutedButton',
             'volumeButton'
         ])
-
         if (!mutedButton || !volumeButton) return
-
         const styles = {
             muted: getComputedStyle(mutedButton),
             volume: getComputedStyle(volumeButton)
         }
-
         if (styles.muted.display === 'block' || styles.volume.display === 'none') {
             mutedButton.click()
             logger.info('静音丨已关闭')
@@ -319,7 +319,6 @@ export default {
     async insertVideoDescriptionToComment() {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
-
         const [videoDescription,
                videoDescriptionInfo,
                host] = await elementSelectors.batch([
@@ -327,10 +326,8 @@ export default {
             'videoDescriptionInfo',
             'videoCommentRoot'
         ])
-
-        const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, '#feed')
+        const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
         // logger.debug(videoCommentReplyListShadowRoot)
-
         if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
             const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
             const shadowRootVideoDescriptionReplyTemplate = `
@@ -369,7 +366,7 @@ export default {
             const clone = template.content.cloneNode(true)
             videoCommentReplyListShadowRoot?.prepend(clone)
             await sleep(300)
-            if (await shadowDOMHelper.querySelector(host, '#feed > bili-adjustment-comment-thread-renderer')) {
+            if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
                 logger.info('视频简介丨已插入')
             } else {
                 this.insertVideoDescriptionToComment()

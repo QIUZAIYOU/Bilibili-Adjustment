@@ -967,16 +967,13 @@
                 44,
                 52
             ]
-
             // 对 imgKey 和 subKey 进行字符顺序打乱编码
             const getMixinKey = orig => mixinKeyEncTab.map(n => orig[n]).join('').slice(0, 32)
-
             // 为请求参数进行 wbi 签名
             const encWbi = (params, img_key, sub_key) => {
                 const mixin_key = getMixinKey(img_key + sub_key),
                     curr_time = Math.round(Date.now() / 1000),
                     chr_filter = /[!'()*]/g
-
                 Object.assign(params, { wts: curr_time }) // 添加 wts 字段
                 // 按照 key 重排参数
                 const query = Object.keys(params).sort().map(key => {
@@ -984,18 +981,14 @@
                     const value = params[key].toString().replace(chr_filter, '')
                     return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
                 }).join('&')
-
                 const wbi_sign = MD5(query + mixin_key) // 计算 w_rid
-
                 return query + '&w_rid=' + wbi_sign
             }
-
             // 获取最新的 img_key 和 sub_key
             const getWbiKeys = async () => {
                 const url = 'https://api.bilibili.com/x/web-interface/nav'
                 const res = await axios.get(url, { withCredentials: true })
                 const { data: { wbi_img: { img_url, sub_url } } } = res.data
-
                 return {
                     img_key: img_url.slice(
                         img_url.lastIndexOf('/') + 1,
@@ -1800,7 +1793,6 @@
      * - 若视频简介中包含 URL 链接，则将其转换为跳转链接
      * - 若视频简介中包含视频 BV 号或专栏 cv 号，则将其转换为跳转链接
      */
-
         async insertVideoDescriptionToComment() {
             if (!vals.insert_video_description_to_comment() || vals.player_type() === 'bangumi') return
             const $commentDescription = document.getElementById('comment-description')

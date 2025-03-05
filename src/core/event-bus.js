@@ -1,5 +1,4 @@
 import { LoggerService } from '@/services/logger.service'
-
 export class EventBus {
     #logger = new LoggerService('EventBus')
     static #instance
@@ -14,15 +13,12 @@ export class EventBus {
     on(event, handler, options = {}) {
         const { priority = 0, once = false, namespace = '' } = options
         const eventKey = namespace ? `${namespace}:${event}` : event
-
         if (!this.#events.has(eventKey)) {
             this.#events.set(eventKey, [])
         }
-
         this.#events.get(eventKey).push({ handler, once, priority })
         // 按优先级降序排列
         this.#events.get(eventKey).sort((a, b) => b.priority - a.priority)
-
         return () => this.off(eventKey, handler) // 返回取消订阅函数
     }
     // 一次性监听
@@ -32,11 +28,9 @@ export class EventBus {
     // 取消监听
     off(event, handler) {
         if (!this.#events.has(event)) return
-
         const handlers = this.#events.get(event)
         const newHandlers = handler ?
             handlers.filter(h => h.handler !== handler) : []
-
         if (newHandlers.length) {
             this.#events.set(event, newHandlers)
         } else {
@@ -49,35 +43,28 @@ export class EventBus {
         const eventChain = [event,
                             baseEvent,
                             '*'] // 处理通配符
-
         let shouldStop = false
         const context = {
             event,
             cancel: () => shouldStop = true,
             get isCancelled() { return shouldStop }
         }
-
         // 执行拦截器
         for (const interceptor of this.#interceptors) {
             await interceptor(context, ...args)
             if (context.isCancelled) return
         }
-
         for (const currentEvent of eventChain) {
             if (!this.#events.has(currentEvent)) continue
-
             const handlers = [...this.#events.get(currentEvent)] // 创建副本防止循环时修改
-
             for (const { handler, once } of handlers) {
                 if (once) this.off(currentEvent, handler)
-
                 try {
                     const result = handler(context, ...args)
                     if (result instanceof Promise) await result
                 } catch (error) {
                     this.#handleError(error, context, handler)
                 }
-
                 if (context.isCancelled) return
             }
         }
@@ -113,6 +100,5 @@ export class EventBus {
         this.#events.clear()
     }
 }
-
 // 导出一个单例实例
 export const eventBus = new EventBus()

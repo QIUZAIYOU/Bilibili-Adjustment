@@ -12,7 +12,6 @@ const LIFECYCLE_HOOKS = [
     'beforeDestroy',
     'destroyed'
 ]
-
 export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
@@ -39,12 +38,10 @@ export class ModuleSystem {
     register(module, deps = []) {
         this.#validateModule(module)
         const { name } = module
-
         if (this.#modules.has(name)) {
             this.#handleError(`Module ${name} already registered`, 'warn')
             return
         }
-
         this.#modules.set(name, {
             definition: module,
             instance: null,
@@ -53,22 +50,18 @@ export class ModuleSystem {
             version: module?.version || '1.0.0',
             timestamp: Date.now()
         })
-
         if (this.#config.enableDI) {
             this.#diContainer.set(`module:${name}`, module)
         }
-
         eventBus.emit('module:registered', { name })
     }
     async init(options = {}) {
         ConfigService.initializeDefaults()
         const startTime = Date.now()
         eventBus.emit('system:init-start', { timestamp: startTime })
-
         try {
             const sortedModules = this.#topologicalSort()
             await this.#executeLifecycle(sortedModules, 'init', options)
-
             eventBus.emit('system:init-success', {
                 duration: Date.now() - startTime,
                 moduleCount: this.#modules.size
@@ -82,16 +75,13 @@ export class ModuleSystem {
     async hotReload(moduleName) {
         const moduleMeta = this.#modules.get(moduleName)
         if (!moduleMeta) throw new Error(`Module ${moduleName} not found`)
-
         try {
             await this.#callModuleHook(moduleMeta, 'beforeDestroy')
             await this.#callModuleHook(moduleMeta, 'destroyed')
-
             // 模拟热更新
             const newModule = await import(`${moduleMeta.definition.filePath}?t=${Date.now()}`)
             this.register(newModule.default)
             await this.init({ silent: true })
-
             eventBus.emit('module:hot-reload', { name: moduleName })
         } catch (error) {
             eventBus.emit('module:hot-reload-fail', { name: moduleName, error })
@@ -129,19 +119,15 @@ export class ModuleSystem {
             const moduleMeta = this.#modules.get(name)
             try {
                 await this.#callModuleHook(moduleMeta, 'beforeCreate')
-
                 moduleMeta.instance = this.#createModuleInstance(moduleMeta.definition)
                 await this.#callModuleHook(moduleMeta, 'created')
-
                 if (this.#config.enableDI) {
                     this.#injectDependencies(moduleMeta)
                 }
-
                 if (typeof moduleMeta.instance.install === 'function') {
                     const deps = this.#resolveDependencies(name)
                     await moduleMeta.instance.install(...deps)
                 }
-
                 await this.#callModuleHook(moduleMeta, 'mounted')
                 moduleMeta.status = 'active'
                 this.#moduleStatus.set(name, 'healthy')
@@ -160,15 +146,12 @@ export class ModuleSystem {
         const visited = new Set()
         const result = []
         const pending = new Set()
-
         const visit = name => {
             if (pending.has(name)) {
                 throw new Error(`Circular dependency detected: ${name}`)
             }
-
             if (!visited.has(name)) {
                 pending.add(name)
-
                 const deps = this.#dependencies.get(name) || new Set()
                 deps.forEach(dep => {
                     if (!this.#modules.has(dep)) {
@@ -176,17 +159,14 @@ export class ModuleSystem {
                     }
                     visit(dep)
                 })
-
                 pending.delete(name)
                 visited.add(name)
                 result.push(name)
             }
         }
-
         this.#modules.forEach((_, name) => {
             if (!visited.has(name)) visit(name)
         })
-
         return result
     }
     #callModuleHook = async (moduleMeta, hookName) => {
@@ -194,7 +174,6 @@ export class ModuleSystem {
             this.#handleError(`Module instance not initialized for ${moduleMeta.definition.name}`, 'error')
             return
         }
-
         const { instance } = moduleMeta
         if (typeof instance[hookName] === 'function') {
             await instance[hookName]()
@@ -203,7 +182,6 @@ export class ModuleSystem {
     #createModuleInstance = moduleDef => {
         // 保留原型链的实例化方式
         const instance = Object.create(moduleDef)
-
         // 使用 defineProperties 确保方法可枚举
         Object.entries(moduleDef).forEach(([key,
                                             value]) => {
@@ -213,13 +191,11 @@ export class ModuleSystem {
                 instance[key] = value
             }
         })
-
         return instance
     }
     #injectDependencies = moduleMeta => {
         const { instance } = moduleMeta
         if (!instance.inject) return
-
         Object.entries(instance.inject).forEach(([key,
                                                   serviceName]) => {
             const service = this.#diContainer.get(serviceName)
@@ -233,7 +209,6 @@ export class ModuleSystem {
         eventBus.on('network:offline', () => {
             this.#handleOfflineMode()
         })
-
         eventBus.on('module:error', ({ module, error }) => {
             this.#tryFallback(module, error)
         })
@@ -260,18 +235,15 @@ export class ModuleSystem {
     #handleError = (message, level = 'error', metadata = {}) => {
         const error = new Error(message)
         const enhancedError = this.#enhanceError(error, 'operation')
-
         eventBus.emit('module:error', {
             error: enhancedError,
             level,
             ...metadata
         })
-
         if (level === 'critical') {
             this.#logger.error(`[CRITICAL] ${message}`, metadata)
         }
     }
 }
-
 // 保持单例导出方式不变
 export const moduleSystem = new ModuleSystem()

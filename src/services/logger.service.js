@@ -9,7 +9,6 @@ const getPageTypePrefix = () => {
     const matched = strategies.find(s => s.test())
     return matched?.type || '其他页调整'
 }
-
 export class LoggerService {
     static LEVELS = {
         info: 'color:white;background:#006aff;padding:2px;border-radius:2px',

@@ -1,6 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
-
 export class ConfigService {
     static #logger = new LoggerService('ConfigService')
     static #initialized = false
@@ -32,7 +31,8 @@ export class ConfigService {
         { name: 'dev_checkScreenModeSwitchSuccess_method', value: 'interval' },
         { name: 'pause_video', value: false },
         { name: 'continue_play', value: false },
-        { name: 'auto_subtitle', value: false }
+        { name: 'auto_subtitle', value: false },
+        { name: 'show_location', value: true }
     ]
     static async initialize() {
         if (this.#initialized) return
@@ -63,7 +63,6 @@ export class ConfigService {
             try {
                 // 优先从缓存检查
                 if (this.#cache.has(item.name)) return
-
                 const exists = await storageService.get(item.name)
                 if (exists === null || exists === undefined) {
                     await this.setValue(item.name, item.value)
@@ -80,7 +79,6 @@ export class ConfigService {
             if (this.#cache.has(name)) {
                 return this.#cache.get(name)
             }
-
             const value = await storageService.get(name)
             this.#cache.set(name, value) // 更新缓存
             return value

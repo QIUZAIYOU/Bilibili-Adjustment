@@ -4,44 +4,36 @@ export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
     let lastArgs = null
     let abortController = new AbortController()
-
     const debounced = function (...args) {
         lastArgs = args
         abortController.abort()
         abortController = new AbortController()
-
         if (immediate && !timer) {
             func.apply(this, args)
         }
-
         timer = setTimeout(() => {
             if (!immediate) {
                 func.apply(this, lastArgs)
             }
             timer = null
         }, delay)
-
         abortController.signal.addEventListener('abort', () => {
             clearTimeout(timer)
             timer = null
         })
     }
-
     debounced.cancel = () => abortController.abort()
     return debounced
 }
-
 export const throttle = (func, limit = 300, trailing = true) => {
     let lastFunc
     let lastRan
     const abortController = new AbortController()
-
     const throttled = function (...args) {
         abortController.signal.addEventListener('abort', () => {
             clearTimeout(lastFunc)
             lastRan = null
         })
-
         if (!lastRan) {
             func.apply(this, args)
             lastRan = Date.now()
@@ -55,7 +47,6 @@ export const throttle = (func, limit = 300, trailing = true) => {
             }, limit - (Date.now() - lastRan))
         }
     }
-
     throttled.cancel = () => abortController.abort()
     return throttled
 }
@@ -67,7 +58,6 @@ export const detectivePageType = () => {
     if (origin === 'https://t.bilibili.com') return 'dynamic'
     return 'other'
 }
-
 export const isElementSizeChange = (el, callback) => {
     let lastWidth = el.offsetWidth
     let lastHeight = el.offsetHeight
@@ -77,10 +67,8 @@ export const isElementSizeChange = (el, callback) => {
                 // const contentBoxSize = Array.isArray(entry.contentBoxSize)
                 //     ? entry.contentBoxSize[0]
                 //     : entry.contentBoxSize
-
                 const newWidth = entry.target.offsetWidth
                 const newHeight = entry.target.offsetHeight
-
                 if (newWidth !== lastWidth || newHeight !== lastHeight) {
                     lastWidth = newWidth
                     lastHeight = newHeight
@@ -91,7 +79,6 @@ export const isElementSizeChange = (el, callback) => {
             }
         }
     })
-
     resizeObserver.observe(el)
     return resizeObserver
 }
@@ -101,19 +88,15 @@ export const documentScrollTo = (offset, options = {}) => {
         retryDelay = 300,
         tolerance = 2
     } = options
-
     return new Promise((resolve, reject) => {
         let attempts = 0
-
         const attemptScroll = async () => {
             try {
                 window.scrollTo({
                     top: offset,
                     behavior: 'instant'
                 })
-
                 await new Promise(r => setTimeout(r, 200))
-
                 const currentY = window.scrollY
                 const targetY = offset
                 if (Math.abs(currentY - targetY) <= tolerance) {
@@ -128,29 +111,24 @@ export const documentScrollTo = (offset, options = {}) => {
                 reject(error)
             }
         }
-
         attemptScroll()
     })
 }
-
 export const getElementOffsetToDocumentTop = element => {
     const rect = element.getBoundingClientRect()
     return rect.top + window.scrollY - parseFloat(getComputedStyle(element).marginTop)
 }
 export const getElementComputedStyle = (element, propertyName) => {
     const style = window.getComputedStyle(element)
-
     if (Array.isArray(propertyName)) {
         return propertyName.reduce((obj, prop) => {
             obj[prop] = style.getPropertyValue(prop)
             return obj
         }, {})
     }
-
     if (typeof propertyName === 'string') {
         return style.getPropertyValue(propertyName)
     }
-
     return Array.from(style).reduce((obj, property) => {
         obj[property] = style.getPropertyValue(property)
         return obj
@@ -166,7 +144,6 @@ export const addEventListenerToElement = (target, type, callback, options = {}) 
     }
 }
 export const isAsyncFunction = targetFunction => targetFunction.constructor.name === 'AsyncFunction'
-
 export const executeFunctionsSequentially = functionsArray => {
     if (functionsArray.length > 0) {
         const currentFunction = functionsArray.shift()
@@ -187,7 +164,6 @@ export const executeFunctionsSequentially = functionsArray => {
 }
 export const isTabActive = () => {
     let active = true
-
     // 处理浏览器前缀并选择最优检测方案
     const visibilityInfo = (() => {
         const prefixes = ['',
@@ -205,7 +181,6 @@ export const isTabActive = () => {
         }
         return null
     })()
-
     if (visibilityInfo) {
         // 现代浏览器使用原生API
         document.addEventListener(visibilityInfo.event, () => {
@@ -217,12 +192,10 @@ export const isTabActive = () => {
         window.addEventListener('blur', () => active = false)
         active = document.hasFocus()
     }
-
     return () => active
 }
 export const monitorHrefChange = callback => {
     let lastHref = location.href
-
     const checkAndTrigger = () => {
         const currentHref = location.href
         if (currentHref !== lastHref) {
@@ -230,11 +203,9 @@ export const monitorHrefChange = callback => {
             callback(currentHref)
         }
     }
-
     // 监听 hashchange 和 popstate 事件
     window.addEventListener('hashchange', checkAndTrigger)
     window.addEventListener('popstate', checkAndTrigger)
-
     // 重写 history API 方法
     const { pushState, replaceState } = history
     history.pushState = function (...args) {
@@ -245,7 +216,6 @@ export const monitorHrefChange = callback => {
         replaceState.apply(this, args)
         checkAndTrigger()
     }
-
     // 返回清理函数，用于移除监听和恢复原生方法
     return () => {
         window.removeEventListener('hashchange', checkAndTrigger)
@@ -263,7 +233,6 @@ export const createElementAndInsert = (HtmlString, target, method) => {
     target[method](clonedFragment)
     return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
 }
-
 export const getTotalSecondsFromTimeString = timeString => {
     if (timeString.length === 5) timeString = timeString.padStart(8, '00:')
     const [hours,

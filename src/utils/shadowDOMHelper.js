@@ -10,13 +10,11 @@ class ShadowDOMHelper {
         if (this.initialized) return
         if (Element.prototype.attachShadow?.__monkeyPatched) return
         const originalAttachShadow = Element.prototype.attachShadow
-
         Element.prototype.attachShadow = function (options) {
             const shadowRoot = originalAttachShadow.call(this, options)
             ShadowDOMHelper.#shadowRoots.set(this, shadowRoot)
             return shadowRoot
         }
-
         Element.prototype.attachShadow.__monkeyPatched = true
         this.initialized = true
         this.#processExistingElements()
@@ -26,7 +24,6 @@ class ShadowDOMHelper {
             document.documentElement,
             NodeFilter.SHOW_ELEMENT
         )
-
         let currentNode
         while ((currentNode = walker.nextNode())) {
             if (currentNode.shadowRoot && !this.#shadowRoots.has(currentNode)) {
@@ -62,10 +59,8 @@ class ShadowDOMHelper {
     }
     static #query(host, selector, findAll) {
         this.#validateSelector(selector)
-
         const parts = this.#parseSelector(selector)
         let elements = [host]
-
         for (const part of parts) {
             const newElements = []
             for (const el of elements) {
@@ -108,9 +103,7 @@ class ShadowDOMHelper {
             scanInterval = 0,
             allowReprocess = false // 新增配置项允许重新处理
         } = options
-
         if (!nodeNameFilter && !selector) throw new Error('必须提供 selector 或 nodeNameFilter')
-
         // 核心监控逻辑（优化去重）
         const observer = new MutationObserver(this.#debounceHandler(debounce, mutations => {
             mutations.flatMap(m => [...m.addedNodes])
@@ -121,7 +114,6 @@ class ShadowDOMHelper {
                     allowReprocess // 传递配置参数
                 }))
         }))
-
         // 定时扫描逻辑（带去重检查）
         let intervalId
         if (scanInterval > 0) {
@@ -133,7 +125,6 @@ class ShadowDOMHelper {
                 })
             }, scanInterval)
         }
-
         // 清理函数增强
         const cleanup = () => {
             observer.disconnect()
@@ -143,14 +134,11 @@ class ShadowDOMHelper {
                 this.#processedElements = new WeakSet() // 可选清理
             }
         }
-
         this.#observers.set(host, { observer, callback, cleanup })
-
         observer.observe(this.getShadowRoot(host) ?? host, {
             childList: true,
             subtree: true
         })
-
         // 初始扫描逻辑优化
         if (observeExisting) {
             this.#deepScanExisting(host, selector, callback, {
@@ -159,7 +147,6 @@ class ShadowDOMHelper {
                 allowReprocess
             })
         }
-
         return cleanup
     }
     /**
@@ -167,7 +154,6 @@ class ShadowDOMHelper {
      */
     static #deepScanExisting(host, selector, callback, options) {
         const { nodeNameFilter, checkHostTree, allowReprocess } = options
-
         const scanner = root => {
             const walker = document.createTreeWalker(
                 root,
@@ -176,18 +162,15 @@ class ShadowDOMHelper {
                     acceptNode: node => {
                         if (!this.#filterElement(node)) return NodeFilter.FILTER_REJECT
                         if (this.#isAlreadyProcessed(node, allowReprocess)) return NodeFilter.FILTER_REJECT
-
                         const nameMatch = nodeNameFilter &&
                             node.nodeName === nodeNameFilter.toUpperCase()
                         const selectorMatch = selector && node.matches(selector)
-
                         return (nameMatch || selectorMatch)
                             ? NodeFilter.FILTER_ACCEPT
                             : NodeFilter.FILTER_SKIP
                     }
                 }
             )
-
             let currentNode
             while ((currentNode = walker.nextNode())) {
                 if (checkHostTree && !this.#isInHostTree(currentNode, host)) continue
@@ -195,7 +178,6 @@ class ShadowDOMHelper {
                 this.#safeCallback(callback, currentNode)
             }
         }
-
         scanner(host.shadowRoot ?? host)
         this.#getAllShadowRoots(host).forEach(root => scanner(root))
     }
@@ -205,28 +187,22 @@ class ShadowDOMHelper {
     static #getAllShadowRoots(host) {
         const roots = new Set()
         const stack = [host]
-
         while (stack.length > 0) {
             const current = stack.pop()
             const shadowRoot = this.getShadowRoot(current)
             if (!shadowRoot) continue
-
             roots.add(shadowRoot)
             stack.push(...shadowRoot.querySelectorAll('*'))
         }
-
         return [...roots]
     }
     static #processNode(node, host, selector, callback, options) {
         const { nodeNameFilter, allowReprocess } = options
-
         // 增强过滤逻辑
         if (!this.#filterElement(node)) return
         if (this.#isAlreadyProcessed(node, allowReprocess)) return
-
         // 标记为已处理（在验证通过后）
         this.#markAsProcessed(node)
-
         // 剩余处理逻辑保持不变
         if (nodeNameFilter) {
             if (node.nodeName === nodeNameFilter.toUpperCase()) {
@@ -234,7 +210,6 @@ class ShadowDOMHelper {
             }
             return
         }
-
         if (this.#isFullMatch(node, host, selector)) {
             this.#safeCallback(callback, node)
         }
@@ -245,10 +220,8 @@ class ShadowDOMHelper {
         while (stack.length > 0) {
             const el = stack.pop()
             if (!this.#filterElement(el)) continue
-
             const shadowRoot = this.getShadowRoot(el)
             if (!shadowRoot) continue
-
             const children = [...shadowRoot.childNodes].filter(child =>
                 this.#filterElement(child)
             )
@@ -276,7 +249,6 @@ class ShadowDOMHelper {
         const { isolate = true, mode = 'append', priority = 'low' } = options
         const targets = this.querySelectorAll(host, selector)
         if (targets.length === 0) return false
-
         const styleStr = this.#parseStyles(styles)
         // const styleSheets = new WeakMap()
         targets.forEach(target => {
@@ -325,11 +297,9 @@ class ShadowDOMHelper {
     // ==================== 私有工具方法 ====================
     static #parseSelector(selector) {
         if (this.#selectorCache.has(selector)) return this.#selectorCache.get(selector)
-
         const tokens = selector.split(/(\s*>>\s*|\s*>\s*)/g).map(t => t.trim()).filter(Boolean)
         const parts = []
         let isShadow = false, currentSelector = ''
-
         if (tokens.length === 1 && !['>>',
                                      '>'].includes(tokens[0])) {
             parts.push({ selector: tokens[0], isShadow: true })
@@ -347,7 +317,6 @@ class ShadowDOMHelper {
             })
             if (currentSelector) parts.push({ selector: currentSelector, isShadow })
         }
-
         if (this.#selectorCache.size >= this.#MAX_CACHE_SIZE) {
             this.#selectorCache.delete(this.#selectorCache.keys().next().value)
         }
@@ -397,7 +366,6 @@ class ShadowDOMHelper {
         if (!this.#filterElement(element)) return null
         const shadowRoot = this.getShadowRoot(element) ?? element.attachShadow({ mode: 'open' });
         [...shadowRoot.childNodes].filter(c => c.nodeType === Node.COMMENT_NODE).forEach(c => c.remove())
-
         let styleTag = shadowRoot.querySelector('style[data-shadow-style]')
         if (!styleTag) {
             styleTag = document.createElement('style')
@@ -430,7 +398,6 @@ class ShadowDOMHelper {
         const { timeout = 1000, findAll = false, interval = 50 } = options
         let elapsed = 0
         const start = Date.now()
-
         while (elapsed < timeout) {
             const result = findAll ? this.querySelectorAll(host, selector) : this.querySelector(host, selector)
             if (findAll ? result.length > 0 : result) return result
@@ -441,7 +408,6 @@ class ShadowDOMHelper {
         return null
     }
 }
-
 export const shadowDOMHelper = Object.freeze({
     querySelector: (host, selector) => ShadowDOMHelper.querySelector(host, selector),
     querySelectorAll: (host, selector) => ShadowDOMHelper.querySelectorAll(host, selector),
@@ -452,5 +418,4 @@ export const shadowDOMHelper = Object.freeze({
     debugQuery: (host, selector) => ShadowDOMHelper.debugQuery(host, selector),
     debugShadowRoot: host => ShadowDOMHelper.debugShadowRoot(host)
 })
-
 ShadowDOMHelper.init()

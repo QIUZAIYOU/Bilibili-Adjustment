@@ -1,5 +1,4 @@
 import { createIndexedDBService } from '@/services/indexdb.service'
-
 export class StorageService {
     static #instance
     #db
@@ -27,7 +26,6 @@ export class StorageService {
             return StorageService.#instance
         }
         this.#logger = new (require('@/services/logger.service').LoggerService)('StorageService')
-
         this.#db = createIndexedDBService(this.#dbConfig)
         StorageService.#instance = this
     }
@@ -85,5 +83,4 @@ export class StorageService {
         })
     }
 }
-
 export const storageService = new StorageService()

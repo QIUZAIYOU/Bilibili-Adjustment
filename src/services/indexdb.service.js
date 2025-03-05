@@ -1,5 +1,4 @@
 const DEFAULT_IDLE_TIMEOUT = 30000
-
 class IndexedDBService {
     constructor(dbName, version, storeConfig) {
         this.dbName = dbName
@@ -14,21 +13,17 @@ class IndexedDBService {
             this._updateLastOperation()
             return this.db
         }
-
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(this.dbName, this.version)
-
             request.onupgradeneeded = event => {
                 const db = event.target.result
                 this._createStores(db)
             }
-
             request.onsuccess = event => {
                 this.db = event.target.result
                 this._setupConnectionMonitoring()
                 resolve(this.db)
             }
-
             request.onerror = event => {
                 reject(new Error(`Database error: ${event.target.error}`))
             }
@@ -69,7 +64,6 @@ class IndexedDBService {
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, mode)
             const store = tx.objectStore(storeName)
-
             const request = operation(store)
             request.onsuccess = () => resolve(request.result)
             request.onerror = event => reject(event.target.error)
@@ -83,7 +77,6 @@ class IndexedDBService {
             const index = indexName ? store.index(indexName) : store
             const results = []
             let cursor
-
             const request = index.openCursor(range)
             request.onsuccess = event => {
                 cursor = event.target.result
@@ -133,5 +126,4 @@ class IndexedDBService {
         this.lastOperationTime = Date.now()
     }
 }
-
 export const createIndexedDBService = config => new IndexedDBService(config.dbName, config.version, config.storeConfig)
