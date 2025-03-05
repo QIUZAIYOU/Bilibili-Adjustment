@@ -50,6 +50,9 @@ export const throttle = (func, limit = 300, trailing = true) => {
     throttled.cancel = () => abortController.abort()
     return throttled
 }
+export const delay = (func, delay) => {
+    setTimeout(func, delay)
+}
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
     if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/')) return 'video'
@@ -164,7 +167,6 @@ export const executeFunctionsSequentially = functionsArray => {
 }
 export const isTabActive = () => {
     let active = true
-    // 处理浏览器前缀并选择最优检测方案
     const visibilityInfo = (() => {
         const prefixes = ['',
                           'webkit',
@@ -182,12 +184,10 @@ export const isTabActive = () => {
         return null
     })()
     if (visibilityInfo) {
-        // 现代浏览器使用原生API
         document.addEventListener(visibilityInfo.event, () => {
             active = document[visibilityInfo.state] === 'visible'
         }, { passive: true })
     } else {
-        // 兼容旧版浏览器方案
         window.addEventListener('focus', () => active = true)
         window.addEventListener('blur', () => active = false)
         active = document.hasFocus()
@@ -195,12 +195,12 @@ export const isTabActive = () => {
     return () => active
 }
 export const monitorHrefChange = callback => {
-    let lastHref = location.href
-    // 添加防抖处理避免高频触发
+    let lastHref = location.href.split('?')[0]
     const checkAndTrigger = () => {
         const currentHref = location.href
-        if (currentHref !== lastHref) {
-            lastHref = currentHref
+        const currentHrefWithoutParams = currentHref.split('?')[0]
+        if (currentHrefWithoutParams !== lastHref) {
+            lastHref = currentHrefWithoutParams
             requestAnimationFrame(() => {
                 try {
                     callback()
@@ -210,27 +210,23 @@ export const monitorHrefChange = callback => {
             })
         }
     }
-    // 使用 passive 事件监听提升滚动性能
     const listenerOptions = { passive: true }
-    // 添加事件监听前先移除旧监听避免重复
     window.removeEventListener('hashchange', checkAndTrigger)
     window.removeEventListener('popstate', checkAndTrigger)
     window.addEventListener('hashchange', checkAndTrigger, listenerOptions)
     window.addEventListener('popstate', checkAndTrigger, listenerOptions)
-    // 保留原始引用避免内存泄漏
     const originalPushState = history.pushState
     const originalReplaceState = history.replaceState
     history.pushState = function (...args) {
         const result = originalPushState.apply(this, args)
-        requestIdleCallback(checkAndTrigger, { timeout: 100 })
+        requestIdleCallback(() => checkAndTrigger(), { timeout: 100 })
         return result
     }
     history.replaceState = function (...args) {
         const result = originalReplaceState.apply(this, args)
-        requestIdleCallback(checkAndTrigger, { timeout: 100 })
+        requestIdleCallback(() => checkAndTrigger(), { timeout: 100 })
         return result
     }
-    // 初始化时主动触发一次检查
     // requestIdleCallback(checkAndTrigger, { timeout: 100 })
     return () => {
         window.removeEventListener('hashchange', checkAndTrigger, listenerOptions)
@@ -247,22 +243,6 @@ export const createElementAndInsert = (HtmlString, target, method) => {
     const insertedNodes = [...clonedFragment.children]
     target[method](clonedFragment)
     return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
-}
-export const measureFunctionDuration = fn => async function(...args) {
-    const isAsync = isAsyncFunction(fn)
-    const start = performance.now()
-    let result, error
-    try {
-        result = isAsync
-            ? await fn.apply(this, args)
-            : fn.apply(this, args)
-    } catch (e) {
-        error = e
-        e.duration = performance.now() - start // 将耗时附加到错误对象
-        throw error
-    }
-    const duration = performance.now() - start
-    return { result, duration }
 }
 export const getTotalSecondsFromTimeString = timeString => {
     if (timeString.length === 5) timeString = timeString.padStart(8, '00:')

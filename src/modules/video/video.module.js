@@ -3,7 +3,7 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, throttle, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, processVideoCommentDescriptionHtml, measureFunctionDuration } from '@/utils/common'
+import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, processVideoCommentDescriptionHtml } from '@/utils/common'
 import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
@@ -33,12 +33,11 @@ export default {
         eventBus.on('video:canplaythrough', debounce(this.autoSelectPlayerMode, true))
         eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, true))
         eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
-        eventBus.on('herf:changed', this.handleHerfChangedFunctionsSequentially)
     },
     initMonitors() {
-        monitorHrefChange(async () => {
-            await sleep(1e3)
-            throttle(eventBus.emit('herf:changed'), 1e3)
+        monitorHrefChange( () => {
+            logger.info('视频资源丨链接已改变')
+            delay(this.handleHerfChangedFunctionsSequentially, 1500)
         })
     },
     isVideoCanplaythrough(videoElement) {
@@ -318,7 +317,6 @@ export default {
     async insertVideoDescriptionToComment() {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
-        await elementSelectors.normal('bili-adjustment-comment-thread-renderer')?.remove()
         const [videoDescription,
                videoDescriptionInfo,
                host] = await elementSelectors.batch([
@@ -331,9 +329,9 @@ export default {
         if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
             const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
             const shadowRootVideoDescriptionReplyTemplate = `
-            <bili-adjustment-comment-thread-renderer>
+            <bili-adjustment-comment-thread-renderer  id="adjustment-comment-description">
                 <style>${styles.videoCommentDescription}</style>
-                <bili-adjustment-comment-renderer id="comment">
+                <bili-adjustment-comment-renderer>
                     <div id="bili-adjustment-body" class="light">
                         <a id="bili-adjustment-user-avatar">
                             <bili-adjustment-avatar>
