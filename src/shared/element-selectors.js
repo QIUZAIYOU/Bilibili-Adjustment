@@ -193,6 +193,8 @@ export const elementSelectors = new Proxy(selectors, {
         if (prop === 'batch') return selArray => Promise.all(selArray.map(selector => createCachedQuery(selectors[selector])))
         if (prop === 'all') return selector => createCachedQuery(selectors[selector], true)
         if (prop === 'css') return selector => createCachedQuery(selector)
+        if (prop === 'normal') return selector => document.querySelector(selector)
+        if (prop === 'normalAll') return selector => document.querySelectorAll(selector)
         return createCachedQuery(target[prop])
     }
 })

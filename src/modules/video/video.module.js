@@ -3,13 +3,13 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, processVideoCommentDescriptionHtml } from '@/utils/common'
+import { sleep, debounce, throttle, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, processVideoCommentDescriptionHtml, measureFunctionDuration } from '@/utils/common'
 import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'video',
     dependencies: [],
-    version: '1.7.0',
+    version: '1.9.0',
     async install() {
         eventBus.on('app:ready', () => {
             logger.info('视频模块｜已加载')
@@ -30,17 +30,15 @@ export default {
         eventBus.on('logger:show', (_, { type, message }) => {
             logger[type](message)
         })
-        eventBus.on('video:canplaythrough', debounce(this.autoSelectPlayerMode, 500, true))
-        eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, 500, true))
+        eventBus.on('video:canplaythrough', debounce(this.autoSelectPlayerMode, true))
+        eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, true))
         eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
+        eventBus.on('herf:changed', this.handleHerfChangedFunctionsSequentially)
     },
     initMonitors() {
-        const hrefChangeFunctions = [
-            this.doSomethingToCommentElements,
-            this.locateToPlayer
-        ]
-        monitorHrefChange(() => {
-            executeFunctionsSequentially(hrefChangeFunctions)
+        monitorHrefChange(async () => {
+            await sleep(1e3)
+            throttle(eventBus.emit('herf:changed'), 1e3)
         })
     },
     isVideoCanplaythrough(videoElement) {
@@ -73,6 +71,7 @@ export default {
         if (canplaythrough) {
             eventBus.emit('video:canplaythrough')
             logger.info('视频资源｜可以播放')
+            return true
         }
     },
     async autoSelectPlayerMode() {
@@ -319,6 +318,7 @@ export default {
     async insertVideoDescriptionToComment() {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
+        await elementSelectors.normal('bili-adjustment-comment-thread-renderer')?.remove()
         const [videoDescription,
                videoDescriptionInfo,
                host] = await elementSelectors.batch([
@@ -376,6 +376,15 @@ export default {
             logger.info('视频简介丨已替换')
         }
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
+    },
+    handleHerfChangedFunctionsSequentially(){
+        const hrefChangeFunctions = [
+            this.locateToPlayer,
+            this.insertVideoDescriptionToComment,
+            this.clickVideoTimeAutoLocation,
+            this.doSomethingToCommentElements
+        ]
+        executeFunctionsSequentially(hrefChangeFunctions)
     },
     handleExecuteFunctionsSequentially() {
         const functions = [

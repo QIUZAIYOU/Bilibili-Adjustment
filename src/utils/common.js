@@ -196,32 +196,47 @@ export const isTabActive = () => {
 }
 export const monitorHrefChange = callback => {
     let lastHref = location.href
+    // 添加防抖处理避免高频触发
     const checkAndTrigger = () => {
         const currentHref = location.href
         if (currentHref !== lastHref) {
             lastHref = currentHref
-            callback(currentHref)
+            requestAnimationFrame(() => {
+                try {
+                    callback()
+                } catch (e) {
+                    console.error('Href change callback error:', e)
+                }
+            })
         }
     }
-    // 监听 hashchange 和 popstate 事件
-    window.addEventListener('hashchange', checkAndTrigger)
-    window.addEventListener('popstate', checkAndTrigger)
-    // 重写 history API 方法
-    const { pushState, replaceState } = history
+    // 使用 passive 事件监听提升滚动性能
+    const listenerOptions = { passive: true }
+    // 添加事件监听前先移除旧监听避免重复
+    window.removeEventListener('hashchange', checkAndTrigger)
+    window.removeEventListener('popstate', checkAndTrigger)
+    window.addEventListener('hashchange', checkAndTrigger, listenerOptions)
+    window.addEventListener('popstate', checkAndTrigger, listenerOptions)
+    // 保留原始引用避免内存泄漏
+    const originalPushState = history.pushState
+    const originalReplaceState = history.replaceState
     history.pushState = function (...args) {
-        pushState.apply(this, args)
-        checkAndTrigger()
+        const result = originalPushState.apply(this, args)
+        requestIdleCallback(checkAndTrigger, { timeout: 100 })
+        return result
     }
     history.replaceState = function (...args) {
-        replaceState.apply(this, args)
-        checkAndTrigger()
+        const result = originalReplaceState.apply(this, args)
+        requestIdleCallback(checkAndTrigger, { timeout: 100 })
+        return result
     }
-    // 返回清理函数，用于移除监听和恢复原生方法
+    // 初始化时主动触发一次检查
+    // requestIdleCallback(checkAndTrigger, { timeout: 100 })
     return () => {
-        window.removeEventListener('hashchange', checkAndTrigger)
-        window.removeEventListener('popstate', checkAndTrigger)
-        history.pushState = pushState
-        history.replaceState = replaceState
+        window.removeEventListener('hashchange', checkAndTrigger, listenerOptions)
+        window.removeEventListener('popstate', checkAndTrigger, listenerOptions)
+        history.pushState = originalPushState
+        history.replaceState = originalReplaceState
     }
 }
 export const createElementAndInsert = (HtmlString, target, method) => {
@@ -232,6 +247,22 @@ export const createElementAndInsert = (HtmlString, target, method) => {
     const insertedNodes = [...clonedFragment.children]
     target[method](clonedFragment)
     return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
+}
+export const measureFunctionDuration = fn => async function(...args) {
+    const isAsync = isAsyncFunction(fn)
+    const start = performance.now()
+    let result, error
+    try {
+        result = isAsync
+            ? await fn.apply(this, args)
+            : fn.apply(this, args)
+    } catch (e) {
+        error = e
+        e.duration = performance.now() - start // 将耗时附加到错误对象
+        throw error
+    }
+    const duration = performance.now() - start
+    return { result, duration }
 }
 export const getTotalSecondsFromTimeString = timeString => {
     if (timeString.length === 5) timeString = timeString.padStart(8, '00:')
