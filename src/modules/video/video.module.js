@@ -3,8 +3,9 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, processVideoCommentDescriptionHtml } from '@/utils/common'
+import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString } from '@/utils/common'
 import { styles } from '@/shared/styles'
+import { regexps } from '@/shared/regexps'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'video',
@@ -37,7 +38,7 @@ export default {
     initMonitors() {
         monitorHrefChange( () => {
             logger.info('视频资源丨链接已改变')
-            delay(this.handleHerfChangedFunctionsSequentially, 1500)
+            delay(this.handleHrefChangedFunctionsSequentially, 1500)
         })
     },
     isVideoCanplaythrough(videoElement) {
@@ -314,6 +315,17 @@ export default {
             await this.locateToPlayer()
         })
     },
+    processVideoCommentDescriptionHtml(html){
+        return html.replace(regexps.video.specialBlank, '%20')
+            .replace(regexps.video.nbspToBlank, ' ')
+            .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" 
+               data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
+            .replace(regexps.video.url, match => `<a href="${match}" target="_blank">${match}</a>`)
+            .replace(regexps.video.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`)
+            .replace(regexps.video.readId, match =>
+                `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
+            .replace(regexps.video.blankLine, '')
+    },
     async insertVideoDescriptionToComment() {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
@@ -351,7 +363,7 @@ export default {
                             </div>
                             <div id="bili-adjustment-content">
                                 <bili-adjustment-rich-text>
-                                    <p id="bili-adjustment-contents">${processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML) }</p>
+                                    <p id="bili-adjustment-contents">${this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML) }</p>
                                 </bili-adjustment-rich-text>
                             </div>
                         </div>
@@ -370,12 +382,12 @@ export default {
                 this.insertVideoDescriptionToComment()
             }
         } else {
-            videoDescriptionInfo.innerHTML = processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
+            videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
             logger.info('视频简介丨已替换')
         }
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
-    handleHerfChangedFunctionsSequentially(){
+    handleHrefChangedFunctionsSequentially(){
         const hrefChangeFunctions = [
             this.locateToPlayer,
             this.insertVideoDescriptionToComment,

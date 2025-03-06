@@ -26,7 +26,7 @@ export class ConfigService {
         { name: 'auto_reload', value: false },
         { name: 'auto_skip', value: false },
         { name: 'insert_video_description_to_comment', value: true },
-        { name: 'web_video_link', value: 'https://t.bilibili.com/?tab=video' },
+        { name: 'dynamic_video_link', value: 'https://t.bilibili.com/?tab=video' },
         { name: 'signIn_date', value: '' },
         { name: 'dev_checkScreenModeSwitchSuccess_method', value: 'interval' },
         { name: 'pause_video', value: false },

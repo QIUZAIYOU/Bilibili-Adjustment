@@ -1,4 +1,3 @@
-import { regexps } from '@/shared/regexps'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
@@ -251,13 +250,3 @@ export const getTotalSecondsFromTimeString = timeString => {
            seconds] = timeString.split(':').map(Number)
     return hours * 3600 + minutes * 60 + seconds
 }
-export const processVideoCommentDescriptionHtml = html => html
-    .replace(regexps.specialBlank, '%20')
-    .replace(regexps.nbspToBlank, ' ')
-    .replace(regexps.timeString, match => `<a data-type="seek" data-video-part="-1" 
-               data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
-    .replace(regexps.url, match => `<a href="${match}" target="_blank">${match}</a>`)
-    .replace(regexps.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`)
-    .replace(regexps.readId, match =>
-        `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
-    .replace(regexps.blankLine, '')
