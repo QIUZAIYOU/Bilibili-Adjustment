@@ -71,7 +71,7 @@ const selectors = {
     uploadSkipTimeNodesButton: '#uploadSkipTimeNodesButton',
     syncSkipTimeNodesButton: '#syncSkipTimeNodesButton',
     indexApp: '#i_cecream',
-    indexRecommendVideoSix: '.recommended-container_floor-aside .feed-card:nth-child(-n+7)',
+    indexRecommendVideo: '.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))',
     indexRecommendVideoRollButtonWrapper: '.recommended-container_floor-aside .feed-roll-btn',
     indexRecommendVideoHistoryPopoverTitle: '#indexRecommendVideoHistoryPopoverTitle',
     indexRecommendVideoRollButton: '.recommended-container_floor-aside .feed-roll-btn button.roll-btn',
@@ -178,20 +178,18 @@ const createCachedQuery = async (selector, all = false) => {
 }
 // 新增批量查询方法
 export const batchQuery = async selectorsObj => {
-    const queries = Object.entries(selectorsObj).map(async ([key,
-                                                             selector]) => {
+    const queries = Object.entries(selectorsObj).map(async ([key, selector]) => {
         const elements = await createCachedQuery(selector, true)
-        return [key,
-                elements]
+        return [key, elements]
     })
     const results = await Promise.all(queries)
     return Object.fromEntries(results)
 }
 // 扩展原有Proxy功能
 export const elementSelectors = new Proxy(selectors, {
-    get(target, prop) {
+    get (target, prop) {
         if (prop === 'batch') return selArray => Promise.all(selArray.map(selector => createCachedQuery(selectors[selector])))
-        if (prop === 'all') return selector => createCachedQuery(selectors[selector], true)
+        if (prop === 'all') return selector => createCachedQuery(selector, true)
         if (prop === 'css') return selector => createCachedQuery(selector)
         if (prop === 'normal') return selector => document.querySelector(selector)
         if (prop === 'normalAll') return selector => document.querySelectorAll(selector)

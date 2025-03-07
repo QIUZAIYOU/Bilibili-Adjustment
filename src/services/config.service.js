@@ -34,7 +34,7 @@ export class ConfigService {
         { name: 'auto_subtitle', value: false },
         { name: 'show_location', value: true }
     ]
-    static async initialize() {
+    static async initialize () {
         if (this.#initialized) return
         try {
             // 增加重试逻辑
@@ -45,7 +45,7 @@ export class ConfigService {
             throw error
         }
     }
-    static async #retryInit(maxRetries) {
+    static async #retryInit (maxRetries) {
         let attempts = 0
         while (attempts < maxRetries) {
             try {
@@ -58,7 +58,7 @@ export class ConfigService {
             }
         }
     }
-    static async initializeDefaults() {
+    static async initializeDefaults () {
         await Promise.all(this.DEFAULT_VALUES.map(async item => {
             try {
                 // 优先从缓存检查
@@ -73,7 +73,7 @@ export class ConfigService {
             }
         }))
     }
-    static async getValue(name) {
+    static async getValue (name) {
         try {
             // 缓存命中检查
             if (this.#cache.has(name)) {
@@ -87,7 +87,7 @@ export class ConfigService {
             return null
         }
     }
-    static async setValue(name, value) {
+    static async setValue (name, value) {
         try {
             // 同步更新缓存
             this.#cache.set(name, value)
@@ -99,7 +99,7 @@ export class ConfigService {
         }
     }
     // 新增缓存清理方法
-    static clearCache() {
+    static clearCache () {
         this.#cache.clear()
     }
 }

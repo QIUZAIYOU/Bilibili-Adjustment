@@ -20,32 +20,32 @@ export class LoggerService {
         info: true,
         error: true,
         warn: true,
-        debug: process.env.NODE_ENV === 'development'
+        debug: import.meta.env.DEV
     }
     static PAGE_TYPE_PREFIX = getPageTypePrefix()
-    constructor(module) {
+    constructor (module) {
         this.module = module
     }
     // 通用的日志记录方法
-    log(level, ...args) {
+    log (level, ...args) {
         if (LoggerService.ENABLED_LEVELS[level]) {
-            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)' : ''}丨${process.env.NODE_ENV === 'development' ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
+            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)' : ''}丨${import.meta.env.DEV ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
         }
     }
     // 记录信息级别的日志
-    info(...args) {
+    info (...args) {
         this.log('info', ...args)
     }
     // 记录错误级别的日志
-    error(...args) {
+    error (...args) {
         this.log('error', ...args)
     }
     // 记录警告级别的日志
-    warn(...args) {
+    warn (...args) {
         this.log('warn', ...args)
     }
     // 记录调试级别的日志
-    debug(...args) {
+    debug (...args) {
         this.log('debug', ...args)
     }
 }

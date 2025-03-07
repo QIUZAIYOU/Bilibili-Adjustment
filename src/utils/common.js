@@ -167,10 +167,12 @@ export const executeFunctionsSequentially = functionsArray => {
 export const isTabActive = () => {
     let active = true
     const visibilityInfo = (() => {
-        const prefixes = ['',
-                          'webkit',
-                          'ms',
-                          'moz']
+        const prefixes = [
+            '',
+            'webkit',
+            'ms',
+            'moz'
+        ]
         for (const prefix of prefixes) {
             const key = prefix ? `${prefix}Hidden` : 'hidden'
             if (key in document) {
@@ -245,8 +247,6 @@ export const createElementAndInsert = (HtmlString, target, method) => {
 }
 export const getTotalSecondsFromTimeString = timeString => {
     if (timeString.length === 5) timeString = timeString.padStart(8, '00:')
-    const [hours,
-           minutes,
-           seconds] = timeString.split(':').map(Number)
+    const [hours, minutes, seconds] = timeString.split(':').map(Number)
     return hours * 3600 + minutes * 60 + seconds
 }

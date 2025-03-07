@@ -8,20 +8,20 @@ export default {
     name: 'dynamic',
     dependencies: [],
     version: '1.0.0',
-    async install() {
+    async install () {
         eventBus.on('app:ready', () => {
             logger.info('动态模块｜已加载')
             this.preFunctions()
         })
     },
-    async preFunctions() {
+    async preFunctions () {
         this.userConfigs = await storageService.getAll()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
             this.changeCurrentHrefToVideoSubmissions()
         }
     },
-    changeCurrentHrefToVideoSubmissions(){
+    changeCurrentHrefToVideoSubmissions (){
         const dynamic_video_link = this.userConfigs.dynamic_video_link
         const currentHref = location.href
         const indexLink = 'https://t.bilibili.com/pages/nav/index'

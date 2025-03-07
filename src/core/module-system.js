@@ -1,6 +1,6 @@
 // core/enterprise-module-system.js
 import { ConfigService } from '@/services/config.service'
-import { eventBus } from './event-bus'
+import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 const LIFECYCLE_HOOKS = [
     'beforeCreate',
@@ -24,18 +24,17 @@ export class ModuleSystem {
         lazyInit: false, // 延迟初始化模式
         enableDI: true // 是否启用依赖注入
     }
-    constructor() {
+    constructor () {
         if (ModuleSystem.#instance) {
             return ModuleSystem.#instance
         }
         ModuleSystem.#instance = this
         this.#initEventListeners()
     }
-    configure(options) {
+    configure (options) {
         Object.assign(this.#config, options)
     }
-    // 保持原有注册方式
-    register(module, deps = []) {
+    register (module, deps = []) {
         this.#validateModule(module)
         const { name } = module
         if (this.#modules.has(name)) {
@@ -55,7 +54,7 @@ export class ModuleSystem {
         }
         eventBus.emit('module:registered', { name })
     }
-    async init(options = {}) {
+    async init (options = {}) {
         ConfigService.initializeDefaults()
         const startTime = Date.now()
         eventBus.emit('system:init-start', { timestamp: startTime })
@@ -71,28 +70,33 @@ export class ModuleSystem {
             throw this.#enhanceError(error, 'System initialization failed')
         }
     }
-    // 新增企业级功能方法
-    async hotReload(moduleName) {
-        const moduleMeta = this.#modules.get(moduleName)
-        if (!moduleMeta) throw new Error(`Module ${moduleName} not found`)
-        try {
-            await this.#callModuleHook(moduleMeta, 'beforeDestroy')
-            await this.#callModuleHook(moduleMeta, 'destroyed')
-            // 模拟热更新
-            const newModule = await import(`${moduleMeta.definition.filePath}?t=${Date.now()}`)
-            this.register(newModule.default)
-            await this.init({ silent: true })
-            eventBus.emit('module:hot-reload', { name: moduleName })
-        } catch (error) {
-            eventBus.emit('module:hot-reload-fail', { name: moduleName, error })
-        }
-    }
+    // async hotReload (moduleName) {
+    //     const moduleMeta = this.#modules.get(moduleName)
+    //     if (!moduleMeta) throw new Error(`Module ${moduleName} not found`)
+    //     // 使用Vite的Glob导入方式
+    //     const moduleMap = import.meta.glob('../modules/**/*.module.js', { eager: true })
+    //     const modulePath = Object.keys(moduleMap).find(path =>
+    //         path.includes(`/${moduleName}.module.js`))
+    //     try {
+    //         await this.#callModuleHook(moduleMeta, 'beforeDestroy')
+    //         await this.#callModuleHook(moduleMeta, 'destroyed')
+    //         const newModule = await import(
+    //             /* @vite-ignore */
+    //             `${modulePath}?t=${Date.now()}`
+    //         )
+    //         this.register(newModule.default)
+    //         await this.init({ silent: true })
+    //         eventBus.emit('module:hot-reload', { name: moduleName })
+    //     } catch (error) {
+    //         eventBus.emit('module:hot-reload-fail', { name: moduleName, error })
+    //     }
+    // }
     // 保持原有获取方式
-    getModule(name) {
+    getModule (name) {
         return this.#diContainer.get(`module:${name}`)?.instance
     }
     // 新增状态检查
-    getSystemStatus() {
+    getSystemStatus () {
         return {
             modules: Array.from(this.#modules.values()).map(m => ({
                 name: m.definition.name,
@@ -106,7 +110,7 @@ export class ModuleSystem {
             }
         }
     }
-    #validateModule(module) {
+    #validateModule (module) {
         if (!module.name) {
             throw new Error('Module must have a name property')
         }
@@ -142,7 +146,7 @@ export class ModuleSystem {
     #resolveDependencies = moduleName => Array.from(this.#dependencies.get(moduleName) || [])
         .map(depName => this.getModule(depName))
         .filter(Boolean)
-    #topologicalSort() {
+    #topologicalSort () {
         const visited = new Set()
         const result = []
         const pending = new Set()
@@ -183,8 +187,7 @@ export class ModuleSystem {
         // 保留原型链的实例化方式
         const instance = Object.create(moduleDef)
         // 使用 defineProperties 确保方法可枚举
-        Object.entries(moduleDef).forEach(([key,
-                                            value]) => {
+        Object.entries(moduleDef).forEach(([key, value]) => {
             if (typeof value === 'function') {
                 instance[key] = value.bind(instance)
             } else {
@@ -196,8 +199,7 @@ export class ModuleSystem {
     #injectDependencies = moduleMeta => {
         const { instance } = moduleMeta
         if (!instance.inject) return
-        Object.entries(instance.inject).forEach(([key,
-                                                  serviceName]) => {
+        Object.entries(instance.inject).forEach(([key, serviceName]) => {
             const service = this.#diContainer.get(serviceName)
             if (!service && this.#config.strictMode) {
                 throw new Error(`Dependency ${serviceName} not found for ${moduleMeta.definition.name}`)
@@ -205,7 +207,7 @@ export class ModuleSystem {
             instance[key] = service?.instance || service
         })
     }
-    #initEventListeners() {
+    #initEventListeners () {
         eventBus.on('network:offline', () => {
             this.#handleOfflineMode()
         })
@@ -220,7 +222,7 @@ export class ModuleSystem {
             eventBus.emit('module:fallback', { original: moduleName })
         }
     }
-    #handleOfflineMode() {
+    #handleOfflineMode () {
         this.#modules.forEach(module => {
             if (module.definition.offline) {
                 module.instance.enableOfflineMode()

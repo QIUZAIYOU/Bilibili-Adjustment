@@ -1,6 +1,6 @@
 const DEFAULT_IDLE_TIMEOUT = 30000
 class IndexedDBService {
-    constructor(dbName, version, storeConfig) {
+    constructor (dbName, version, storeConfig) {
         this.dbName = dbName
         this.version = version
         this.storeConfig = storeConfig
@@ -8,7 +8,7 @@ class IndexedDBService {
         this.lastOperationTime = Date.now()
     }
     // 核心数据库连接
-    async connect() {
+    async connect () {
         if (this.db) {
             this._updateLastOperation()
             return this.db
@@ -29,17 +29,17 @@ class IndexedDBService {
             }
         })
     }
-    isStoreExists(storeName) {
+    isStoreExists (storeName) {
         return this.db && this.db.objectStoreNames.contains(storeName)
     }
     // 基础CRUD操作
-    async add(storeName, data) {
+    async add (storeName, data) {
         return this._execute(storeName, 'readwrite', store => store.add(data))
     }
-    async get(storeName, key) {
+    async get (storeName, key) {
         return this._execute(storeName, 'readonly', store => store.get(key))
     }
-    async getAll(storeName, indexName, queryRange, pageSize) {
+    async getAll (storeName, indexName, queryRange, pageSize) {
         const result = await this.getAllRaw(storeName, indexName, queryRange, pageSize)
         return {
             results: result.results.reduce((obj, item) => {
@@ -49,17 +49,17 @@ class IndexedDBService {
             continue: result.continue
         }
     }
-    async getAllRaw(storeName, indexName, queryRange, pageSize) {
+    async getAllRaw (storeName, indexName, queryRange, pageSize) {
         return this._executeCursorQuery(storeName, indexName, queryRange, pageSize)
     }
-    async update(storeName, data) {
+    async update (storeName, data) {
         return this._execute(storeName, 'readwrite', store => store.put(data))
     }
-    async delete(storeName, key) {
+    async delete (storeName, key) {
         return this._execute(storeName, 'readwrite', store => store.delete(key))
     }
     // 通用执行方法
-    async _execute(storeName, mode, operation) {
+    async _execute (storeName, mode, operation) {
         await this.connect()
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, mode)
@@ -69,7 +69,7 @@ class IndexedDBService {
             request.onerror = event => reject(event.target.error)
         })
     }
-    async _executeCursorQuery(storeName, indexName, range, pageSize = 100) {
+    async _executeCursorQuery (storeName, indexName, range, pageSize = 100) {
         await this.connect()
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly')
@@ -94,14 +94,14 @@ class IndexedDBService {
         })
     }
     // 精简后的连接管理
-    close() {
+    close () {
         if (this.db) {
             this.db.close()
             this.db = null
         }
     }
     // 存储创建逻辑
-    _createStores(db) {
+    _createStores (db) {
         this.storeConfig.forEach(config => {
             if (!db.objectStoreNames.contains(config.name)) {
                 const store = db.createObjectStore(config.name, {
@@ -115,14 +115,14 @@ class IndexedDBService {
             }
         })
     }
-    _setupConnectionMonitoring() {
+    _setupConnectionMonitoring () {
         this._idleTimer = setInterval(() => {
             if (Date.now() - this.lastOperationTime > DEFAULT_IDLE_TIMEOUT) {
                 this.close()
             }
         }, 5000)
     }
-    _updateLastOperation() {
+    _updateLastOperation () {
         this.lastOperationTime = Date.now()
     }
 }

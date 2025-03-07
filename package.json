@@ -4,22 +4,23 @@
   "author": "QIAN",
   "version": "1.0.0",
   "license": "MIT",
+  "type": "module",
   "scripts": {
-    "build": "rm -rf dist/ && NODE_ENV=production webpack",
-    "publish": "./scripts/publish",
-    "dev": "webpack serve --mode development",
-    "test": "yarn tsc --noEmit",
-    "lint": "eslint . --ext .js",
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "lint:fix": "eslint . --ext .js --fix"
   },
   "devDependencies": {
     "@eslint/js": "^9.21.0",
+    "@stylistic/eslint-plugin": "^4.2.0",
+    "@stylistic/eslint-plugin-js": "^4.2.0",
     "eslint": "^9.21.0",
-    "eslint-import-resolver-node": "^0.3.9",
-    "eslint-plugin-import": "^2.31.0",
-    "globals": "^16.0.0",
-    "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.0",
-    "webpack-userscript": "^3.2.3"
+    "vite": "^6.2.1",
+    "vite-plugin-monkey": "^5.0.8"
+  },
+  "dependencies": {
+    "axios": "^1.8.1",
+    "md5": "^2.3.0"
   }
 }
