@@ -29,7 +29,7 @@ export default [
                 require: true,
                 __dirname: true,
                 import: true,
-                process: true
+                process: true,
             }
         },
         plugins: {

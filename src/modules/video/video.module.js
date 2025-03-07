@@ -265,8 +265,8 @@ export default {
         const [mutedButton, volumeButton] = await elementSelectors.batch(['mutedButton', 'volumeButton'])
         if (!mutedButton || !volumeButton) return
         const styles = {
-            muted: getComputedStyle(mutedButton),
-            volume: getComputedStyle(volumeButton)
+            muted: getElementComputedStyle(mutedButton),
+            volume: getElementComputedStyle(volumeButton)
         }
         if (styles.muted.display === 'block' || styles.volume.display === 'none') {
             mutedButton.click()
@@ -300,8 +300,7 @@ export default {
     processVideoCommentDescriptionHtml (html){
         return html.replace(regexps.video.specialBlank, '%20')
             .replace(regexps.video.nbspToBlank, ' ')
-            .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" 
-               data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
+            .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
             .replace(regexps.video.url, match => `<a href="${match}" target="_blank">${match}</a>`)
             .replace(regexps.video.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`)
             .replace(regexps.video.readId, match =>
@@ -316,40 +315,13 @@ export default {
         // logger.debug(videoCommentReplyListShadowRoot)
         if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
             const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
-            const shadowRootVideoDescriptionReplyTemplate = `
-            <bili-adjustment-comment-thread-renderer  id="adjustment-comment-description">
-                <style>${styles.videoCommentDescription}</style>
-                <bili-adjustment-comment-renderer>
-                    <div id="bili-adjustment-body" class="light">
-                        <a id="bili-adjustment-user-avatar">
-                            <bili-adjustment-avatar>
-                                <img id="bili-adjustment-avatar-picture" src="${upAvatarFaceLink}" alt="${upAvatarFaceLink}">
-                            </bili-adjustment-avatar>
-                        </a>
-                        <div id="bili-adjustment-main" style="width:100%">
-                            <div id="bili-adjustment-header">
-                                <bili-adjustment-comment-user-info>
-                                    <div id="bili-adjustment-info">
-                                        <div id="bili-adjustment-user-name">
-                                            <a href="#" onclick="event.preventDefault()">视频简介君 (ﾉ≧∀≦)ﾉ</a>
-                                        </div>
-                                        <div id="bili-adjustment-user-badge">Bilibili调整</div>
-                                    </div>
-                                </bili-adjustment-comment-user-info>
-                            </div>
-                            <div id="bili-adjustment-content">
-                                <bili-adjustment-rich-text>
-                                    <p id="bili-adjustment-contents">${this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML) }</p>
-                                </bili-adjustment-rich-text>
-                            </div>
-                        </div>
-                    </div>
-                </bili-adjustment-comment-renderer>
-                <div id="bili-adjustment-spread-line"></div>
-            </bili-adjustment-comment-thread-renderer>`
             const template = document.createElement('template')
-            template.innerHTML = shadowRootVideoDescriptionReplyTemplate
-            const clone = template.content.cloneNode(true)
+            template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
+                videoCommentDescription: styles.videoCommentDescription,
+                upAvatarFaceLink: upAvatarFaceLink,
+                processVideoCommentDescription: this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
+            })
+            const clone  = template.content.cloneNode(true)
             videoCommentReplyListShadowRoot?.prepend(clone)
             await sleep(300)
             if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {

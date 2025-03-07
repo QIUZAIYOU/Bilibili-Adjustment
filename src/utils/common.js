@@ -246,7 +246,20 @@ export const createElementAndInsert = (HtmlString, target, method) => {
     return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
 }
 export const getTotalSecondsFromTimeString = timeString => {
-    if (timeString.length === 5) timeString = timeString.padStart(8, '00:')
-    const [hours, minutes, seconds] = timeString.split(':').map(Number)
-    return hours * 3600 + minutes * 60 + seconds
+    // 移除原有长度判断，改为智能分段处理
+    const parts = timeString.split(':')
+    // 处理不同分段情况
+    if (parts.length === 1) {
+        // 纯秒数格式（如"59"）
+        return parseInt(parts[0], 10)
+    } else if (parts.length === 2) {
+        // 分钟:秒 格式
+        const [minutes, seconds] = parts.map(Number)
+        return minutes * 60 + seconds
+    } else if (parts.length === 3) {
+        // 完整的时间格式
+        const [hours, minutes, seconds] = parts.map(Number)
+        return hours * 3600 + minutes * 60 + seconds
+    }
+    return 0 // 无效格式返回0
 }
