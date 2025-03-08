@@ -1,3 +1,4 @@
+/* global queueMicrotask */
 import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
@@ -19,8 +20,8 @@ export default {
         })
     },
     async preFunctions () {
-        storageService.set('player_type', window.location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
-        this.userConfigs = await storageService.getAll()
+        storageService.legacySet('player_type', window.location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        this.userConfigs = await storageService.getAll('user')
         this.initEventListeners()
         this.initMonitors()
         if (isTabActive()) {
@@ -108,10 +109,11 @@ export default {
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
         const playerContainer = await elementSelectors.playerContainer
-        storageService.set('player_offset_top', await getElementOffsetToDocumentTop(playerContainer))
+        storageService.legacySet('player_offset_top', await getElementOffsetToDocumentTop(playerContainer))
         const playerMode = playerContainer.getAttribute('data-screen')
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
+        // eslint-disable-next-line no-unused-vars
         const observer = isElementSizeChange(videoElement, async (changed, _) => {
             if (changed) {
                 const currentPlayerMode = playerContainer.getAttribute('data-screen')
@@ -321,7 +323,7 @@ export default {
                 upAvatarFaceLink: upAvatarFaceLink,
                 processVideoCommentDescription: this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
             })
-            const clone  = template.content.cloneNode(true)
+            const clone = template.content.cloneNode(true)
             videoCommentReplyListShadowRoot?.prepend(clone)
             await sleep(300)
             if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {

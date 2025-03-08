@@ -24,12 +24,13 @@ export default [
                 IDBKeyRange: true,
                 indexedDB: true,
                 history: true,
+                URL: true,
                 // Node.js全局变量
                 module: true,
                 require: true,
                 __dirname: true,
                 import: true,
-                process: true,
+                process: true
             }
         },
         plugins: {
@@ -41,17 +42,11 @@ export default [
             '@stylistic/quotes': ['error', 'single', { avoidEscape: true }],
             '@stylistic/indent': ['error', 4, { SwitchCase: 1, MemberExpression: 1, FunctionDeclaration: { parameters: 'first' }, ArrayExpression: 'first', ObjectExpression: 'first' }],
             '@stylistic/comma-dangle': ['error', 'never'],
-            '@stylistic/object-curly-spacing': ['error', 'always'],
+            '@stylistic/object-curly-spacing': ['error', 'always', { 'arraysInObjects': false, 'objectsInObjects': false }],
             '@stylistic/no-trailing-spaces': 'error',
             '@stylistic/eol-last': ['error', 'always'],
-            '@stylistic/array-element-newline': ['error', { 'consistent': true, 'multiline': true }],
-            '@stylistic/array-bracket-newline': [
-                'error',
-                {
-                    multiline: true,
-                    minItems: 6
-                }
-            ],
+            '@stylistic/array-element-newline': ['error', 'consistent'],
+            '@stylistic/array-bracket-newline': ['error', 'consistent'],
             '@stylistic/array-bracket-spacing': ['error', 'never'],
             '@stylistic/array-callback-return': 'off',
             '@stylistic/space-before-function-paren': [
@@ -79,20 +74,7 @@ export default [
             '@stylistic/lines-between-class-members': ['error', 'never'],
             '@stylistic/arrow-spacing': ['error', { 'before': true, 'after': true }],
             '@stylistic/arrow-parens': ['error', 'as-needed'],
-            '@stylistic/no-multi-spaces': [
-                'error',
-                {
-                    ignoreEOLComments: false,
-                    exceptions: {
-                        Property: false,
-                        VariableDeclarator: true,
-                        ImportDeclaration: true,
-                        ExportNamedDeclaration: true,
-                        BinaryExpression: false,
-                        AssignmentExpression: true
-                    }
-                }
-            ],
+            '@stylistic/no-multi-spaces': ['error'],
             'arrow-body-style': ['error', 'as-needed'],
             'no-unused-vars': 'warn',
             'no-var': 'error',
@@ -108,6 +90,7 @@ export default [
     },
     {
         ignores: [
+            '.history/',
             'node_modules/',
             'dist/',
             'webpack.config.js',

@@ -1,5 +1,4 @@
-// import { LoggerService } from '@/services/logger.service'
-// const logger = new LoggerService('ElementSelectors')
+/* global NodeList */
 const elementCache = new Map()
 const selectors = {
     app: '#app',

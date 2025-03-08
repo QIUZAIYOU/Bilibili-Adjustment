@@ -2,16 +2,16 @@
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
-const LIFECYCLE_HOOKS = [
-    'beforeCreate',
-    'created',
-    'beforeMount',
-    'mounted',
-    'beforeUpdate',
-    'updated',
-    'beforeDestroy',
-    'destroyed'
-]
+// const LIFECYCLE_HOOKS = [
+//     'beforeCreate',
+//     'created',
+//     'beforeMount',
+//     'mounted',
+//     'beforeUpdate',
+//     'updated',
+//     'beforeDestroy',
+//     'destroyed'
+// ]
 export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
@@ -118,7 +118,7 @@ export class ModuleSystem {
             throw new Error('Strict mode requires module version')
         }
     }
-    #executeLifecycle = async (modules, phase, options) => {
+    #executeLifecycle = async (modules, phase) => {
         for (const name of modules) {
             const moduleMeta = this.#modules.get(name)
             try {
@@ -215,6 +215,7 @@ export class ModuleSystem {
             this.#tryFallback(module, error)
         })
     }
+    // eslint-disable-next-line no-unused-vars
     #tryFallback = (moduleName, error) => {
         const fallbackModule = this.#modules.get(`${moduleName}-fallback`)
         if (fallbackModule) {

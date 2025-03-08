@@ -63,7 +63,7 @@ export class ConfigService {
             try {
                 // 优先从缓存检查
                 if (this.#cache.has(item.name)) return
-                const exists = await storageService.get(item.name)
+                const exists = await storageService.legacySet( item.name)
                 if (exists === null || exists === undefined) {
                     await this.setValue(item.name, item.value)
                     this.#cache.set(item.name, item.value) // 初始化时填充缓存
@@ -79,7 +79,7 @@ export class ConfigService {
             if (this.#cache.has(name)) {
                 return this.#cache.get(name)
             }
-            const value = await storageService.get(name)
+            const value = await storageService.legacySet(name)
             this.#cache.set(name, value) // 更新缓存
             return value
         } catch (error) {
@@ -91,7 +91,7 @@ export class ConfigService {
         try {
             // 同步更新缓存
             this.#cache.set(name, value)
-            await storageService.set(name, value)
+            await storageService.legacySet( name, value)
         } catch (error) {
             this.#cache.delete(name) // 回滚缓存
             this.#logger.error('配置存储失败', error)

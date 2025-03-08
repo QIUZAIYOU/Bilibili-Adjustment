@@ -68,20 +68,20 @@
                             210,
                             86,
                             253,
-                            27] },
+                            27]},
             anime: { name: '番剧',
                      tids: [13,
                             51,
                             152,
                             32,
-                            33] },
+                            33]},
             guochuang: { name: '国创',
                          tids: [167,
                                 153,
                                 168,
                                 169,
                                 170,
-                                195] },
+                                195]},
             music: { name: '音乐',
                      tids: [3,
                             28,
@@ -92,7 +92,7 @@
                             29,
                             130,
                             243,
-                            244] },
+                            244]},
             dance: { name: '舞蹈',
                      tids: [129,
                             20,
@@ -101,7 +101,7 @@
                             198,
                             199,
                             200,
-                            255] },
+                            255]},
             game: { name: '游戏',
                     tids: [4,
                            17,
@@ -111,7 +111,7 @@
                            173,
                            121,
                            136,
-                           19] },
+                           19]},
             knowledge: { name: '知识',
                          tids: [36,
                                 201,
@@ -121,14 +121,14 @@
                                 208,
                                 209,
                                 229,
-                                122] },
+                                122]},
             tech: { name: '科技',
                     tids: [188,
                            95,
                            230,
                            231,
                            232,
-                           233] },
+                           233]},
             sports: { name: '运动',
                       tids: [234,
                              235,
@@ -136,7 +136,7 @@
                              164,
                              236,
                              237,
-                             238] },
+                             238]},
             car: { name: '汽车',
                    tids: [223,
                           245,
@@ -146,7 +146,7 @@
                           240,
                           227,
                           176,
-                          258] },
+                          258]},
             life: { name: '生活',
                     tids: [160,
                            138,
@@ -156,14 +156,14 @@
                            161,
                            162,
                            21,
-                           254] },
+                           254]},
             food: { name: '美食',
                     tids: [211,
                            76,
                            212,
                            213,
                            214,
-                           215] },
+                           215]},
             animal: { name: '动物圈',
                       tids: [217,
                              218,
@@ -171,54 +171,54 @@
                              220,
                              221,
                              222,
-                             75] },
+                             75]},
             kichiku: { name: '鬼畜',
                        tids: [119,
                               22,
                               26,
                               126,
                               216,
-                              127] },
+                              127]},
             fashion: { name: '时尚',
                        tids: [155,
                               157,
                               252,
                               158,
-                              159] },
+                              159]},
             information: { name: '资讯',
                            tids: [202,
                                   203,
                                   204,
                                   205,
-                                  206] },
+                                  206]},
             ent: { name: '娱乐',
                    tids: [5,
                           71,
                           241,
                           242,
-                          137] },
+                          137]},
             cinephile: { name: '影视',
                          tids: [181,
                                 182,
                                 183,
                                 85,
-                                184] },
+                                184]},
             documentary: { name: '纪录片',
                            tids: [177,
                                   37,
                                   178,
                                   179,
-                                  180] },
+                                  180]},
             movie: { name: '电影',
                      tids: [23,
                             147,
                             145,
                             146,
-                            83] },
+                            83]},
             tv: { name: '电视剧',
                   tids: [11,
                          185,
-                         187] }
+                         187]}
         }
     }
     const selectors = {
@@ -395,7 +395,7 @@
      * 初始化所有数据
      * - #region 初始化所有数据
      */
-        initValue() {
+        initValue () {
             const value = [{
                 name: 'is_vip',
                 value: true
@@ -495,8 +495,7 @@
                            {
                                name: 'auto_subtitle',
                                value: false
-                           }
-            ]
+                           }]
             value.forEach(v => {
                 if (utils.getValue(v.name) === undefined) {
                     utils.setValue(v.name, v.value)
@@ -510,7 +509,7 @@
      * @param {String} 数据名称
      * @returns 数据数值
      */
-        getValue(name) {
+        getValue (name) {
             return GM_getValue(name)
         },
         // #endregion 获取自定义数据
@@ -520,7 +519,7 @@
      * @param {String} 数据名称
      * @param {*} 数据数值
      */
-        setValue(name, value) {
+        setValue (name, value) {
             GM_setValue(name, value)
         },
         // #endregion 写入自定义数据
@@ -530,7 +529,7 @@
      * @param {Number} 时长
      * @returns
      */
-        sleep(times) {
+        sleep (times) {
             return new Promise(resolve => setTimeout(resolve, times))
         },
         // #endregion 休眠
@@ -540,7 +539,7 @@
      * @param {String} name cookie中某一项的名称
      * @returns
      */
-        getCookieByName(name) {
+        getCookieByName (name) {
             const value = `; ${document.cookie}`
             const parts = value.split(`; ${name}=`)
             if (parts.length === 2) return parts.pop().split(';').shift()
@@ -551,7 +550,7 @@
      * 判断数组长度是否为偶数
      * - #region 判断数组长度是否为偶数
      */
-        isArrayLengthEven(arr) {
+        isArrayLengthEven (arr) {
             return arr.length % 2 === 0
         },
         // #endregion 判断数组长度是否为偶数
@@ -561,7 +560,7 @@
      * @param {String} id 样式表id
      * @param {String} css 样式内容
      */
-        insertStyleToDocument(id, css) {
+        insertStyleToDocument (id, css) {
             const styleElement = GM_addStyle(css)
             styleElement.id = id
         },
@@ -573,16 +572,16 @@
      * - error->错误；debug->调试
      */
         logger: {
-            info(content) {
+            info (content) {
                 console.info('%c播放页调整', 'color:white;background:#006aff;padding:2px;border-radius:2px', content)
             },
-            warn(content) {
+            warn (content) {
                 console.warn('%c播放页调整', 'color:white;background:#ff6d00;padding:2px;border-radius:2px', content)
             },
-            error(content) {
+            error (content) {
                 console.error('%c播放页调整', 'color:white;background:#f33;padding:2px;border-radius:2px', content)
             },
-            debug(content) {
+            debug (content) {
                 console.info('%c播放页调整(调试)', 'color:white;background:#cc00ff;padding:2px;border-radius:2px', content)
             }
         },
@@ -591,7 +590,7 @@
      * 检查当前文档是否被激活
      * - #region 检查当前文档是否被激活
      */
-        checkDocumentIsHidden() {
+        checkDocumentIsHidden () {
             // 定义可见性变化事件名称
             const visibilityChangeEventNames = ['visibilitychange',
                                                 'mozvisibilitychange',
@@ -613,7 +612,7 @@
             return undefined
         },
         // 辅助函数，用于添加事件监听器
-        addVisibilityEventListeners(eventList, handler) {
+        addVisibilityEventListeners (eventList, handler) {
             eventList.forEach(eventName => document.addEventListener(eventName, handler))
             window.addEventListener('focus', handler)
             window.addEventListener('blur', handler)
@@ -625,7 +624,7 @@
      * 刷新当前页面
      * - #region 刷新当前页面
      */
-        reloadCurrentTab(...args) {
+        reloadCurrentTab (...args) {
             if (args && args[0] === true) {
                 location.reload()
             } else if (vals.auto_reload()) location.reload()
@@ -636,7 +635,7 @@
      * - #region 滚动文档至目标位置
      * @param {Number} 滚动距离
      */
-        documentScrollTo(offset) {
+        documentScrollTo (offset) {
             document.documentElement.scrollTop = offset
         },
         // #endregion 滚动文档至目标位置
@@ -646,7 +645,7 @@
      * @param {*} attribute 属性名称
      * @returns 属性值
      */
-        async getMetaContent(attribute) {
+        async getMetaContent (attribute) {
             const meta = await utils.getElementAndCheckExistence(`meta[${attribute}]`)
             if (meta) {
                 return meta.getAttribute('content')
@@ -660,7 +659,7 @@
      * - #region 获取Body元素高度
      * @returns Body 元素高度
      */
-        getBodyHeight() {
+        getBodyHeight () {
             const bodyHeight = document.body.clientHeight || 0
             const docHeight = document.documentElement.clientHeight || 0
             return bodyHeight < docHeight ? bodyHeight : docHeight
@@ -670,7 +669,7 @@
      * 确保页面销毁时清除所有定时器
      * - #region 确保页面销毁时清除所有定时器
      */
-        clearAllTimersWhenCloseTab() {
+        clearAllTimersWhenCloseTab () {
             window.addEventListener('beforeunload', () => {
                 for (const id of arrays.intervalIds) {
                     clearInterval(id)
@@ -685,7 +684,7 @@
      * @param {String} 目标元素
      * @returns 顶部和左侧距离
      */
-        getElementOffsetToDocument(element) {
+        getElementOffsetToDocument (element) {
             let rect, win
             if (!element.getClientRects().length) {
                 return {
@@ -709,7 +708,7 @@
      * @param {String} 插入方法（before/after/prepend/append）
      * @returns 被创建的元素
      */
-        createElementAndInsert(HtmlString, target, method) {
+        createElementAndInsert (HtmlString, target, method) {
             const element = elmGetter.create(HtmlString, target)
             target[method](element)
             return element
@@ -722,7 +721,7 @@
      * - 因为这会导致 targetFunction 函数在此处执行一遍，从而增加 vars 里相关的计数变量
      * - 当之后真正执行时会因为相关计数变量值不等于 1 导致在 executeFunctionsSequentially 函数里获取不到返回值
      */
-        isAsyncFunction(targetFunction) {
+        isAsyncFunction (targetFunction) {
             return targetFunction.constructor.name === 'AsyncFunction'
         },
         // #endregion 判断函数是否为异步函数
@@ -733,7 +732,7 @@
      * - 当函数为异步函数时，只有当前一个函数执行完毕时才会继续执行下一个函数
      * - 当函数为同步函数时，则只会执行相应函数
      */
-        executeFunctionsSequentially(functionsArray) {
+        executeFunctionsSequentially (functionsArray) {
             if (functionsArray.length > 0) {
                 // console.log(functionsArray.length)
                 const currentFunction = functionsArray.shift()
@@ -767,7 +766,7 @@
      * - #region 检查元素数组中元素是否存在
      * @param {Array} elementsArray 元素数组
      */
-        checkElementExistence(elementsArray) {
+        checkElementExistence (elementsArray) {
             if (Array.isArray(elementsArray)) {
                 return elementsArray.map(element => Boolean(element))
             } else {
@@ -783,7 +782,7 @@
      * @param {Boolean} debug debug 开关
      * @returns 获取的元素
      */
-        async getElementAndCheckExistence(selectors, ...args) {
+        async getElementAndCheckExistence (selectors, ...args) {
             let delay = 7000, debug = false
             if (args.length === 1) {
                 const type = typeof args[0]
@@ -803,7 +802,7 @@
      * 为元素添加监听器并执行相应函数
      * - #region 为元素添加监听器并执行相应函数
      */
-        async addEventListenerToElement() {
+        async addEventListenerToElement () {
             if (window.location.href === 'https://www.bilibili.com/') {
                 const [$indexRecommendVideoRollButton,
                        $clearRecommendVideoHistoryButton] = await utils.getElementAndCheckExistence([selectors.indexRecommendVideoRollButton,
@@ -836,11 +835,7 @@
                     // utils.logger.debug('URL改变了！！')
                     modules.functionsNeedToExecuteWhenUrlHasChanged()
                 })
-                const [$playerContainer,
-                       $AutoSkipSwitchInput,
-                       $AutoEnableSubtitleSwitchInput] = await utils.getElementAndCheckExistence([selectors.playerContainer,
-                                                                                                  selectors.AutoSkipSwitchInput,
-                                                                                                  selectors.AutoEnableSubtitleSwitchInput])
+                const [$playerContainer, $AutoSkipSwitchInput, $AutoEnableSubtitleSwitchInput] = await utils.getElementAndCheckExistence([selectors.playerContainer, selectors.AutoSkipSwitchInput, selectors.AutoEnableSubtitleSwitchInput])
                 $playerContainer.addEventListener('fullscreenchange', event => {
                     const isFullscreen = document.fullscreenElement === event.target
                     if (!isFullscreen) modules.locationToPlayer()
@@ -900,7 +895,7 @@
      * @param {Object} originalParams
      * @returns
      */
-        async getQueryWithWbi(originalParams) {
+        async getQueryWithWbi (originalParams) {
             const mixinKeyEncTab = [
                 46,
                 47,
@@ -988,7 +983,7 @@
             const getWbiKeys = async () => {
                 const url = 'https://api.bilibili.com/x/web-interface/nav'
                 const res = await axios.get(url, { withCredentials: true })
-                const { data: { wbi_img: { img_url, sub_url } } } = res.data
+                const { data: { wbi_img: { img_url, sub_url }}} = res.data
                 return {
                     img_key: img_url.slice(
                         img_url.lastIndexOf('/') + 1,
@@ -1017,9 +1012,9 @@
      * @param {String} videoId 视频ID(video BVID)
      * @returns videoInfo
      */
-        async getVideoInformation(videoId) {
+        async getVideoInformation (videoId) {
             const url = `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`
-            const { data, data: { code } } = await axios.get(url, { withCredentials: true })
+            const { data, data: { code }} = await axios.get(url, { withCredentials: true })
             if (code === 0) return data
             else if (code === -400) utils.logger.info('获取视频基本信息丨请求错误')
             else if (code === -403) utils.logger.info('获取视频基本信息丨权限不足')
@@ -1036,9 +1031,9 @@
      * @param {String} userId 用户ID
      * @returns userInfo
      */
-        async getUserInformation(userId) {
+        async getUserInformation (userId) {
             const url = `https://api.bilibili.com/x/web-interface/card?mid=${userId}`
-            const { data, data: { code } } = await axios.get(url, { withCredentials: true })
+            const { data, data: { code }} = await axios.get(url, { withCredentials: true })
             if (code === 0) return data
             else if (code === -400) utils.logger.info('获取用户基本信息丨请求错误')
             else if (code === -403) utils.logger.info('获取用户基本信息丨权限不足')
@@ -1052,9 +1047,9 @@
      * - #region 判断用户是否是大会员
      * - 签到后执行，若已签到则不执行，避免触发多次请求
      */
-        async isVip() {
+        async isVip () {
             const userId = utils.getCookieByName('DedeUserID')
-            const { data: { card: { vip: { status } } } } = await biliApis.getUserInformation(userId)
+            const { data: { card: { vip: { status }}}} = await biliApis.getUserInformation(userId)
             if (status) utils.setValue('is_vip', true)
             else utils.setValue('is_vip', false)
         },
@@ -1063,12 +1058,12 @@
      * 自动签到
      * - #region 自动签到
      */
-        async autoSignIn() {
+        async autoSignIn () {
             const now = new Date()
             const signInDate = `${now.getFullYear()}-${(now.getMonth() + 1)}-${now.getDate()}`
             if (!vals.signIn_date() || vals.signIn_date() !== signInDate) {
                 const url = 'https://api.live.bilibili.com/sign/doSign'
-                const { data: { code } } = await axios.get(url, { withCredentials: true })
+                const { data: { code }} = await axios.get(url, { withCredentials: true })
                 if (code === 0) {
                     utils.logger.info('自动签到丨签到成功')
                     utils.setValue('signIn_date', signInDate)
@@ -1089,10 +1084,10 @@
      * 获取用户投稿视频列表
      * - #region 获取用户投稿视频列表
      */
-        async getUserVideoList(userId) {
+        async getUserVideoList (userId) {
             const wib = await biliApis.getQueryWithWbi({ mid: userId })
             const url = `https://api.bilibili.com/x/space/wbi/arc/search?${wib}`
-            const { data, data: { code } } = await axios.get(url, { withCredentials: true })
+            const { data, data: { code }} = await axios.get(url, { withCredentials: true })
             if (code === 0) return data
             else if (code === -400) {
                 utils.logger.info('获取用户投稿视频列表丨权限不足')
@@ -1113,7 +1108,7 @@
      * 如果都没匹配上则弹窗报错
      * @returns 当前视频类型
      */
-        async getCurrentPlayerType(url = window.location.href) {
+        async getCurrentPlayerType (url = window.location.href) {
             let playerType
             const setCurrentPlayerType = () => {
                 playerType = (url.startsWith('https://www.bilibili.com/video') || url.startsWith('https://www.bilibili.com/list/')) ? 'video' : url.startsWith('https://www.bilibili.com/bangumi') ? 'bangumi' : false
@@ -1136,7 +1131,7 @@
      * 判断用户是否登录
      * - #region 判断用户是否登录
      */
-        isLogin() {
+        isLogin () {
             return Boolean(document.cookie.replace(/(?:(?:^|.*;\s*)bili_jct\s*=\s*([^;]*).*$)|^.*$/, '$1') || window.UserStatus.userInfo.isLogin || null)
         },
         // #endregion 判断用户是否登录
@@ -1144,7 +1139,7 @@
      * 获取视频ID/video BVID/bangumi EPID
      * - #region 获取视频ID
      */
-        getCurrentVideoID(url = window.location.href) {
+        getCurrentVideoID (url = window.location.href) {
             return url.startsWith('https://www.bilibili.com/video') ? url.split('/')[4] : url.startsWith('https://www.bilibili.com/bangumi') ? url.split('/')[5].split('?')[0] : 'error'
         },
         // #endregion 获取视频ID
@@ -1152,7 +1147,7 @@
      * 获取Vue版本号
      * - #region 获取Vue版本号
      */
-        async getVueScopeId(selector) {
+        async getVueScopeId (selector) {
             const element = await utils.getElementAndCheckExistence(selector)
             // utils.logger.debug(element)
             return new Promise((resolve, reject) => {
@@ -1176,11 +1171,11 @@
      * - 若存在返回成功消息
      * - 若不存在则抛出异常
      */
-        async checkVideoExistence() {
+        async checkVideoExistence () {
             const [$videoWrap,
                    $video] = await utils.getElementAndCheckExistence([selectors.videoWrap,
                                                                       selectors.video])
-            if ($video) return { message: '播放器｜已找到', callback: [modules.setVideoCover.bind(null, $videoWrap, $video)] }
+            if ($video) return { message: '播放器｜已找到', callback: [modules.setVideoCover.bind(null, $videoWrap, $video)]}
             else throw new Error('播放器｜未找到')
         },
         // #endregion 检查视频元素是否存在
@@ -1188,7 +1183,7 @@
      * 检查视频是否可以播放
      * - #region 检查视频是否可以播放
      */
-        async checkVideoCanPlayThrough() {
+        async checkVideoCanPlayThrough () {
             return new Promise((resolve, reject) => {
                 let attempts = 100
                 let message, result
@@ -1217,7 +1212,7 @@
      * 监听屏幕模式变化(normal/wide/web/full)
      * - #region 监听屏幕模式变化
      */
-        async observerPlayerDataScreenChanges() {
+        async observerPlayerDataScreenChanges () {
             const $playerContainer = await utils.getElementAndCheckExistence(selectors.playerContainer)
             const observer = new MutationObserver(() => {
                 const playerDataScreen = $playerContainer.getAttribute('data-screen')
@@ -1235,7 +1230,7 @@
      * @param {Number} 延时
      * @returns
      */
-        async getCurrentScreenMode() {
+        async getCurrentScreenMode () {
             return new Promise(resolve => {
                 let attempts = 100
                 const timer = setInterval(() => {
@@ -1260,11 +1255,10 @@
      * - 应用于舞蹈类视频
      * - 视频播放时移除封面
      */
-        async setVideoCover($videoWrap, $video) {
+        async setVideoCover ($videoWrap, $video) {
             if (vals.player_type() === 'bangumi') return
-            const targetTids = Array.from(new Set().add([...objects.videoCategories.dance.tids,
-                                                         ...objects.videoCategories.fashion.tids])).flat()
-            const { data: { pic, tid } } = await biliApis.getVideoInformation(modules.getCurrentVideoID(window.location.href))
+            const targetTids = Array.from(new Set().add([...objects.videoCategories.dance.tids, ...objects.videoCategories.fashion.tids])).flat()
+            const { data: { pic, tid }} = await biliApis.getVideoInformation(modules.getCurrentVideoID(window.location.href))
             if (targetTids.includes(tid) && pic) {
                 $videoWrap.style.setProperty('--video-cover', `url(${pic.replace(/^http:/i, 'https:')})`) // 设置视频封面的CSS变量
                 $video.addEventListener('play', () => {
@@ -1280,7 +1274,7 @@
      * 判断当前视频是否未充电
      * - #region 判断当前视频是否未充电
      */
-        checkVideoNoCharge() {
+        checkVideoNoCharge () {
             return document.querySelector(selectors.notChargeHighLevelCover)
         },
         // #endregion 判断当前视频是否未充电
@@ -1292,7 +1286,7 @@
      * - 功能开启，但当前屏幕已为宽屏或网页全屏，则直接返回成功
      * - 功能开启，执行切换函数
      */
-        async autoSelectScreenMode() {
+        async autoSelectScreenMode () {
             if (modules.checkVideoNoCharge()) return
             if (++vars.autoSelectScreenModeRunningCount !== 1) return
             if (vals.selected_screen_mode() === 'close') return { message: '屏幕模式｜功能已关闭' }
@@ -1313,7 +1307,7 @@
      * - 定时器方式超过 10 次失败，1s 执行一次
      * - 递归方式超过 10 次返回失败
      */
-        async checkScreenModeSwitchSuccess(expectScreenMode) {
+        async checkScreenModeSwitchSuccess (expectScreenMode) {
             const enterBtnMap = {
                 wide: async () => await utils.getElementAndCheckExistence(selectors.screenModeWideEnterButton),
                 web: async () => await utils.getElementAndCheckExistence(selectors.screenModeWebEnterButton)
@@ -1370,7 +1364,7 @@
      * - #region 设置位置数据并滚动至播放器
      * @returns
      */
-        async setLocationDataAndScrollToPlayer() {
+        async setLocationDataAndScrollToPlayer () {
             const getOffsetMethod = vals.get_offset_method()
             let playerOffsetTop
             if (getOffsetMethod === 'elements') {
@@ -1395,16 +1389,16 @@
      * 自动定位至播放器并检查是否成功
      * - #region 自动定位至播放器并检查是否成功
      */
-        async autoLocationToPlayer() {
+        async autoLocationToPlayer () {
             const unlockbody = () => {
                 document.getElementById('BodyHiddenStyle')?.remove()
             }
             const onAutoLocate = vals.auto_locate() && ((!vals.auto_locate_video() && !vals.auto_locate_bangumi()) || (vals.auto_locate_video() && vals.player_type() === 'video') || (vals.auto_locate_bangumi() && vals.player_type() === 'bangumi'))
-            if (!onAutoLocate || vals.selected_screen_mode() === 'web') return { callback: [unlockbody] }
+            if (!onAutoLocate || vals.selected_screen_mode() === 'web') return { callback: [unlockbody]}
             await modules.setLocationDataAndScrollToPlayer()
             const playerOffsetTop = vals.player_type() === 'video' ? vals.video_player_offset_top() : vals.bangumi_player_offset_top()
             const result = await modules.checkAutoLocationSuccess(playerOffsetTop - vals.offset_top())
-            if (result) return { message: '自动定位｜成功', callback: [unlockbody] }
+            if (result) return { message: '自动定位｜成功', callback: [unlockbody]}
             else {
                 unlockbody()
                 throw new Error('自动定位｜失败：已达到最大重试次数')
@@ -1422,7 +1416,7 @@
      * - targetOffset：用户期望的播放器相对浏览器视口顶部距离，由用户自定义
      * - 文档滚动距离：videoOffsetTop - targetOffset
      */
-        async checkAutoLocationSuccess(expectOffset) {
+        async checkAutoLocationSuccess (expectOffset) {
             const $video = await utils.getElementAndCheckExistence(selectors.video)
             utils.documentScrollTo(expectOffset)
             await utils.sleep(300)
@@ -1452,7 +1446,7 @@
      * 文档滚动至播放器(使用已有数据)
      * - #region 文档滚动至播放器(使用已有数据)
      */
-        async locationToPlayer() {
+        async locationToPlayer () {
             const videoCanPlay = await modules.checkVideoCanPlayThrough()
             if (videoCanPlay.result) {
                 const playerOffsetTop = vals.player_type() === 'video' ? vals.video_player_offset_top() : vals.bangumi_player_offset_top()
@@ -1465,7 +1459,7 @@
      * 点击播放器自动定位
      * - #region 点击播放器自动定位
      */
-        async clickPlayerAutoLocation() {
+        async clickPlayerAutoLocation () {
             if (vals.click_player_auto_locate()) {
                 const $video = await utils.getElementAndCheckExistence(selectors.video)
                 $video.addEventListener('click', async () => {
@@ -1481,7 +1475,7 @@
      * 点击时间锚点自动返回播放器
      * - #region 点击时间锚点自动返回播放器
      */
-        async clickVideoTimeAutoLocation() {
+        async clickVideoTimeAutoLocation () {
             const $video = await utils.getElementAndCheckExistence('video')
             const host = document.querySelector('#commentapp > bili-comments')
             const $descriptionClickTarget = 'video' ? await ShadowDOMHelper.queryUntil(host, '#feed > #bili-adjustment-contents') : ''
@@ -1532,7 +1526,7 @@
      * 自动关闭静音
      * - #region 自动关闭静音
      */
-        async autoCancelMute() {
+        async autoCancelMute () {
             if (++vars.autoCancelMuteRunningCount !== 1) return
             const [$mutedButton,
                    $volumeButton] = await utils.getElementAndCheckExistence([selectors.mutedButton,
@@ -1554,7 +1548,7 @@
      * 自动开启字幕
      * - #region 自动开启字幕
      */
-        async autoEnableSubtitle() {
+        async autoEnableSubtitle () {
             if (!vals.auto_subtitle()) return
             const $switchSubtitleButton = await utils.getElementAndCheckExistence(selectors.switchSubtitleButton)
             const openStatus = $switchSubtitleButton.children[0].children[0].children[0].children[1].childElementCount === 1
@@ -1570,7 +1564,7 @@
      * 插入自动开启字幕功能开关
      * - #region 插入自动开启字幕功能开关
      */
-        async insertAutoEnableSubtitleSwitchButton() {
+        async insertAutoEnableSubtitleSwitchButton () {
             if (++vars.insertAutoEnableSubtitleSwitchButtonCount !== 1) return
             const autoEnableSubtitleSwitchButtonHtml = `
           <div id="autoEnableSubtitleSwitchButton" class="bpx-player-dm-switch bui bui-danmaku-switch" aria-label="跳过开启关闭">
@@ -1624,7 +1618,7 @@
      * - 80->1080P 高清；64->720P 高清；32->480P 清晰；
      * - 16->360P 流畅；0->自动
      */
-        async autoSelectVideoHighestQuality() {
+        async autoSelectVideoHighestQuality () {
             if (modules.checkVideoNoCharge()) return
             if (++vars.autoSelectVideoHighestQualityRunningCount !== 1) return
             let message
@@ -1686,7 +1680,7 @@
      * - #region 插入漂浮功能按钮
      * - 快速返回至播放器
      */
-        async insertFloatSideNavToolsButton() {
+        async insertFloatSideNavToolsButton () {
             const $floatNav = vals.player_type() === 'video' ? await utils.getElementAndCheckExistence(selectors.videoFloatNav) : await utils.getElementAndCheckExistence(selectors.bangumiFloatNav)
             const dataV = $floatNav.lastChild.attributes[1].name
             let $locateButton
@@ -1709,7 +1703,7 @@
      * 执行网页全屏模式解锁
      * - #region 执行网页全屏模式解锁
      */
-        async webfullScreenModeUnlock() {
+        async webfullScreenModeUnlock () {
             if (!vals.webfull_unlock() || !vals.selected_screen_mode() === 'web' || ++vars.webfullUnlockRunningCount !== 1) return
             if (vals.player_type() === 'bangumi') return
             const [$app,
@@ -1770,7 +1764,7 @@
      * 网页全屏模式解锁后插入跳转评论按钮
      * - #region 网页全屏模式解锁后插入跳转评论按钮
      */
-        async insertGoToCommentButton() {
+        async insertGoToCommentButton () {
             if (vals.player_type() !== 'video' || !vals.webfull_unlock() || ++vars.insertGoToCommentButtonCount !== 1) return
             const [$comment,
                    $playerControllerBottomRight] = await utils.getElementAndCheckExistence([selectors.videoComment,
@@ -1793,7 +1787,7 @@
      * - 若视频简介中包含 URL 链接，则将其转换为跳转链接
      * - 若视频简介中包含视频 BV 号或专栏 cv 号，则将其转换为跳转链接
      */
-        async insertVideoDescriptionToComment() {
+        async insertVideoDescriptionToComment () {
             if (!vals.insert_video_description_to_comment() || vals.player_type() === 'bangumi') return
             const $commentDescription = document.getElementById('comment-description')
             if ($commentDescription) $commentDescription.remove()
@@ -1882,7 +1876,7 @@
      * - indexedDB
      * - 数据存在浏览器本地
      */
-        async setVideoSkipTimeNodesByIndexedDB(videoSkipTimeNodesArray, videoID = modules.getCurrentVideoID()) {
+        async setVideoSkipTimeNodesByIndexedDB (videoSkipTimeNodesArray, videoID = modules.getCurrentVideoID()) {
             if (videoID !== 'error') {
                 const videoSkipTimeNodesList = localforage.createInstance({
                     name: 'videoSkipTimeNodesList'
@@ -1892,14 +1886,12 @@
                     ({
                         code: 200,
                         message: '节点上传丨本地：成功'
-                    })
-                ).catch(error =>
+                    })).catch(error =>
                     // logger.error(error)
                     ({
                         code: 0,
                         message: error
-                    })
-                )
+                    }))
                 return result
             } else {
                 utils.logger.error('videoID丨获取失败')
@@ -1912,7 +1904,7 @@
      * - indexedDB
      * - 数据存在浏览器本地
      */
-        async getVideoSkipTimeNodesByIndexedDB(videoID = modules.getCurrentVideoID()) {
+        async getVideoSkipTimeNodesByIndexedDB (videoID = modules.getCurrentVideoID()) {
             const videoSkipTimeNodesList = localforage.createInstance({
                 name: 'videoSkipTimeNodesList'
             })
@@ -1934,7 +1926,7 @@
      * - Axios
      * - 数据存在云数据库
      */
-        async setVideoSkipTimeNodesByAxios(timeNodesArray, videoID = modules.getCurrentVideoID()) {
+        async setVideoSkipTimeNodesByAxios (timeNodesArray, videoID = modules.getCurrentVideoID()) {
             const videoAuthor = decodeURIComponent(await utils.getMetaContent('name="author"'))
             let videoTitle, videoUrl
             if (vals.player_type() === 'video') {
@@ -1979,7 +1971,7 @@
      * - Axios
      * - 数据存在云数据库
      */
-        async getVideoSkipTimeNodesByAxios(videoID = modules.getCurrentVideoID()) {
+        async getVideoSkipTimeNodesByAxios (videoID = modules.getCurrentVideoID()) {
             if (videoID !== 'error') {
                 const url = `https://hn216.api.yesapi.cn/?s=SVIP.Swxqian_MyApi.AGetSkipTimeNodes&return_data=0&videoID=${videoID}&app_key=A11B09901609FA722CFDFEB981EC31DB&sign=574181B06EBD07D9252199563CD7D9D3&yesapi_allow_origin=1`
                 const result = axios.post(url).then(response => {
@@ -2005,7 +1997,7 @@
      * 自动跳过视频已设置设置时间节点
      * - #region 自动跳过视频已设置设置时间节点
      */
-        async autoSkipTimeNodes() {
+        async autoSkipTimeNodes () {
             if (!vals.auto_skip()) return
             const videoID = modules.getCurrentVideoID()
             const [$video,
@@ -2060,7 +2052,7 @@
      * 插入设置跳过时间节点按钮
      * - #region 插入设置跳过时间节点按钮
      */
-        async insertSetSkipTimeNodesButton() {
+        async insertSetSkipTimeNodesButton () {
             const videoID = modules.getCurrentVideoID()
             if (++vars.insertSetSkipTimeNodesButtonCount !== 1 || !vals.auto_skip()) return
             const [$video,
@@ -2288,7 +2280,7 @@
      * 插入跳过时间节点功能开关
      * - #region 插入跳过时间节点功能开关
      */
-        async insertSkipTimeNodesSwitchButton() {
+        async insertSkipTimeNodesSwitchButton () {
             if (++vars.insertSetSkipTimeNodesSwitchButtonCount !== 1) return
             const skipTimeNodesSwitchButtonHtml = `
           <div id="autoSkipSwitchButton" class="bpx-player-dm-switch bui bui-danmaku-switch" aria-label="跳过开启关闭">
@@ -2349,7 +2341,7 @@
      * 自动返回播放器并更新评论区简介
      * - #region 自动返回播放器并更新评论区简介
      */
-        async functionsNeedToExecuteWhenUrlHasChanged() {
+        async functionsNeedToExecuteWhenUrlHasChanged () {
             await utils.sleep(500)
             modules.locationToPlayer()
             await utils.sleep(1500)
@@ -2363,7 +2355,7 @@
      * - 合集中的其他视频
      * - 推荐列表中的视频
      */
-        async clickRelatedVideoAutoLocation() {
+        async clickRelatedVideoAutoLocation () {
             if (vals.player_type() === 'video') {
                 // 视频合集
                 await elmGetter.each(selectors.videoSectionsEpisodeLink, link => {
@@ -2416,7 +2408,7 @@
     * 解锁合集/选集视频集数选择按钮
     * - #region 解锁合集/选集视频集数选择按钮
     */
-        async unlockEpisodeSelector() {
+        async unlockEpisodeSelector () {
             const videoInfo = await biliApis.getVideoInformation(modules.getCurrentVideoID(window.location.href))
             const { pages = false, ugc_season = false } = videoInfo.data
             if (ugc_season || pages.length > 1) {
@@ -2435,7 +2427,7 @@
     * 离开当前页面暂停视频
     * - #region 离开当前页面暂停视频
     */
-        async pauseVideoWhenLeavingCurrentPage() {
+        async pauseVideoWhenLeavingCurrentPage () {
             const $video = await utils.getElementAndCheckExistence(selectors.video)
             let playFlag = false
             const timer = setInterval(async () => {
@@ -2459,7 +2451,7 @@
      * 默认显示投稿视频
      * - #region 默认显示投稿视频
      */
-        changeCurrentUrlToVideoSubmissions() {
+        changeCurrentUrlToVideoSubmissions () {
             const web_video_link = vals.web_video_link()
             const url = window.location.href
             const indexLink = 'https://t.bilibili.com/pages/nav/index'
@@ -2490,7 +2482,7 @@
      * 将推荐视频写入本地
      * - #region 将推荐视频写入本地
      */
-        async setIndexRecordRecommendVideoHistory() {
+        async setIndexRecordRecommendVideoHistory () {
             if (++vars.setIndexRecordRecommendVideoHistoryArrayCount !== 1) return
             const indexRecommendVideoHistory = localforage.createInstance({
                 name: 'indexRecommendVideoHistory'
@@ -2499,7 +2491,7 @@
                 const url = video.querySelector('a').href
                 const title = video.querySelector('h3').title
                 if (window.location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
-                    const { data: { tid, pic } } = await biliApis.getVideoInformation(modules.getCurrentVideoID(url))
+                    const { data: { tid, pic }} = await biliApis.getVideoInformation(modules.getCurrentVideoID(url))
                     indexRecommendVideoHistory.setItem(title, [tid,
                                                                url,
                                                                pic])
@@ -2512,7 +2504,7 @@
      * - #region 将本地推荐数据转为数组
      * @returns 推荐记录数组
      */
-        async getIndexRecordRecommendVideoHistoryArray() {
+        async getIndexRecordRecommendVideoHistoryArray () {
             arrays.indexRecommendVideoHistory = []
             const indexRecommendVideoHistory = localforage.createInstance({
                 name: 'indexRecommendVideoHistory'
@@ -2530,7 +2522,7 @@
      * 插入推荐历史记录按钮
      * - #region 插入推荐历史记录按钮
      */
-        async insertIndexRecommendVideoHistoryOpenButton() {
+        async insertIndexRecommendVideoHistoryOpenButton () {
             if (document.getElementById(selectors.indexRecommendVideoHistoryOpenButton)) document.getElementById(selectors.indexRecommendVideoHistoryOpenButton).remove()
             if (document.getElementById(selectors.indexRecommendVideoHistoryPopover)) document.getElementById(selectors.indexRecommendVideoHistoryPopover).remove()
             const $indexRecommendVideoRollButtonWrapper = await utils.getElementAndCheckExistence(selectors.indexRecommendVideoRollButtonWrapper)
@@ -2570,7 +2562,7 @@
      * 获取推荐历史记录
      * - #region 获取推荐历史记录
      */
-        async getIndexRecordRecommendVideoHistory() {
+        async getIndexRecordRecommendVideoHistory () {
             const getIndexRecordRecommendVideoHistoryArray = await modules.getIndexRecordRecommendVideoHistoryArray()
             const $indexRecommendVideoHistoryPopover = await utils.getElementAndCheckExistence(selectors.indexRecommendVideoHistoryPopover)
             $indexRecommendVideoHistoryPopover.querySelector(selectors.indexRecommendVideoHistoryList).innerHTML = ''
@@ -2583,7 +2575,7 @@
      * 生成推荐视频分区信息
      * - #region 生成推荐视频分区信息
      */
-        async generatorVideoCategories() {
+        async generatorVideoCategories () {
             const setCategoryButtonActiveClass = element => {
                 element.parentElement.querySelectorAll(selectors.indexRecommendVideoHistoryCategoryButtons).forEach(element => { element.classList.remove(...arrays.videoCategoriesActiveClass) })
                 element.classList.add(...arrays.videoCategoriesActiveClass)
@@ -2635,7 +2627,7 @@
      * 清除推荐历史记录
      * - #region 清除推荐历史记录
      */
-        async clearRecommendVideoHistory() {
+        async clearRecommendVideoHistory () {
             const indexRecommendVideoHistory = localforage.createInstance({
                 name: 'indexRecommendVideoHistory'
             })
@@ -2656,7 +2648,7 @@
      * 注册脚本设置选项
      * - #region 注册脚本设置选项
      */
-        async registerMenuCommand() {
+        async registerMenuCommand () {
             if (regexps.dynamic.test(window.location.href)) {
                 const dynamicSettingPopoverHtml = `
           <div id="${selectors.dynamicSettingPopover.slice(1)}" class="adjustment_popover" popover>
@@ -3035,7 +3027,7 @@
      * - #region 前期准备函数
      * 提前执行其他脚本功能所依赖的其他函数
      */
-        thePrepFunction() {
+        thePrepFunction () {
             if (++vars.thePrepFunctionRunningCount !== 1) return
             utils.initValue()
             utils.clearAllTimersWhenCloseTab()
@@ -3061,7 +3053,7 @@
      * 执行主函数
      * - #region 执行主函数
      */
-        async theMainFunction() {
+        async theMainFunction () {
             if (++vars.theMainFunctionRunningCount !== 1) return
             if (modules.isLogin()) {
                 modules.thePrepFunction()

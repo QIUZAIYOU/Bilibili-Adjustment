@@ -15,7 +15,7 @@ export default {
         })
     },
     async preFunctions () {
-        this.userConfigs = await storageService.getAll()
+        this.userConfigs = await storageService.getAll('user')
         if (isTabActive()) {
             logger.info('标签页｜已激活')
             this.changeCurrentHrefToVideoSubmissions()

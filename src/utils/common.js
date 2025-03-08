@@ -1,3 +1,4 @@
+/* global getComputedStyle, requestAnimationFrame, requestIdleCallback */
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
