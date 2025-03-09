@@ -264,3 +264,13 @@ export const getTotalSecondsFromTimeString = timeString => {
     }
     return 0 // 无效格式返回0
 }
+export const insertStyleToDocument = (id, cssString) => {
+    let styleElement = document.getElementById(id)
+    if (!styleElement) {
+        styleElement = document.createElement('style')
+        styleElement.id = id
+        document.head.append(styleElement)
+    }
+    styleElement.textContent = cssString
+    return styleElement
+}

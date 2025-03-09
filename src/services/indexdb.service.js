@@ -58,6 +58,12 @@ class IndexedDBService {
     async delete (storeName, key) {
         return this._execute(storeName, 'readwrite', store => store.delete(key))
     }
+    async count (storeName, range) {
+        return this._execute(storeName, 'readonly', store => range ? store.count(range) : store.count())
+    }
+    async clear (storeName) {
+        return this._execute(storeName, 'readwrite', store => store.clear())
+    }
     // 通用执行方法
     async _execute (storeName, mode, operation) {
         await this.connect()

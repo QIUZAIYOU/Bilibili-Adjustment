@@ -113,5 +113,13 @@ export class StorageService {
             }
         })
     }
+    async getCount (dbName, range) {
+        const db = this.#dbs.get(dbName, range)
+        return db.count('keyval')
+    }
+    async clear (dbName) {
+        const db = this.#dbs.get(dbName)
+        return db.clear('keyval')
+    }
 }
 export const storageService = new StorageService()

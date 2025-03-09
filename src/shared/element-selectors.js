@@ -77,6 +77,7 @@ const selectors = {
     indexRecommendVideoHistoryOpenButton: '#indexRecommendVideoHistoryOpenButton',
     indexRecommendVideoHistoryPopover: '#indexRecommendVideoHistoryPopover',
     indexRecommendVideoHistoryCategory: '#indexRecommendVideoHistoryCategory',
+    indexRecommendVideoHistoryCategoryV2: '#indexRecommendVideoHistoryCategoryV2',
     indexRecommendVideoHistoryCategoryButtons: '#indexRecommendVideoHistoryCategory li',
     indexRecommendVideoHistoryCategoryButtonsExceptAll: '#indexRecommendVideoHistoryCategory li:not(.all)',
     indexRecommendVideoHistoryCategoryButtonAll: '#indexRecommendVideoHistoryCategory li.all',
@@ -187,6 +188,7 @@ export const batchQuery = async selectorsObj => {
 // 扩展原有Proxy功能
 export const elementSelectors = new Proxy(selectors, {
     get (target, prop) {
+        if (prop === 'value') return selector => selectors[selector]
         if (prop === 'batch') return selArray => Promise.all(selArray.map(selector => createCachedQuery(selectors[selector])))
         if (prop === 'all') return selector => createCachedQuery(selector, true)
         if (prop === 'css') return selector => createCachedQuery(selector)
