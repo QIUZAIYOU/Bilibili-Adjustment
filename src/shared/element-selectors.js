@@ -73,15 +73,17 @@ const selectors = {
     indexRecommendVideo: '.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))',
     indexRecommendVideoRollButtonWrapper: '.recommended-container_floor-aside .feed-roll-btn',
     indexRecommendVideoHistoryPopoverTitle: '#indexRecommendVideoHistoryPopoverTitle',
+    indexRecommendVideoHistoryPopoverTitleCount: '#indexRecommendVideoHistoryPopoverTitle span',
     indexRecommendVideoRollButton: '.recommended-container_floor-aside .feed-roll-btn button.roll-btn',
     indexRecommendVideoHistoryOpenButton: '#indexRecommendVideoHistoryOpenButton',
     indexRecommendVideoHistoryPopover: '#indexRecommendVideoHistoryPopover',
     indexRecommendVideoHistoryCategory: '#indexRecommendVideoHistoryCategory',
     indexRecommendVideoHistoryCategoryV2: '#indexRecommendVideoHistoryCategoryV2',
-    indexRecommendVideoHistoryCategoryButtons: '#indexRecommendVideoHistoryCategory li',
+    indexRecommendVideoHistoryCategoryButtons: '#indexRecommendVideoHistoryCategory li,#indexRecommendVideoHistoryCategoryV2 li',
     indexRecommendVideoHistoryCategoryButtonsExceptAll: '#indexRecommendVideoHistoryCategory li:not(.all)',
-    indexRecommendVideoHistoryCategoryButtonAll: '#indexRecommendVideoHistoryCategory li.all',
+    indexRecommendVideoHistoryCategoryButtonAll: '#indexRecommendVideoHistoryCategory li.all,#indexRecommendVideoHistoryCategoryV2 li.all_v2',
     indexRecommendVideoHistoryList: '#indexRecommendVideoHistoryList',
+    indexRecommendVideoHistoryListItem: '#indexRecommendVideoHistoryList li',
     clearRecommendVideoHistoryButton: '#clearRecommendVideoHistoryButton',
     dynamicSettingPopover: '#dynamicSettingPopover',
     dynamicSettingSaveButton: '#dynamicSettingSaveButton',
@@ -177,13 +179,18 @@ const createCachedQuery = async (selector, all = false) => {
     return all ? [...result] : result
 }
 // 新增批量查询方法
-export const batchQuery = async selectorsObj => {
-    const queries = Object.entries(selectorsObj).map(async ([key, selector]) => {
-        const elements = await createCachedQuery(selector, true)
-        return [key, elements]
-    })
-    const results = await Promise.all(queries)
-    return Object.fromEntries(results)
+// export const batchQuery = async selectorsObj => {
+//     const queries = Object.entries(selectorsObj).map(async ([key, selector]) => {
+//         const elements = await createCachedQuery(selector, true)
+//         return [key, elements]
+//     })
+//     const results = await Promise.all(queries)
+//     return Object.fromEntries(results)
+// }
+const each = async (selectorKey, callback) => {
+    const selector = selectors[selectorKey]
+    const elements = await createCachedQuery(selector, true)
+    elements.forEach(callback)
 }
 // 扩展原有Proxy功能
 export const elementSelectors = new Proxy(selectors, {
@@ -194,6 +201,7 @@ export const elementSelectors = new Proxy(selectors, {
         if (prop === 'css') return selector => createCachedQuery(selector)
         if (prop === 'normal') return selector => document.querySelector(selector)
         if (prop === 'normalAll') return selector => document.querySelectorAll(selector)
+        if (prop === 'each') return each
         return createCachedQuery(target[prop])
     }
 })

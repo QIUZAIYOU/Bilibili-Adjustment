@@ -3,7 +3,7 @@ import MD5 from 'md5'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { executeFunctionsSequentially, isTabActive, insertStyleToDocument, createElementAndInsert, addEventListenerToElement } from '@/utils/common'
+import { sleep, executeFunctionsSequentially, isTabActive, insertStyleToDocument, createElementAndInsert, addEventListenerToElement } from '@/utils/common'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '../../shared/templates'
 import { styles } from '@/shared/styles'
@@ -174,11 +174,18 @@ export default {
     async generatorIndexRecommendVideoHistoryContents () {
         const indexRecommendVideoHistories = await storageService.getAll('index')
         const totalCount = await storageService.getCount('index')
-        const [indexRecommendVideoHistoryPopoverTitle, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList] = await elementSelectors.batch(['indexRecommendVideoHistoryPopoverTitle', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList'])
-        indexRecommendVideoHistoryCategory.innerHTML = ''
+        const [indexRecommendVideoHistoryPopoverTitleCount, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList] = await elementSelectors.batch(['indexRecommendVideoHistoryPopoverTitleCount', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList'])
+        indexRecommendVideoHistoryCategory.innerHTML = '<li class="all adjustment_button primary plain">全部</li>'
         indexRecommendVideoHistoryCategoryV2.innerHTML = ''
         indexRecommendVideoHistoryList.innerHTML = ''
-        indexRecommendVideoHistoryPopoverTitle.querySelector('span').innerText = `首页视频推荐历史记录(${totalCount})`
+        indexRecommendVideoHistoryPopoverTitleCount.innerText = `首页视频推荐历史记录(${totalCount})`
+        const setCategoryButtonActiveClass = async element => {
+            elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
+                item.classList.remove('active')
+            })
+            await sleep(100)
+            element.classList.add('active')
+        }
         const tnameList = Array.from(
             Object.entries(indexRecommendVideoHistories)
                 // eslint-disable-next-line no-unused-vars
@@ -198,14 +205,35 @@ export default {
                 .values()
         )
         for (const category of tnameList){
-            createElementAndInsert(`<li data-tids="[${category.tid}]">${category.tname}</li>`, indexRecommendVideoHistoryCategory, 'append')
+            createElementAndInsert(`<li data-tid="${category.tid}">${category.tname}</li>`, indexRecommendVideoHistoryCategory, 'append')
         }
         for (const category of tnameV2List){
-            createElementAndInsert(`<li data-tids="[${category.tid_v2}]">${category.tname_v2}</li>`, indexRecommendVideoHistoryCategoryV2, 'append')
+            createElementAndInsert(`<li data-tid="${category.tid_v2}">${category.tname_v2}</li>`, indexRecommendVideoHistoryCategoryV2, 'append')
         }
         for (const record of Object.entries(indexRecommendVideoHistories)){
             createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList, 'append')
         }
+        elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
+            addEventListenerToElement(item, 'click', async () => {
+                setCategoryButtonActiveClass(item)
+                indexRecommendVideoHistoryList.innerHTML = ''
+                const tid = Number(item.dataset.tid)
+                for (const record of Object.entries(indexRecommendVideoHistories)) {
+                    if ([record[1].tid, record[1].tid_v2].includes(tid)) {
+                        createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList, 'append')
+                    }
+                }
+            })
+        })
+        elementSelectors.each('indexRecommendVideoHistoryCategoryButtonAll', item => {
+            addEventListenerToElement(item, 'click', async () => {
+                setCategoryButtonActiveClass(item)
+                indexRecommendVideoHistoryList.innerHTML = ''
+                for (const record of Object.entries(indexRecommendVideoHistories)) {
+                    createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList, 'append')
+                }
+            })
+        })
     },
     async clearRecommendVideoHistory (){
         storageService.clear('index')
