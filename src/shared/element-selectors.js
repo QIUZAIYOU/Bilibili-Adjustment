@@ -115,7 +115,8 @@ const selectors = {
     InsertVideoDescriptionToComment: '#Insert-Video-Description-To-Comment',
     PauseVideo: '#PauseVideo',
     ContinuePlay: '#ContinuePlay',
-    AutoSubtitle: '#AutoSubtitle'
+    AutoSubtitle: '#AutoSubtitle',
+    UnlockEpisodeSelectorStyle: '#UnlockEpisodeSelectorStyle'
 }
 export const shadowDomSelectors = {
     descriptionRenderer: '#feed > bili-adjustment-comment-thread-renderer',
@@ -196,7 +197,19 @@ const each = async (selectorKey, callback) => {
 export const elementSelectors = new Proxy(selectors, {
     get (target, prop) {
         if (prop === 'value') return selector => selectors[selector]
-        if (prop === 'batch') return selArray => Promise.all(selArray.map(selector => createCachedQuery(selectors[selector])))
+        if (prop === 'batch') {
+            return async selArray => {
+                const selectorString = selArray.map(s => target[s]).join(', ')
+                const elements = await createCachedQuery(selectorString, true)
+                const elementMap = new Map()
+                elements.forEach(el => {
+                    selArray.forEach(s_1 => {
+                        if (el.matches(target[s_1])) elementMap.set(s_1, el)
+                    })
+                })
+                return selArray.map(s_2 => elementMap.get(s_2))
+            }
+        }
         if (prop === 'all') return selector => createCachedQuery(selector, true)
         if (prop === 'css') return selector => createCachedQuery(selector)
         if (prop === 'normal') return selector => document.querySelector(selector)

@@ -1,4 +1,4 @@
-/* global getComputedStyle, requestAnimationFrame, requestIdleCallback */
+/* global getComputedStyle, requestAnimationFrame, requestIdleCallback,arguments */
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
@@ -198,11 +198,17 @@ export const isTabActive = () => {
 }
 export const monitorHrefChange = callback => {
     let lastHref = location.href.split('?')[0]
+    const getHrefKey = url => {
+        const u = new URL(url)
+        const pParam = u.searchParams.get('p')
+        return `${u.pathname}${pParam ? `?p=${pParam}` : ''}`
+    }
     const checkAndTrigger = () => {
         const currentHref = location.href
-        const currentHrefWithoutParams = currentHref.split('?')[0]
-        if (currentHrefWithoutParams !== lastHref) {
-            lastHref = currentHrefWithoutParams
+        const currentHrefKey = getHrefKey(currentHref)
+        const lastHrefKey = getHrefKey(lastHref)
+        if (currentHrefKey !== lastHrefKey) {
+            lastHref = currentHref
             requestAnimationFrame(() => {
                 try {
                     callback()
@@ -229,7 +235,6 @@ export const monitorHrefChange = callback => {
         requestIdleCallback(() => checkAndTrigger(), { timeout: 100 })
         return result
     }
-    // requestIdleCallback(checkAndTrigger, { timeout: 100 })
     return () => {
         window.removeEventListener('hashchange', checkAndTrigger, listenerOptions)
         window.removeEventListener('popstate', checkAndTrigger, listenerOptions)

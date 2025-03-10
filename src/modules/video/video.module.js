@@ -4,7 +4,8 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString } from '@/utils/common'
+import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument } from '@/utils/common'
+import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
@@ -20,8 +21,10 @@ export default {
         })
     },
     async preFunctions () {
-        storageService.legacySet('player_type', window.location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        storageService.legacySet('player_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        await sleep(300)
         this.userConfigs = await storageService.getAll('user')
+        // logger.debug(this.userConfigs)
         this.initEventListeners()
         this.initMonitors()
         if (isTabActive()) {
@@ -98,10 +101,12 @@ export default {
                 }
             }
         ]
-        selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode).action()
+        selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode)?.action()
         await sleep(350)
         if (this.userConfigs.selected_player_mode !== 'normal') {
-            if (await this.isPlayerModeSwitchSuccess(this.userConfigs.selected_player_mode, await elementSelectors.video)) {
+            const video = await elementSelectors.video
+            const success = await this.isPlayerModeSwitchSuccess(this.userConfigs.selected_player_mode, video)
+            if (success) {
                 logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
                 eventBus.emit('video:playerModeSelected')
             }
@@ -126,14 +131,19 @@ export default {
         this.autoSelectPlayerMode()
     },
     async autoLocateToPlayer () {
+        if (this.userConfigs.webfull_unlock || this.userConfigs.player_type === 'web') {
+            eventBus.emit('video:startOtherFunctions')
+            return
+        }
         if (!this.userConfigs.auto_locate) {
             logger.info('自动定位丨功能已关闭')
-            eventBus.emit('video:locateToPlayer')
+            eventBus.emit('video:startOtherFunctions')
+            return
         }
         await sleep(300)
         this.locateToPlayer()
         logger.info('自动定位丨成功')
-        eventBus.emit('video:locateToPlayer')
+        eventBus.emit('video:startOtherFunctions')
     },
     async locateToPlayer () {
         const playerContainer = await elementSelectors.playerContainer
@@ -337,17 +347,51 @@ export default {
         }
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
+    async unlockEpisodeSelector () {
+        const videoInfo = await biliApis.getVideoInformation(biliApis.getCurrentVideoID(window.location.href))
+        const { pages = false, ugc_season = false } = videoInfo.data
+        if (ugc_season || pages.length > 1) {
+            insertStyleToDocument('UnlockEpisodeSelectorStyle', styles.UnlockEpisodeSelector)
+            elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
+                addEventListenerToElement(link, 'click', () => {
+                    this.locateToPlayer()
+                })
+            })
+        }
+    },
+    async webfullScreenModeUnlock () {
+        if (!this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode !== 'web' || this.userConfigs.player_type === 'bangumi') return
+        const webscreenUnlockSelectors = [
+            'app',
+            'playerWrap',
+            'player',
+            'playerWebscreen',
+            'playerModeWideEnterButton',
+            'playerModeWideLeaveButton',
+            'playerModeWebEnterButton',
+            'playerModeWebLeaveButton',
+            'playerModeFullControlButton'
+        ]
+        const [app, playerWrap, player, playerWebscreen, wideEnterButton, wideLeaveButton, webEnterButton, webLeaveButton, fullControlButton] = await elementSelectors.batch(webscreenUnlockSelectors)
+        const resetPlayerLayout = async () => {
+            insertStyleToDocument('UnlockWebscreenStyle', styles.UnlockWebscreen)
+            insertStyleToDocument('ResetPlayerLayoutStyle', styles.ResetPlayerLayout)
+        }
+        logger.info('网页全屏丨已解锁')
+    },
     handleHrefChangedFunctionsSequentially (){
         const hrefChangeFunctions = [
             this.locateToPlayer,
             this.insertVideoDescriptionToComment,
             this.clickVideoTimeAutoLocation,
-            this.doSomethingToCommentElements
+            this.doSomethingToCommentElements,
+            this.unlockEpisodeSelector
         ]
         executeFunctionsSequentially(hrefChangeFunctions)
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
+            this.webfullScreenModeUnlock,
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
             this.autoCancelMute,
@@ -355,7 +399,8 @@ export default {
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButton,
             this.clickVideoTimeAutoLocation,
-            this.doSomethingToCommentElements
+            this.doSomethingToCommentElements,
+            this.unlockEpisodeSelector
         ]
         executeFunctionsSequentially(functions)
     }

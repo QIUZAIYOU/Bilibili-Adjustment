@@ -805,8 +805,10 @@
         async addEventListenerToElement () {
             if (window.location.href === 'https://www.bilibili.com/') {
                 const [$indexRecommendVideoRollButton,
-                       $clearRecommendVideoHistoryButton] = await utils.getElementAndCheckExistence([selectors.indexRecommendVideoRollButton,
-                                                                                                     selectors.clearRecommendVideoHistoryButton])
+                       $clearRecommendVideoHistoryButton] = await utils.getElementAndCheckExistence([
+                    selectors.indexRecommendVideoRollButton,
+                    selectors.clearRecommendVideoHistoryButton
+                ])
                 $indexRecommendVideoRollButton.addEventListener('click', () => {
                     const functionsArray = [
                         modules.setIndexRecordRecommendVideoHistory,
@@ -855,11 +857,13 @@
                            $setSkipTimeNodesPopoverToggleButton,
                            $setSkipTimeNodesPopoverRecords,
                            $skipTimeNodesRecordsArray,
-                           $saveRecordsButton] = await utils.getElementAndCheckExistence([selectors.video,
-                                                                                          selectors.setSkipTimeNodesPopoverToggleButton,
-                                                                                          selectors.setSkipTimeNodesPopoverRecords,
-                                                                                          selectors.skipTimeNodesRecordsArray,
-                                                                                          selectors.saveRecordsButton])
+                           $saveRecordsButton] = await utils.getElementAndCheckExistence([
+                        selectors.video,
+                        selectors.setSkipTimeNodesPopoverToggleButton,
+                        selectors.setSkipTimeNodesPopoverRecords,
+                        selectors.skipTimeNodesRecordsArray,
+                        selectors.saveRecordsButton
+                    ])
                     document.addEventListener('keydown', event => {
                         if (event.key === 'k') {
                             const currentTime = Math.ceil($video.currentTime)
@@ -897,70 +901,7 @@
      */
         async getQueryWithWbi (originalParams) {
             const mixinKeyEncTab = [
-                46,
-                47,
-                18,
-                2,
-                53,
-                8,
-                23,
-                32,
-                15,
-                50,
-                10,
-                31,
-                58,
-                3,
-                45,
-                35,
-                27,
-                43,
-                5,
-                49,
-                33,
-                9,
-                42,
-                19,
-                29,
-                28,
-                14,
-                39,
-                12,
-                38,
-                41,
-                13,
-                37,
-                48,
-                7,
-                16,
-                24,
-                55,
-                40,
-                61,
-                26,
-                17,
-                0,
-                1,
-                60,
-                51,
-                30,
-                4,
-                22,
-                25,
-                54,
-                21,
-                56,
-                59,
-                6,
-                63,
-                57,
-                62,
-                11,
-                36,
-                20,
-                34,
-                44,
-                52
+                46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52
             ]
             // 对 imgKey 和 subKey 进行字符顺序打乱编码
             const getMixinKey = orig => mixinKeyEncTab.map(n => orig[n]).join('').slice(0, 32)
@@ -1173,8 +1114,10 @@
      */
         async checkVideoExistence () {
             const [$videoWrap,
-                   $video] = await utils.getElementAndCheckExistence([selectors.videoWrap,
-                                                                      selectors.video])
+                   $video] = await utils.getElementAndCheckExistence([
+                selectors.videoWrap,
+                selectors.video
+            ])
             if ($video) return { message: '播放器｜已找到', callback: [modules.setVideoCover.bind(null, $videoWrap, $video)]}
             else throw new Error('播放器｜未找到')
         },
@@ -1344,7 +1287,7 @@
                     enterBtn.click()
                     const currentScreenMode = await modules.getCurrentScreenMode()
                     const equal = expectScreenMode === currentScreenMode
-                    const success = vals.player_type() === 'video' ? expectScreenMode === 'wide' ? equal && +getComputedStyle(document.querySelector(selectors.danmukuBox))['margin-top'].slice(0, -2) > 0 : equal : equal
+                    const success = vals.player_type() === 'video' ? expectScreenMode === 'wide' ? equal && + getComputedStyle(document.querySelector(selectors.danmukuBox))['margin-top'].slice(0, -2) > 0 : equal : equal
                     // utils.logger.debug(`${vals.player_type()} ${expectScreenMode} ${currentScreenMode} ${equal} ${success}`)
                     if (success) return success
                     else {
@@ -1464,8 +1407,7 @@
                 const $video = await utils.getElementAndCheckExistence(selectors.video)
                 $video.addEventListener('click', async () => {
                     const currentScreenMode = await modules.getCurrentScreenMode()
-                    if (['full',
-                         'mini'].includes(currentScreenMode)) return
+                    if (['full', 'mini'].includes(currentScreenMode)) return
                     await modules.locationToPlayer()
                 })
             }
@@ -1528,9 +1470,10 @@
      */
         async autoCancelMute () {
             if (++vars.autoCancelMuteRunningCount !== 1) return
-            const [$mutedButton,
-                   $volumeButton] = await utils.getElementAndCheckExistence([selectors.mutedButton,
-                                                                             selectors.volumeButton])
+            const [$mutedButton, $volumeButton] = await utils.getElementAndCheckExistence([
+                selectors.mutedButton,
+                selectors.volumeButton
+            ])
             // const mutedButtonDisplay = getComputedStyle(mutedButton)['display']
             // const volumeButtonDisplay = getComputedStyle(volumeButton)['display']
             const mutedButtonDisplay = $mutedButton.style.display
@@ -1584,9 +1527,10 @@
           <div id="autoEnableSubtitleTips" class="bpx-player-tooltip-item" style="visibility: hidden; opacity: 0; transform: translate(0px, 0px);">
               <div class="bpx-player-tooltip-title">关闭自动开启字幕(j)</div>
           </div>`
-            const [playerDanmuSetting,
-                   playerTooltipArea] = await utils.getElementAndCheckExistence([selectors.playerDanmuSetting,
-                                                                                 selectors.playerTooltipArea])
+            const [playerDanmuSetting, playerTooltipArea] = await utils.getElementAndCheckExistence([
+                selectors.playerDanmuSetting,
+                selectors.playerTooltipArea
+            ])
             const $autoEnableSubtitleSwitchButton = utils.createElementAndInsert(autoEnableSubtitleSwitchButtonHtml, playerDanmuSetting, 'after')
             const autoEnableSubtitleTips = utils.createElementAndInsert(autoEnableSubtitleSwitchButtonTipHtml, playerTooltipArea, 'append')
             const $AutoEnableSubtitleSwitchInput = await utils.getElementAndCheckExistence(selectors.AutoEnableSubtitleSwitchInput)
@@ -1714,15 +1658,17 @@
                    $wideLeaveButton,
                    $webEnterButton,
                    $webLeaveButton,
-                   $fullControlButton] = await utils.getElementAndCheckExistence([selectors.app,
-                                                                                  selectors.playerWrap,
-                                                                                  selectors.player,
-                                                                                  selectors.playerWebscreen,
-                                                                                  selectors.screenModeWideEnterButton,
-                                                                                  selectors.screenModeWideLeaveButton,
-                                                                                  selectors.screenModeWebEnterButton,
-                                                                                  selectors.screenModeWebLeaveButton,
-                                                                                  selectors.screenModeFullControlButton])
+                   $fullControlButton] = await utils.getElementAndCheckExistence(
+                [selectors.app,
+                 selectors.playerWrap,
+                 selectors.player,
+                 selectors.playerWebscreen,
+                 selectors.screenModeWideEnterButton,
+                 selectors.screenModeWideLeaveButton,
+                 selectors.screenModeWebEnterButton,
+                 selectors.screenModeWebLeaveButton,
+                 selectors.screenModeFullControlButton]
+            )
             const resetPlayerLayout = async () => {
                 if (document.getElementById('UnlockWebscreenStyle')) document.getElementById('UnlockWebscreenStyle').remove()
                 if (!document.getElementById('ResetPlayerLayoutStyle')) utils.insertStyleToDocument('ResetPlayerLayoutStyle', styles.ResetPlayerLayout)
@@ -1766,9 +1712,10 @@
      */
         async insertGoToCommentButton () {
             if (vals.player_type() !== 'video' || !vals.webfull_unlock() || ++vars.insertGoToCommentButtonCount !== 1) return
-            const [$comment,
-                   $playerControllerBottomRight] = await utils.getElementAndCheckExistence([selectors.videoComment,
-                                                                                            selectors.playerControllerBottomRight])
+            const [$comment, $playerControllerBottomRight] = await utils.getElementAndCheckExistence([
+                selectors.videoComment,
+                selectors.playerControllerBottomRight
+            ])
             const goToCommentBtnHtml = '<div class="bpx-player-ctrl-btn bpx-player-ctrl-comment" role="button" aria-label="前往评论" tabindex="0"><div id="goToComments" class="bpx-player-ctrl-btn-icon"><span class="bpx-common-svg-icon"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="88" height="88" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px);"><path d="M512 85.333c235.637 0 426.667 191.03 426.667 426.667S747.637 938.667 512 938.667a424.779 424.779 0 0 1-219.125-60.502A2786.56 2786.56 0 0 0 272.82 866.4l-104.405 28.48c-23.893 6.507-45.803-15.413-39.285-39.296l28.437-104.288c-11.008-18.688-18.219-31.221-21.803-37.91A424.885 424.885 0 0 1 85.333 512c0-235.637 191.03-426.667 426.667-426.667zm-102.219 549.76a32 32 0 1 0-40.917 49.216A223.179 223.179 0 0 0 512 736c52.97 0 103.19-18.485 143.104-51.67a32 32 0 1 0-40.907-49.215A159.19 159.19 0 0 1 512 672a159.19 159.19 0 0 1-102.219-36.907z" fill="#currentColor"/></svg></span></div></div>'
             const $goToCommentButton = utils.createElementAndInsert(goToCommentBtnHtml, $playerControllerBottomRight, 'append')
             $goToCommentButton.addEventListener('click', event => {
@@ -2000,9 +1947,10 @@
         async autoSkipTimeNodes () {
             if (!vals.auto_skip()) return
             const videoID = modules.getCurrentVideoID()
-            const [$video,
-                   $setSkipTimeNodesInput] = await utils.getElementAndCheckExistence([selectors.video,
-                                                                                      selectors.setSkipTimeNodesInput])
+            const [$video, $setSkipTimeNodesInput] = await utils.getElementAndCheckExistence([
+                selectors.video,
+                selectors.setSkipTimeNodesInput
+            ])
             const skipTo = seconds => {
                 $video.currentTime = seconds
                 if ($video.paused) {
@@ -2058,10 +2006,12 @@
             const [$video,
                    $playerContainer,
                    $playerControllerBottomRight,
-                   $playerTooltipArea] = await utils.getElementAndCheckExistence([selectors.video,
-                                                                                  selectors.playerContainer,
-                                                                                  selectors.playerControllerBottomRight,
-                                                                                  selectors.playerTooltipArea])
+                   $playerTooltipArea] = await utils.getElementAndCheckExistence([
+                selectors.video,
+                selectors.playerContainer,
+                selectors.playerControllerBottomRight,
+                selectors.playerTooltipArea
+            ])
             const validateInputValue = inputValue => {
                 const regex = /^\[\d+,\d+\](,\[\d+,\d+\])*?$/g
                 const numbers = inputValue.match(/\[(\d+),(\d+)\]/g)?.flatMap(match => match.slice(1, -1).split(',')).map(Number) || []
@@ -2176,19 +2126,21 @@
                    $uploadSkipTimeNodesButton,
                    $syncSkipTimeNodesButton,
                    $setSkipTimeNodesPopoverClouds,
-                   $skipTimeNodesCloudsArray] = await utils.getElementAndCheckExistence([selectors.setSkipTimeNodesPopoverHeaderExtra,
-                                                                                         selectors.setSkipTimeNodesPopoverTips,
-                                                                                         selectors.setSkipTimeNodesPopoverTipsDetail,
-                                                                                         selectors.setSkipTimeNodesPopoverRecords,
-                                                                                         selectors.setSkipTimeNodesInput,
-                                                                                         selectors.skipTimeNodesRecordsArray,
-                                                                                         selectors.setSkipTimeNodesPopoverResult,
-                                                                                         selectors.clearRecordsButton,
-                                                                                         selectors.saveRecordsButton,
-                                                                                         selectors.uploadSkipTimeNodesButton,
-                                                                                         selectors.syncSkipTimeNodesButton,
-                                                                                         selectors.setSkipTimeNodesPopoverClouds,
-                                                                                         selectors.skipTimeNodesCloudsArray])
+                   $skipTimeNodesCloudsArray] = await utils.getElementAndCheckExistence([
+                selectors.setSkipTimeNodesPopoverHeaderExtra,
+                selectors.setSkipTimeNodesPopoverTips,
+                selectors.setSkipTimeNodesPopoverTipsDetail,
+                selectors.setSkipTimeNodesPopoverRecords,
+                selectors.setSkipTimeNodesInput,
+                selectors.skipTimeNodesRecordsArray,
+                selectors.setSkipTimeNodesPopoverResult,
+                selectors.clearRecordsButton,
+                selectors.saveRecordsButton,
+                selectors.uploadSkipTimeNodesButton,
+                selectors.syncSkipTimeNodesButton,
+                selectors.setSkipTimeNodesPopoverClouds,
+                selectors.skipTimeNodesCloudsArray
+            ])
             const cloudsArray = await modules.getVideoSkipTimeNodesByAxios(videoID)
             if (cloudsArray) {
                 if (typeof cloudsArray === 'string') cloudsArray = JSON.parse(cloudsArray)
@@ -2492,9 +2444,7 @@
                 const title = video.querySelector('h3').title
                 if (window.location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
                     const { data: { tid, pic }} = await biliApis.getVideoInformation(modules.getCurrentVideoID(url))
-                    indexRecommendVideoHistory.setItem(title, [tid,
-                                                               url,
-                                                               pic])
+                    indexRecommendVideoHistory.setItem(title, [tid, url, pic])
                 }
             })
         },
@@ -2544,9 +2494,10 @@
             utils.createElementAndInsert(indexRecommendVideoHistoryOpenButtonHtml, $indexRecommendVideoRollButtonWrapper, 'append')
             const $indexRecommendVideoHistoryPopover = utils.createElementAndInsert(indexRecommendVideoHistoryPopoverHtml, document.body, 'append')
             $indexRecommendVideoHistoryPopover.addEventListener('toggle', async event => {
-                const [$indexApp,
-                       $indexRecommendVideoHistoryPopoverTitle] = await utils.getElementAndCheckExistence([selectors.indexApp,
-                                                                                                           selectors.indexRecommendVideoHistoryPopoverTitle])
+                const [$indexApp, $indexRecommendVideoHistoryPopoverTitle] = await utils.getElementAndCheckExistence([
+                    selectors.indexApp,
+                    selectors.indexRecommendVideoHistoryPopoverTitle
+                ])
                 if (event.newState === 'open') {
                     $indexApp.style.pointerEvents = 'none'
                     $indexRecommendVideoHistoryPopoverTitle.querySelector('span').append(`(${$indexRecommendVideoHistoryPopover.querySelector(selectors.indexRecommendVideoHistoryList).childElementCount})`)
@@ -2673,10 +2624,12 @@
                 const [$app,
                        $dynamicHeaderContainer,
                        $WebVideoLinkInput,
-                       $dynamicSettingSaveButton] = await utils.getElementAndCheckExistence([selectors.app,
-                                                                                             selectors.dynamicHeaderContainer,
-                                                                                             selectors.WebVideoLinkInput,
-                                                                                             selectors.dynamicSettingSaveButton])
+                       $dynamicSettingSaveButton] = await utils.getElementAndCheckExistence([
+                    selectors.app,
+                    selectors.dynamicHeaderContainer,
+                    selectors.WebVideoLinkInput,
+                    selectors.dynamicSettingSaveButton
+                ])
                 $WebVideoLinkInput.addEventListener('input', event => {
                     utils.setValue('web_video_link', event.target.value.trim())
                 })
@@ -2932,25 +2885,27 @@
                        $InsertVideoDescriptionToComment,
                        $PauseVideo,
                        $ContinuePlay,
-                       $AutoSubtitle] = await utils.getElementAndCheckExistence([selectors.IsVip,
-                                                                                 selectors.AutoLocate,
-                                                                                 selectors.AutoLocateVideo,
-                                                                                 selectors.AutoLocateBangumi,
-                                                                                 selectors.TopOffset,
-                                                                                 selectors.ClickPlayerAutoLocation,
-                                                                                 selectors.AutoQuality,
-                                                                                 selectors.Quality4K,
-                                                                                 selectors.Quality8K,
-                                                                                 selectors.Checkbox4K,
-                                                                                 selectors.Checkbox8K,
-                                                                                 selectors.WebfullUnlock,
-                                                                                 selectors.AutoReload,
-                                                                                 selectors.videoSettingSaveButton,
-                                                                                 selectors.AutoSkip,
-                                                                                 selectors.InsertVideoDescriptionToComment,
-                                                                                 selectors.PauseVideo,
-                                                                                 selectors.ContinuePlay,
-                                                                                 selectors.AutoSubtitle])
+                       $AutoSubtitle] = await utils.getElementAndCheckExistence([
+                    selectors.IsVip,
+                    selectors.AutoLocate,
+                    selectors.AutoLocateVideo,
+                    selectors.AutoLocateBangumi,
+                    selectors.TopOffset,
+                    selectors.ClickPlayerAutoLocation,
+                    selectors.AutoQuality,
+                    selectors.Quality4K,
+                    selectors.Quality8K,
+                    selectors.Checkbox4K,
+                    selectors.Checkbox8K,
+                    selectors.WebfullUnlock,
+                    selectors.AutoReload,
+                    selectors.videoSettingSaveButton,
+                    selectors.AutoSkip,
+                    selectors.InsertVideoDescriptionToComment,
+                    selectors.PauseVideo,
+                    selectors.ContinuePlay,
+                    selectors.AutoSubtitle
+                ])
                 $videoSettingPopover.addEventListener('toggle', event => {
                     if (event.newState === 'open') {
                         // document.querySelector('*:not(#videoSettingPopover *)').style.pointerEvents = 'none'
