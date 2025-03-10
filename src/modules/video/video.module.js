@@ -12,8 +12,9 @@ import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'video',
-    version: '1.9.0',
+    version: '2.0.0',
     async install () {
+        insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
             await this.preFunctions()
@@ -28,6 +29,7 @@ export default {
         this.initMonitors()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
+            this.checkVideoCanplaythrough(await elementSelectors.video)
             this.checkVideoCanplaythrough(await elementSelectors.video)
         }
     },
@@ -144,6 +146,8 @@ export default {
         await this.locateToPlayer()
         logger.info('自动定位丨成功')
         eventBus.emit('video:startOtherFunctions')
+        const bodyOverflowHiddenStyle = await elementSelectors.BodyOverflowHiddenStyle
+        bodyOverflowHiddenStyle?.remove()
     },
     async locateToPlayer () {
         const playerContainer = await elementSelectors.playerContainer
@@ -153,7 +157,6 @@ export default {
         // logger.debug(headerComputedStyle.position, headerComputedStyle.height)
         const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
         documentScrollTo(playerOffsetTop - this.userConfigs.offset_top)
-        eventBus.emit('video:startOtherFunctions')
     },
     async clickPlayerAutoLocate () {
         if (!this.userConfigs.click_player_auto_locate) return
@@ -363,7 +366,7 @@ export default {
             })
         }
     },
-    async webfullScreenModeUnlock () {
+    async webfullPlayerModeUnlock () {
         if (!this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode !== 'web' || this.userConfigs.player_type === 'bangumi') return
         const batchSelectors = [
             'app',
@@ -401,8 +404,15 @@ export default {
         logger.info('网页全屏丨已解锁')
         eventBus.emit('video:webfullPlayerModeUnlock')
     },
-    insertLocateToCommentButton (){
-        logger.info('定位评论按钮丨已插入')
+    async insertLocateToCommentButton (){
+        if (!this.userConfigs.webfull_unlock || this.userConfigs.player_type === 'bangumi' || this.userConfigs.selected_player_mode !== 'web') return
+        const batchSelectors = ['playerControllerBottomRight', 'videoComment']
+        const [playerControllerBottomRight, videoComment] = await elementSelectors.batch(batchSelectors)
+        const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight, 'append')
+        addEventListenerToElement(locateToCommentButton, 'click', async event => {
+            event.stopPropagation()
+            documentScrollTo(await getElementOffsetToDocumentTop(videoComment) - 10)
+        })
     },
     handleHrefChangedFunctionsSequentially (){
         const hrefChangeFunctions = [
@@ -416,7 +426,7 @@ export default {
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
-            this.webfullScreenModeUnlock,
+            this.webfullPlayerModeUnlock,
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
             this.autoCancelMute,

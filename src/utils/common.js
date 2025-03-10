@@ -102,7 +102,10 @@ export const documentScrollTo = (offset, options = {}) => {
                 await new Promise(r => setTimeout(r, 200))
                 const currentY = window.scrollY
                 const targetY = offset
-                if (Math.abs(currentY - targetY) <= tolerance) {
+                // console.log(currentY, targetY, Math.abs(currentY - targetY))
+                // 滚动成功：文档已滚动值等于目标值或在容差范围内或当前播放器模式为网页全屏(目标值为-5)
+                const success = currentY === targetY || Math.abs(currentY - targetY) <= tolerance || offset === -5
+                if (success) {
                     resolve()
                 } else if (attempts < maxRetries) {
                     attempts++

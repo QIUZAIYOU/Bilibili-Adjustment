@@ -93,6 +93,7 @@ const selectors = {
     videoSettingSaveButton: '#videoSettingSaveButton',
     notChargeHighLevelCover: '.not-charge-high-level-cover',
     switchSubtitleButton: '.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle',
+    // 脚本设置项选择器
     AutoSkipSwitchInput: '#Auto-Skip-Switch',
     AutoEnableSubtitleSwitchInput: '#Auto-Enable-Subtitle',
     WebVideoLinkInput: '#Web-Video-Link',
@@ -116,9 +117,17 @@ const selectors = {
     PauseVideo: '#PauseVideo',
     ContinuePlay: '#ContinuePlay',
     AutoSubtitle: '#AutoSubtitle',
+    // 脚本样式表选择器
+    BilibiliAdjustmentStyle: '#BilibiliAdjustmentStyle',
+    VideoPageAdjustmentStyle: '#VideoPageAdjustmentStyle',
+    FreezeHeaderAndVideoTitleStyle: '#FreezeHeaderAndVideoTitleStyle',
     UnlockEpisodeSelectorStyle: '#UnlockEpisodeSelectorStyle',
     UnlockWebPlayerStyle: '#UnlockWebPlayerStyle',
-    ResetPlayerLayoutStyle: '#ResetPlayerLayoutStyle'
+    ResetPlayerLayoutStyle: '#ResetPlayerLayoutStyle',
+    VideoSettingStyle: '#VideoSettingStyle',
+    IndexAdjustmentStyle: '#IndexAdjustmentStyle',
+    DynamicSettingStyle: '#DynamicSettingStyle',
+    BodyOverflowHiddenStyle: '#BodyOverflowHiddenStyle'
 }
 export const shadowDomSelectors = {
     descriptionRenderer: '#feed > bili-adjustment-comment-thread-renderer',

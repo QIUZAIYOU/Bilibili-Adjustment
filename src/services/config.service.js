@@ -18,12 +18,12 @@ export class ConfigService {
         ['auto_locate_bangumi', true],
         ['click_player_auto_locate', true],
         ['current_player_mode', 'normal'],
-        ['selected_player_mode', 'web'],
+        ['selected_player_mode', 'wide'],
         ['auto_select_video_highest_quality', true],
         ['auto_cancel_mute', true],
         ['contain_quality_4k', false],
         ['contain_quality_8k', false],
-        ['webfull_unlock', true],
+        ['webfull_unlock', false],
         ['auto_reload', false],
         ['auto_skip', false],
         ['insert_video_description_to_comment', true],
@@ -94,7 +94,7 @@ export class ConfigService {
         try {
             // 同步更新缓存
             this.#cache.set(name, value)
-            await storageService.set(name, value)
+            await storageService.legacySet(name, value)
         } catch (error) {
             this.#cache.delete(name) // 回滚缓存
             this.#logger.error('配置存储失败', error)
