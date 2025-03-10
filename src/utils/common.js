@@ -137,13 +137,19 @@ export const getElementComputedStyle = (element, propertyName) => {
         return obj
     }, {})
 }
-export const addEventListenerToElement = (target, type, callback, options = {}) => {
-    if (options && typeof options !== 'object') {
+export const addEventListenerToElement = (targets, type, callback, options = {}) => {
+    // 统一处理单元素和多元素情况
+    const elements = Array.isArray(targets) ? targets : [targets]
+    if (typeof options !== 'object') {
         throw new Error('Options must be an object or undefined')
     }
-    target.addEventListener(type, callback, options)
+    elements.forEach(element => {
+        element.addEventListener(type, callback, options)
+    })
     return () => {
-        target.removeEventListener(type, callback, options)
+        elements.forEach(element => {
+            element.removeEventListener(type, callback, options)
+        })
     }
 }
 export const isAsyncFunction = targetFunction => targetFunction.constructor.name === 'AsyncFunction'
@@ -186,15 +192,30 @@ export const isTabActive = () => {
         return null
     })()
     if (visibilityInfo) {
-        document.addEventListener(visibilityInfo.event, () => {
+        const handleVisibilityChange = () => {
             active = document[visibilityInfo.state] === 'visible'
-        }, { passive: true })
+        }
+        document.addEventListener(visibilityInfo.event, handleVisibilityChange, { passive: true })
+        return () => {
+            document.removeEventListener(visibilityInfo.event, handleVisibilityChange, { passive: true })
+            return active
+        }
     } else {
-        window.addEventListener('focus', () => active = true)
-        window.addEventListener('blur', () => active = false)
+        const handleFocus = () => {
+            active = true
+        }
+        const handleBlur = () => {
+            active = false
+        }
+        window.addEventListener('focus', handleFocus, { passive: true })
+        window.addEventListener('blur', handleBlur, { passive: true })
         active = document.hasFocus()
+        return () => {
+            window.removeEventListener('focus', handleFocus, { passive: true })
+            window.removeEventListener('blur', handleBlur, { passive: true })
+            return active
+        }
     }
-    return () => active
 }
 export const monitorHrefChange = callback => {
     let lastHref = location.href.split('?')[0]
@@ -206,41 +227,40 @@ export const monitorHrefChange = callback => {
     const checkAndTrigger = () => {
         const currentHref = location.href
         const currentHrefKey = getHrefKey(currentHref)
-        const lastHrefKey = getHrefKey(lastHref)
-        if (currentHrefKey !== lastHrefKey) {
-            lastHref = currentHref
-            requestAnimationFrame(() => {
-                try {
-                    callback()
-                } catch (e) {
-                    console.error('Href change callback error:', e)
-                }
-            })
+        if (currentHrefKey !== lastHref) {
+            lastHref = currentHrefKey
+            try {
+                callback()
+            } catch (e) {
+                console.error('Href change callback error:', e)
+            }
         }
     }
     const listenerOptions = { passive: true }
-    window.removeEventListener('hashchange', checkAndTrigger)
-    window.removeEventListener('popstate', checkAndTrigger)
-    window.addEventListener('hashchange', checkAndTrigger, listenerOptions)
-    window.addEventListener('popstate', checkAndTrigger, listenerOptions)
     const originalPushState = history.pushState
     const originalReplaceState = history.replaceState
-    history.pushState = function (...args) {
-        const result = originalPushState.apply(this, args)
-        requestIdleCallback(() => checkAndTrigger(), { timeout: 100 })
-        return result
+    const bindEvents = () => {
+        window.addEventListener('hashchange', checkAndTrigger, listenerOptions)
+        window.addEventListener('popstate', checkAndTrigger, listenerOptions)
+        history.pushState = function (...args) {
+            const result = originalPushState.apply(this, args)
+            checkAndTrigger()
+            return result
+        }
+        history.replaceState = function (...args) {
+            const result = originalReplaceState.apply(this, args)
+            checkAndTrigger()
+            return result
+        }
     }
-    history.replaceState = function (...args) {
-        const result = originalReplaceState.apply(this, args)
-        requestIdleCallback(() => checkAndTrigger(), { timeout: 100 })
-        return result
-    }
-    return () => {
+    const unbindEvents = () => {
         window.removeEventListener('hashchange', checkAndTrigger, listenerOptions)
         window.removeEventListener('popstate', checkAndTrigger, listenerOptions)
         history.pushState = originalPushState
         history.replaceState = originalReplaceState
     }
+    bindEvents()
+    return unbindEvents
 }
 export const createElementAndInsert = (HtmlString, target, method) => {
     const template = document.createElement('template')
@@ -269,13 +289,24 @@ export const getTotalSecondsFromTimeString = timeString => {
     }
     return 0 // 无效格式返回0
 }
-export const insertStyleToDocument = (id, cssString) => {
-    let styleElement = document.getElementById(id)
-    if (!styleElement) {
-        styleElement = document.createElement('style')
-        styleElement.id = id
-        document.head.append(styleElement)
+export const insertStyleToDocument = styles => {
+    if (typeof styles === 'object' && !Array.isArray(styles)) {
+        // 支持对象参数
+        for (const [id, cssString] of Object.entries(styles)) {
+            let styleElement = document.getElementById(id)
+            if (!styleElement) {
+                styleElement = document.createElement('style')
+                styleElement.id = id
+                document.head.append(styleElement)
+            }
+            styleElement.textContent = cssString
+        }
+    } else {
+        throw new Error('Invalid argument type. Expected an object.')
     }
-    styleElement.textContent = cssString
-    return styleElement
+}
+export const getBodyHeight = () => {
+    const bodyHeight = document.body.clientHeight || 0
+    const docHeight = document.documentElement.clientHeight || 0
+    return bodyHeight < docHeight ? bodyHeight : docHeight
 }

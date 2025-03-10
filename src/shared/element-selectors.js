@@ -116,7 +116,9 @@ const selectors = {
     PauseVideo: '#PauseVideo',
     ContinuePlay: '#ContinuePlay',
     AutoSubtitle: '#AutoSubtitle',
-    UnlockEpisodeSelectorStyle: '#UnlockEpisodeSelectorStyle'
+    UnlockEpisodeSelectorStyle: '#UnlockEpisodeSelectorStyle',
+    UnlockWebPlayerStyle: '#UnlockWebPlayerStyle',
+    ResetPlayerLayoutStyle: '#ResetPlayerLayoutStyle'
 }
 export const shadowDomSelectors = {
     descriptionRenderer: '#feed > bili-adjustment-comment-thread-renderer',

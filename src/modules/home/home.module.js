@@ -9,12 +9,11 @@ import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'home',
-    dependencies: [],
     version: '1.0.0',
     async install () {
-        eventBus.on('app:ready', () => {
+        eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
-            this.preFunctions()
+            await this.preFunctions()
             this.handleExecuteFunctionsSequentially()
         })
     },
@@ -22,12 +21,13 @@ export default {
         this.userConfigs = await storageService.getAll('user')
         if (isTabActive()) {
             logger.info('标签页｜已激活')
-            insertStyleToDocument('IndexAdjustment', styles.IndexAdjustment)
+            insertStyleToDocument({ 'IndexAdjustment': styles.IndexAdjustment })
             this.initEventListeners()
         }
     },
     async initEventListeners () {
-        const [indexRecommendVideoRollButton, clearRecommendVideoHistoryButton] = await elementSelectors.batch(['indexRecommendVideoRollButton', 'clearRecommendVideoHistoryButton'])
+        const batchSelectors = ['indexRecommendVideoRollButton', 'clearRecommendVideoHistoryButton']
+        const [indexRecommendVideoRollButton, clearRecommendVideoHistoryButton] = await elementSelectors.batch(batchSelectors)
         addEventListenerToElement(indexRecommendVideoRollButton, 'click', async () => {
             executeFunctionsSequentially([this.setRecordRecommendVideoHistory, this.generatorIndexRecommendVideoHistoryContents])
         })
@@ -45,7 +45,7 @@ export default {
                 storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic })
             }
         })
-        // logger.debug(await storageService.getAll('index'))
+        logger.info('首页视频推荐历史记录｜已开启')
     },
     async insertIndexRecommendVideoHistoryOpenButton () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
@@ -63,8 +63,9 @@ export default {
         })
         createElementAndInsert(indexRecommendVideoHistoryOpenButtonHtml, indexRecommendVideoRollButtonWrapper, 'append')
         const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverHtml, document.body, 'append')
+        const batchSelectors = ['indexApp', 'indexRecommendVideoHistoryPopoverTitle']
         addEventListenerToElement(indexRecommendVideoHistoryPopover, 'toggle', async event => {
-            const [indexApp, indexRecommendVideoHistoryPopoverTitle] = await elementSelectors.batch(['indexApp', 'indexRecommendVideoHistoryPopoverTitle'])
+            const [indexApp, indexRecommendVideoHistoryPopoverTitle] = await elementSelectors.batch(batchSelectors)
             if (event.newState === 'open') {
                 indexApp.style.pointerEvents = 'none'
                 this.generatorIndexRecommendVideoHistoryContents()
@@ -78,7 +79,8 @@ export default {
     async generatorIndexRecommendVideoHistoryContents () {
         const indexRecommendVideoHistories = await storageService.getAll('index')
         const totalCount = await storageService.getCount('index')
-        const [indexRecommendVideoHistoryPopoverTitleCount, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList] = await elementSelectors.batch(['indexRecommendVideoHistoryPopoverTitleCount', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList'])
+        const batchSelectors = ['indexRecommendVideoHistoryPopoverTitleCount', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList']
+        const [indexRecommendVideoHistoryPopoverTitleCount, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList] = await elementSelectors.batch(batchSelectors)
         indexRecommendVideoHistoryCategory.innerHTML = '<li class="all adjustment_button primary plain">全部</li>'
         indexRecommendVideoHistoryCategoryV2.innerHTML = ''
         indexRecommendVideoHistoryList.innerHTML = ''

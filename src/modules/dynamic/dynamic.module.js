@@ -6,12 +6,11 @@ import { regexps } from '@/shared/regexps'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'dynamic',
-    dependencies: [],
     version: '1.0.0',
     async install () {
-        eventBus.on('app:ready', () => {
+        eventBus.on('app:ready', async () => {
             logger.info('动态模块｜已加载')
-            this.preFunctions()
+            await this.preFunctions()
         })
     },
     async preFunctions () {

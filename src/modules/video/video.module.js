@@ -4,7 +4,7 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument } from '@/utils/common'
+import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -12,12 +12,11 @@ import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'video',
-    dependencies: [],
     version: '1.9.0',
     async install () {
-        eventBus.on('app:ready', () => {
+        eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
-            this.preFunctions()
+            await this.preFunctions()
         })
     },
     async preFunctions () {
@@ -39,6 +38,7 @@ export default {
         eventBus.on('video:canplaythrough', debounce(this.autoSelectPlayerMode, true))
         eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, true))
         eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
+        eventBus.once('video:webfullPlayerModeUnlock', debounce(this.insertLocateToCommentButton, 500, true))
     },
     initMonitors () {
         monitorHrefChange( () => {
@@ -141,7 +141,7 @@ export default {
             return
         }
         await sleep(300)
-        this.locateToPlayer()
+        await this.locateToPlayer()
         logger.info('自动定位丨成功')
         eventBus.emit('video:startOtherFunctions')
     },
@@ -157,8 +157,8 @@ export default {
     },
     async clickPlayerAutoLocate () {
         if (!this.userConfigs.click_player_auto_locate) return
-        addEventListenerToElement(await elementSelectors.video, 'click', () => {
-            this.locateToPlayer()
+        addEventListenerToElement(await elementSelectors.video, 'click', async () => {
+            await this.locateToPlayer()
         })
     },
     handleJumpToVideoTime (video, target) {
@@ -168,20 +168,22 @@ export default {
         video.play()
     },
     async clickVideoTimeAutoLocation () {
-        const [video, host] = await elementSelectors.batch(['video', 'videoCommentRoot'])
+        const batchSelectors = ['video', 'videoCommentRoot']
+        const [video, host] = await elementSelectors.batch(batchSelectors)
         const descriptionClickTargets = this.userConfigs.player_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
         if (descriptionClickTargets.length > 0) {
             descriptionClickTargets.forEach(target => {
-                addEventListenerToElement(target, 'click', event => {
+                addEventListenerToElement(target, 'click', async event => {
                     event.stopPropagation()
-                    this.locateToPlayer()
+                    await this.locateToPlayer()
                     this.handleJumpToVideoTime(video, target)
                 })
             })
         }
     },
     async doSomethingToCommentElements () {
-        const [video, host] = await elementSelectors.batch(['video', 'videoCommentRoot'])
+        const batchSelectors = ['video', 'videoCommentRoot']
+        const [video, host] = await elementSelectors.batch(batchSelectors)
         const insertLocation = (element, location) => {
             const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
             const pubdate = shadowDOMHelper.querySelectorAll(element, shadowDomSelectors.replyPublicDate)
@@ -211,9 +213,9 @@ export default {
                     replyVideoTime: shadowDomSelectors.replyVideoTime
                 })
                 videoTimeElements.forEach(element => {
-                    addEventListenerToElement(element, 'click', event => {
+                    addEventListenerToElement(element, 'click', async event => {
                         event.stopPropagation()
-                        this.locateToPlayer()
+                        await this.locateToPlayer()
                         this.handleJumpToVideoTime(video, element)
                     })
                 })
@@ -274,7 +276,8 @@ export default {
     },
     async autoCancelMute () {
         if (!this.userConfigs.auto_cancel_mute) return
-        const [mutedButton, volumeButton] = await elementSelectors.batch(['mutedButton', 'volumeButton'])
+        const batchSelectors = ['mutedButton', 'volumeButton']
+        const [mutedButton, volumeButton] = await elementSelectors.batch(batchSelectors)
         if (!mutedButton || !volumeButton) return
         const styles = {
             muted: getElementComputedStyle(mutedButton),
@@ -322,7 +325,8 @@ export default {
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
-        const [videoDescription, videoDescriptionInfo, host] = await elementSelectors.batch(['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot'])
+        const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
+        const [videoDescription, videoDescriptionInfo, host] = await elementSelectors.batch(batchSelectors)
         const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
         // logger.debug(videoCommentReplyListShadowRoot)
         if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
@@ -351,17 +355,17 @@ export default {
         const videoInfo = await biliApis.getVideoInformation(biliApis.getCurrentVideoID(window.location.href))
         const { pages = false, ugc_season = false } = videoInfo.data
         if (ugc_season || pages.length > 1) {
-            insertStyleToDocument('UnlockEpisodeSelectorStyle', styles.UnlockEpisodeSelector)
+            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
             elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
-                addEventListenerToElement(link, 'click', () => {
-                    this.locateToPlayer()
+                addEventListenerToElement(link, 'click', async () => {
+                    await this.locateToPlayer()
                 })
             })
         }
     },
     async webfullScreenModeUnlock () {
         if (!this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode !== 'web' || this.userConfigs.player_type === 'bangumi') return
-        const webscreenUnlockSelectors = [
+        const batchSelectors = [
             'app',
             'playerWrap',
             'player',
@@ -372,12 +376,33 @@ export default {
             'playerModeWebLeaveButton',
             'playerModeFullControlButton'
         ]
-        const [app, playerWrap, player, playerWebscreen, wideEnterButton, wideLeaveButton, webEnterButton, webLeaveButton, fullControlButton] = await elementSelectors.batch(webscreenUnlockSelectors)
+        const [app, playerWrap, player, playerWebscreen, wideEnterButton, wideLeaveButton, webEnterButton, webLeaveButton, fullControlButton] = await elementSelectors.batch(batchSelectors)
         const resetPlayerLayout = async () => {
-            insertStyleToDocument('UnlockWebscreenStyle', styles.UnlockWebscreen)
-            insertStyleToDocument('ResetPlayerLayoutStyle', styles.ResetPlayerLayout)
+            insertStyleToDocument({
+                'UnlockWebPlayerStyle': styles.UnlockWebPlayer,
+                'ResetPlayerLayoutStyle': styles.ResetPlayerLayout
+            })
+            playerWrap.append(player)
+            storageService.set('current_player_mode', 'wide')
+            await this.locateToPlayer()
         }
+        insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
+        app.prepend(playerWebscreen)
+        addEventListenerToElement([webLeaveButton, wideEnterButton, wideLeaveButton, fullControlButton], 'click', async () => {
+            await sleep(100)
+            await resetPlayerLayout()
+        })
+        addEventListenerToElement(webEnterButton, 'click', async () => {
+            const UnlockWebPlayerStyle = elementSelectors.UnlockWebPlayerStyle
+            if (!UnlockWebPlayerStyle) insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
+            app.prepend(playerWebscreen)
+            await this.locateToPlayer()
+        })
         logger.info('网页全屏丨已解锁')
+        eventBus.emit('video:webfullPlayerModeUnlock')
+    },
+    insertLocateToCommentButton (){
+        logger.info('定位评论按钮丨已插入')
     },
     handleHrefChangedFunctionsSequentially (){
         const hrefChangeFunctions = [

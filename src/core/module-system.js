@@ -1,28 +1,13 @@
-// core/enterprise-module-system.js
+// src/core/module-system.js
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
-// const LIFECYCLE_HOOKS = [
-//     'beforeCreate',
-//     'created',
-//     'beforeMount',
-//     'mounted',
-//     'beforeUpdate',
-//     'updated',
-//     'beforeDestroy',
-//     'destroyed'
-// ]
 export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
     #modules = new Map() // {name: ModuleMeta}
-    #dependencies = new Map() // 依赖关系图
-    #diContainer = new Map() // 依赖注入容器
-    #moduleStatus = new Map() // 模块健康状态
     #config = {
-        strictMode: true, // 是否启用严格依赖检查
-        lazyInit: false, // 延迟初始化模式
-        enableDI: true // 是否启用依赖注入
+        lazyInit: false // 延迟初始化模式
     }
     constructor () {
         if (ModuleSystem.#instance) {
@@ -31,10 +16,10 @@ export class ModuleSystem {
         ModuleSystem.#instance = this
         this.#initEventListeners()
     }
-    configure (options) {
-        Object.assign(this.#config, options)
+    configure ({ lazyInit = false }) {
+        this.#config.lazyInit = lazyInit
     }
-    register (module, deps = []) {
+    register (module) {
         this.#validateModule(module)
         const { name } = module
         if (this.#modules.has(name)) {
@@ -45,145 +30,63 @@ export class ModuleSystem {
             definition: module,
             instance: null,
             status: 'registered',
-            dependencies: new Set(deps),
             version: module?.version || '1.0.0',
             timestamp: Date.now()
         })
-        if (this.#config.enableDI) {
-            this.#diContainer.set(`module:${name}`, module)
-        }
         eventBus.emit('module:registered', { name })
+        this.#logger.debug(`模块已注册: ${name}`)
     }
     async init (options = {}) {
-        ConfigService.initializeDefaults()
+        await ConfigService.initializeDefaults() // 确保默认配置已初始化
         const startTime = Date.now()
         eventBus.emit('system:init-start', { timestamp: startTime })
         try {
-            const sortedModules = this.#topologicalSort()
-            await this.#executeLifecycle(sortedModules, 'init', options)
+            const moduleNames = Array.from(this.#modules.keys())
+            this.#logger.debug(`模块初始化: ${moduleNames.join(', ')}`)
+            await this.#initializeModules(moduleNames)
             eventBus.emit('system:init-success', {
                 duration: Date.now() - startTime,
                 moduleCount: this.#modules.size
             })
+            this.#logger.debug(`模块初始化耗时： ${Date.now() - startTime} ms`)
         } catch (error) {
             eventBus.emit('system:init-fail', { error })
             throw this.#enhanceError(error, 'System initialization failed')
         }
     }
-    // async hotReload (moduleName) {
-    //     const moduleMeta = this.#modules.get(moduleName)
-    //     if (!moduleMeta) throw new Error(`Module ${moduleName} not found`)
-    //     // 使用Vite的Glob导入方式
-    //     const moduleMap = import.meta.glob('../modules/**/*.module.js', { eager: true })
-    //     const modulePath = Object.keys(moduleMap).find(path =>
-    //         path.includes(`/${moduleName}.module.js`))
-    //     try {
-    //         await this.#callModuleHook(moduleMeta, 'beforeDestroy')
-    //         await this.#callModuleHook(moduleMeta, 'destroyed')
-    //         const newModule = await import(
-    //             /* @vite-ignore */
-    //             `${modulePath}?t=${Date.now()}`
-    //         )
-    //         this.register(newModule.default)
-    //         await this.init({ silent: true })
-    //         eventBus.emit('module:hot-reload', { name: moduleName })
-    //     } catch (error) {
-    //         eventBus.emit('module:hot-reload-fail', { name: moduleName, error })
-    //     }
-    // }
-    // 保持原有获取方式
     getModule (name) {
-        return this.#diContainer.get(`module:${name}`)?.instance
-    }
-    // 新增状态检查
-    getSystemStatus () {
-        return {
-            modules: Array.from(this.#modules.values()).map(m => ({
-                name: m.definition.name,
-                status: m.status,
-                version: m.version,
-                dependencies: Array.from(m.dependencies)
-            })),
-            health: {
-                activeModules: Array.from(this.#modules.values()).filter(m => m.status === 'active').length,
-                errorModules: Array.from(this.#moduleStatus.values()).filter(s => s === 'error').length
-            }
+        const moduleMeta = this.#modules.get(name)
+        if (!moduleMeta) return null
+        if (this.#config.lazyInit && !moduleMeta.instance) {
+            this.#initializeModule(moduleMeta)
         }
+        return moduleMeta.instance
+    }
+    #initializeModule (moduleMeta) {
+        try {
+            moduleMeta.instance = this.#createModuleInstance(moduleMeta.definition)
+            if (typeof moduleMeta.instance.install === 'function') {
+                moduleMeta.instance.install()
+            }
+            moduleMeta.status = 'active'
+            this.#logger.debug(`模块初始化✅: ${moduleMeta.definition.name}`)
+        } catch (error) {
+            moduleMeta.status = 'error'
+            this.#handleError(error, 'critical', { module: moduleMeta.definition.name })
+        }
+    }
+    async #initializeModules (moduleNames) {
+        await Promise.all(moduleNames.map(name => {
+            const moduleMeta = this.#modules.get(name)
+            this.#initializeModule(moduleMeta)
+        }))
     }
     #validateModule (module) {
         if (!module.name) {
             throw new Error('Module must have a name property')
         }
-        if (this.#config.strictMode && !module.version) {
-            throw new Error('Strict mode requires module version')
-        }
     }
-    #executeLifecycle = async (modules, phase) => {
-        for (const name of modules) {
-            const moduleMeta = this.#modules.get(name)
-            try {
-                await this.#callModuleHook(moduleMeta, 'beforeCreate')
-                moduleMeta.instance = this.#createModuleInstance(moduleMeta.definition)
-                await this.#callModuleHook(moduleMeta, 'created')
-                if (this.#config.enableDI) {
-                    this.#injectDependencies(moduleMeta)
-                }
-                if (typeof moduleMeta.instance.install === 'function') {
-                    const deps = this.#resolveDependencies(name)
-                    await moduleMeta.instance.install(...deps)
-                }
-                await this.#callModuleHook(moduleMeta, 'mounted')
-                moduleMeta.status = 'active'
-                this.#moduleStatus.set(name, 'healthy')
-            } catch (error) {
-                moduleMeta.status = 'error'
-                this.#moduleStatus.set(name, 'error')
-                this.#handleError(error, 'critical', { module: name, phase })
-                if (this.#config.strictMode) throw error
-            }
-        }
-    }
-    #resolveDependencies = moduleName => Array.from(this.#dependencies.get(moduleName) || [])
-        .map(depName => this.getModule(depName))
-        .filter(Boolean)
-    #topologicalSort () {
-        const visited = new Set()
-        const result = []
-        const pending = new Set()
-        const visit = name => {
-            if (pending.has(name)) {
-                throw new Error(`Circular dependency detected: ${name}`)
-            }
-            if (!visited.has(name)) {
-                pending.add(name)
-                const deps = this.#dependencies.get(name) || new Set()
-                deps.forEach(dep => {
-                    if (!this.#modules.has(dep)) {
-                        throw new Error(`Dependency ${dep} not found for ${name}`)
-                    }
-                    visit(dep)
-                })
-                pending.delete(name)
-                visited.add(name)
-                result.push(name)
-            }
-        }
-        this.#modules.forEach((_, name) => {
-            if (!visited.has(name)) visit(name)
-        })
-        return result
-    }
-    #callModuleHook = async (moduleMeta, hookName) => {
-        if (!moduleMeta?.instance) {
-            this.#handleError(`Module instance not initialized for ${moduleMeta.definition.name}`, 'error')
-            return
-        }
-        const { instance } = moduleMeta
-        if (typeof instance[hookName] === 'function') {
-            await instance[hookName]()
-        }
-    }
-    #createModuleInstance = moduleDef => {
+    #createModuleInstance (moduleDef) {
         // 保留原型链的实例化方式
         const instance = Object.create(moduleDef)
         // 使用 defineProperties 确保方法可枚举
@@ -196,17 +99,6 @@ export class ModuleSystem {
         })
         return instance
     }
-    #injectDependencies = moduleMeta => {
-        const { instance } = moduleMeta
-        if (!instance.inject) return
-        Object.entries(instance.inject).forEach(([key, serviceName]) => {
-            const service = this.#diContainer.get(serviceName)
-            if (!service && this.#config.strictMode) {
-                throw new Error(`Dependency ${serviceName} not found for ${moduleMeta.definition.name}`)
-            }
-            instance[key] = service?.instance || service
-        })
-    }
     #initEventListeners () {
         eventBus.on('network:offline', () => {
             this.#handleOfflineMode()
@@ -215,8 +107,7 @@ export class ModuleSystem {
             this.#tryFallback(module, error)
         })
     }
-    // eslint-disable-next-line no-unused-vars
-    #tryFallback = (moduleName, error) => {
+    #tryFallback (moduleName, error) {
         const fallbackModule = this.#modules.get(`${moduleName}-fallback`)
         if (fallbackModule) {
             this.register(fallbackModule)
@@ -230,12 +121,12 @@ export class ModuleSystem {
             }
         })
     }
-    #enhanceError = (error, context) => {
+    #enhanceError (error, context) {
         error.moduleSystemContext = context
         error.timestamp = new Date().toISOString()
         return error
     }
-    #handleError = (message, level = 'error', metadata = {}) => {
+    #handleError (message, level = 'error', metadata = {}) {
         const error = new Error(message)
         const enhancedError = this.#enhanceError(error, 'operation')
         eventBus.emit('module:error', {
