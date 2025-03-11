@@ -2651,7 +2651,7 @@
                 const $player = await utils.getElementAndCheckExistence(selectors.player, 10)
                 const playerOffsetTop = Math.trunc(utils.getElementOffsetToDocument($player).top)
                 const videoSettingPopoverHtml = `
-          <div id="videoSettingPopover" class="adjustment_popover" popover>
+          <bilibili-adjustment-video-setting id="videoSettingPopover" class="adjustment_popover" popover>
             <div class="adjustment_popoverTitle">哔哩哔哩播放页设置
               <div class="subTitle">（以下设置内容更改即生效，直接关闭本弹窗即可）</div>
             </div>
@@ -2860,7 +2860,7 @@
             <div class="adjustment_buttonGroup">
               <button id="videoSettingSaveButton" class="adjustment_button primary">保存</button>
             </div>
-          </div>`
+          </bilibili-adjustment-video-setting>`
                 if (document.getElementById(selectors.videoSettingPopover)) document.getElementById(selectors.videoSettingPopover).remove()
                 const $videoSettingPopover = utils.createElementAndInsert(videoSettingPopoverHtml, document.body, 'append')
                 GM_registerMenuCommand('设置', () => {

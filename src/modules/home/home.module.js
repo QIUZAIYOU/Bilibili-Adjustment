@@ -49,18 +49,8 @@ export default {
     },
     async insertIndexRecommendVideoHistoryOpenButton () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
-        const indexRecommendVideoHistoryOpenButtonHtml = getTemplates.replace('indexRecommendVideoHistoryOpenButton', {
-            indexRecommendVideoHistoryOpenButton: elementSelectors.value('indexRecommendVideoHistoryOpenButton').slice(1),
-            indexRecommendVideoHistoryPopover: elementSelectors.value('indexRecommendVideoHistoryPopover').slice(1)
-        })
-        const indexRecommendVideoHistoryPopoverHtml = getTemplates.replace('indexRecommendVideoHistoryPopover', {
-            indexRecommendVideoHistoryPopover: elementSelectors.value('indexRecommendVideoHistoryPopover').slice(1),
-            indexRecommendVideoHistoryPopoverTitle: elementSelectors.value('indexRecommendVideoHistoryPopoverTitle').slice(1),
-            clearRecommendVideoHistoryButton: elementSelectors.value('clearRecommendVideoHistoryButton').slice(1),
-            indexRecommendVideoHistoryCategory: elementSelectors.value('indexRecommendVideoHistoryCategory').slice(1),
-            indexRecommendVideoHistoryCategoryV2: elementSelectors.value('indexRecommendVideoHistoryCategoryV2').slice(1),
-            indexRecommendVideoHistoryList: elementSelectors.value('indexRecommendVideoHistoryList').slice(1)
-        })
+        const indexRecommendVideoHistoryOpenButtonHtml = getTemplates.indexRecommendVideoHistoryOpenButton
+        const indexRecommendVideoHistoryPopoverHtml = getTemplates.indexRecommendVideoHistoryPopover
         createElementAndInsert(indexRecommendVideoHistoryOpenButtonHtml, indexRecommendVideoRollButtonWrapper, 'append')
         const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverHtml, document.body, 'append')
         const batchSelectors = ['indexApp', 'indexRecommendVideoHistoryPopoverTitle']

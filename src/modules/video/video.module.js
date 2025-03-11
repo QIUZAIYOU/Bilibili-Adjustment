@@ -3,6 +3,7 @@ import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
+// import { SettingsComponent } from '@/components/setting.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
@@ -14,6 +15,10 @@ export default {
     name: 'video',
     version: '2.0.0',
     async install () {
+        // this.settingsComponent = new SettingsComponent()
+        // this.showSettings = async () => {
+        //     await this.settingsComponent.init()
+        // }
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
@@ -40,6 +45,7 @@ export default {
         eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, true))
         eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
         eventBus.once('video:webfullPlayerModeUnlock', debounce(this.insertLocateToCommentButton, 500, true))
+        // eventBus.on('settings:show', this.showSettings)
     },
     initMonitors () {
         monitorHrefChange( () => {

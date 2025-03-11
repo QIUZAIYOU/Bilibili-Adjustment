@@ -1,0 +1,211 @@
+
+<bilibili-adjustment-video-setting id="videoSettingPopover" class="adjustment_popover" popover>
+<div class="adjustment_popoverTitle">哔哩哔哩播放页设置
+  <div class="subTitle">（以下设置内容更改即生效，直接关闭本弹窗即可）</div>
+</div>
+<div class="recommend">推荐使用样式表：<a href="https://userstyles.world/style/241/nightmode-for-bilibili-com" target="_blank">「夜间哔哩 NightMode For Bilibili」</a></div>
+<div class="adjustment_form">
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>是否为大会员</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.IsVip.slice(1)}" ${vals.is_vip() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">请如实勾选，否则影响自动选择清晰度</span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>自动定位至播放器</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.AutoLocate.slice(1)}" ${vals.auto_locate() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <div class="adjustment_checkboxGroup">
+      <div class="adjustment_checkbox video">
+        <span>普通视频(video)</span>
+
+        <div class="adjustment_checkbox_btn btn-pill">
+          <input type="checkbox" id="${selectors.AutoLocateVideo.slice(1)}" ${vals.auto_locate_video() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+          <div class="knob"></div>
+          <div class="btn-bg"></div>
+        </div>
+      </div>
+      <div class="adjustment_checkbox bangumi">
+        <span>其他视频(bangumi)</span>
+
+        <div class="adjustment_checkbox_btn btn-pill">
+          <input type="checkbox" id="${selectors.AutoLocateBangumi.slice(1)}" ${vals.auto_locate_bangumi() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+          <div class="knob"></div>
+          <div class="btn-bg"></div>
+        </div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">
+     只有勾选自动定位至播放器，才会执行自动定位的功能；勾选自动定位至播放器后，video 和 bangumi
+      两者全选或全不选，默认在这两种类型视频播放页都执行；否则勾选哪种类型，就只在这种类型的播放页才执行。
+    </span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>播放器顶部偏移(px)</label>
+      <input id="${selectors.TopOffset.slice(1)}" class="adjustment_input" value="${vals.offset_top()}">
+    </div>
+    <span class="adjustment_tips info">
+     播放器距离浏览器窗口默认距离为 ${playerOffsetTop}；请填写小于 ${playerOffsetTop} 的正整数或 0；当值为 0 时，播放器上沿将紧贴浏览器窗口上沿、值为 ${playerOffsetTop} 时，将保持B站默认。
+    </span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>点击播放器时定位</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.ClickPlayerAutoLocation.slice(1)}" ${vals.click_player_auto_locate() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+  </div>
+  <div class="adjustment_form_item screen-mode">
+    <div class="adjustment_form_item_content">
+      <label>播放器默认模式</label>
+      <div class="adjustment_checkboxGroup">
+        <div class="adjustment_checkbox">
+          <div class="adjustment_radio_btn">
+            <input class="radio" type="radio" name="Screen-Mode" value="close" ${vals.selected_screen_mode() === 'close' ? 'checked' : ''}>
+            <div class="circle"></div>
+            <span>关闭</span>
+          </div>
+        </div>
+        <div class="adjustment_checkbox">
+          <div class="adjustment_radio_btn">
+            <input class="radio" type="radio" name="Screen-Mode" value="wide" ${vals.selected_screen_mode() === 'wide' ? 'checked' : ''}>
+            <div class="circle"></div>
+            <span>宽屏</span>
+          </div>
+        </div>
+        <div class="adjustment_checkbox">
+          <div class="adjustment_radio_btn">
+            <input class="radio" type="radio" name="Screen-Mode" value="web" ${vals.selected_screen_mode() === 'web' ? 'checked' : ''}>
+            <div class="circle"></div>
+            <span>网页全屏</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">若遇到不能自动选择播放器模式可尝试刷新页面</span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>网页全屏模式解锁</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.WebfullUnlock.slice(1)}" ${vals.webfull_unlock() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">
+     勾选后网页全屏模式下可以滑动滚动条查看下方评论等内容（番剧播放页不支持）
+      <br>-&gt;新增迷你播放器显示，不过比较简陋，只支持暂停/播放操作，有条件的建议还是直接使用浏览器自带的小窗播放功能。</span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>自动选择最高画质</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.AutoQuality.slice(1)}" ${vals.auto_select_video_highest_quality() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <div class="adjustment_checkboxGroup">
+      <div class="adjustment_checkbox fourK" style="display:${vals.is_vip() ? 'flex' : 'none'}">
+        <span>包含4K画质</span>
+        <div class="adjustment_checkbox_btn btn-pill">
+          <input type="checkbox" id="${selectors.Quality4K.slice(1)}" ${vals.contain_quality_4k() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+          <div class="knob"></div>
+          <div class="btn-bg"></div>
+        </div>
+      </div>
+      <div class="adjustment_checkbox eightK" style="display:${vals.is_vip() ? 'flex' : 'none'}">
+        <span>包含8K画质</span>
+        <div class="adjustment_checkbox_btn btn-pill">
+          <input type="checkbox" id="${selectors.Quality8K.slice(1)}" ${vals.contain_quality_8k() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+          <div class="knob"></div>
+          <div class="btn-bg"></div>
+        </div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">网络条件好时可以启用此项，勾哪项选哪项，都勾选8k，否则选择4k及8k外最高画质。</span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>优化视频简介并插入评论区</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.InsertVideoDescriptionToComment.slice(1)}"
+                      ${vals.insert_video_description_to_comment() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">将视频简介内容优化后插入评论区或直接替换原简介区内容(替换原简介中固定格式的静态内容为跳转链接)。</span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>自动跳过时间节点</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.AutoSkip.slice(1)}" ${vals.auto_skip() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">自动跳过视频已设置设置时间节点，视频播放到相应时间点时将触发跳转至设定时间点。</span>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>离开页面自动暂停视频</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.PauseVideo.slice(1)}" ${vals.pause_video() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <div class="adjustment_checkboxGroup">
+      <div class="adjustment_checkbox continuePlay" style="display:${vals.is_vip() ? 'flex' : 'none'}">
+        <span>返回页面恢复播放</span>
+        <div class="adjustment_checkbox_btn btn-pill">
+          <input type="checkbox" id="${selectors.ContinuePlay.slice(1)}" ${vals.continue_play() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+          <div class="knob"></div>
+          <div class="btn-bg"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>自动开启字幕</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.AutoSubtitle.slice(1)}" ${vals.auto_subtitle() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+  </div>
+  <div class="adjustment_form_item">
+    <div class="adjustment_form_item_content">
+      <label>自动刷新</label>
+      <div class="adjustment_checkbox_btn btn-pill">
+        <input type="checkbox" id="${selectors.AutoReload.slice(1)}" ${vals.auto_reload() ? 'checked' : ''} class="adjustment_checkbox checkbox">
+        <div class="knob"></div>
+        <div class="btn-bg"></div>
+      </div>
+    </div>
+    <span class="adjustment_tips info">（不建议开启）若脚本执行失败是否自动刷新页面重试，开启后可能会对使用体验起到一定改善作用，但若是因为B站页面改版导致脚本失效，则会陷入页面无限刷新的情况，此时则必须在页面加载时看准时机关闭此项才能恢复正常，请自行选择是否开启。</span>
+  </div>
+</div>
+<div class="adjustment_buttonGroup">
+  <button id="videoSettingSaveButton" class="adjustment_button primary">保存</button>
+</div>
+</bilibili-adjustment-video-setting>
