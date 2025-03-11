@@ -30,7 +30,6 @@ export default {
         if (isTabActive()) {
             logger.info('标签页｜已激活')
             this.checkVideoCanplaythrough(await elementSelectors.video)
-            this.checkVideoCanplaythrough(await elementSelectors.video)
         }
     },
     async initEventListeners () {
@@ -133,6 +132,7 @@ export default {
         this.autoSelectPlayerMode()
     },
     async autoLocateToPlayer () {
+        insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
         if (this.userConfigs.webfull_unlock || this.userConfigs.player_type === 'web') {
             eventBus.emit('video:startOtherFunctions')
             return
@@ -146,8 +146,6 @@ export default {
         await this.locateToPlayer()
         logger.info('自动定位丨成功')
         eventBus.emit('video:startOtherFunctions')
-        const bodyOverflowHiddenStyle = await elementSelectors.BodyOverflowHiddenStyle
-        bodyOverflowHiddenStyle?.remove()
     },
     async locateToPlayer () {
         const playerContainer = await elementSelectors.playerContainer

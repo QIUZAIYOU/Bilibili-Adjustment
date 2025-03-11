@@ -1,4 +1,4 @@
-/* global getComputedStyle, requestAnimationFrame, requestIdleCallback,arguments */
+/* global getComputedStyle */
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
@@ -297,6 +297,13 @@ export const insertStyleToDocument = styles => {
         // 支持对象参数
         for (const [id, cssString] of Object.entries(styles)) {
             let styleElement = document.getElementById(id)
+            if (!cssString) {
+                if (styleElement) {
+                    styleElement.remove()
+                    // console.log(`Removed style: ${id}`)
+                }
+                continue
+            }
             if (!styleElement) {
                 styleElement = document.createElement('style')
                 styleElement.id = id
