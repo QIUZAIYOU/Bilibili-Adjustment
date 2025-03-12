@@ -3,7 +3,7 @@ import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-// import { SettingsComponent } from '@/components/setting.component'
+import { SettingsComponent } from '@/components/setting.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
@@ -11,14 +11,11 @@ import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
+const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
     version: '2.0.0',
     async install () {
-        // this.settingsComponent = new SettingsComponent()
-        // this.showSettings = async () => {
-        //     await this.settingsComponent.init()
-        // }
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
@@ -29,7 +26,7 @@ export default {
         storageService.legacySet('player_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
-        // logger.debug(this.userConfigs)
+        this.registSettings()
         this.initEventListeners()
         this.initMonitors()
         if (isTabActive()) {
@@ -45,7 +42,9 @@ export default {
         eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, true))
         eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
         eventBus.once('video:webfullPlayerModeUnlock', debounce(this.insertLocateToCommentButton, 500, true))
-        // eventBus.on('settings:show', this.showSettings)
+    },
+    async registSettings (){
+        await settingsComponent.init(this.userConfigs)
     },
     initMonitors () {
         monitorHrefChange( () => {
@@ -307,16 +306,25 @@ export default {
     async insertSideFloatNavToolsButton () {
         const floatNav = this.userConfigs.player_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         const dataV = floatNav.lastChild.attributes[1].name
-        let locateButton
+        let locateButton, videoSettingsOpenButton
         if (this.userConfigs.player_type === 'video') {
             locateButton = createElementAndInsert(getTemplates.replace('videoLocateButton', { dataV: dataV }), floatNav.lastChild, 'prepend')
+            videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', { dataV: dataV }), floatNav.lastChild, 'prepend')
         }
         if (this.userConfigs.player_type === 'bangumi') {
             const floatNavMenuItemClass = floatNav.lastChild.lastChild.getAttribute('class')
             locateButton = createElementAndInsert(getTemplates.replace('bangumiLocateButton', { floatNavMenuItemClass: floatNavMenuItemClass }), floatNav.lastChild, 'before')
         }
-        locateButton.addEventListener('click', async () => {
+        addEventListenerToElement(locateButton, 'click', async () => {
             await this.locateToPlayer()
+        })
+        addEventListenerToElement(videoSettingsOpenButton, 'click', async event => {
+            const videoSettingsPopover = await elementSelectors.videoSettingsPopover
+            videoSettingsPopover.showPopover()
+            // if (event.newState === 'open') {
+            // }
+            // if (event.newState === 'closed') {
+            // }
         })
     },
     processVideoCommentDescriptionHtml (html){
