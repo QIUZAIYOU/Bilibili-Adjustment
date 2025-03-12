@@ -28,8 +28,6 @@ export class ConfigService {
         ['auto_skip', false],
         ['insert_video_description_to_comment', true],
         ['dynamic_video_link', 'https://t.bilibili.com/?tab=video'],
-        ['signIn_date', ''],
-        ['dev_checkScreenModeSwitchSuccess_method', 'interval'],
         ['pause_video', false],
         ['continue_play', false],
         ['auto_subtitle', false],
