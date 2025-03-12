@@ -101,15 +101,15 @@ const selectors = {
     AutoLocate: '#AutoLocate',
     AutoLocateVideo: '#AutoLocateVideo',
     AutoLocateBangumi: '#AutoLocateBangumi',
-    TopOffset: '#TopOffset',
+    OffsetTop: '#OffsetTop',
     ClickPlayerAutoLocation: '#ClickPlayerAutoLocation',
-    AutoQuality: '#AutoQuality',
-    Quality4K: '#Quality4K',
-    Quality8K: '#Quality8K',
-    Checkbox4K: '.adjustment_checkbox.fourK',
-    Checkbox8K: '.adjustment_checkbox.eightK',
+    AutoSelectVideoHighestQuality: '#AutoSelectVideoHighestQuality',
+    ContainQuality4k: '#ContainQuality4k',
+    ContainQuality8k: '#ContainQuality8k',
+    Checkbox4K: '#Checkbox4K',
+    Checkbox8K: '#Checkbox8K',
     FourKAndEightK: '.fourK,.eightK',
-    SelectScreenMode: 'input[name="PlayerMode"]',
+    SelectPlayerModeButtons: 'input[name="PlayerMode"]',
     WebfullUnlock: '#WebfullUnlock',
     AutoReload: '#AutoReload',
     AutoSkip: '#AutoSkip',
@@ -211,6 +211,7 @@ export const elementSelectors = new Proxy(selectors, {
         if (prop === 'batch') {
             return async selArray => {
                 const selectorString = selArray.map(s => target[s]).join(', ')
+                // console.log(selectorString)
                 const elements = await createCachedQuery(selectorString, true)
                 const elementMap = new Map()
                 elements.forEach(el => {

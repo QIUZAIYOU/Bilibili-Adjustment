@@ -42,7 +42,7 @@ export default {
             const title = video.querySelector('h3').title
             if (location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
                 const { data: { tid, tid_v2, tname, tname_v2, pic }} = await biliApis.getVideoInformation(biliApis.getCurrentVideoID(url))
-                storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic })
+                await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic })
             }
         })
         logger.info('首页视频推荐历史记录｜已开启')
@@ -132,7 +132,7 @@ export default {
         })
     },
     async clearRecommendVideoHistory (){
-        storageService.clear('index')
+        await storageService.clear('index')
         const indexRecommendVideoHistoryPopover = await elementSelectors.indexRecommendVideoHistoryPopover
         indexRecommendVideoHistoryPopover.hidePopover()
     },

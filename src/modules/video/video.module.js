@@ -23,7 +23,7 @@ export default {
         })
     },
     async preFunctions () {
-        storageService.legacySet('player_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        await storageService.legacySet('player_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
         this.registSettings()
@@ -31,6 +31,7 @@ export default {
         this.initMonitors()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
+            insertStyleToDocument({ 'VideoPageAdjustment': styles.VideoPageAdjustment, 'VideoSettings': styles.VideoSettings })
             this.checkVideoCanplaythrough(await elementSelectors.video)
         }
     },
@@ -120,7 +121,7 @@ export default {
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
         const playerContainer = await elementSelectors.playerContainer
-        storageService.legacySet('player_offset_top', await getElementOffsetToDocumentTop(playerContainer))
+        await storageService.legacySet('player_offset_top', await getElementOffsetToDocumentTop(playerContainer))
         const playerMode = playerContainer.getAttribute('data-screen')
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
@@ -398,7 +399,7 @@ export default {
                 'ResetPlayerLayoutStyle': styles.ResetPlayerLayout
             })
             playerWrap.append(player)
-            storageService.set('current_player_mode', 'wide')
+            await storageService.set('current_player_mode', 'wide')
             await this.locateToPlayer()
         }
         insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })

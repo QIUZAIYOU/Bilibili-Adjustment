@@ -320,3 +320,5 @@ export const getBodyHeight = () => {
     const docHeight = document.documentElement.clientHeight || 0
     return bodyHeight < docHeight ? bodyHeight : docHeight
 }
+export const camelToSnake = str => str.replace(/(?:^|\.?)([A-Z])/g, (x, y) => '_' + y.toLowerCase())
+    .replace(/^_/, '')
