@@ -29,7 +29,7 @@ export class LoggerService {
     // 通用的日志记录方法
     log (level, ...args) {
         if (LoggerService.ENABLED_LEVELS[level]) {
-            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)' : ''}丨${import.meta.env.DEV ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
+            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)丨' : ''}${import.meta.env.DEV ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
         }
     }
     // 记录信息级别的日志

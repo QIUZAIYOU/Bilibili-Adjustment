@@ -2,7 +2,7 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "license": "MIT",
   "type": "module",
   "scripts": {
@@ -16,7 +16,9 @@
     "@stylistic/eslint-plugin": "^4.2.0",
     "@stylistic/eslint-plugin-js": "^4.2.0",
     "eslint": "^9.21.0",
+    "javascript-obfuscator": "^4.1.1",
     "vite": "^6.2.1",
+    "vite-plugin-bundle-obfuscator": "^1.4.2",
     "vite-plugin-monkey": "^5.0.8"
   },
   "dependencies": {
