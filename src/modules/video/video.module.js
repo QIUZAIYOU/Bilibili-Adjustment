@@ -154,7 +154,7 @@ export default {
         eventBus.emit('video:startOtherFunctions')
     },
     async locateToPlayer () {
-        const playerContainer = await elementSelectors.playerContainer
+        const playerContainer = await elementSelectors.query('playerContainer')
         const playerMode = playerContainer.getAttribute('data-screen')
         const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocumentTop(playerContainer) : this.userConfigs.player_offset_top
         const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
