@@ -14,7 +14,6 @@ export default {
         eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
             await this.preFunctions()
-            this.handleExecuteFunctionsSequentially()
         })
     },
     async preFunctions () {
@@ -22,17 +21,17 @@ export default {
         if (isTabActive()) {
             logger.info('标签页｜已激活')
             insertStyleToDocument({ 'IndexAdjustment': styles.IndexAdjustment })
+            this.handleExecuteFunctionsSequentially()
             this.initEventListeners()
         }
     },
     async initEventListeners () {
-        const batchSelectors = ['indexRecommendVideoRollButton', 'clearRecommendVideoHistoryButton']
-        const [indexRecommendVideoRollButton, clearRecommendVideoHistoryButton] = await elementSelectors.batch(batchSelectors)
+        const indexRecommendVideoRollButton = await elementSelectors.indexRecommendVideoRollButton
         addEventListenerToElement(indexRecommendVideoRollButton, 'click', async () => {
-            executeFunctionsSequentially([this.setRecordRecommendVideoHistory, this.generatorIndexRecommendVideoHistoryContents])
-        })
-        addEventListenerToElement(clearRecommendVideoHistoryButton, 'click', async () => {
-            this.clearRecommendVideoHistory()
+            executeFunctionsSequentially([
+                this.setRecordRecommendVideoHistory,
+                this.generatorIndexRecommendVideoHistoryContents
+            ])
         })
     },
     async setRecordRecommendVideoHistory () {
@@ -47,12 +46,12 @@ export default {
         })
         logger.info('首页视频推荐历史记录｜已开启')
     },
-    async insertIndexRecommendVideoHistoryOpenButton () {
+    async insertIndexRecommendVideoHistoryPopover () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
-        const indexRecommendVideoHistoryOpenButtonHtml = getTemplates.indexRecommendVideoHistoryOpenButton
-        const indexRecommendVideoHistoryPopoverHtml = getTemplates.indexRecommendVideoHistoryPopover
-        createElementAndInsert(indexRecommendVideoHistoryOpenButtonHtml, indexRecommendVideoRollButtonWrapper, 'append')
-        const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverHtml, document.body, 'append')
+        const indexRecommendVideoHistoryOpenButtonTemplate = getTemplates.indexRecommendVideoHistoryOpenButton
+        const indexRecommendVideoHistoryPopoverTemplate = getTemplates.indexRecommendVideoHistoryPopover
+        createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper, 'append')
+        const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverTemplate, document.body, 'append')
         const batchSelectors = ['indexApp', 'indexRecommendVideoHistoryPopoverTitle']
         addEventListenerToElement(indexRecommendVideoHistoryPopover, 'toggle', async event => {
             const [indexApp, indexRecommendVideoHistoryPopoverTitle] = await elementSelectors.batch(batchSelectors)
@@ -64,6 +63,13 @@ export default {
                 indexApp.style.pointerEvents = 'auto'
                 indexRecommendVideoHistoryPopoverTitle.querySelector('span').innerText = '首页视频推荐历史记录'
             }
+        })
+        const indexRecommendVideoHistoryOpenButton = await elementSelectors.indexRecommendVideoHistoryOpenButton
+        addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
+            const clearRecommendVideoHistoryButton = await elementSelectors.clearRecommendVideoHistoryButton
+            addEventListenerToElement(clearRecommendVideoHistoryButton, 'click', async () => {
+                this.clearRecommendVideoHistory()
+            })
         })
     },
     async generatorIndexRecommendVideoHistoryContents () {
@@ -139,7 +145,7 @@ export default {
     handleExecuteFunctionsSequentially () {
         const functions = [
             this.setRecordRecommendVideoHistory,
-            this.insertIndexRecommendVideoHistoryOpenButton,
+            this.insertIndexRecommendVideoHistoryPopover,
             this.generatorIndexRecommendVideoHistoryContents
         ]
         executeFunctionsSequentially(functions)
