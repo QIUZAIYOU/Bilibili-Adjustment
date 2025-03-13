@@ -208,7 +208,6 @@ const each = async (selectorKey, callback) => {
 // 扩展原有Proxy功能
 export const elementSelectors = new Proxy(selectors, {
     get (target, prop) {
-        if (prop === 'value') return selector => selectors[selector]
         if (prop === 'batch') {
             return async selArray => {
                 const selectorString = selArray.map(s => target[s]).join(', ')
@@ -224,9 +223,9 @@ export const elementSelectors = new Proxy(selectors, {
             }
         }
         if (prop === 'all') return selector => createCachedQuery(selector, true)
-        if (prop === 'css') return selector => createCachedQuery(selector)
-        if (prop === 'normal') return selector => document.querySelector(selector)
-        if (prop === 'normalAll') return selector => document.querySelectorAll(selector)
+        if (prop === 'value') return selector => selectors[selector]
+        if (prop === 'query') return selector => document.querySelector(selectors[selector])
+        if (prop === 'queryAll') return selector => document.querySelectorAll(selectors[selector])
         if (prop === 'each') return each
         return createCachedQuery(target[prop])
     }

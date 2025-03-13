@@ -250,7 +250,7 @@ export default {
     },
     async autoSelectVideoHighestQuality () {
         if (!this.userConfigs.auto_select_video_highest_quality) return
-        const qualityList = Array.from(await elementSelectors.all('qualitySwitchButtons'))
+        const qualityList = Array.from(await elementSelectors.queryAll('qualitySwitchButtons'))
             .map(btn => ({
                 value: +btn.dataset.value,
                 element: btn,
@@ -265,6 +265,7 @@ export default {
             if (this.userConfigs.contain_quality_4k && q.value === 120) return true
             return q.value < 120
         })
+        // logger.debug(qualityList, availableQualities, targetQuality)
         if (targetQuality) {
             targetQuality.element.click()
             const qualityMap = {
