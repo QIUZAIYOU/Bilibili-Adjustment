@@ -13,25 +13,23 @@ export class SettingsComponent {
         this.pageType = detectivePageType()
         insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
         this.render(this.pageType)
-        this.addEventListeners()
     }
     render (pageType) {
         switch (pageType) {
             case 'video':
-                this.renderVideoSetting()
+                this.renderVideoSettings()
+                this.initVideoSettingsEventListeners()
                 break
             case 'dynamic':
-                this.renderDynamicSetting()
-                break
-            case 'home':
-                this.renderHomeSetting()
+                this.renderDynamicSettings()
+                this.initDynamicSettingsEventListeners()
                 break
             default:
                 break
         }
     }
-    renderVideoSetting (){
-        this.videoSettings = getTemplates.replace('videoSettings', {
+    renderVideoSettings (){
+        const videoSettings = getTemplates.replace('videoSettings', {
             IsVip: this.userConfigs.is_vip,
             AutoLocate: this.userConfigs.auto_locate,
             AutoLocateVideo: this.userConfigs.auto_locate_video,
@@ -56,12 +54,12 @@ export class SettingsComponent {
             AutoSubtitle: this.userConfigs.auto_subtitle,
             AutoReload: this.userConfigs.auto_reload
         })
-        this.videoSettingElement = createElementAndInsert(this.videoSettings, document.body, 'append')
+        createElementAndInsert(videoSettings, document.body, 'append')
     }
-    async addEventListeners () {
-        const batchSelectors = ['app', 'videoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocation', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K']
-        const [app, videoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocation, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K] = await elementSelectors.batch(batchSelectors)
-        addEventListenerToElement(videoSettingsPopover, 'toggle', e => {
+    async initVideoSettingsEventListeners () {
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocation', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K']
+        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocation, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K] = await elementSelectors.batch(batchSelectors)
+        addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
@@ -84,6 +82,20 @@ export class SettingsComponent {
             addEventListenerToElement(btn, 'click', async e => {
                 await storageService.legacySet('selected_player_mode', e.target.value)
             })
+        })
+    }
+    renderDynamicSettings (){
+        const dynamicSettings = getTemplates.replace('dynamicSettings', {
+            DynamicVideoLink: this.userConfigs.dynamic_video_link
+        })
+        createElementAndInsert(dynamicSettings, document.body, 'append')
+    }
+    async initDynamicSettingsEventListeners (){
+        const batchSelectors = ['app', 'DynamicSettingsPopover']
+        const [app, DynamicSettingsPopover] = await elementSelectors.batch(batchSelectors)
+        addEventListenerToElement(DynamicSettingsPopover, 'toggle', e => {
+            if (e.newState === 'open') app.style.pointerEvents = 'none'
+            if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
     }
 }

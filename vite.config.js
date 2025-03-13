@@ -27,7 +27,9 @@ export default defineConfig(({ mode }) => ({
                 match: [
                     '*://www.bilibili.com/*',
                     '*://www.bilibili.com/video/*',
-                    '*://www.bilibili.com/bangumi/play/*'
+                    '*://www.bilibili.com/bangumi/play/*',
+                    '*://www.bilibili.com/list/*',
+                    '*://t.bilibili.com/*'
                 ],
                 grant: [
                     'GM_addStyle',

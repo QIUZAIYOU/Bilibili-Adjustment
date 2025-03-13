@@ -1,9 +1,13 @@
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { isTabActive } from '@/utils/common'
+import { SettingsComponent } from '@/components/settings.component'
+import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially } from '@/utils/common'
 import { regexps } from '@/shared/regexps'
+import { getTemplates } from '../../shared/templates'
+import { elementSelectors } from '../../shared/element-selectors'
 const logger = new LoggerService('VideoModule')
+const settingsComponent = new SettingsComponent()
 export default {
     name: 'dynamic',
     version: '1.0.0',
@@ -15,10 +19,14 @@ export default {
     },
     async preFunctions () {
         this.userConfigs = await storageService.getAll('user')
+        this.registSettings()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
-            this.changeCurrentHrefToVideoSubmissions()
+            this.handleExecuteFunctionsSequentially()
         }
+    },
+    async registSettings (){
+        await settingsComponent.init(this.userConfigs)
     },
     changeCurrentHrefToVideoSubmissions (){
         const dynamic_video_link = this.userConfigs.dynamic_video_link
@@ -43,5 +51,20 @@ export default {
         } else {
             logger.info('动态页｜已切换至投稿视频')
         }
+    },
+    async insertSidebarButtons (){
+        const batchSelectors = ['dynamicSidebar', 'DynamicSettingsPopover']
+        const [dynamicSidebar, DynamicSettingsPopover] = await elementSelectors.batch(batchSelectors)
+        const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
+        addEventListenerToElement(dynamicSettingsOpenButton, 'click', () => {
+            DynamicSettingsPopover.showPopover()
+        })
+    },
+    handleExecuteFunctionsSequentially () {
+        const functions = [
+            this.insertSidebarButtons,
+            this.changeCurrentHrefToVideoSubmissions
+        ]
+        executeFunctionsSequentially(functions)
     }
 }

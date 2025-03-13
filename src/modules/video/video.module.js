@@ -3,7 +3,7 @@ import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { SettingsComponent } from '@/components/setting.component'
+import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { sleep, debounce, delay, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
@@ -304,7 +304,7 @@ export default {
             logger.info('视频字幕丨已开启')
         }
     },
-    async insertSideFloatNavToolsButton () {
+    async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.player_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         const dataV = floatNav.lastChild.attributes[1].name
         let locateButton, videoSettingsOpenButton
@@ -319,13 +319,9 @@ export default {
         addEventListenerToElement(locateButton, 'click', async () => {
             await this.locateToPlayer()
         })
-        addEventListenerToElement(videoSettingsOpenButton, 'click', async event => {
-            const videoSettingsPopover = await elementSelectors.videoSettingsPopover
-            videoSettingsPopover.showPopover()
-            // if (event.newState === 'open') {
-            // }
-            // if (event.newState === 'closed') {
-            // }
+        addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
+            const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
+            VideoSettingsPopover.showPopover()
         })
     },
     processVideoCommentDescriptionHtml (html){
@@ -445,7 +441,7 @@ export default {
             this.autoCancelMute,
             this.autoEnableSubtitle,
             this.insertVideoDescriptionToComment,
-            this.insertSideFloatNavToolsButton,
+            this.insertSideFloatNavToolsButtons,
             this.clickVideoTimeAutoLocation,
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
