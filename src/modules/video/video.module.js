@@ -50,7 +50,7 @@ export default {
     initMonitors () {
         monitorHrefChange( () => {
             logger.info('视频资源丨链接已改变')
-            delay(this.handleHrefChangedFunctionsSequentially, 1500)
+            this.handleHrefChangedFunctionsSequentially()
         })
     },
     isVideoCanplaythrough (videoElement) {
@@ -425,14 +425,14 @@ export default {
         })
     },
     handleHrefChangedFunctionsSequentially (){
+        this.locateToPlayer()
         const hrefChangeFunctions = [
-            this.locateToPlayer,
             this.insertVideoDescriptionToComment,
             this.clickVideoTimeAutoLocation,
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
         ]
-        executeFunctionsSequentially(hrefChangeFunctions)
+        delay(executeFunctionsSequentially(hrefChangeFunctions), 1500)
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
