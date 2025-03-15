@@ -221,18 +221,19 @@ export const isTabActive = () => {
     }
 }
 export const monitorHrefChange = callback => {
-    let lastHref = location.href.split('?')[0].trim()
     const getHrefKey = url => {
         const u = new URL(url)
         const pParam = u.searchParams.get('p')
-        return `${u.pathname}${pParam ? `?p=${pParam}` : ''}`
+        return `${u.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`
     }
+    let lastHref = location.href
+    const lastHrefKey = getHrefKey(lastHref)
     const checkAndTrigger = () => {
-        const currentHref = location.href.split('?')[0].trim()
+        const currentHref = location.href
         const currentHrefKey = getHrefKey(currentHref)
-        if (currentHrefKey !== lastHref) {
+        if (currentHrefKey !== lastHrefKey) {
             // console.log('Href change:', lastHref, currentHref)
-            lastHref = currentHrefKey
+            lastHref = currentHref
             try {
                 callback()
             } catch (e) {
