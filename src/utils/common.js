@@ -1,5 +1,8 @@
 /* global getComputedStyle */
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
+export const delay = (func, delay, ...args) => {
+    setTimeout(func(...args), delay)
+}
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
     let lastArgs = null
@@ -49,9 +52,6 @@ export const throttle = (func, limit = 300, trailing = true) => {
     }
     throttled.cancel = () => abortController.abort()
     return throttled
-}
-export const delay = (func, delay) => {
-    setTimeout(func, delay)
 }
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location

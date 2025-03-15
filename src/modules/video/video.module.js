@@ -76,10 +76,10 @@ export default {
             // }, TIMEOUT)
         })
     },
-    async checkVideoCanplaythrough (videoElement) {
+    async checkVideoCanplaythrough (videoElement, emit = true) {
         const canplaythrough = await this.isVideoCanplaythrough(videoElement)
         if (canplaythrough) {
-            eventBus.emit('video:canplaythrough')
+            if (emit) eventBus.emit('video:canplaythrough')
             logger.info('视频资源｜可以播放')
             return true
         }
@@ -359,6 +359,7 @@ export default {
                 this.insertVideoDescriptionToComment()
             }
         } else {
+            const videoDescriptionInfo = await elementSelectors.videoDescriptionInfo
             videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
             logger.info('视频简介丨已替换')
         }
@@ -424,7 +425,7 @@ export default {
             documentScrollTo(await getElementOffsetToDocumentTop(videoComment) - 10)
         })
     },
-    handleHrefChangedFunctionsSequentially (){
+    async handleHrefChangedFunctionsSequentially (){
         this.locateToPlayer()
         const hrefChangeFunctions = [
             this.insertVideoDescriptionToComment,
@@ -432,7 +433,8 @@ export default {
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
         ]
-        delay(executeFunctionsSequentially(hrefChangeFunctions), 1500)
+        const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
+        if (videoCanplaythrough) delay(executeFunctionsSequentially, 1500, hrefChangeFunctions)
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
