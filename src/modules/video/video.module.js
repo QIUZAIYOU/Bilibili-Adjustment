@@ -344,6 +344,8 @@ export default {
             const baseURI = videoDescriptionInfo.baseURI
             if (baseURI === location.href){
                 clearInterval(checkAndTrigger)
+                const adjustmentCommentDescription = await elementSelectors.query('adjustmentCommentDescription')
+                adjustmentCommentDescription?.remove()
                 const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
                 // logger.debug(videoCommentReplyListShadowRoot)
                 if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {

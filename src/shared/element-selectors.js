@@ -29,6 +29,7 @@ const selectors = {
     videoDescription: '#v_desc',
     videoDescriptionInfo: '#v_desc .basic-desc-info',
     videoDescriptionText: '#v_desc .desc-info-text',
+    adjustmentCommentDescription: '#adjustment-comment-description',
     videoNextPlayAndRecommendLink: '.video-page-card-small .card-box',
     videoSectionsEpisodeLink: '.video-pod__list .video-pod__item',
     videoEpisodeListMultiMenuItem: '.bpx-player-ctrl-eplist-multi-menu-item',
