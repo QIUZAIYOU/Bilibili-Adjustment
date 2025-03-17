@@ -340,29 +340,35 @@ export default {
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescription, videoDescriptionInfo, host] = await elementSelectors.batch(batchSelectors)
-        const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
-        // logger.debug(videoCommentReplyListShadowRoot)
-        if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
-            const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
-            const template = document.createElement('template')
-            template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
-                videoCommentDescription: styles.videoCommentDescription,
-                upAvatarFaceLink: upAvatarFaceLink,
-                processVideoCommentDescription: this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
-            })
-            const clone = template.content.cloneNode(true)
-            videoCommentReplyListShadowRoot?.prepend(clone)
-            await sleep(300)
-            if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
-                logger.info('视频简介丨已插入')
-            } else {
-                this.insertVideoDescriptionToComment()
+        const checkAndTrigger = setInterval(async () => {
+            const baseURI = videoDescriptionInfo.baseURI
+            if (baseURI === location.href){
+                clearInterval(checkAndTrigger)
+                const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
+                // logger.debug(videoCommentReplyListShadowRoot)
+                if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
+                    const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
+                    const template = document.createElement('template')
+                    template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
+                        videoCommentDescription: styles.videoCommentDescription,
+                        upAvatarFaceLink: upAvatarFaceLink,
+                        processVideoCommentDescription: this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
+                    })
+                    const clone = template.content.cloneNode(true)
+                    videoCommentReplyListShadowRoot?.prepend(clone)
+                    await sleep(300)
+                    if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
+                        logger.info('视频简介丨已插入')
+                    } else {
+                        this.insertVideoDescriptionToComment()
+                    }
+                } else {
+                    const videoDescriptionInfo = await elementSelectors.videoDescriptionInfo
+                    videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
+                    logger.info('视频简介丨已替换')
+                }
             }
-        } else {
-            const videoDescriptionInfo = await elementSelectors.videoDescriptionInfo
-            videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
-            logger.info('视频简介丨已替换')
-        }
+        }, 300)
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
     async unlockEpisodeSelector () {
@@ -434,7 +440,10 @@ export default {
             this.unlockEpisodeSelector
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
-        if (videoCanplaythrough) delay(executeFunctionsSequentially, 1500, hrefChangeFunctions)
+        if (videoCanplaythrough) {
+            // delay(executeFunctionsSequentially, 1500, hrefChangeFunctions)
+            executeFunctionsSequentially(hrefChangeFunctions)
+        }
     },
     handleExecuteFunctionsSequentially () {
         const functions = [

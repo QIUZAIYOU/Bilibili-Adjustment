@@ -224,7 +224,7 @@ export const monitorHrefChange = callback => {
     const getFinalHref = url => {
         const u = new URL(url)
         const pParam = u.searchParams.get('p')
-        return `${u.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`
+        return `${u.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`.replace(/\/+$/, '')
     }
     let lastHref = location.href
     let lastHrefKey = getFinalHref(lastHref)
