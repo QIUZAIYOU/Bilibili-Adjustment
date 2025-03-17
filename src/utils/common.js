@@ -227,13 +227,15 @@ export const monitorHrefChange = callback => {
         return `${u.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`
     }
     let lastHref = location.href
-    const lastHrefKey = getFinalHref(lastHref)
+    let lastHrefKey = getFinalHref(lastHref)
     const checkAndTrigger = () => {
         const currentHref = location.href
         const currentHrefKey = getFinalHref(currentHref)
+        // console.log(`lastHref: ${lastHref} \n lastHrefKey: ${lastHrefKey} \n currentHref: ${currentHref} \n currentHrefKey: ${currentHrefKey}`)
         if (currentHrefKey !== lastHrefKey) {
             // console.log('Href change:', lastHref, currentHref)
             lastHref = currentHref
+            lastHrefKey = getFinalHref(lastHref)
             try {
                 callback()
             } catch (e) {
