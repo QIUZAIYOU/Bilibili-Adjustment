@@ -250,6 +250,16 @@ export default {
     },
     async autoSelectVideoHighestQuality () {
         if (!this.userConfigs.auto_select_video_highest_quality) return
+        const qualityMap = {
+            127: '8K超清',
+            120: '4K超清',
+            116: '1080P60',
+            112: '1080P高码率',
+            80: '1080P高清',
+            64: '720P高清',
+            32: '480P清晰',
+            16: '360P流畅'
+        }
         const qualityList = Array.from(await elementSelectors.queryAll('qualitySwitchButtons'))
             .map(btn => ({
                 value: +btn.dataset.value,
@@ -268,16 +278,6 @@ export default {
         // logger.debug(qualityList, availableQualities, targetQuality)
         if (targetQuality) {
             targetQuality.element.click()
-            const qualityMap = {
-                127: '8K超清',
-                120: '4K超清',
-                116: '1080P60',
-                112: '1080P高码率',
-                80: '1080P高清',
-                64: '720P高清',
-                32: '480P清晰',
-                16: '360P流畅'
-            }
             logger.info(`最高画质｜${this.userConfigs.is_vip ? 'VIP' : '非VIP'}｜${qualityMap[targetQuality.value] || targetQuality.value
             }｜切换成功`)
         }
