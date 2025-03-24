@@ -30,8 +30,7 @@
 
 > **提示**：以上链接使用了油小猴的 [crxsoso](https://www.crxsoso.com) 源。如不放心，可在浏览器扩展商店自行搜索安装。
 
-安装完成后，点击下方按钮在线安装脚本：
-👉 [在线安装](https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js)
+安装完成后，点击右侧按钮在线安装脚本：👉 [在线安装](https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js)
 
 ---
 
