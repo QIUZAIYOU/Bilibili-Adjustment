@@ -397,30 +397,48 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 }
 export const fetchLatestScript = async () => {
     try {
-        // console.log('开始请求最新的脚本')
-        const getLatestVersionClient = axios.create({
-            baseURL: 'https://cors-anywhere.herokuapp.com/https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js',
-            responseType: 'text',
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
+        console.log('开始请求最新的脚本')
+        // 公共代理列表（可扩展）
+        const CORSProxyList = [
+            'https://proxy.corsfix.com/?',
+            'https://api.allorigins.win/raw?url=',
+            'https://api.codetabs.com/v1/proxy?quest=',
+            'https://thingproxy.freeboard.io/fetch/',
+            'https://cloudflare-cors-anywhere.aiideai-hq.workers.dev?url='
+        ]
+        const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js'
+        let lastError = null
+        // 遍历所有代理服务器
+        for (const proxy of CORSProxyList) {
+            try {
+                const getLatestVersionClient = axios.create({
+                    baseURL: `${proxy}${encodeURIComponent(targetURL)}`,
+                    responseType: 'text',
+                    timeout: 20000,
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'x-corsfix-headers': JSON.stringify({
+                            Origin: window.location.origin,
+                            Referer: window.location.origin
+                        })
+                    }
+                })
+                const response = await getLatestVersionClient.get()
+                console.log('成功通过代理获取脚本:', proxy)
+                return response.data
+            } catch (error) {
+                console.warn(`代理 ${proxy} 请求失败:`, error.message)
+                lastError = error
+                continue // 尝试下一个代理
             }
-        })
-        const response = await getLatestVersionClient.get()
-        // console.log('成功获取最新的脚本')
-        return response.data
-    } catch (error) {
-        // 处理代理服务器不可用的情况
-        console.log('Failed to fetch the latest script:', error)
-        if (error.response) {
-            console.log('服务器响应:', error.response.data)
-            console.log('状态码:', error.response.status)
-            console.log('请求头:', error.response.headers)
-        } else if (error.request) {
-            console.log('请求信息:', error.request)
-        } else {
-            console.log('错误信息:', error.message)
         }
-        console.log('配置信息:', error.config)
+        // 所有代理都失败时抛出最后错误
+        throw new Error(`所有CORS代理均不可用。最后错误信息: ${lastError?.message}`)
+    } catch (error) {
+        console.log('全部代理请求失败:', error)
+        if (error.response) {
+            console.log('最后服务器响应:', error.response.data)
+        }
         return null
     }
 }
