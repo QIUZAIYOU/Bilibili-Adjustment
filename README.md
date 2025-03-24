@@ -21,7 +21,7 @@
 
 ##  以下为第二版
 
-Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-Adjustment-Archives)
+Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-Adjustment-Archived)
 
 本脚本是对本人已发布的两个脚本：[哔哩哔哩（bilibili.com）播放页调整](https://greasyfork.org/zh-CN/scripts/415804-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E6%92%AD%E6%94%BE%E9%A1%B5%E8%B0%83%E6%95%B4) 和 [哔哩哔哩（bilibili.com）动态页优化](https://greasyfork.org/zh-CN/scripts/40295-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E5%8A%A8%E6%80%81%E9%A1%B5%E4%BC%98%E5%8C%96) 的整合。  
 
