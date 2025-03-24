@@ -397,7 +397,7 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 export const fetchLatestScript = async () => {
     try {
         console.log('开始请求最新的脚本')
-        const response = await axios.get('https://cdn.jsdmirror.com/gh/QIUZAIYOU/Bilibili-Adjustment-Dev@main/dist/bilibili-adjustment.user.js', {
+        const response = await axios.get('https://cdn.jsdelivr.net/gh/QIUZAIYOU/Bilibili-Adjustment-Dev@main/dist/bilibili-adjustment.user.js', {
             responseType: 'text'
         })
         console.log('成功获取最新的脚本')

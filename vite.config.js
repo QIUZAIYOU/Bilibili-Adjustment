@@ -7,7 +7,7 @@ import VitePluginBundleObfuscator from 'vite-plugin-bundle-obfuscator'
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 export default defineConfig(({ mode }) => ({
     build: {
-        minify: 'esbuild',
+        minify: 'terser',
         terserOptions: {
             compress: {
                 // 移除所有注释
