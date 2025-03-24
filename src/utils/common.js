@@ -397,7 +397,7 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 }
 export const fetchLatestScript = async () => {
     try {
-        console.log('开始请求最新的脚本')
+        // console.log('开始请求最新的脚本')
         const getLatestVersionClient = axios.create({
             baseURL: 'https://cors-anywhere.herokuapp.com/https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js',
             responseType: 'text',
@@ -406,7 +406,7 @@ export const fetchLatestScript = async () => {
             }
         })
         const response = await getLatestVersionClient.get()
-        console.log('成功获取最新的脚本')
+        // console.log('成功获取最新的脚本')
         return response.data
     } catch (error) {
         // 处理代理服务器不可用的情况
