@@ -1,57 +1,79 @@
-# 哔哩哔哩（bilibili.com）调整
+# 🎬 哔哩哔哩（bilibili.com）调整
 
-一个简单的小脚本，主要是给自己用的。
+> 一个简单的小脚本，主要是给自己用的。
 
-为了方便开发，又将脚本完全重构了一遍，并添加了新功能，此为第三个版本。  
-因脚本托管网站（如 greasyfork）不允许上传混淆后的代码，故该版本的发布将不再使用脚本托管网站。  
-目前第二个版本 [哔哩哔哩（bilibili.com）播放页调整](https://greasyfork.org/zh-CN/scripts/493405-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E8%B0%83%E6%95%B4) 依然可用，但将不再更新。
+为了方便开发，脚本已完全重构并新增了功能，此为第三个版本。  
+因脚本托管网站（如 GreasyFork）不允许上传混淆压缩后的代码，该版本将不再使用脚本托管网站发布。  
+目前第二个版本 [哔哩哔哩（bilibili.com）播放页调整](https://greasyfork.org/zh-CN/scripts/493405-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E8%B0%83%E6%95%B4) 依然可用，但将**停止更新**。
 
-相比第二个版本，此版本有以下可感知的更新： 
-1. 常用功能重构，在性能和样式两个方面；
-2. 脚本设置项不再依赖篡改猴等脚本插件，在支持设置的页面将显示设置开关；
-3. 视频评论区新增「IP属地」显示；
-4. 脚本托管在本人自己的网站，为方便使用，新增支持自动检查更新并弹窗提醒；
+---
 
-**本人用空闲时间陆陆续续改完，修修补补使用了几个月到现在暂未发现有什么问题，但是并不能保证一定没问题，若使用中发现问题请提出来，我会尽快处理**
+## ✨ 新功能与改进
 
-请在浏览器安装诸如 [Tampermonkey](https://www.crxsoso.com/webstore/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo), [Violentmonkey](https://www.crxsoso.com/webstore/detail/jinjaccalgkegednnccohejagnlnfdag), [ScriptCat](https://www.crxsoso.com/webstore/detail/ndcooeababalnlpkfedmmbbbgkljhpjf)  脚本引擎扩展后点击下方按钮在线安装，脚本引擎会自动弹出安装页面；  
-以上扩展安装地址使用了油小猴的 [crxsoso](https://www.crxsoso.com) 源，如不放心可在浏览器扩展页面自行搜索安装。
+相比第二版，第三版有以下显著更新：
+1. **常用功能重构**：性能和样式全面优化；
+2. **独立设置项**：无需依赖篡改猴等脚本插件，支持页面内直接修改设置；
+3. **评论区增强**：新增「IP属地」显示；
+4. **自动更新提醒**：脚本托管在个人网站，支持自动检查更新并弹窗提醒。
 
-安装地址：[在线安装](https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js) 
+> **注意**：本人利用空闲时间开发并修修补补，虽已使用数月未发现问题，但仍无法保证完全没有 Bug。若使用中遇到问题，请随时反馈，我会尽快处理！
 
-##  以下为第二版
+---
 
-Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-Adjustment-Archived)
+## 🚀 安装指南
 
-本脚本是对本人已发布的两个脚本：[哔哩哔哩（bilibili.com）播放页调整](https://greasyfork.org/zh-CN/scripts/415804-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E6%92%AD%E6%94%BE%E9%A1%B5%E8%B0%83%E6%95%B4) 和 [哔哩哔哩（bilibili.com）动态页优化](https://greasyfork.org/zh-CN/scripts/40295-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E5%8A%A8%E6%80%81%E9%A1%B5%E4%BC%98%E5%8C%96) 的整合。  
+请先安装以下脚本引擎扩展之一：
+- [Tampermonkey](https://www.crxsoso.com/webstore/detail/dhdgffkkebhmkfjojejmpbldmpobfkfo)
+- [Violentmonkey](https://www.crxsoso.com/webstore/detail/jinjaccalgkegednnccohejagnlnfdag)
+- [ScriptCat](https://www.crxsoso.com/webstore/detail/ndcooeababalnlpkfedmmbbbgkljhpjf)
 
-本脚本对以上两个脚本进行了完全的重构，并添加了部分新功能。
+> **提示**：以上链接使用了油小猴的 [crxsoso](https://www.crxsoso.com) 源。如不放心，可在浏览器扩展商店自行搜索安装。
 
-本脚本目前拥有功能如下：
+安装完成后，点击下方按钮在线安装脚本：
+👉 [在线安装](https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js)
 
-视频会静音为浏览器安全行为，与本脚本无关，在浏览器地址栏左侧(不同浏览器位置及展现方式可能不同)网站权限中选择“允许音频和视频”即可。
+---
 
-一、通用调整：
-1. ~~自动签到(登录即可)；~~(B站官方已下线签到功能)
-2. 首页新增推荐视频历史记录(仅记录前6个推荐位中的非广告内容)，以防误点刷新错过想看的视频。  
+## 🛠 功能列表
 
-二、动态页调整：
-1. 默认显示"投稿视频"内容，可自行设置URL以免未来URL发生变化。  
+### 首页调整
+1. **推荐视频回溯**: 首页新增推荐视频历史记录（仅记录前10个推荐位中的非广告内容），防止误点刷新错过想看的视频。
 
-三、播放页调整：
-1. 自动定位到播放器（进入播放页，可自动定位到播放器，可设置偏移量及是否在点击主播放器时定位）；
-2. 可设置播放器默认模式；
-3. 可设置是否自动选择最高画质；
-4. 新增快速返回播放器漂浮按钮；
-5. 新增点击评论区时间锚点可快速返回播放器；
-6. 网页全屏模式解锁(网页全屏模式下可滚动查看评论，并在播放器控制栏新增快速跳转至评论区按钮)；
-7. 将视频简介内容优化后插入评论区或直接替换原简介区内容(替换原简介中固定格式的静态内容为跳转链接)；(已修复)
-8. 视频播放过程中跳转指定时间节点至目标时间节点(可用来跳过片头片尾及中间广告等)；【只是说实现了这么个功能，但是由于并没有付费云数据库支撑，并不能保证使用效果】
-9. 新增点击视频合集、下方推荐视频、结尾推荐视频卡片快速返回播放器；
-10. 离开页面自动暂停视频，返回自动播放。
-11. 新增自动开启字幕功能并添加快速开关。
+### 动态页调整
+1. **默认显示「投稿视频」**: 默认显示「投稿视频」内容，支持自定义URL以防未来变化。
 
-### 历史更新
+### 播放页调整
+1. **自动定位播放器**：进入播放页后自动滚动至播放器，支持偏移量设置；
+2. **播放器模式设置**：可自定义默认模式；
+3. **画质选择**：支持自动选择最高画质；
+4. **快速返回按钮**：新增悬浮按钮，一键返回播放器；
+5. **时间锚点支持**：点击评论区时间锚点快速跳转至播放器；
+6. **网页全屏解锁**：全屏模式下可滚动查看评论，并新增「跳转至评论区」按钮；
+7. **视频简介优化**：替换静态内容为跳转链接；
+8. **推荐视频支持**：点击合集、推荐视频卡片快速返回播放器；
+9. **自动暂停与播放**：离开页面时暂停视频，返回时自动播放；
+10. **字幕功能**：新增自动开启字幕选项及快速开关。
+11. **IP属地展示**：视频评论区显示评论IP归属地。
+
+---
+
+## 📋 更新日志
+
+暂无
+
+---
+
+## ⭐ 第二版与第一版
+
+### 第二版
+Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-Adjustment-Archived) (已归档)
+
+### 第一版
+Github:
+- [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-VideoPage-Adjustment) (已归档)
+- [哔哩哔哩（bilibili.com）动态页调整](https://github.com/QIUZAIYOU/Bilibili-DynamicPage-Adjustment) (已归档)
+
+### 📋 历史更新（第二版）
 
 ### 2025
 
@@ -73,13 +95,7 @@ Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZA
 
 `05.16 22:25`：优化「首页」推荐视频历史记录功能。
 
-## 以下为第一版
-
-Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-VideoPage-Adjustment)、[哔哩哔哩（bilibili.com）动态页调整](https://github.com/QIUZAIYOU/Bilibili-DynamicPage-Adjustment) 
-
-因最初没考虑太细，分为了 [哔哩哔哩（bilibili.com）播放页调整](https://greasyfork.org/zh-CN/scripts/415804-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E6%92%AD%E6%94%BE%E9%A1%B5%E8%B0%83%E6%95%B4) 和 [哔哩哔哩（bilibili.com）动态页优化](https://greasyfork.org/zh-CN/scripts/40295-%E5%93%94%E5%93%A9%E5%93%94%E5%93%A9-bilibili-com-%E5%8A%A8%E6%80%81%E9%A1%B5%E4%BC%98%E5%8C%96) 两个脚本开发。
-
-### 历史更新
+### 📋 历史更新（第一版）
 
 ### 2024
 
@@ -160,3 +176,13 @@ Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZA
 `07.15 16:27`：尝试修复自动选择「播放器默认模式」概率失效的问题。
 
 `07.09 22:50`：修复「自动定位至播放器」会在首次定位成功后重复执行的问题。
+
+---
+
+## 📞 反馈与支持
+
+如有任何问题或建议，请通过以下方式联系我：
+- 提交 Issue：[GitHub Issues](https://github.com/QIUZAIYOU/Bilibili-Adjustment/issues)
+- 邮件：暂无
+
+感谢您的支持与使用！🌟
