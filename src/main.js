@@ -6,18 +6,16 @@ import { LoggerService } from '@/services/logger.service'
 const logger = new LoggerService('Main')
 import { detectivePageType, promptForUpdate } from '@/utils/common'
 import pkg from '../package.json' with { type: 'json' }
-promptForUpdate(pkg.version).then(() => {
+const initializeApp = () => {
     ConfigService.initialize().then(() => {
         logger.debug('ConfigService 初始化完成')
         return detectivePageType()
     }).then(currentModuleType => {
         logger.debug(`页面类型: ${currentModuleType}`)
-        // 手动定义模块路径映射表
         const moduleMap = {
             'video': () => import('@/modules/video/video.module.js'),
             'home': () => import('@/modules/home/home.module.js'),
             'dynamic': () => import('@/modules/dynamic/dynamic.module.js')
-            // 添加其他模块类型...
         }
         if (moduleMap[currentModuleType]) {
             return moduleMap[currentModuleType]().then(module => {
@@ -34,6 +32,10 @@ promptForUpdate(pkg.version).then(() => {
     }).catch(error => {
         logger.error('应用初始化失败', error)
     })
-}).catch(error => {
-    logger.error('检查更新失败', error)
-})
+}
+initializeApp()
+setTimeout(() => {
+    promptForUpdate(pkg.version).catch(error => {
+        logger.error('检查更新失败', error)
+    })
+}, 0)

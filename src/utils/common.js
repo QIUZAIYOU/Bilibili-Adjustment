@@ -1,5 +1,6 @@
 /* global getComputedStyle */
 import axios from 'axios'
+import { getTemplates } from '@/shared/templates'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const delay = (func, delay, ...args) => {
     setTimeout(func(...args), delay)
@@ -397,12 +398,16 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 export const fetchLatestScript = async () => {
     try {
         console.log('开始请求最新的脚本')
-        const response = await axios.get('https://cdn.jsdelivr.net/gh/QIUZAIYOU/Bilibili-Adjustment-Dev@main/dist/bilibili-adjustment.user.js', {
-            responseType: 'text'
+        const response = await axios.get('https://cors-anywhere.herokuapp.com/https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js', {
+            responseType: 'text',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
         })
         console.log('成功获取最新的脚本')
         return response.data
     } catch (error) {
+        // 处理代理服务器不可用的情况
         console.log('Failed to fetch the latest script:', error)
         if (error.response) {
             console.log('服务器响应:', error.response.data)
@@ -449,7 +454,15 @@ export const promptForUpdate = async currentVersion => {
         return
     }
     if (compareVersions(currentVersion, latestVersion)) {
-        alert(`A new version (${latestVersion}) is available. Please update to the latest version.`)
-        // 或者使用更友好的UI组件来提示用户
+        const updatePopover = createElementAndInsert(getTemplates.replace('update', {
+            current: currentVersion,
+            latest: latestVersion
+        }), document.body, 'append')
+        updatePopover.showPopover()
+        const updateButton = updatePopover.querySelector('.adjustment-button-update')
+        updateButton.addEventListener('click', () => {
+            updatePopover.hidePopover()
+            window.open('//www.asifadeaway.com/bilibili/bilibili-adjustment.user.js')
+        })
     }
 }
