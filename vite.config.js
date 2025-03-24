@@ -52,10 +52,6 @@ export default defineConfig(({ mode }) => ({
                     '*://t.bilibili.com/*'
                 ],
                 grant: [
-                    'GM_addStyle',
-                    'GM_getValue',
-                    'GM_setValue',
-                    'GM_registerMenuCommand',
                     'unsafeWindow'
                 ]
             }
