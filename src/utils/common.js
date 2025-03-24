@@ -1,4 +1,5 @@
 /* global getComputedStyle */
+import axios from 'axios'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const delay = (func, delay, ...args) => {
     setTimeout(func(...args), delay)
@@ -392,4 +393,64 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
         document.head.append(styleElement)
     }
     styleElement.textContent = css
+}
+export const fetchLatestScript = async () => {
+    try {
+        const now = new Date().getTime()
+        console.log('开始请求最新的脚本')
+        const response = await axios.get(`//www.asifadeaway.com/bilibili/bilibili-adjustment.user.js?v=${now}`, {
+            responseType: 'text'
+        })
+        console.log('成功获取最新的脚本')
+        return response.data
+    } catch (error) {
+        console.log('Failed to fetch the latest script:', error)
+        if (error.response) {
+            console.log('服务器响应:', error.response.data)
+            console.log('状态码:', error.response.status)
+            console.log('请求头:', error.response.headers)
+        } else if (error.request) {
+            console.log('请求信息:', error.request)
+        } else {
+            console.log('错误信息:', error.message)
+        }
+        console.log('配置信息:', error.config)
+        return null
+    }
+}
+export const extractVersionFromScript = scriptContent => {
+    const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.]+)/)
+    if (versionMatch && versionMatch[1]) {
+        return versionMatch[1]
+    }
+    return null
+}
+export const compareVersions = (currentVersion, latestVersion) => {
+    const currentParts = currentVersion.split('.').map(Number)
+    const latestParts = latestVersion.split('.').map(Number)
+    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
+        const currentPart = currentParts[i] || 0
+        const latestPart = latestParts[i] || 0
+        if (latestPart > currentPart) {
+            return true
+        } else if (latestPart < currentPart) {
+            return false
+        }
+    }
+    return false
+}
+export const promptForUpdate = async currentVersion => {
+    const scriptContent = await fetchLatestScript()
+    if (!scriptContent) {
+        return
+    }
+    const latestVersion = extractVersionFromScript(scriptContent)
+    if (!latestVersion) {
+        console.error('Failed to extract version from the latest script')
+        return
+    }
+    if (compareVersions(currentVersion, latestVersion)) {
+        alert(`A new version (${latestVersion}) is available. Please update to the latest version.`)
+        // 或者使用更友好的UI组件来提示用户
+    }
 }
