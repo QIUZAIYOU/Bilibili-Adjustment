@@ -2,10 +2,11 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
-import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially } from '@/utils/common'
+import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
 import { regexps } from '@/shared/regexps'
-import { getTemplates } from '../../shared/templates'
-import { elementSelectors } from '../../shared/element-selectors'
+import { getTemplates } from '@/shared/templates'
+import { elementSelectors } from '@/shared/element-selectors'
+import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
@@ -22,6 +23,7 @@ export default {
         this.registSettings()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
+            insertStyleToDocument({ 'DynamicSettingStyle': styles.DynamicSetting })
             this.handleExecuteFunctionsSequentially()
         }
     },

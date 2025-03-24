@@ -398,12 +398,14 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 export const fetchLatestScript = async () => {
     try {
         console.log('开始请求最新的脚本')
-        const response = await axios.get('https://cors-anywhere.herokuapp.com/https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js', {
+        const getLatestVersionClient = axios.create({
+            baseURL: 'https://cors-anywhere.herokuapp.com/https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js',
             responseType: 'text',
             headers: {
                 'X-Requested-With': 'XMLHttpRequest'
             }
         })
+        const response = await getLatestVersionClient.get()
         console.log('成功获取最新的脚本')
         return response.data
     } catch (error) {

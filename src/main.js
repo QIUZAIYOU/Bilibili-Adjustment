@@ -4,7 +4,8 @@ import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
 import { LoggerService } from '@/services/logger.service'
 const logger = new LoggerService('Main')
-import { detectivePageType, promptForUpdate } from '@/utils/common'
+import { insertStyleToDocument, detectivePageType, promptForUpdate } from '@/utils/common'
+import { styles } from '@/shared/styles'
 import pkg from '../package.json' with { type: 'json' }
 const initializeApp = () => {
     ConfigService.initialize().then(() => {
@@ -33,6 +34,7 @@ const initializeApp = () => {
         logger.error('应用初始化失败', error)
     })
 }
+insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
 initializeApp()
 setTimeout(() => {
     promptForUpdate(pkg.version).catch(error => {

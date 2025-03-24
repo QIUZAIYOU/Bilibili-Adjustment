@@ -2,7 +2,6 @@
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { detectivePageType, insertStyleToDocument, createElementAndInsert, addEventListenerToElement, camelToSnake } from '@/utils/common'
-import { styles } from '@/shared/styles'
 import { getTemplates } from '@/shared/templates'
 export class SettingsComponent {
     constructor () {
@@ -11,7 +10,6 @@ export class SettingsComponent {
     async init (userConfigs) {
         this.userConfigs = userConfigs
         this.pageType = detectivePageType()
-        insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
         this.render(this.pageType)
     }
     render (pageType) {

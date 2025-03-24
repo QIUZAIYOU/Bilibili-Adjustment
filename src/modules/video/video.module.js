@@ -31,7 +31,7 @@ export default {
         this.initMonitors()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'VideoPageAdjustment': styles.VideoPageAdjustment, 'VideoSettings': styles.VideoSettings })
+            insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettings': styles.VideoSettings })
             this.checkVideoCanplaythrough(await elementSelectors.video)
         }
     },
