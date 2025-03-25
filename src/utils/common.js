@@ -378,13 +378,13 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 export const fetchLatestScript = async () => {
     const cacheKey = 'latestScriptCache'
     const cacheDuration = 24 * 60 * 60 * 1000
-    const cachedData = localStorage.getItem(cacheKey)
-    const cachedTime = localStorage.getItem(`${cacheKey}_time`)
-    if (cachedData && cachedTime) {
+    const cachedContent = localStorage.getItem(cacheKey)
+    if (cachedContent) {
+        const { data: cachedData, time: cachedTime } = JSON.parse(cachedContent)
         const now = new Date().getTime()
         if (now - cachedTime < cacheDuration) {
             console.log('使用缓存的脚本')
-            return JSON.parse(cachedData)
+            return cachedData
         }
     }
     try {
@@ -397,7 +397,7 @@ export const fetchLatestScript = async () => {
             'https://thingproxy.freeboard.io/fetch/',
             'https://cloudflare-cors-anywhere.aiideai-hq.workers.dev?url='
         ]
-        const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js'
+        const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.meta.js'
         let lastError = null
         const shuffledProxyList = CORSProxyList.sort(() => Math.random() - 0.5)
         for (const proxy of shuffledProxyList) {
@@ -411,8 +411,7 @@ export const fetchLatestScript = async () => {
                 })
                 const response = await getLatestVersionClient.get()
                 console.log('成功通过代理获取脚本:', proxy)
-                localStorage.setItem(cacheKey, JSON.stringify(response.data))
-                localStorage.setItem(`${cacheKey}_time`, new Date().getTime())
+                localStorage.setItem(cacheKey, JSON.stringify({ data: response.data, time: new Date().getTime() }))
                 return response.data
             } catch (error) {
                 console.warn(`代理 ${proxy} 请求失败:`, error.message)
