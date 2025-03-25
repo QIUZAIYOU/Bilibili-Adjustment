@@ -400,7 +400,7 @@ export const fetchLatestScript = async () => {
         console.log('开始请求最新的脚本')
         // 公共代理列表（可扩展）
         const CORSProxyList = [
-            'https://proxy.corsfix.com/?',
+            'https://qian.npkn.net/cors/?url=',
             'https://api.allorigins.win/raw?url=',
             'https://api.codetabs.com/v1/proxy?quest=',
             'https://thingproxy.freeboard.io/fetch/',
@@ -413,14 +413,9 @@ export const fetchLatestScript = async () => {
             try {
                 const getLatestVersionClient = axios.create({
                     baseURL: `${proxy}${encodeURIComponent(targetURL)}`,
-                    responseType: 'text',
                     timeout: 20000,
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'x-corsfix-headers': JSON.stringify({
-                            Origin: window.location.origin,
-                            Referer: window.location.origin
-                        })
+                        'X-Requested-With': 'XMLHttpRequest'
                     }
                 })
                 const response = await getLatestVersionClient.get()
