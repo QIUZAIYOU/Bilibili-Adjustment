@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite'
-import monkey from 'vite-plugin-monkey' // 改为默认导入
+import monkey from 'vite-plugin-monkey'
 import pkg from './package.json' with { type: 'json' }
 import path from 'path'
 import url from 'url'
@@ -10,7 +10,6 @@ export default defineConfig(({ mode }) => ({
         minify: 'terser',
         terserOptions: {
             compress: {
-                // 移除所有注释
                 defaults: false
             },
             format: {

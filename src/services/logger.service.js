@@ -26,25 +26,20 @@ export class LoggerService {
     constructor (module) {
         this.module = module
     }
-    // 通用的日志记录方法
     log (level, ...args) {
         if (LoggerService.ENABLED_LEVELS[level]) {
             console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)丨' : ''}${import.meta.env.DEV ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
         }
     }
-    // 记录信息级别的日志
     info (...args) {
         this.log('info', ...args)
     }
-    // 记录错误级别的日志
     error (...args) {
         this.log('error', ...args)
     }
-    // 记录警告级别的日志
     warn (...args) {
         this.log('warn', ...args)
     }
-    // 记录调试级别的日志
     debug (...args) {
         this.log('debug', ...args)
     }

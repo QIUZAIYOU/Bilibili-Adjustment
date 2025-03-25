@@ -58,7 +58,6 @@ export const throttle = (func, limit = 300, trailing = true) => {
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
     if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/')) return 'video'
-    // if (pathname.startsWith('/bangumi/')) return 'bangumi'
     if (host === 'www.bilibili.com' && pathname === '/') return 'home'
     if (origin === 'https://t.bilibili.com') return 'dynamic'
     return 'other'
@@ -69,9 +68,6 @@ export const isElementSizeChange = (el, callback) => {
     const resizeObserver = new ResizeObserver(entries => {
         for (const entry of entries) {
             if (entry.contentBoxSize) {
-                // const contentBoxSize = Array.isArray(entry.contentBoxSize)
-                //     ? entry.contentBoxSize[0]
-                //     : entry.contentBoxSize
                 const newWidth = entry.target.offsetWidth
                 const newHeight = entry.target.offsetHeight
                 if (newWidth !== lastWidth || newHeight !== lastHeight) {
@@ -105,7 +101,6 @@ export const documentScrollTo = (offset, options = {}) => {
                 const currentY = window.scrollY
                 const targetY = offset
                 // console.log(currentY, targetY, Math.abs(currentY - targetY))
-                // 滚动成功：文档已滚动值等于目标值或在容差范围内或当前播放器模式为网页全屏(目标值为-5)
                 const success = currentY === targetY || Math.abs(currentY - targetY) <= tolerance || offset === -5
                 if (success) {
                     resolve()
@@ -143,7 +138,6 @@ export const getElementComputedStyle = (element, propertyName) => {
     }, {})
 }
 export const addEventListenerToElement = (targets, type, callback, options = {}) => {
-    // 统一处理单元素和多元素情况
     const elements = Array.isArray(targets) ? targets : [targets]
     if (typeof options !== 'object') {
         throw new Error('Options must be an object or undefined')
@@ -233,9 +227,7 @@ export const monitorHrefChange = callback => {
     const checkAndTrigger = () => {
         const currentHref = location.href
         const currentHrefKey = getFinalHref(currentHref)
-        // console.log(`lastHref: ${lastHref} \n lastHrefKey: ${lastHrefKey} \n currentHref: ${currentHref} \n currentHrefKey: ${currentHrefKey}`)
         if (currentHrefKey !== lastHrefKey) {
-            // console.log('Href change:', lastHref, currentHref)
             lastHref = currentHref
             lastHrefKey = getFinalHref(lastHref)
             try {
@@ -281,26 +273,20 @@ export const createElementAndInsert = (HtmlString, target, method) => {
     return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
 }
 export const getTotalSecondsFromTimeString = timeString => {
-    // 移除原有长度判断，改为智能分段处理
     const parts = timeString.split(':')
-    // 处理不同分段情况
     if (parts.length === 1) {
-        // 纯秒数格式（如"59"）
         return parseInt(parts[0], 10)
     } else if (parts.length === 2) {
-        // 分钟:秒 格式
         const [minutes, seconds] = parts.map(Number)
         return minutes * 60 + seconds
     } else if (parts.length === 3) {
-        // 完整的时间格式
         const [hours, minutes, seconds] = parts.map(Number)
         return hours * 3600 + minutes * 60 + seconds
     }
-    return 0 // 无效格式返回0
+    return 0
 }
 export const insertStyleToDocument = styles => {
     if (typeof styles === 'object' && !Array.isArray(styles)) {
-        // 支持对象参数
         for (const [id, cssString] of Object.entries(styles)) {
             let styleElement = document.getElementById(id)
             if (!cssString) {
@@ -328,17 +314,14 @@ export const getBodyHeight = () => {
 }
 export const camelToSnake = str => str.replace(/(?:^|\.?)([A-Z])/g, (x, y) => '_' + y.toLowerCase())
     .replace(/^_/, '')
-// ... 已有代码 ...
 export const updateVideoSizeStyle = (mode = 'normal') => {
-    const baseWidth = 1920 // 设计稿基准宽度
-    const baseHeight = 1080 // 设计稿基准高度
+    const baseWidth = 1920
+    const baseHeight = 1080
     const currentWidth = window.screen.width
     const currentHeight = window.screen.height
-    // 计算缩放比例（横向缩放为主）
     const scaleX = currentWidth / baseWidth
     const scaleY = currentHeight / baseHeight
     const scale = Math.min(scaleX, scaleY)
-    // 尺寸计算规则
     const sizeRules = {
         normal: {
             containerWidth: 1063 * scale,
@@ -363,16 +346,14 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
             danmukuMargin: 752 * scale
         }
     }
-    // 获取当前模式配置
     const {
         containerWidth,
         playerWidth,
         playerHeight,
         discoverMargin,
-        followTop = playerHeight + 10, // 默认相对位置
-        danmukuMargin = playerHeight + 20 // 默认相对位置
+        followTop = playerHeight + 10,
+        danmukuMargin = playerHeight + 20
     } = sizeRules[mode]
-    // 构建样式规则
     const css = `
         .video-container-v1 { width: auto; padding: 0 ${10 * scale}px; }
         .left-container { width: ${containerWidth}px; }
@@ -386,7 +367,6 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
         #playerWrap { height: ${playerHeight}px; }
         .video-discover { margin-left: ${discoverMargin}px; }
     `
-    // 写入样式
     let styleElement = document.getElementById('setSizeStyle')
     if (!styleElement) {
         styleElement = document.createElement('style')
@@ -397,8 +377,7 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 }
 export const fetchLatestScript = async () => {
     const cacheKey = 'latestScriptCache'
-    const cacheDuration = 24 * 60 * 60 * 1000 // 24小时缓存时间
-    // 检查缓存
+    const cacheDuration = 24 * 60 * 60 * 1000
     const cachedData = localStorage.getItem(cacheKey)
     const cachedTime = localStorage.getItem(`${cacheKey}_time`)
     if (cachedData && cachedTime) {
@@ -410,7 +389,6 @@ export const fetchLatestScript = async () => {
     }
     try {
         console.log('开始请求最新的脚本')
-        // 公共代理列表（可扩展）
         const CORSProxyList = [
             'https://qian.npkn.net/cors/?url=',
             'https://cors.aiideai-hq.workers.dev/?destination=',
@@ -421,7 +399,6 @@ export const fetchLatestScript = async () => {
         ]
         const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js'
         let lastError = null
-        // 遍历所有代理服务器
         const shuffledProxyList = CORSProxyList.sort(() => Math.random() - 0.5)
         for (const proxy of shuffledProxyList) {
             try {
@@ -434,17 +411,15 @@ export const fetchLatestScript = async () => {
                 })
                 const response = await getLatestVersionClient.get()
                 console.log('成功通过代理获取脚本:', proxy)
-                // 缓存结果
                 localStorage.setItem(cacheKey, JSON.stringify(response.data))
                 localStorage.setItem(`${cacheKey}_time`, new Date().getTime())
                 return response.data
             } catch (error) {
                 console.warn(`代理 ${proxy} 请求失败:`, error.message)
                 lastError = error
-                continue // 尝试下一个代理
+                continue
             }
         }
-        // 所有代理都失败时抛出最后错误
         throw new Error(`所有CORS代理均不可用。最后错误信息: ${lastError?.message}`)
     } catch (error) {
         console.log('全部代理请求失败:', error)

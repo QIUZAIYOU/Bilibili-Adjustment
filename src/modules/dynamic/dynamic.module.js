@@ -45,7 +45,6 @@ export default {
             regexps.dynamic.DetailLink.test(currentHref) ||
             regexps.dynamic.TopicDetailLink.test(currentHref)
         ) {
-            // 不影响BiliBili首页导航栏动态悬浮窗、动态页里投票及互动抽奖页等内容显示
             return false
         }
         if (currentHref !== dynamic_video_link) {

@@ -89,7 +89,6 @@ const selectors = {
     notChargeHighLevelCover: '.not-charge-high-level-cover',
     switchSubtitleButton: '.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle',
     dynamicSidebar: '.bili-dyn-sidebar',
-    // 脚本设置相关选择器
     DynamicSettingsPopover: '#DynamicSettingsPopover',
     DynamicSettingSaveButton: '#DynamicSettingSaveButton',
     DynamicSettingsPopoverTips: '#DynamicSettingsPopoverTips',
@@ -119,7 +118,6 @@ const selectors = {
     PauseVideo: '#PauseVideo',
     ContinuePlay: '#ContinuePlay',
     AutoSubtitle: '#AutoSubtitle',
-    // 脚本样式表选择器
     BilibiliAdjustmentStyle: '#BilibiliAdjustmentStyle',
     VideoPageAdjustmentStyle: '#VideoPageAdjustmentStyle',
     FreezeHeaderAndVideoTitleStyle: '#FreezeHeaderAndVideoTitleStyle',
@@ -151,7 +149,6 @@ const createCachedQuery = async (selector, all = false) => {
         }
         elementCache.delete(cacheKey)
     }
-    // 新增批量查询支持
     const queryMethod = all ? 'querySelectorAll' : 'querySelector'
     const waitForElements = () => {
         const result = document[queryMethod](selector)
@@ -175,7 +172,6 @@ const createCachedQuery = async (selector, all = false) => {
             }, 10000)
         })
     }
-    // 同步尝试获取 + 异步监听获取组合
     let result = document[queryMethod](selector) || await waitForElements()
     if (all && !(result instanceof NodeList)) {
         result = result ? [result] : []
@@ -184,7 +180,6 @@ const createCachedQuery = async (selector, all = false) => {
         element: all ? [...result] : result,
         observer: new MutationObserver(() => elementCache.delete(cacheKey))
     })
-    // 监听父元素变化
     if (result && !all && result.parentElement) {
         elementCache.get(cacheKey).observer.observe(result.parentElement, {
             childList: true
@@ -192,21 +187,11 @@ const createCachedQuery = async (selector, all = false) => {
     }
     return all ? [...result] : result
 }
-// 新增批量查询方法
-// export const batchQuery = async selectorsObj => {
-//     const queries = Object.entries(selectorsObj).map(async ([key, selector]) => {
-//         const elements = await createCachedQuery(selector, true)
-//         return [key, elements]
-//     })
-//     const results = await Promise.all(queries)
-//     return Object.fromEntries(results)
-// }
 const each = async (selectorKey, callback) => {
     const selector = selectors[selectorKey]
     const elements = await createCachedQuery(selector, true)
     elements.forEach(callback)
 }
-// 扩展原有Proxy功能
 export const elementSelectors = new Proxy(selectors, {
     get (target, prop) {
         if (prop === 'batch') {
@@ -231,7 +216,6 @@ export const elementSelectors = new Proxy(selectors, {
         return createCachedQuery(target[prop])
     }
 })
-// 添加全局清理监听
 window.addEventListener('unload', () => {
     elementCache.forEach(entry => entry.observer.disconnect())
 })
