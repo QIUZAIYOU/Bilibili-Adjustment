@@ -68,12 +68,6 @@ export default {
             const events = ['canplaythrough', 'loadeddata']
             events.forEach(event =>
                 videoElement.addEventListener(event, handler, { signal: ac.signal }))
-            // const TIMEOUT = 1e4
-            // setTimeout(() => {
-            //     ac.abort()
-            //     logger.debug('视频资源丨加载超时')
-            //     resolve(false)
-            // }, TIMEOUT)
         })
     },
     async checkVideoCanplaythrough (videoElement, emit = true) {
@@ -443,7 +437,6 @@ export default {
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
         if (videoCanplaythrough) {
-            // delay(executeFunctionsSequentially, 1500, hrefChangeFunctions)
             executeFunctionsSequentially(hrefChangeFunctions)
         }
     },

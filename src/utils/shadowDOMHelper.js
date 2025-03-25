@@ -2,8 +2,7 @@ class ShadowDOMHelper {
     static #shadowRoots = new WeakMap()
     static #observers = new WeakMap()
     static #selectorCache = new Map()
-    // static #styleCache = new WeakMap()
-    static #processedElements = new WeakSet() // 新增WeakSet跟踪已处理元素
+    static #processedElements = new WeakSet()
     static #MAX_CACHE_SIZE = 100
     // ==================== 核心初始化 ====================
     static init () {
@@ -44,7 +43,7 @@ class ShadowDOMHelper {
     static #filterElement (node) {
         return (
             node.nodeType === Node.ELEMENT_NODE &&
-            node.namespaceURI === 'http://www.w3.org/1999/xhtml' // 精确过滤非HTML元素
+            node.namespaceURI === 'http://www.w3.org/1999/xhtml'
         )
     }
     static batchQuery (host, queries, options = {}) {
@@ -100,37 +99,34 @@ class ShadowDOMHelper {
             debounce = 50,
             maxRetries = 3,
             scanInterval = 0,
-            allowReprocess = false // 新增配置项允许重新处理
+            allowReprocess = false
         } = options
         if (!nodeNameFilter && !selector) throw new Error('必须提供 selector 或 nodeNameFilter')
-        // 核心监控逻辑（优化去重）
         const observer = new MutationObserver(this.#debounceHandler(debounce, mutations => {
             mutations.flatMap(m => [...m.addedNodes])
                 .forEach(node => this.#processNode(node, host, selector, callback, {
                     nodeNameFilter,
                     checkHostTree,
                     maxRetries,
-                    allowReprocess // 传递配置参数
+                    allowReprocess
                 }))
         }))
-        // 定时扫描逻辑（带去重检查）
         let intervalId
         if (scanInterval > 0) {
             intervalId = setInterval(() => {
                 this.#deepScanExisting(host, selector, callback, {
                     nodeNameFilter,
                     checkHostTree,
-                    allowReprocess // 传递配置参数
+                    allowReprocess
                 })
             }, scanInterval)
         }
-        // 清理函数增强
         const cleanup = () => {
             observer.disconnect()
             intervalId && clearInterval(intervalId)
             this.#observers.delete(host)
             if (!allowReprocess) {
-                this.#processedElements = new WeakSet() // 可选清理
+                this.#processedElements = new WeakSet()
             }
         }
         this.#observers.set(host, { observer, callback, cleanup })
@@ -138,7 +134,6 @@ class ShadowDOMHelper {
             childList: true,
             subtree: true
         })
-        // 初始扫描逻辑优化
         if (observeExisting) {
             this.#deepScanExisting(host, selector, callback, {
                 nodeNameFilter,
@@ -197,12 +192,9 @@ class ShadowDOMHelper {
     }
     static #processNode (node, host, selector, callback, options) {
         const { nodeNameFilter, allowReprocess } = options
-        // 增强过滤逻辑
         if (!this.#filterElement(node)) return
         if (this.#isAlreadyProcessed(node, allowReprocess)) return
-        // 标记为已处理（在验证通过后）
         this.#markAsProcessed(node)
-        // 剩余处理逻辑保持不变
         if (nodeNameFilter) {
             if (node.nodeName === nodeNameFilter.toUpperCase()) {
                 this.#safeCallback(callback, node)
@@ -248,7 +240,6 @@ class ShadowDOMHelper {
         const targets = this.querySelectorAll(host, selector)
         if (targets.length === 0) return false
         const styleStr = this.#parseStyles(styles)
-        // const styleSheets = new WeakMap()
         targets.forEach(target => {
             const styleTag = this.#getStyleTag(target, isolate)
             const rule = isolate ? `[${styleTag.dataset.uniqueAttr}] { ${styleStr} }` : styleStr
@@ -331,11 +322,6 @@ class ShadowDOMHelper {
         }
         throw new TypeError('样式必须是字符串或对象')
     }
-    // static #findByTagName(host, nodeName, checkHostTree) {
-    //     const root = this.getShadowRoot(host) ?? host
-    //     const elements = [...root.querySelectorAll('*')].filter(el => el.nodeName.toLowerCase() === nodeName.toLowerCase())
-    //     return checkHostTree ? elements.filter(el => this.#isInHostTree(el, host)) : elements
-    // }
     static #isInHostTree (element, host) {
         let root = element.getRootNode()
         while (root) {
@@ -375,11 +361,6 @@ class ShadowDOMHelper {
         }
         return styleTag
     }
-    // static #validateElement(el) {
-    //   if (!(el instanceof HTMLElement)) {
-    //     throw new TypeError('宿主元素必须是有效的 HTML 元素')
-    //   };
-    // }
     static #validateSelector (selector) {
         if (typeof selector !== 'string' || !selector.trim()) throw new TypeError('选择器必须是有效的非空字符串')
     }

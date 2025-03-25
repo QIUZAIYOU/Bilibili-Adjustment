@@ -1,4 +1,3 @@
-// SettingsComponent.js
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { detectivePageType, insertStyleToDocument, createElementAndInsert, addEventListenerToElement, camelToSnake } from '@/utils/common'

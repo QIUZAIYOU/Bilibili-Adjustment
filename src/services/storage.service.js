@@ -56,7 +56,6 @@ export class StorageService {
     }
     async init () {
         try {
-            // 初始化所有数据库连接
             for (const [name, db] of this.#dbs) {
                 await db.connect()
                 if (!db.isStoreExists('keyval')) {

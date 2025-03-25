@@ -1,4 +1,3 @@
-// src/services/config.service.js
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 export class ConfigService {
@@ -65,7 +64,6 @@ export class ConfigService {
             await this.initialize()
         }
         try {
-            // 缓存命中检查
             if (this.#cache.has(name)) {
                 return this.#cache.get(name)
             }
@@ -78,7 +76,7 @@ export class ConfigService {
                 }
                 return null
             }
-            this.#cache.set(name, value) // 更新缓存
+            this.#cache.set(name, value)
             return value
         } catch (error) {
             this.#logger.error('配置读取失败', error)
@@ -90,19 +88,16 @@ export class ConfigService {
             await this.initialize()
         }
         try {
-            // 同步更新缓存
             this.#cache.set(name, value)
             await storageService.legacySet(name, value)
         } catch (error) {
-            this.#cache.delete(name) // 回滚缓存
+            this.#cache.delete(name)
             this.#logger.error('配置存储失败', error)
             throw error
         }
     }
-    // 新增缓存清理方法
     static clearCache () {
         this.#cache.clear()
     }
 }
-// 保持单例导出方式不变
 export const configService = new ConfigService()

@@ -7,7 +7,6 @@ class IndexedDBService {
         this.db = null
         this.lastOperationTime = Date.now()
     }
-    // 核心数据库连接
     async connect () {
         if (this.db) {
             this._updateLastOperation()
@@ -32,7 +31,6 @@ class IndexedDBService {
     isStoreExists (storeName) {
         return this.db && this.db.objectStoreNames.contains(storeName)
     }
-    // 基础CRUD操作
     async add (storeName, data) {
         return this._execute(storeName, 'readwrite', store => store.add(data))
     }
@@ -64,7 +62,6 @@ class IndexedDBService {
     async clear (storeName) {
         return this._execute(storeName, 'readwrite', store => store.clear())
     }
-    // 通用执行方法
     async _execute (storeName, mode, operation) {
         await this.connect()
         return new Promise((resolve, reject) => {
@@ -99,14 +96,12 @@ class IndexedDBService {
             request.onerror = reject
         })
     }
-    // 精简后的连接管理
     close () {
         if (this.db) {
             this.db.close()
             this.db = null
         }
     }
-    // 存储创建逻辑
     _createStores (db) {
         this.storeConfig.forEach(config => {
             if (!db.objectStoreNames.contains(config.name)) {

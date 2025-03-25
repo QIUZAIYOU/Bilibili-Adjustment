@@ -1,13 +1,12 @@
-// src/core/module-system.js
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
-    #modules = new Map() // {name: ModuleMeta}
+    #modules = new Map()
     #config = {
-        lazyInit: false // 延迟初始化模式
+        lazyInit: false
     }
     constructor () {
         if (ModuleSystem.#instance) {
@@ -37,7 +36,7 @@ export class ModuleSystem {
         this.#logger.debug(`模块已注册: ${name}`)
     }
     async init (options = {}) {
-        await ConfigService.initializeDefaults() // 确保默认配置已初始化
+        await ConfigService.initializeDefaults()
         const startTime = Date.now()
         eventBus.emit('system:init-start', { timestamp: startTime })
         try {
@@ -87,9 +86,7 @@ export class ModuleSystem {
         }
     }
     #createModuleInstance (moduleDef) {
-        // 保留原型链的实例化方式
         const instance = Object.create(moduleDef)
-        // 使用 defineProperties 确保方法可枚举
         Object.entries(moduleDef).forEach(([key, value]) => {
             if (typeof value === 'function') {
                 instance[key] = value.bind(instance)
@@ -139,5 +136,4 @@ export class ModuleSystem {
         }
     }
 }
-// 保持单例导出方式不变
 export const moduleSystem = new ModuleSystem()

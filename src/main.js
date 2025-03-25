@@ -1,4 +1,3 @@
-// src/main.js
 import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
