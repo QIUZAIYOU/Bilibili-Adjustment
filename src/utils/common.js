@@ -1,4 +1,4 @@
-/* global getComputedStyle */
+/* global getComputedStyle,localStorage */
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -396,6 +396,18 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
     styleElement.textContent = css
 }
 export const fetchLatestScript = async () => {
+    const cacheKey = 'latestScriptCache'
+    const cacheDuration = 24 * 60 * 60 * 1000 // 24小时缓存时间
+    // 检查缓存
+    const cachedData = localStorage.getItem(cacheKey)
+    const cachedTime = localStorage.getItem(`${cacheKey}_time`)
+    if (cachedData && cachedTime) {
+        const now = new Date().getTime()
+        if (now - cachedTime < cacheDuration) {
+            console.log('使用缓存的脚本')
+            return JSON.parse(cachedData)
+        }
+    }
     try {
         console.log('开始请求最新的脚本')
         // 公共代理列表（可扩展）
@@ -409,7 +421,8 @@ export const fetchLatestScript = async () => {
         const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.user.js'
         let lastError = null
         // 遍历所有代理服务器
-        for (const proxy of CORSProxyList) {
+        const shuffledProxyList = CORSProxyList.sort(() => Math.random() - 0.5)
+        for (const proxy of shuffledProxyList) {
             try {
                 const getLatestVersionClient = axios.create({
                     baseURL: `${proxy}${encodeURIComponent(targetURL)}`,
@@ -420,6 +433,9 @@ export const fetchLatestScript = async () => {
                 })
                 const response = await getLatestVersionClient.get()
                 console.log('成功通过代理获取脚本:', proxy)
+                // 缓存结果
+                localStorage.setItem(cacheKey, JSON.stringify(response.data))
+                localStorage.setItem(`${cacheKey}_time`, new Date().getTime())
                 return response.data
             } catch (error) {
                 console.warn(`代理 ${proxy} 请求失败:`, error.message)
