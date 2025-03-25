@@ -413,6 +413,7 @@ export const fetchLatestScript = async () => {
         // 公共代理列表（可扩展）
         const CORSProxyList = [
             'https://qian.npkn.net/cors/?url=',
+            'https://cors.aiideai-hq.workers.dev/?destination=',
             'https://api.allorigins.win/raw?url=',
             'https://api.codetabs.com/v1/proxy?quest=',
             'https://thingproxy.freeboard.io/fetch/',

@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.0.0',
+    version: '2.1.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
