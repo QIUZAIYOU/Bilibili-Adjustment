@@ -488,7 +488,7 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
         element.setAttribute('checked', value.toString())
     })
 }
-export const calculatePlayerControlbarTooltipPosition = async (triggerElement, tooltipElement) => {
+export const showPlayerControlbarTooltip = (triggerElement, tooltipElement) => {
     const { top, left } = getElementOffsetToDocument(triggerElement)
     tooltipElement.style.top = `${top - window.scrollY - triggerElement.clientHeight - 12}px`
     tooltipElement.style.left = `${left - (tooltipElement.clientWidth / 2) + (triggerElement.clientWidth / 2)}px`
