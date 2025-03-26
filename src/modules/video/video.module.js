@@ -5,7 +5,7 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox } from '@/utils/common'
+import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, calculatePlayerControlbarTooltipPosition, hidePlayerControlbarTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.1.1',
+    version: '2.1.2',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -115,7 +115,7 @@ export default {
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
         const playerContainer = await elementSelectors.playerContainer
-        await storageService.legacySet('player_offset_top', await getElementOffsetToDocumentTop(playerContainer))
+        await storageService.legacySet('player_offset_top', await getElementOffsetToDocument(playerContainer).top)
         const playerMode = playerContainer.getAttribute('data-screen')
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
@@ -150,7 +150,7 @@ export default {
     async locateToPlayer () {
         const playerContainer = await elementSelectors.query('playerContainer')
         const playerMode = playerContainer.getAttribute('data-screen')
-        const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocumentTop(playerContainer) : this.userConfigs.player_offset_top
+        const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
         const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
         // logger.debug(headerComputedStyle.position, headerComputedStyle.height)
         const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
@@ -265,8 +265,8 @@ export default {
             this.userConfigs.is_vip ? true : q.isVIP)
         const targetQuality = availableQualities.find(q => {
             if (!this.userConfigs.is_vip) return true
-            if (this.userConfigs.contain_quality_8k && q.value === 127) return true
-            if (this.userConfigs.contain_quality_4k && q.value === 120) return true
+            if (this.userConfigs.contain_quality8k && q.value === 127) return true
+            if (this.userConfigs.contain_quality4k && q.value === 120) return true
             return q.value < 120
         })
         // logger.debug(qualityList, availableQualities, targetQuality)
@@ -304,7 +304,7 @@ export default {
         const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButton', {
             autoSubtitle: this.userConfigs.auto_subtitle
         }), playerDanmuSetting, 'after')
-        // const autoEnableSubtitleTip = createElementAndInsert(getTemplates.autoEnableSubtitleSwitchButtonTip, playerTooltipArea, 'append')
+        const autoEnableSubtitleTip = createElementAndInsert(getTemplates.autoEnableSubtitleSwitchButtonTip, playerTooltipArea, 'append')
         const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
         initializeCheckbox(AutoEnableSubtitleSwitchInput, this.userConfigs, 'auto_subtitle')
         addEventListenerToElement(AutoEnableSubtitleSwitchInput, 'change', async e => {
@@ -314,7 +314,13 @@ export default {
             AutoEnableSubtitleSwitchInput.setAttribute('checked', isChecked.toString())
             AutoSubtitle.setAttribute('checked', isChecked.toString())
             await storageService.legacySet('auto_subtitle', Boolean(isChecked))
-            // playerTooltipTitle.innerText = e.target.checked ? '关闭自动开启字幕(l)' : '开启自动开启字幕(l)'
+            playerTooltipTitle.innerText = e.target.checked ? '关闭自动开启字幕(l)' : '开启自动开启字幕(l)'
+        })
+        addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseover', async () => {
+            await calculatePlayerControlbarTooltipPosition(autoEnableSubtitleSwitchButton, autoEnableSubtitleTip)
+        })
+        addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseout', () => {
+            hidePlayerControlbarTooltip(autoEnableSubtitleTip)
         })
     },
     async insertSideFloatNavToolsButtons () {
@@ -442,7 +448,7 @@ export default {
         const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight, 'append')
         addEventListenerToElement(locateToCommentButton, 'click', async event => {
             event.stopPropagation()
-            documentScrollTo(await getElementOffsetToDocumentTop(videoComment) - 10)
+            documentScrollTo(await getElementOffsetToDocument(videoComment).top - 10)
         })
     },
     async handleHrefChangedFunctionsSequentially (){
