@@ -488,7 +488,7 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
         element.setAttribute('checked', value.toString())
     })
 }
-export const showPlayerControlbarTooltip = (triggerElement, tooltipElement) => {
+export const showPlayerTooltip = (triggerElement, tooltipElement) => {
     const { top, left } = getElementOffsetToDocument(triggerElement)
     tooltipElement.style.top = `${top - window.scrollY - triggerElement.clientHeight - 12}px`
     tooltipElement.style.left = `${left - (tooltipElement.clientWidth / 2) + (triggerElement.clientWidth / 2)}px`
@@ -496,7 +496,7 @@ export const showPlayerControlbarTooltip = (triggerElement, tooltipElement) => {
     tooltipElement.style.visibility = 'visible'
     tooltipElement.style.transition = 'opacity .3s'
 }
-export const hidePlayerControlbarTooltip = tooltipElement => {
+export const hidePlayerTooltip = tooltipElement => {
     tooltipElement.style.opacity = 0
     tooltipElement.style.visibility = 'hidden'
 }

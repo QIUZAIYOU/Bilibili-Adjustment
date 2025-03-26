@@ -97,6 +97,7 @@ const selectors = {
     VideoSettingsSaveButton: '#VideoSettingsSaveButton',
     AutoSkipSwitchInput: '#AutoSkipSwitch',
     AutoEnableSubtitleSwitchInput: '#AutoEnableSubtitle',
+    AutoEnableSubtitleTooltipTitle: '#autoEnableSubtitleTip .bpx-player-tooltip-title',
     WebVideoLinkInput: '#WebVideoLink',
     IsVip: '#IsVip',
     AutoLocate: '#AutoLocate',
