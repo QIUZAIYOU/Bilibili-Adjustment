@@ -1,4 +1,4 @@
-/* global queueMicrotask,Event */
+/* global queueMicrotask */
 import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
