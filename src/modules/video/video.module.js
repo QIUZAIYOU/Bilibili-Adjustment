@@ -5,7 +5,7 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerControlbarTooltip, hidePlayerControlbarTooltip } from '@/utils/common'
+import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -293,6 +293,7 @@ export default {
     async autoEnableSubtitle () {
         if (!this.userConfigs.auto_subtitle) return
         const switchSubtitleButton = await elementSelectors.switchSubtitleButton
+        if (!switchSubtitleButton) return
         const enableStatus = switchSubtitleButton.children[0].children[0].children[0].children[1].childElementCount === 1
         if (!enableStatus) {
             switchSubtitleButton.children[0].children[0].click()
@@ -300,27 +301,29 @@ export default {
         }
     },
     async insertAutoEnableSubtitleSwitchButton () {
-        const [playerDanmuSetting, playerTooltipArea, playerTooltipTitle, AutoSubtitle] = await elementSelectors.batch(['playerDanmuSetting', 'playerTooltipArea', 'playerTooltipTitle', 'AutoSubtitle'])
+        const [playerDanmuSetting, playerTooltipArea, AutoSubtitle] = await elementSelectors.batch(['playerDanmuSetting', 'playerTooltipArea', 'AutoSubtitle'])
         const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButton', {
             autoSubtitle: this.userConfigs.auto_subtitle
         }), playerDanmuSetting, 'after')
-        const autoEnableSubtitleTip = createElementAndInsert(getTemplates.autoEnableSubtitleSwitchButtonTip, playerTooltipArea, 'append')
-        const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
+        const autoEnableSubtitleTip = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButtonTip', {
+            autoEnableSubtitleSwitchButtonTipText: this.userConfigs.auto_subtitle ? '关闭自动开启字幕' : '开启自动开启字幕'
+        }), playerTooltipArea, 'append')
+        const [AutoEnableSubtitleSwitchInput, AutoEnableSubtitleTooltipTitle] = await elementSelectors.batch(['AutoEnableSubtitleSwitchInput', 'AutoEnableSubtitleTooltipTitle'])
         initializeCheckbox(AutoEnableSubtitleSwitchInput, this.userConfigs, 'auto_subtitle')
         addEventListenerToElement(AutoEnableSubtitleSwitchInput, 'change', async e => {
             const isChecked = e.target.checked
+            await storageService.legacySet('auto_subtitle', Boolean(isChecked))
             AutoEnableSubtitleSwitchInput.checked = isChecked
             AutoSubtitle.checked = isChecked
             AutoEnableSubtitleSwitchInput.setAttribute('checked', isChecked.toString())
             AutoSubtitle.setAttribute('checked', isChecked.toString())
-            await storageService.legacySet('auto_subtitle', Boolean(isChecked))
-            playerTooltipTitle.innerText = e.target.checked ? '关闭自动开启字幕(l)' : '开启自动开启字幕(l)'
+            AutoEnableSubtitleTooltipTitle.innerText = isChecked ? '关闭自动开启字幕' : '开启自动开启字幕'
         })
         addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseover', () => {
-            showPlayerControlbarTooltip(autoEnableSubtitleSwitchButton, autoEnableSubtitleTip)
+            showPlayerTooltip(autoEnableSubtitleSwitchButton, autoEnableSubtitleTip)
         })
         addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseout', () => {
-            hidePlayerControlbarTooltip(autoEnableSubtitleTip)
+            hidePlayerTooltip(autoEnableSubtitleTip)
         })
     },
     async insertSideFloatNavToolsButtons () {
@@ -470,13 +473,13 @@ export default {
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
             this.autoCancelMute,
-            this.autoEnableSubtitle,
-            this.insertAutoEnableSubtitleSwitchButton,
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButtons,
             this.clickVideoTimeAutoLocation,
             this.doSomethingToCommentElements,
-            this.unlockEpisodeSelector
+            this.unlockEpisodeSelector,
+            this.autoEnableSubtitle,
+            this.insertAutoEnableSubtitleSwitchButton
         ]
         executeFunctionsSequentially(functions)
     }
