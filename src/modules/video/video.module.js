@@ -1,11 +1,11 @@
-/* global queueMicrotask */
+/* global queueMicrotask,Event */
 import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight } from '@/utils/common'
+import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocumentTop, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.1.0',
+    version: '2.1.1',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -31,7 +31,7 @@ export default {
         this.initMonitors()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettings': styles.VideoSettings })
+            insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
             this.checkVideoCanplaythrough(await elementSelectors.video)
         }
     },
@@ -299,6 +299,24 @@ export default {
             logger.info('视频字幕丨已开启')
         }
     },
+    async insertAutoEnableSubtitleSwitchButton () {
+        const [playerDanmuSetting, playerTooltipArea, playerTooltipTitle, AutoSubtitle] = await elementSelectors.batch(['playerDanmuSetting', 'playerTooltipArea', 'playerTooltipTitle', 'AutoSubtitle'])
+        const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButton', {
+            autoSubtitle: this.userConfigs.auto_subtitle
+        }), playerDanmuSetting, 'after')
+        // const autoEnableSubtitleTip = createElementAndInsert(getTemplates.autoEnableSubtitleSwitchButtonTip, playerTooltipArea, 'append')
+        const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
+        initializeCheckbox(AutoEnableSubtitleSwitchInput, this.userConfigs, 'auto_subtitle')
+        addEventListenerToElement(AutoEnableSubtitleSwitchInput, 'change', async e => {
+            const isChecked = e.target.checked
+            AutoEnableSubtitleSwitchInput.checked = isChecked
+            AutoSubtitle.checked = isChecked
+            AutoEnableSubtitleSwitchInput.setAttribute('checked', isChecked.toString())
+            AutoSubtitle.setAttribute('checked', isChecked.toString())
+            await storageService.legacySet('auto_subtitle', Boolean(isChecked))
+            // playerTooltipTitle.innerText = e.target.checked ? '关闭自动开启字幕(l)' : '开启自动开启字幕(l)'
+        })
+    },
     async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.player_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         const dataV = floatNav.lastChild.attributes[1].name
@@ -447,6 +465,7 @@ export default {
             this.autoSelectVideoHighestQuality,
             this.autoCancelMute,
             this.autoEnableSubtitle,
+            this.insertAutoEnableSubtitleSwitchButton,
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButtons,
             this.clickVideoTimeAutoLocation,

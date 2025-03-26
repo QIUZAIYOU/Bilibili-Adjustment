@@ -1,6 +1,6 @@
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { detectivePageType, insertStyleToDocument, createElementAndInsert, addEventListenerToElement, camelToSnake } from '@/utils/common'
+import { detectivePageType, createElementAndInsert, addEventListenerToElement, camelToSnake, initializeCheckbox } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
 export class SettingsComponent {
     constructor () {
@@ -60,16 +60,23 @@ export class SettingsComponent {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-        addEventListenerToElement([IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocation, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle], 'change', async e => {
+        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocation, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle]
+        initializeCheckbox(checkboxElements, this.userConfigs)
+        addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = camelToSnake(e.target.id)
-            await storageService.legacySet(configKey, e.target.checked)
-            e.target.attributes.checked.value = await storageService.legacyGet(configKey)
+            await storageService.legacySet(configKey, Boolean(e.target.checked))
+            e.target.setAttribute('checked', await storageService.legacyGet(configKey))
             if (e.target.id === 'IsVip'){
                 Checkbox4K.style.display = e.target.checked ? 'flex' : 'none'
                 Checkbox8K.style.display = e.target.checked ? 'flex' : 'none'
             }
             if (e.target.id === 'OffsetTop'){
                 await storageService.legacySet(configKey, e.target.value)
+            }
+            if (e.target.id === 'AutoSubtitle'){
+                const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
+                AutoEnableSubtitleSwitchInput.checked = e.target.checked
+                AutoEnableSubtitleSwitchInput.setAttribute('checked', e.target.checked.toString())
             }
         })
         addEventListenerToElement(OffsetTop, 'change', async e => {

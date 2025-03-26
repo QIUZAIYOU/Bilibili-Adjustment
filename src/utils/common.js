@@ -472,3 +472,16 @@ export const promptForUpdate = async currentVersion => {
         })
     }
 }
+export const initializeCheckbox = (elements, userConfigs, configKey) => {
+    if (!Array.isArray(elements)) elements = [elements]
+    elements.forEach(element => {
+        const key = configKey || camelToSnake(element.id)
+        if (!(key in userConfigs)) {
+            console.warn(`配置键 "${key}" 不存在于用户配置中`)
+            return
+        }
+        const value = Boolean(userConfigs[key]) // 确保值为布尔类型
+        element.checked = value
+        element.setAttribute('checked', value.toString())
+    })
+}
