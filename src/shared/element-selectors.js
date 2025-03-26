@@ -103,7 +103,7 @@ const selectors = {
     AutoLocateVideo: '#AutoLocateVideo',
     AutoLocateBangumi: '#AutoLocateBangumi',
     OffsetTop: '#OffsetTop',
-    ClickPlayerAutoLocation: '#ClickPlayerAutoLocation',
+    ClickPlayerAutoLocate: '#ClickPlayerAutoLocate',
     AutoSelectVideoHighestQuality: '#AutoSelectVideoHighestQuality',
     ContainQuality4k: '#ContainQuality4k',
     ContainQuality8k: '#ContainQuality8k',

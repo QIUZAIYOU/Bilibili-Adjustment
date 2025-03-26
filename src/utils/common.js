@@ -117,9 +117,12 @@ export const documentScrollTo = (offset, options = {}) => {
         attemptScroll()
     })
 }
-export const getElementOffsetToDocumentTop = element => {
+export const getElementOffsetToDocument = element => {
     const rect = element.getBoundingClientRect()
-    return rect.top + window.scrollY - parseFloat(getComputedStyle(element).marginTop)
+    return {
+        top: rect.top + window.scrollY - parseFloat(getComputedStyle(element).marginTop),
+        left: rect.left + window.scrollX - parseFloat(getComputedStyle(element).marginLeft)
+    }
 }
 export const getElementComputedStyle = (element, propertyName) => {
     const style = window.getComputedStyle(element)
@@ -484,4 +487,16 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
         element.checked = value
         element.setAttribute('checked', value.toString())
     })
+}
+export const calculatePlayerControlbarTooltipPosition = async (triggerElement, tooltipElement) => {
+    const { top, left } = getElementOffsetToDocument(triggerElement)
+    tooltipElement.style.top = `${top - window.scrollY - triggerElement.clientHeight - 12}px`
+    tooltipElement.style.left = `${left - (tooltipElement.clientWidth / 2) + (triggerElement.clientWidth / 2)}px`
+    tooltipElement.style.opacity = 1
+    tooltipElement.style.visibility = 'visible'
+    tooltipElement.style.transition = 'opacity .3s'
+}
+export const hidePlayerControlbarTooltip = tooltipElement => {
+    tooltipElement.style.opacity = 0
+    tooltipElement.style.visibility = 'hidden'
 }

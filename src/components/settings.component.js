@@ -33,16 +33,16 @@ export class SettingsComponent {
             AutoLocateBangumi: this.userConfigs.auto_locate_bangumi,
             OffsetTop: this.userConfigs.offset_top,
             PlayerOffsetTop: this.userConfigs.player_offset_top,
-            ClickPlayerAutoLocation: this.userConfigs.click_player_auto_location,
+            ClickPlayerAutoLocate: this.userConfigs.click_player_auto_location,
             SelectedPlayerModeClose: this.userConfigs.selected_player_mode === 'close',
             SelectedPlayerModeWide: this.userConfigs.selected_player_mode === 'wide',
             SelectedPlayerModeWeb: this.userConfigs.selected_player_mode === 'web',
             WebfullUnlock: this.userConfigs.webfull_unlock,
             AutoSelectVideoHighestQuality: this.userConfigs.auto_select_video_highest_quality,
             ContainQuality4kStyle: this.userConfigs.is_vip ? 'flex' : 'none',
-            ContainQuality4k: this.userConfigs.contain_quality_4k,
+            ContainQuality4k: this.userConfigs.contain_quality4k,
             ContainQuality8kStyle: this.userConfigs.is_vip ? 'flex' : 'none',
-            ContainQuality8k: this.userConfigs.contain_quality_8k,
+            ContainQuality8k: this.userConfigs.contain_quality8k,
             InsertVideoDescriptionToComment: this.userConfigs.insert_video_description_to_comment,
             AutoSkip: this.userConfigs.auto_skip,
             PauseVideo: this.userConfigs.pause_video,
@@ -54,13 +54,13 @@ export class SettingsComponent {
         createElementAndInsert(videoSettings, document.body, 'append')
     }
     async initVideoSettingsEventListeners () {
-        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocation', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload']
-        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocation, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload']
+        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload] = await elementSelectors.batch(batchSelectors)
         addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocation, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload]
+        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = camelToSnake(e.target.id)
