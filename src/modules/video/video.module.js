@@ -5,7 +5,7 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, calculatePlayerControlbarTooltipPosition, hidePlayerControlbarTooltip } from '@/utils/common'
+import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerControlbarTooltip, hidePlayerControlbarTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -316,8 +316,8 @@ export default {
             await storageService.legacySet('auto_subtitle', Boolean(isChecked))
             playerTooltipTitle.innerText = e.target.checked ? '关闭自动开启字幕(l)' : '开启自动开启字幕(l)'
         })
-        addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseover', async () => {
-            await calculatePlayerControlbarTooltipPosition(autoEnableSubtitleSwitchButton, autoEnableSubtitleTip)
+        addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseover', () => {
+            showPlayerControlbarTooltip(autoEnableSubtitleSwitchButton, autoEnableSubtitleTip)
         })
         addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseout', () => {
             hidePlayerControlbarTooltip(autoEnableSubtitleTip)
