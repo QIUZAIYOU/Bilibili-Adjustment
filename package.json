@@ -17,7 +17,7 @@
     "@stylistic/eslint-plugin-js": "^4.2.0",
     "eslint": "^9.21.0",
     "javascript-obfuscator": "^4.1.1",
-    "vite": "^6.2.1",
+    "vite": "^6.2.3",
     "vite-plugin-bundle-obfuscator": "^1.4.2",
     "vite-plugin-monkey": "^5.0.8"
   },
