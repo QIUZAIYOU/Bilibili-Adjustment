@@ -448,17 +448,27 @@ class ShadowDOMHelper {
     }
     // ==================== 辅助方法 ====================
     static async queryUntil (host, selector, options = {}) {
-        const { timeout = 1000, findAll = false, interval = 50 } = options
+        const { timeout = 1000, findAll = false, interval = 50, forever = false } = options
         let elapsed = 0
         const start = Date.now()
-        while (elapsed < timeout) {
-            const result = findAll ? this.querySelectorAll(host, selector) : this.querySelector(host, selector)
-            if (findAll ? result.length > 0 : result) return result
+        let lastResult = findAll ? [] : null
+        while (forever || elapsed < timeout) {
+            const result = findAll ?
+                this.querySelectorAll(host, selector) :
+                this.querySelector(host, selector)
+            if (findAll ? result.length > 0 : result) {
+                lastResult = result
+                if (!forever) return result // 非永久模式立即返回
+            }
             await new Promise(r => setTimeout(r, interval))
             elapsed = Date.now() - start
+            if (forever && lastResult) break
         }
-        // console.warn(`查询超时: ${selector}`);
-        return null
+        if ((findAll && lastResult.length > 0) || (!findAll && lastResult)) {
+            return lastResult
+        }
+        // console.warn(`查询超时: ${selector}，已尝试 ${(elapsed / 1000).toFixed(1)} 秒`)
+        return findAll ? [] : null
     }
 }
 export const shadowDOMHelper = Object.freeze({

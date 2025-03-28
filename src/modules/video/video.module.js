@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.2.0',
+    version: '2.2.1',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -212,42 +212,45 @@ export default {
                 scanInterval: 1000
             })
         }
-        shadowDOMHelper.watchQuery(
-            host,
-            shadowDomSelectors.commentRenderderContainer,
-            async item => {
-                const videoTimeElements = shadowDOMHelper.batchQuery(item, {
-                    videoTime: shadowDomSelectors.videoTime,
-                    replyVideoTime: shadowDomSelectors.replyVideoTime
-                })
-                videoTimeElements.forEach(element => {
-                    addEventListenerToElement(element, 'click', async event => {
-                        event.stopPropagation()
-                        await this.locateToPlayer()
-                        this.handleJumpToVideoTime(video, element)
+        const commentRenderderContainer = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer, { forever: true })
+        if (commentRenderderContainer){
+            shadowDOMHelper.watchQuery(
+                host,
+                shadowDomSelectors.commentRenderderContainer,
+                async item => {
+                    const videoTimeElements = shadowDOMHelper.batchQuery(item, {
+                        videoTime: shadowDomSelectors.videoTime,
+                        replyVideoTime: shadowDomSelectors.replyVideoTime
                     })
-                })
-                if (this.userConfigs.show_location){
-                    const replyElements = shadowDOMHelper.batchQuery(item, {
-                        comment: shadowDomSelectors.commentRenderder,
-                        replies: shadowDomSelectors.commentRepliesRenderer
+                    videoTimeElements.forEach(element => {
+                        addEventListenerToElement(element, 'click', async event => {
+                            event.stopPropagation()
+                            await this.locateToPlayer()
+                            this.handleJumpToVideoTime(video, element)
+                        })
                     })
-                    replyElements.forEach(reply => {
-                        insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
-                        if (reply.nodeName.toLowerCase() === 'bili-comment-replies-renderer'){
-                            watchMoreRepliesElements(reply)
-                        }
-                    })
+                    if (this.userConfigs.show_location){
+                        const replyElements = shadowDOMHelper.batchQuery(item, {
+                            comment: shadowDomSelectors.commentRenderder,
+                            replies: shadowDomSelectors.commentRepliesRenderer
+                        })
+                        replyElements.forEach(reply => {
+                            insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
+                            if (reply.nodeName.toLowerCase() === 'bili-comment-replies-renderer'){
+                                watchMoreRepliesElements(reply)
+                            }
+                        })
+                    }
+                },
+                {
+                    nodeNameFilter: 'bili-comment-thread-renderer',
+                    debounce: 100,
+                    maxRetries: 5,
+                    observeExisting: true,
+                    scanInterval: 1000
                 }
-            },
-            {
-                nodeNameFilter: 'bili-comment-thread-renderer',
-                debounce: 100,
-                maxRetries: 5,
-                observeExisting: true,
-                scanInterval: 1000
-            }
-        )
+            )
+        }
     },
     async autoSelectVideoHighestQuality () {
         if (!this.userConfigs.auto_select_video_highest_quality) return
