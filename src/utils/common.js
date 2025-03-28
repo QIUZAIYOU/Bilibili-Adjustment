@@ -503,7 +503,7 @@ export const fetchLatestScript = async () => {
         'https://thingproxy.freeboard.io/fetch/',
         'https://cloudflare-cors-anywhere.aiideai-hq.workers.dev?url='
     ]
-    const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.meta.js'
+    const targetURL = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
     const tryFetch = async (proxy, retries = 3) => {
         for (let i = 0; i < retries; i++) {
             try {
@@ -579,7 +579,7 @@ export const promptForUpdate = async currentVersion => {
         const updateButton = updatePopover.querySelector('.adjustment-button-update')
         updateButton.addEventListener('click', () => {
             updatePopover.hidePopover()
-            window.open('//www.asifadeaway.com/bilibili/bilibili-adjustment.user.js')
+            window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js')
         })
     }
 }
