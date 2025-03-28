@@ -483,10 +483,10 @@ export default {
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButtons,
             this.clickVideoTimeAutoLocation,
-            this.doSomethingToCommentElements,
             this.unlockEpisodeSelector,
             this.autoEnableSubtitle,
-            this.insertAutoEnableSubtitleSwitchButton
+            this.insertAutoEnableSubtitleSwitchButton,
+            this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)
     }
