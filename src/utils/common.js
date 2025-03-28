@@ -1,4 +1,4 @@
-/* global getComputedStyle,localStorage */
+/* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event */
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -8,40 +8,39 @@ export const delay = (func, delay, ...args) => {
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
     let lastArgs = null
-    let abortController = new AbortController()
+    let lastThis = null
     const debounced = function (...args) {
         lastArgs = args
-        abortController.abort()
-        abortController = new AbortController()
-        if (immediate && !timer) {
-            func.apply(this, args)
+        lastThis = this
+        if (timer && immediate) {
+            clearTimeout(timer)
+            timer = null
+        }
+        if (!timer && immediate) {
+            func.apply(lastThis, lastArgs)
         }
         timer = setTimeout(() => {
             if (!immediate) {
-                func.apply(this, lastArgs)
+                func.apply(lastThis, lastArgs)
             }
             timer = null
         }, delay)
-        abortController.signal.addEventListener('abort', () => {
-            clearTimeout(timer)
-            timer = null
-        })
     }
-    debounced.cancel = () => abortController.abort()
+    debounced.cancel = () => {
+        clearTimeout(timer)
+        timer = null
+    }
     return debounced
 }
 export const throttle = (func, limit = 300, trailing = true) => {
     let lastFunc
     let lastRan
-    const abortController = new AbortController()
+    let inThrottle = false // 新增节流状态标志
     const throttled = function (...args) {
-        abortController.signal.addEventListener('abort', () => {
-            clearTimeout(lastFunc)
-            lastRan = null
-        })
-        if (!lastRan) {
+        if (!inThrottle) {
             func.apply(this, args)
             lastRan = Date.now()
+            inThrottle = true
         } else if (trailing) {
             clearTimeout(lastFunc)
             lastFunc = setTimeout(() => {
@@ -52,7 +51,10 @@ export const throttle = (func, limit = 300, trailing = true) => {
             }, limit - (Date.now() - lastRan))
         }
     }
-    throttled.cancel = () => abortController.abort()
+    throttled.cancel = () => {
+        clearTimeout(lastFunc)
+        inThrottle = false
+    }
     return throttled
 }
 export const detectivePageType = () => {
@@ -87,22 +89,25 @@ export const documentScrollTo = (offset, options = {}) => {
     const {
         maxRetries = 3,
         retryDelay = 300,
-        tolerance = 2
+        tolerance = 2,
+        behavior = 'instant'
     } = options
     return new Promise((resolve, reject) => {
         let attempts = 0
+        const checkPosition = () => {
+            const currentY = window.scrollY
+            return currentY === offset ||
+                   Math.abs(currentY - offset) <= tolerance ||
+                   offset === -5
+        }
         const attemptScroll = async () => {
             try {
                 window.scrollTo({
                     top: offset,
-                    behavior: 'instant'
+                    behavior
                 })
-                await new Promise(r => setTimeout(r, 200))
-                const currentY = window.scrollY
-                const targetY = offset
-                // console.log(currentY, targetY, Math.abs(currentY - targetY))
-                const success = currentY === targetY || Math.abs(currentY - targetY) <= tolerance || offset === -5
-                if (success) {
+                await new Promise(r => requestAnimationFrame(r))
+                if (checkPosition()) {
                     resolve()
                 } else if (attempts < maxRetries) {
                     attempts++
@@ -141,47 +146,97 @@ export const getElementComputedStyle = (element, propertyName) => {
     }, {})
 }
 export const addEventListenerToElement = (targets, type, callback, options = {}) => {
-    const elements = Array.isArray(targets) ? targets : [targets]
-    if (typeof options !== 'object') {
+    if (!targets || (typeof targets !== 'object' && typeof targets !== 'string')) {
+        throw new Error('Targets must be a DOM element, selector string, or array of elements')
+    }
+    if (typeof type !== 'string' || !type.trim()) {
+        throw new Error('Event type must be a non-empty string')
+    }
+    if (typeof callback !== 'function') {
+        throw new Error('Callback must be a function')
+    }
+    if (options && typeof options !== 'object') {
         throw new Error('Options must be an object or undefined')
     }
+    const elements = typeof targets === 'string'
+        ? [...document.querySelectorAll(targets)]
+        : Array.isArray(targets)
+            ? targets.filter(el => el instanceof Element)
+            : [targets].filter(el => el instanceof Element)
+    if (elements.length === 0) {
+        console.warn('No valid elements found for event listener')
+        return () => {}
+    }
+    const finalOptions = {
+        passive: true,
+        capture: false,
+        ...options
+    }
     elements.forEach(element => {
-        element.addEventListener(type, callback, options)
+        try {
+            element.addEventListener(type, callback, finalOptions)
+        } catch (error) {
+            console.error('Failed to add event listener to element:', error)
+        }
     })
     return () => {
         elements.forEach(element => {
-            element.removeEventListener(type, callback, options)
+            try {
+                element.removeEventListener(type, callback, finalOptions)
+            } catch (error) {
+                console.error('Failed to remove event listener from element:', error)
+            }
         })
     }
 }
 export const isAsyncFunction = targetFunction => targetFunction.constructor.name === 'AsyncFunction'
-export const executeFunctionsSequentially = functionsArray => {
-    if (functionsArray.length > 0) {
-        const currentFunction = functionsArray.shift()
-        if (isAsyncFunction(currentFunction)) {
-            currentFunction().then(result => {
-                if (result) {
-                    const { callback } = result
-                    if (callback && Array.isArray(callback)) executeFunctionsSequentially(callback)
-                }
-                executeFunctionsSequentially(functionsArray)
-            }).catch(error => {
-                console.log(error)
-            })
-        } else {
-            currentFunction()
+export const executeFunctionsSequentially = async (
+    functionsArray,
+    options = { concurrency: 1, continueOnError: false }
+) => {
+    const { concurrency, continueOnError } = options
+    const queue = [...functionsArray]
+    const results = []
+    let activeCount = 0
+    let hasError = false
+    const processQueue = async () => {
+        if (queue.length === 0 || activeCount >= concurrency || hasError) return
+        activeCount++
+        const func = queue.shift()
+        try {
+            const result = isAsyncFunction(func)
+                ? await func()
+                : func()
+            results.push(result)
+            if (result?.callback) {
+                await executeFunctionsSequentially(result.callback, options)
+            }
+        } catch (error) {
+            console.error('函数执行失败:', error)
+            if (!continueOnError) hasError = true
+        } finally {
+            activeCount--
+            await processQueue()
         }
     }
+    const workers = Array(Math.min(concurrency, functionsArray.length))
+        .fill()
+        .map(processQueue)
+    await Promise.all(workers)
+    return results
 }
-export const isTabActive = () => {
+export const isTabActive = (options = {}) => {
+    const {
+        onActiveChange = null,
+        passive = true,
+        checkInterval = 1000,
+        immediate = false
+    } = options
     let active = true
+    let lastState = true
+    let intervalId = null
     const visibilityInfo = (() => {
-        const prefixes = [
-            '',
-            'webkit',
-            'ms',
-            'moz'
-        ]
+        const prefixes = ['', 'webkit', 'ms', 'moz']
         for (const prefix of prefixes) {
             const key = prefix ? `${prefix}Hidden` : 'hidden'
             if (key in document) {
@@ -193,46 +248,76 @@ export const isTabActive = () => {
         }
         return null
     })()
-    if (visibilityInfo) {
-        const handleVisibilityChange = () => {
-            active = document[visibilityInfo.state] === 'visible'
+    const updateState = newState => {
+        if (newState !== lastState) {
+            active = newState
+            lastState = newState
+            onActiveChange?.(newState)
         }
-        document.addEventListener(visibilityInfo.event, handleVisibilityChange, { passive: true })
-        return () => {
-            document.removeEventListener(visibilityInfo.event, handleVisibilityChange, { passive: true })
-            return active
+    }
+    // 主监听函数
+    const setupListeners = () => {
+        if (visibilityInfo) {
+            const handleVisibilityChange = () => {
+                updateState(document[visibilityInfo.state] === 'visible')
+            }
+            document.addEventListener(visibilityInfo.event, handleVisibilityChange, { passive })
+            // 新增立即执行逻辑
+            if (immediate && document[visibilityInfo.state] === 'visible') {
+                onActiveChange?.(true)
+            }
+            return () => {
+                document.removeEventListener(visibilityInfo.event, handleVisibilityChange, { passive })
+            }
+        } else {
+            const handleFocus = () => updateState(true)
+            const handleBlur = () => updateState(false)
+            window.addEventListener('focus', handleFocus, { passive })
+            window.addEventListener('blur', handleBlur, { passive })
+            updateState(document.hasFocus())
+            if (immediate && document.hasFocus()) {
+                onActiveChange?.(true)
+            }
+            return () => {
+                window.removeEventListener('focus', handleFocus, { passive })
+                window.removeEventListener('blur', handleBlur, { passive })
+            }
         }
-    } else {
-        const handleFocus = () => {
-            active = true
-        }
-        const handleBlur = () => {
-            active = false
-        }
-        window.addEventListener('focus', handleFocus, { passive: true })
-        window.addEventListener('blur', handleBlur, { passive: true })
-        active = document.hasFocus()
-        return () => {
-            window.removeEventListener('focus', handleFocus, { passive: true })
-            window.removeEventListener('blur', handleBlur, { passive: true })
-            return active
+    }
+    if (checkInterval > 0) {
+        intervalId = setInterval(() => {
+            const currentState = visibilityInfo
+                ? document[visibilityInfo.state] === 'visible'
+                : document.hasFocus()
+            updateState(currentState)
+        }, checkInterval)
+    }
+    const cleanup = setupListeners()
+    return {
+        getCurrentState: () => active,
+        unsubscribe: () => {
+            cleanup?.()
+            if (intervalId) clearInterval(intervalId)
         }
     }
 }
 export const monitorHrefChange = callback => {
-    const getFinalHref = url => {
-        const u = new URL(url)
-        const pParam = u.searchParams.get('p')
-        return `${u.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`.replace(/\/+$/, '')
-    }
     let lastHref = location.href
-    let lastHrefKey = getFinalHref(lastHref)
-    const checkAndTrigger = () => {
+    const listenerOptions = { passive: true, capture: true }
+    const getFinalHref = url => {
+        const pParam = url.searchParams.get('p')
+        return `${url.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`.replace(/\/+$/, '')
+    }
+    // 更精确的URL比较
+    const shouldTrigger = newHref => {
+        const u1 = new URL(lastHref)
+        const u2 = new URL(newHref)
+        return getFinalHref(u1) !== getFinalHref(u2)
+    }
+    const handler = () => {
         const currentHref = location.href
-        const currentHrefKey = getFinalHref(currentHref)
-        if (currentHrefKey !== lastHrefKey) {
+        if (shouldTrigger(currentHref)) {
             lastHref = currentHref
-            lastHrefKey = getFinalHref(lastHref)
             try {
                 callback()
             } catch (e) {
@@ -240,40 +325,54 @@ export const monitorHrefChange = callback => {
             }
         }
     }
-    const listenerOptions = { passive: true }
-    const originalPushState = history.pushState
-    const originalReplaceState = history.replaceState
-    const bindEvents = () => {
-        window.addEventListener('hashchange', checkAndTrigger, listenerOptions)
-        window.addEventListener('popstate', checkAndTrigger, listenerOptions)
-        history.pushState = function (...args) {
-            const result = originalPushState.apply(this, args)
-            checkAndTrigger()
-            return result
-        }
-        history.replaceState = function (...args) {
-            const result = originalReplaceState.apply(this, args)
-            checkAndTrigger()
-            return result
-        }
+    // 使用单一事件处理器
+    const events = ['hashchange', 'popstate']
+    events.forEach(e => window.addEventListener(e, handler, listenerOptions))
+    // 更安全的history方法重写
+    const { pushState, replaceState } = history
+    history.pushState = function (...args) {
+        const result = pushState.apply(this, args)
+        handler()
+        return result
     }
-    const unbindEvents = () => {
-        window.removeEventListener('hashchange', checkAndTrigger, listenerOptions)
-        window.removeEventListener('popstate', checkAndTrigger, listenerOptions)
-        history.pushState = originalPushState
-        history.replaceState = originalReplaceState
+    history.replaceState = function (...args) {
+        const result = replaceState.apply(this, args)
+        handler()
+        return result
     }
-    bindEvents()
-    return unbindEvents
+    return () => {
+        events.forEach(e => window.removeEventListener(e, handler, listenerOptions))
+        history.pushState = pushState
+        history.replaceState = replaceState
+    }
 }
-export const createElementAndInsert = (HtmlString, target, method) => {
-    const template = document.createElement('template')
-    template.innerHTML = HtmlString.trim()
-    const fragment = template.content
-    const clonedFragment = fragment.cloneNode(true)
-    const insertedNodes = [...clonedFragment.children]
-    target[method](clonedFragment)
-    return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
+export const createElementAndInsert = (HtmlString, target, method = 'append') => {
+    if (typeof HtmlString !== 'string' || !HtmlString.trim()) {
+        throw new Error('Invalid HTML string provided')
+    }
+    if (!target || !(target instanceof Node)) {
+        throw new Error('Target must be a valid DOM node')
+    }
+    const supportedMethods = ['append', 'prepend', 'before', 'after', 'replaceWith']
+    if (!supportedMethods.includes(method)) {
+        throw new Error(`Unsupported insertion method: ${method}`)
+    }
+    try {
+        const template = document.createElement('template')
+        template.innerHTML = HtmlString.trim()
+        const fragment = template.content
+        const clonedFragment = fragment.cloneNode(true)
+        const insertedNodes = [...clonedFragment.children]
+        if (method === 'replaceWith') {
+            target.replaceWith(clonedFragment)
+        } else {
+            target[method](clonedFragment)
+        }
+        return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
+    } catch (error) {
+        console.error('Failed to create and insert elements:', error)
+        throw error
+    }
 }
 export const getTotalSecondsFromTimeString = timeString => {
     const parts = timeString.split(':')
@@ -381,55 +480,60 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 export const fetchLatestScript = async () => {
     const cacheKey = 'latestScriptCache'
     const cacheDuration = 24 * 60 * 60 * 1000
-    const cachedContent = localStorage.getItem(cacheKey)
-    if (cachedContent) {
-        const { data: cachedData, time: cachedTime } = JSON.parse(cachedContent)
-        const now = new Date().getTime()
-        if (now - cachedTime < cacheDuration) {
-            console.log('使用缓存的脚本')
-            return cachedData
+    const validateCache = () => {
+        const cachedContent = localStorage.getItem(cacheKey)
+        if (!cachedContent) return null
+        try {
+            const { data, time } = JSON.parse(cachedContent)
+            return Date.now() - time < cacheDuration ? data : null
+        } catch {
+            return null
         }
     }
-    try {
-        console.log('开始请求最新的脚本')
-        const CORSProxyList = [
-            'https://qian.npkn.net/cors/?url=',
-            'https://cors.aiideai-hq.workers.dev/?destination=',
-            'https://api.allorigins.win/raw?url=',
-            'https://api.codetabs.com/v1/proxy?quest=',
-            'https://thingproxy.freeboard.io/fetch/',
-            'https://cloudflare-cors-anywhere.aiideai-hq.workers.dev?url='
-        ]
-        const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.meta.js'
-        let lastError = null
-        const shuffledProxyList = CORSProxyList.sort(() => Math.random() - 0.5)
-        for (const proxy of shuffledProxyList) {
+    const cachedData = validateCache()
+    if (cachedData) {
+        console.log('使用缓存的脚本')
+        return cachedData
+    }
+    const CORSProxyList = [
+        'https://qian.npkn.net/cors/?url=',
+        'https://cors.aiideai-hq.workers.dev/?destination=',
+        'https://api.allorigins.win/raw?url=',
+        'https://api.codetabs.com/v1/proxy?quest=',
+        'https://thingproxy.freeboard.io/fetch/',
+        'https://cloudflare-cors-anywhere.aiideai-hq.workers.dev?url='
+    ]
+    const targetURL = 'https://www.asifadeaway.com/bilibili/bilibili-adjustment.meta.js'
+    const tryFetch = async (proxy, retries = 3) => {
+        for (let i = 0; i < retries; i++) {
             try {
-                const getLatestVersionClient = axios.create({
+                const client = axios.create({
                     baseURL: `${proxy}${encodeURIComponent(targetURL)}`,
                     timeout: 20000,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 })
-                const response = await getLatestVersionClient.get()
-                console.log('成功通过代理获取脚本:', proxy)
-                localStorage.setItem(cacheKey, JSON.stringify({ data: response.data, time: new Date().getTime() }))
+                const response = await client.get()
                 return response.data
             } catch (error) {
-                console.warn(`代理 ${proxy} 请求失败:`, error.message)
-                lastError = error
-                continue
+                if (i === retries - 1) throw error
+                await sleep(1000 * (i + 1)) // 指数退避
             }
         }
-        throw new Error(`所有CORS代理均不可用。最后错误信息: ${lastError?.message}`)
-    } catch (error) {
-        console.log('全部代理请求失败:', error)
-        if (error.response) {
-            console.log('最后服务器响应:', error.response.data)
-        }
-        return null
     }
+    const shuffledProxyList = [...CORSProxyList].sort(() => Math.random() - 0.5)
+    for (const proxy of shuffledProxyList) {
+        try {
+            const data = await tryFetch(proxy)
+            localStorage.setItem(cacheKey, JSON.stringify({
+                data,
+                time: Date.now()
+            }))
+            return data
+        } catch (error) {
+            console.warn(`代理 ${proxy} 请求失败:`, error.message)
+        }
+    }
+    throw new Error('所有CORS代理均不可用')
 }
 export const extractVersionFromScript = scriptContent => {
     const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.]+)/)
@@ -438,17 +542,21 @@ export const extractVersionFromScript = scriptContent => {
     }
     return null
 }
-export const compareVersions = (currentVersion, latestVersion) => {
-    const currentParts = currentVersion.split('.').map(Number)
-    const latestParts = latestVersion.split('.').map(Number)
+export const compareVersions = (current, latest) => {
+    const parsePart = part => {
+        const num = parseInt(part, 10)
+        return isNaN(num) ? part.toLowerCase() : num
+    }
+    const currentParts = current.split('.').map(parsePart)
+    const latestParts = latest.split('.').map(parsePart)
     for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
-        const currentPart = currentParts[i] || 0
-        const latestPart = latestParts[i] || 0
-        if (latestPart > currentPart) {
-            return true
-        } else if (latestPart < currentPart) {
-            return false
+        const curr = currentParts[i] || 0
+        const last = latestParts[i] || 0
+        if (typeof curr !== typeof last) {
+            return String(last) > String(curr)
         }
+        if (last > curr) return true
+        if (last < curr) return false
     }
     return false
 }
@@ -476,27 +584,40 @@ export const promptForUpdate = async currentVersion => {
     }
 }
 export const initializeCheckbox = (elements, userConfigs, configKey) => {
-    if (!Array.isArray(elements)) elements = [elements]
-    elements.forEach(element => {
+    const elementList = Array.isArray(elements) ? elements : [elements]
+    elementList.forEach(element => {
+        if (!(element instanceof HTMLInputElement)) return
         const key = configKey || camelToSnake(element.id)
         if (!(key in userConfigs)) {
             console.warn(`配置键 "${key}" 不存在于用户配置中`)
             return
         }
-        const value = Boolean(userConfigs[key]) // 确保值为布尔类型
-        element.checked = value
-        element.setAttribute('checked', value.toString())
+        const value = Boolean(userConfigs[key])
+        // 使用 requestAnimationFrame 确保 DOM 更新
+        requestAnimationFrame(() => {
+            element.checked = value
+            element.toggleAttribute('checked', value)
+            element.dispatchEvent(new Event('change', { bubbles: true }))
+        })
     })
 }
 export const showPlayerTooltip = (triggerElement, tooltipElement) => {
-    const { top, left } = getElementOffsetToDocument(triggerElement)
-    tooltipElement.style.top = `${top - window.scrollY - triggerElement.clientHeight - 12}px`
-    tooltipElement.style.left = `${left - (tooltipElement.clientWidth / 2) + (triggerElement.clientWidth / 2)}px`
-    tooltipElement.style.opacity = 1
-    tooltipElement.style.visibility = 'visible'
-    tooltipElement.style.transition = 'opacity .3s'
+    requestAnimationFrame(() => {
+        const rect = triggerElement.getBoundingClientRect()
+        tooltipElement.style.cssText = `
+            top: ${rect.top - tooltipElement.clientHeight - 12}px;
+            left: ${rect.left + (rect.width / 2) - (tooltipElement.clientWidth / 2)}px;
+            opacity: 1;
+            visibility: visible;
+            transition: opacity .3s;
+        `
+    })
 }
 export const hidePlayerTooltip = tooltipElement => {
-    tooltipElement.style.opacity = 0
-    tooltipElement.style.visibility = 'hidden'
+    requestAnimationFrame(() => {
+        tooltipElement.style.cssText = `
+            opacity: 0;
+            visibility: hidden;
+        `
+    })
 }

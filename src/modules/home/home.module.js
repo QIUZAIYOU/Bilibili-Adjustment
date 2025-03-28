@@ -50,8 +50,8 @@ export default {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
         const indexRecommendVideoHistoryOpenButtonTemplate = getTemplates.indexRecommendVideoHistoryOpenButton
         const indexRecommendVideoHistoryPopoverTemplate = getTemplates.indexRecommendVideoHistoryPopover
-        createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper, 'append')
-        const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverTemplate, document.body, 'append')
+        createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper)
+        const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverTemplate, document.body)
         const batchSelectors = ['indexApp', 'indexRecommendVideoHistoryPopoverTitle']
         addEventListenerToElement(indexRecommendVideoHistoryPopover, 'toggle', async event => {
             const [indexApp, indexRecommendVideoHistoryPopoverTitle] = await elementSelectors.batch(batchSelectors)
@@ -107,13 +107,13 @@ export default {
                 .values()
         )
         for (const category of tnameList){
-            createElementAndInsert(`<li data-tid="${category.tid}">${category.tname}</li>`, indexRecommendVideoHistoryCategory, 'append')
+            createElementAndInsert(`<li data-tid="${category.tid}">${category.tname}</li>`, indexRecommendVideoHistoryCategory)
         }
         for (const category of tnameV2List){
-            createElementAndInsert(`<li data-tid="${category.tid_v2}">${category.tname_v2}</li>`, indexRecommendVideoHistoryCategoryV2, 'append')
+            createElementAndInsert(`<li data-tid="${category.tid_v2}">${category.tname_v2}</li>`, indexRecommendVideoHistoryCategoryV2)
         }
         for (const record of Object.entries(indexRecommendVideoHistories)){
-            createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList, 'append')
+            createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList)
         }
         elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
             addEventListenerToElement(item, 'click', async () => {
@@ -122,7 +122,7 @@ export default {
                 const tid = Number(item.dataset.tid)
                 for (const record of Object.entries(indexRecommendVideoHistories)) {
                     if ([record[1].tid, record[1].tid_v2].includes(tid)) {
-                        createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList, 'append')
+                        createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList)
                     }
                 }
             })
@@ -132,7 +132,7 @@ export default {
                 setCategoryButtonActiveClass(item)
                 indexRecommendVideoHistoryList.innerHTML = ''
                 for (const record of Object.entries(indexRecommendVideoHistories)) {
-                    createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList, 'append')
+                    createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList)
                 }
             })
         })

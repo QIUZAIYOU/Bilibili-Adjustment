@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.1.2',
+    version: '2.2.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -29,11 +29,6 @@ export default {
         this.registSettings()
         this.initEventListeners()
         this.initMonitors()
-        if (isTabActive()) {
-            logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
-            this.checkVideoCanplaythrough(await elementSelectors.video)
-        }
     },
     async initEventListeners () {
         eventBus.on('logger:show', (_, { type, message }) => {
@@ -51,6 +46,18 @@ export default {
         monitorHrefChange( () => {
             logger.info('视频资源丨链接已改变')
             this.handleHrefChangedFunctionsSequentially()
+        })
+        const monitorTabActiveState = isTabActive({
+            onActiveChange: async isActive => {
+                if (isActive) {
+                    logger.info('标签页｜已激活')
+                    insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
+                    this.checkVideoCanplaythrough(await elementSelectors.video)
+                    monitorTabActiveState.unsubscribe()
+                }
+            },
+            immediate: true,
+            checkInterval: 2000
         })
     },
     isVideoCanplaythrough (videoElement) {
@@ -448,7 +455,7 @@ export default {
         if (!this.userConfigs.webfull_unlock || this.userConfigs.player_type === 'bangumi' || this.userConfigs.selected_player_mode !== 'web') return
         const batchSelectors = ['playerControllerBottomRight', 'videoComment']
         const [playerControllerBottomRight, videoComment] = await elementSelectors.batch(batchSelectors)
-        const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight, 'append')
+        const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight)
         addEventListenerToElement(locateToCommentButton, 'click', async event => {
             event.stopPropagation()
             documentScrollTo(await getElementOffsetToDocument(videoComment).top - 10)

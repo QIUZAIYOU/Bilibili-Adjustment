@@ -51,7 +51,7 @@ export class SettingsComponent {
             AutoSubtitle: this.userConfigs.auto_subtitle,
             AutoReload: this.userConfigs.auto_reload
         })
-        createElementAndInsert(videoSettings, document.body, 'append')
+        createElementAndInsert(videoSettings, document.body)
     }
     async initVideoSettingsEventListeners () {
         const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload']
@@ -92,7 +92,7 @@ export class SettingsComponent {
         const dynamicSettings = getTemplates.replace('dynamicSettings', {
             DynamicVideoLink: this.userConfigs.dynamic_video_link
         })
-        createElementAndInsert(dynamicSettings, document.body, 'append')
+        createElementAndInsert(dynamicSettings, document.body)
     }
     async initDynamicSettingsEventListeners (){
         const batchSelectors = ['app', 'DynamicSettingsPopover']
