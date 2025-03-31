@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.2.1',
+    version: '2.2.2',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -212,34 +212,48 @@ export default {
                 scanInterval: 1000
             })
         }
+        const handleVideoTimeElements = host => {
+            const videoTimeElements = shadowDOMHelper.batchQuery(host, {
+                videoTime: shadowDomSelectors.videoTime,
+                replyVideoTime: shadowDomSelectors.replyVideoTime
+            })
+            videoTimeElements.forEach(element => {
+                addEventListenerToElement(element, 'click', async event => {
+                    event.stopPropagation()
+                    await this.locateToPlayer()
+                    this.handleJumpToVideoTime(video, element)
+                })
+            })
+        }
+        const showLocation = (host, elements) => {
+            const repliesElements = shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.commentRepliesRenderer)
+            const allRepliesElements = [...elements, ...repliesElements]
+            allRepliesElements.forEach(reply => {
+                insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
+                if (reply.nodeName.toLowerCase() === 'bili-comment-replies-renderer'){
+                    watchMoreRepliesElements(reply)
+                }
+            })
+        }
+        const handleCommentTagElements = host => {
+            const tagElements = shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.commentTags)
+            tagElements.forEach(tag => {
+                tag.remove()
+            })
+        }
         const commentRenderderContainer = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer, { forever: true })
         if (commentRenderderContainer){
             shadowDOMHelper.watchQuery(
                 host,
                 shadowDomSelectors.commentRenderderContainer,
                 async item => {
-                    const videoTimeElements = shadowDOMHelper.batchQuery(item, {
-                        videoTime: shadowDomSelectors.videoTime,
-                        replyVideoTime: shadowDomSelectors.replyVideoTime
-                    })
-                    videoTimeElements.forEach(element => {
-                        addEventListenerToElement(element, 'click', async event => {
-                            event.stopPropagation()
-                            await this.locateToPlayer()
-                            this.handleJumpToVideoTime(video, element)
-                        })
-                    })
+                    handleVideoTimeElements(item)
+                    const replyElements = shadowDOMHelper.querySelectorAll(item, shadowDomSelectors.commentRenderder)
                     if (this.userConfigs.show_location){
-                        const replyElements = shadowDOMHelper.batchQuery(item, {
-                            comment: shadowDomSelectors.commentRenderder,
-                            replies: shadowDomSelectors.commentRepliesRenderer
-                        })
-                        replyElements.forEach(reply => {
-                            insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
-                            if (reply.nodeName.toLowerCase() === 'bili-comment-replies-renderer'){
-                                watchMoreRepliesElements(reply)
-                            }
-                        })
+                        showLocation(item, replyElements)
+                    }
+                    if (this.userConfigs.remove_comment_tags){
+                        handleCommentTagElements(item)
                     }
                 },
                 {
