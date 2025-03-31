@@ -76,8 +76,10 @@ export class SettingsComponent {
             }
             if (e.target.id === 'AutoSubtitle'){
                 const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
-                AutoEnableSubtitleSwitchInput.checked = e.target.checked
-                AutoEnableSubtitleSwitchInput.setAttribute('checked', e.target.checked.toString())
+                if (AutoEnableSubtitleSwitchInput){
+                    AutoEnableSubtitleSwitchInput.checked = e.target?.checked
+                    AutoEnableSubtitleSwitchInput.setAttribute('checked', e.target?.checked.toString())
+                }
             }
         })
         addEventListenerToElement(OffsetTop, 'change', async e => {
