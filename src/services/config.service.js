@@ -30,7 +30,8 @@ export class ConfigService {
         ['pause_video', false],
         ['continue_play', false],
         ['auto_subtitle', false],
-        ['show_location', true]
+        ['show_location', true],
+        ['remove_comment_tags', true]
     ])
     static async initialize () {
         if (this.#initialized) return

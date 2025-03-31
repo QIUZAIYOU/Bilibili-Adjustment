@@ -119,6 +119,7 @@ const selectors = {
     PauseVideo: '#PauseVideo',
     ContinuePlay: '#ContinuePlay',
     AutoSubtitle: '#AutoSubtitle',
+    RemoveCommentTags: '#RemoveCommentTags',
     BilibiliAdjustmentStyle: '#BilibiliAdjustmentStyle',
     VideoPageAdjustmentStyle: '#VideoPageAdjustmentStyle',
     FreezeHeaderAndVideoTitleStyle: '#FreezeHeaderAndVideoTitleStyle',
@@ -138,7 +139,8 @@ export const shadowDomSelectors = {
     commentRenderderContainer: '#feed',
     commentRenderder: 'bili-comment-renderer',
     commentRepliesRenderer: 'bili-comment-replies-renderer',
-    replyPublicDate: '#footer > bili-comment-action-buttons-renderer >> #pubdate'
+    replyPublicDate: '#footer > bili-comment-action-buttons-renderer >> #pubdate',
+    commentTags: '#tags'
 }
 const createCachedQuery = async (selector, all = false) => {
     const cacheKey = `${selector}|${all}`
