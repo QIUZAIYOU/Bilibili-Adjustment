@@ -91,66 +91,6 @@ class ShadowDOMHelper {
         return contexts
     }
     // ==================== 实时监控增强 ====================
-    // static watchQuery (host, selector, callback, options = {}) {
-    //     const {
-    //         nodeNameFilter,
-    //         checkHostTree = true,
-    //         observeExisting = true,
-    //         debounce = 50,
-    //         maxRetries = 3,
-    //         scanInterval = 0,
-    //         allowReprocess = false
-    //     } = options
-    //     if (!nodeNameFilter && !selector) {
-    //         throw new Error('必须提供 selector 或 nodeNameFilter')
-    //     }
-    //     let observer
-    //     try {
-    //         observer = new MutationObserver(this.#debounceHandler(debounce, mutations => {
-    //             mutations.flatMap(m => [...m.addedNodes])
-    //                 .forEach(node => this.#processNode(node, host, selector, callback, {
-    //                     nodeNameFilter,
-    //                     checkHostTree,
-    //                     maxRetries,
-    //                     allowReprocess
-    //                 }))
-    //         }))
-    //     } catch (error) {
-    //         console.error('创建MutationObserver失败:', error)
-    //         throw error
-    //     }
-    //     let intervalId
-    //     if (scanInterval > 0) {
-    //         intervalId = setInterval(() => {
-    //             this.#deepScanExisting(host, selector, callback, {
-    //                 nodeNameFilter,
-    //                 checkHostTree,
-    //                 allowReprocess
-    //             })
-    //         }, scanInterval)
-    //     }
-    //     const cleanup = () => {
-    //         observer.disconnect()
-    //         intervalId && clearInterval(intervalId)
-    //         this.#observers.delete(host)
-    //         if (!allowReprocess) {
-    //             this.#processedElements = new WeakSet()
-    //         }
-    //     }
-    //     this.#observers.set(host, { observer, callback, cleanup })
-    //     observer.observe(this.getShadowRoot(host) ?? host, {
-    //         childList: true,
-    //         subtree: true
-    //     })
-    //     if (observeExisting) {
-    //         this.#deepScanExisting(host, selector, callback, {
-    //             nodeNameFilter,
-    //             checkHostTree,
-    //             allowReprocess
-    //         })
-    //     }
-    //     return cleanup
-    // }
     static watchQuery (host, selector, callback, options = {}) {
         const {
             nodeNameFilter,
