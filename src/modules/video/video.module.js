@@ -235,7 +235,7 @@ export default {
                 }
             })
         }
-        const handleCommentTagElements = host => {
+        const removeCommentTagElements = host => {
             const tagElements = shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.commentTags)
             tagElements.forEach(tag => {
                 tag.remove()
@@ -253,7 +253,7 @@ export default {
                         showLocation(item, replyElements)
                     }
                     if (this.userConfigs.remove_comment_tags){
-                        handleCommentTagElements(item)
+                        removeCommentTagElements(item)
                     }
                 },
                 {
