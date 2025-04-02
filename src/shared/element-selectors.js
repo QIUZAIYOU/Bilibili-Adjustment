@@ -22,7 +22,7 @@ const selectors = {
     videoTitleArea: '#viewbox_report',
     videoFloatNav: '.fixed-sidenav-storage',
     videoComment: '#commentapp',
-    videoCommentRoot: '#commentapp > bili-comments',
+    videoCommentRoot: 'bili-comments',
     videoCommentReplyList: '#comment .reply-list',
     videoRootReplyContainer: '#comment .root-reply-container',
     videoTime: 'a[data-type="seek"]',
