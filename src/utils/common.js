@@ -229,7 +229,7 @@ export const isTabActive = (options = {}) => {
     const {
         onActiveChange = null,
         passive = true,
-        checkInterval = 1000,
+        checkInterval = 300,
         immediate = false
     } = options
     let active = true
