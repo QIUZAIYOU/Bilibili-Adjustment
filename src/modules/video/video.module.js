@@ -355,12 +355,31 @@ export default {
         const dataV = floatNav.lastChild.attributes[1].name
         let locateButton, videoSettingsOpenButton
         if (this.userConfigs.player_type === 'video') {
-            locateButton = createElementAndInsert(getTemplates.replace('videoLocateButton', { dataV: dataV }), floatNav.lastChild, 'prepend')
-            videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', { dataV: dataV }), floatNav.lastChild, 'prepend')
+            locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
+                class: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
+                style: '',
+                dataV: dataV,
+                text: '定位'
+            }), floatNav.lastChild, 'prepend')
+            videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
+                dataV: dataV,
+                floatNavMenuItemClass: '',
+                text: '设置'
+            }), floatNav.lastChild, 'prepend')
         }
         if (this.userConfigs.player_type === 'bangumi') {
             const floatNavMenuItemClass = floatNav.lastChild.lastChild.getAttribute('class')
-            locateButton = createElementAndInsert(getTemplates.replace('bangumiLocateButton', { floatNavMenuItemClass: floatNavMenuItemClass }), floatNav.lastChild, 'before')
+            locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
+                class: `${floatNavMenuItemClass} bili-adjustment-icon locate`,
+                style: 'style="height:40px;padding:0"',
+                dataV: '',
+                text: ''
+            }), floatNav.lastChild, 'before')
+            videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
+                floatNavMenuItemClass: floatNavMenuItemClass,
+                dataV: '',
+                text: ''
+            }), floatNav.lastChild, 'before')
         }
         addEventListenerToElement(locateButton, 'click', async () => {
             await this.locateToPlayer()
@@ -419,9 +438,9 @@ export default {
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
     async unlockEpisodeSelector () {
-        const videoInfo = await biliApis.getVideoInformation(biliApis.getCurrentVideoID(window.location.href))
-        const { pages = false, ugc_season = false } = videoInfo.data
-        if (ugc_season || pages.length > 1) {
+        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.player_type, biliApis.getCurrentVideoID(window.location.href))
+        const { pages = false, ugc_season = false, episodes = false } = videoInfo
+        if (pages || ugc_season || episodes) {
             insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
             elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
                 addEventListenerToElement(link, 'click', async () => {

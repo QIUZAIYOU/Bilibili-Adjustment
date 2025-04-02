@@ -48,20 +48,33 @@ export const biliApis = {
     },
     getCurrentVideoID (url = location.href) {
         const { pathname } = new URL(url)
-        const [, id] = pathname.match(/\/(video\/BV\w+|bangumi\/play\/ss\d+)/) || []
-        return id?.split('/').pop() || 'error'
+        if (pathname.startsWith('/video/')) {
+            const match = pathname.match(/\/video\/(BV\w+)/)
+            return match?.[1] || 'error'
+        } else if (pathname.startsWith('/bangumi/')) {
+            const match = pathname.match(/\/bangumi\/play\/ep(\d+)/)
+            return match?.[1] || 'error'
+        }
+        return 'error'
     },
-    async getVideoInformation (videoId) {
-        const url = `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`
-        const { data, data: { code }} = await axios.get(url, { withCredentials: true })
-        if (code === 0) return data
-        else if (code === -400) logger.info('获取视频基本信息丨请求错误')
-        else if (code === -403) logger.info('获取视频基本信息丨权限不足')
-        else if (code === -404) logger.info('获取视频基本信息丨无视频')
-        else if (code === 62002) logger.info('获取视频基本信息丨稿件不可见')
-        else if (code === 62004) logger.info('获取视频基本信息丨稿件审核中')
-        else if (code === 'ERR_BAD_REQUEST') logger.info('获取视频基本信息丨请求失败')
-        else logger.warn('获取视频基本信息丨请求错误')
+    async getVideoInformation (pageType, videoId) {
+        const url = pageType === 'video' ? `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}` : `https://api.bilibili.com/pgc/view/web/season?ep_id=${videoId}`
+        if (pageType === 'video') {
+            const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+            // console.log(pageType, videoId, data)
+            if (code === 0) return data
+            else if (code === -400) logger.info('获取视频基本信息丨请求错误')
+            else if (code === -403) logger.info('获取视频基本信息丨权限不足')
+            else if (code === -404) logger.info('获取视频基本信息丨无视频')
+            else if (code === 62002) logger.info('获取视频基本信息丨稿件不可见')
+            else if (code === 62004) logger.info('获取视频基本信息丨稿件审核中')
+            else if (code === 'ERR_BAD_REQUEST') logger.info('获取视频基本信息丨请求失败')
+            else logger.warn('获取视频基本信息丨请求错误')
+        } else {
+            const { data: { code, result }} = await axios.get(url, { withCredentials: true })
+            // console.log(pageType, videoId, result)
+            if (code === 0) return result
+        }
     },
     async getUserInformation (userId) {
         const url = `https://api.bilibili.com/x/web-interface/card?mid=${userId}`
