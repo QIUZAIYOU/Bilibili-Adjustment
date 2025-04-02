@@ -404,11 +404,8 @@ export default {
                     const clone = template.content.cloneNode(true)
                     videoCommentReplyListShadowRoot?.prepend(clone)
                     await sleep(300)
-                    if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
-                        logger.info('视频简介丨已插入')
-                    } else {
-                        this.insertVideoDescriptionToComment()
-                    }
+                    if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) logger.info('视频简介丨已插入')
+                    else this.insertVideoDescriptionToComment()
                 } else {
                     const videoDescriptionInfo = await elementSelectors.videoDescriptionInfo
                     videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
@@ -487,9 +484,7 @@ export default {
             this.unlockEpisodeSelector
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
-        if (videoCanplaythrough) {
-            executeFunctionsSequentially(hrefChangeFunctions)
-        }
+        if (videoCanplaythrough) executeFunctionsSequentially(hrefChangeFunctions)
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
