@@ -2,9 +2,11 @@
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-export const delay = (func, delay, ...args) => {
-    setTimeout(func(...args), delay)
-}
+export const delay = (func, timeout, ...args) => new Promise(resolve => {
+    setTimeout(() => {
+        resolve(func(...args))
+    }, timeout)
+})
 export const debounce = (func, delay = 300, immediate = false) => {
     let timer = null
     let lastArgs = null
@@ -392,10 +394,7 @@ export const insertStyleToDocument = styles => {
         for (const [id, cssString] of Object.entries(styles)) {
             let styleElement = document.getElementById(id)
             if (!cssString) {
-                if (styleElement) {
-                    styleElement.remove()
-                    // console.log(`Removed style: ${id}`)
-                }
+                styleElement?.remove()
                 continue
             }
             if (!styleElement) {
