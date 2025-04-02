@@ -136,6 +136,7 @@ export const shadowDomSelectors = {
     descriptionVideoTime: '#feed > #bili-adjustment-contents > [data-type="seek"]',
     videoTime: '#comment >> bili-rich-text >> #contents > a[data-type="seek"]',
     replyVideoTime: 'bili-comment-replies-renderer >> bili-comment-reply-renderer >> bili-rich-text >> #contents > a[data-type="seek"]',
+    commentHeaderNavbar: 'bili-comments-header-renderer > #navbar',
     commentRenderderContainer: '#feed',
     commentRenderder: 'bili-comment-renderer',
     commentRepliesRenderer: 'bili-comment-replies-renderer',

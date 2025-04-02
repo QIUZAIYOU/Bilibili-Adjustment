@@ -5,7 +5,7 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
+import { sleep, delay, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.2.3',
+    version: '2.2.4',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -23,7 +23,7 @@ export default {
         })
     },
     async preFunctions () {
-        await storageService.legacySet('player_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        await storageService.legacySet('page_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
         this.registSettings()
@@ -43,9 +43,9 @@ export default {
         await settingsComponent.init(this.userConfigs)
     },
     initMonitors () {
-        monitorHrefChange( () => {
+        monitorHrefChange( async () => {
             logger.info('视频资源丨链接已改变')
-            this.handleHrefChangedFunctionsSequentially()
+            this.userConfigs.page_type === 'video' ? this.handleHrefChangedFunctionsSequentially() : await delay(this.handleHrefChangedFunctionsSequentially, 50)
         })
         const monitorTabActiveState = isTabActive({
             onActiveChange: async isActive => {
@@ -140,7 +140,7 @@ export default {
     },
     async autoLocateToPlayer () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
-        if (this.userConfigs.webfull_unlock || this.userConfigs.player_type === 'web') {
+        if (this.userConfigs.webfull_unlock || this.userConfigs.page_type === 'web') {
             eventBus.emit('video:startOtherFunctions')
             return
         }
@@ -171,14 +171,14 @@ export default {
     },
     handleJumpToVideoTime (video, target) {
         const targetTime = target.dataset.videoTime
-        if (targetTime > video.duration) alert('当前时间点大于视频总时长，将跳到视频结尾！')
+        targetTime > video.duration && alert('当前时间点大于视频总时长，将跳到视频结尾！')
         video.currentTime = targetTime
         video.play()
     },
     async clickVideoTimeAutoLocation () {
         const batchSelectors = ['video', 'videoCommentRoot']
         const [video, host] = await elementSelectors.batch(batchSelectors)
-        const descriptionClickTargets = this.userConfigs.player_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
+        const descriptionClickTargets = this.userConfigs.page_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
         if (descriptionClickTargets.length > 0) {
             descriptionClickTargets.forEach(target => {
                 addEventListenerToElement(target, 'click', async event => {
@@ -188,6 +188,23 @@ export default {
                 })
             })
         }
+    },
+    async insertShowLoactionButton (){
+        const host = await elementSelectors.videoCommentRoot
+        const commentHeaderNavbar = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentHeaderNavbar, { forever: true })
+        const showLocationButton = createElementAndInsert(getTemplates.bilibiliAdjustmentShowILocation, commentHeaderNavbar)
+        const trigger = () => {
+            if (this.userConfigs.page_type === 'video'){
+                this.doSomethingToCommentElements()
+            } else {
+                const commentRenderderContainer = shadowDOMHelper.querySelector(host, shadowDomSelectors.commentRenderderContainer)
+                const fake = createElementAndInsert('<bili-comment-thread-renderer></bili-comment-thread-renderer>', commentRenderderContainer)
+                fake.remove()
+            }
+        }
+        addEventListenerToElement(showLocationButton, 'click', async () => {
+            this.doSomethingToCommentElements()
+        })
     },
     async doSomethingToCommentElements () {
         const batchSelectors = ['video', 'videoCommentRoot']
@@ -351,10 +368,10 @@ export default {
         })
     },
     async insertSideFloatNavToolsButtons () {
-        const floatNav = this.userConfigs.player_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
+        const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         const dataV = floatNav.lastChild.attributes[1].name
         let locateButton, videoSettingsOpenButton
-        if (this.userConfigs.player_type === 'video') {
+        if (this.userConfigs.page_type === 'video') {
             locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
                 class: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
                 style: '',
@@ -367,7 +384,7 @@ export default {
                 text: '设置'
             }), floatNav.lastChild, 'prepend')
         }
-        if (this.userConfigs.player_type === 'bangumi') {
+        if (this.userConfigs.page_type === 'bangumi') {
             const floatNavMenuItemClass = floatNav.lastChild.lastChild.getAttribute('class')
             locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
                 class: `${floatNavMenuItemClass} bili-adjustment-icon locate`,
@@ -401,7 +418,7 @@ export default {
     },
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
-        if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.player_type === 'bangumi') return
+        if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.page_type === 'bangumi') return
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescription, videoDescriptionInfo, host] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
@@ -438,7 +455,7 @@ export default {
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
     async unlockEpisodeSelector () {
-        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.player_type, biliApis.getCurrentVideoID(window.location.href))
+        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         const { pages = false, ugc_season = false, episodes = false } = videoInfo
         if (pages || ugc_season || episodes) {
             insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
@@ -450,7 +467,7 @@ export default {
         }
     },
     async webfullPlayerModeUnlock () {
-        if (!this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode !== 'web' || this.userConfigs.player_type === 'bangumi') return
+        if (!this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode !== 'web' || this.userConfigs.page_type === 'bangumi') return
         const batchSelectors = [
             'app',
             'playerWrap',
@@ -480,7 +497,7 @@ export default {
         })
         addEventListenerToElement(webEnterButton, 'click', async () => {
             const UnlockWebPlayerStyle = elementSelectors.UnlockWebPlayerStyle
-            if (!UnlockWebPlayerStyle) insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
+            !UnlockWebPlayerStyle && insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
             app.prepend(playerWebscreen)
             await this.locateToPlayer()
         })
@@ -488,7 +505,7 @@ export default {
         eventBus.emit('video:webfullPlayerModeUnlock')
     },
     async insertLocateToCommentButton (){
-        if (!this.userConfigs.webfull_unlock || this.userConfigs.player_type === 'bangumi' || this.userConfigs.selected_player_mode !== 'web') return
+        if (!this.userConfigs.webfull_unlock || this.userConfigs.page_type === 'bangumi' || this.userConfigs.selected_player_mode !== 'web') return
         const batchSelectors = ['playerControllerBottomRight', 'videoComment']
         const [playerControllerBottomRight, videoComment] = await elementSelectors.batch(batchSelectors)
         const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight)
@@ -503,12 +520,11 @@ export default {
             this.insertVideoDescriptionToComment,
             this.clickVideoTimeAutoLocation,
             this.doSomethingToCommentElements,
-            this.unlockEpisodeSelector
+            this.unlockEpisodeSelector,
+            this.insertShowLoactionButton
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
-        if (videoCanplaythrough) {
-            executeFunctionsSequentially(hrefChangeFunctions)
-        }
+        videoCanplaythrough && executeFunctionsSequentially(hrefChangeFunctions)
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
@@ -522,7 +538,8 @@ export default {
             this.unlockEpisodeSelector,
             this.autoEnableSubtitle,
             this.insertAutoEnableSubtitleSwitchButton,
-            this.doSomethingToCommentElements
+            this.doSomethingToCommentElements,
+            this.insertShowLoactionButton
         ]
         executeFunctionsSequentially(functions)
     }

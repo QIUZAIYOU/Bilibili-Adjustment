@@ -6,7 +6,7 @@ export class ConfigService {
     static #cache = new Map()
     static DEFAULT_VALUES = new Map([
         ['is_vip', true],
-        ['player_type', 'video'],
+        ['page_type', 'video'],
         ['offset_top', 5],
         ['player_offset_top', 168],
         ['video_player_offset_top', 168],
