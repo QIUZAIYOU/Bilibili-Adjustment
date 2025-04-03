@@ -272,6 +272,17 @@ class ShadowDOMHelper {
             styleTag[method](textNode, styleTag.firstChild)
         }
     }
+    static #parseStyles (styles) {
+        if (typeof styles === 'string') {
+            return styles.replace(/^\s*\{|\}\s*$/g, '').replace(/;(\s*})/g, '$1').trim()
+        }
+        if (typeof styles === 'object') {
+            return Object.entries(styles)
+                .map(([prop, value]) => `${prop.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${value}`)
+                .join('; ')
+        }
+        throw new TypeError('样式必须是字符串或对象')
+    }
     // ==================== 调试工具 ====================
     static debugQuery (host, selector) {
         console.groupCollapsed('[ShadowDOMHelper] 查询路径调试')
@@ -326,17 +337,6 @@ class ShadowDOMHelper {
         }
         this.#selectorCache.set(selector, parts)
         return parts
-    }
-    static #parseStyles (styles) {
-        if (typeof styles === 'string') {
-            return styles.replace(/^\s*\{|\}\s*$/g, '').replace(/;(\s*})/g, '$1').trim()
-        }
-        if (typeof styles === 'object') {
-            return Object.entries(styles)
-                .map(([prop, value]) => `${prop.replace(/([A-Z])/g, '-$1').toLowerCase()}: ${value}`)
-                .join('; ')
-        }
-        throw new TypeError('样式必须是字符串或对象')
     }
     static #isInHostTree (element, host) {
         let root = element.getRootNode()

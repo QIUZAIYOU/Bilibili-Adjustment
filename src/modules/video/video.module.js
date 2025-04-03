@@ -1,11 +1,11 @@
-/* global queueMicrotask */
+/* global requestAnimationFrame */
 import { shadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, delay, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
+import { sleep, getCaller, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -44,8 +44,8 @@ export default {
     },
     initMonitors () {
         monitorHrefChange( async () => {
-            logger.info('视频资源丨链接已改变')
-            this.userConfigs.page_type === 'video' ? this.handleHrefChangedFunctionsSequentially() : await delay(this.handleHrefChangedFunctionsSequentially, 50)
+            // logger.info('视频资源丨链接已改变')
+            this.handleHrefChangedFunctionsSequentially()
         })
         const monitorTabActiveState = isTabActive({
             onActiveChange: async isActive => {
@@ -80,8 +80,10 @@ export default {
     async checkVideoCanplaythrough (videoElement, emit = true) {
         const canplaythrough = await this.isVideoCanplaythrough(videoElement)
         if (canplaythrough) {
-            if (emit) eventBus.emit('video:canplaythrough')
-            logger.info('视频资源｜可以播放')
+            if (emit) {
+                eventBus.emit('video:canplaythrough')
+                logger.info('视频资源｜可以播放')
+            }
             return true
         }
     },
@@ -189,38 +191,32 @@ export default {
             })
         }
     },
-    async insertShowLoactionButton (){
-        const host = await elementSelectors.videoCommentRoot
-        const commentHeaderNavbar = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentHeaderNavbar, { forever: true })
-        const showLocationButton = createElementAndInsert(getTemplates.bilibiliAdjustmentShowILocation, commentHeaderNavbar)
-        const trigger = () => {
-            if (this.userConfigs.page_type === 'video'){
-                this.doSomethingToCommentElements()
-            } else {
-                const commentRenderderContainer = shadowDOMHelper.querySelector(host, shadowDomSelectors.commentRenderderContainer)
-                const fake = createElementAndInsert('<bili-comment-thread-renderer></bili-comment-thread-renderer>', commentRenderderContainer)
-                fake.remove()
-            }
-        }
-        addEventListenerToElement(showLocationButton, 'click', async () => {
-            this.doSomethingToCommentElements()
-        })
-    },
     async doSomethingToCommentElements () {
+        const observers = new Set()
         const batchSelectors = ['video', 'videoCommentRoot']
         const [video, host] = await elementSelectors.batch(batchSelectors)
         const insertLocation = (element, location) => {
-            const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
-            const pubdate = shadowDOMHelper.querySelectorAll(element, shadowDomSelectors.replyPublicDate)
-            queueMicrotask(() => {
-                pubdate.forEach(date => {
-                    createElementAndInsert(locationWrapperHtml, date, 'after')
+            try {
+                const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
+                const pubdate = shadowDOMHelper.querySelectorAll(element, shadowDomSelectors.replyPublicDate)
+                requestAnimationFrame(() => {
+                    pubdate.forEach(date => {
+                        if (date.isConnected) {
+                            createElementAndInsert(locationWrapperHtml, date, 'after')
+                        }
+                    })
                 })
-            })
+            } catch (error) {
+                logger.error('插入位置信息失败:', error)
+            }
         }
         const watchMoreRepliesElements = element => {
-            shadowDOMHelper.watchQuery(element, '', async reply => {
-                insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
+            const observer = shadowDOMHelper.watchQuery(element, '', async reply => {
+                if (reply?.data?.reply_control?.location) {
+                    insertLocation(reply, reply.data.reply_control.location)
+                } else {
+                    insertLocation(reply, 'IP属地：未知')
+                }
             }, {
                 nodeNameFilter: 'bili-comment-reply-renderer',
                 debounce: 100,
@@ -228,6 +224,7 @@ export default {
                 observeExisting: true,
                 scanInterval: 1000
             })
+            observers.add(observer)
         }
         const handleVideoTimeElements = host => {
             const videoTimeElements = shadowDOMHelper.batchQuery(host, {
@@ -264,6 +261,7 @@ export default {
                 host,
                 shadowDomSelectors.commentRenderderContainer,
                 async item => {
+                    // logger.info('评论区元素更新:', item)
                     handleVideoTimeElements(item)
                     const replyElements = shadowDOMHelper.querySelectorAll(item, shadowDomSelectors.commentRenderder)
                     if (this.userConfigs.show_location){
@@ -278,9 +276,19 @@ export default {
                     debounce: 100,
                     maxRetries: 5,
                     observeExisting: true,
-                    scanInterval: 1000
+                    scanInterval: 100
                 }
             )
+        }
+        return () => {
+            observers.forEach(observer => {
+                try {
+                    observer?.disconnect?.()
+                } catch (error) {
+                    logger.error('清理观察者失败:', error)
+                }
+            })
+            observers.clear()
         }
     },
     async autoSelectVideoHighestQuality () {
@@ -441,14 +449,14 @@ export default {
                     videoCommentReplyListShadowRoot?.prepend(clone)
                     await sleep(300)
                     if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
-                        logger.info('视频简介丨已插入')
+                        // logger.info('视频简介丨已插入')
                     } else {
                         this.insertVideoDescriptionToComment()
                     }
                 } else {
                     const videoDescriptionInfo = await elementSelectors.videoDescriptionInfo
                     videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
-                    logger.info('视频简介丨已替换')
+                    // logger.info('视频简介丨已替换')
                 }
             }
         }, 300)
@@ -515,13 +523,13 @@ export default {
         })
     },
     async handleHrefChangedFunctionsSequentially (){
+        this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
         const hrefChangeFunctions = [
             this.insertVideoDescriptionToComment,
             this.clickVideoTimeAutoLocation,
             this.doSomethingToCommentElements,
-            this.unlockEpisodeSelector,
-            this.insertShowLoactionButton
+            this.unlockEpisodeSelector
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
         videoCanplaythrough && executeFunctionsSequentially(hrefChangeFunctions)
@@ -538,8 +546,7 @@ export default {
             this.unlockEpisodeSelector,
             this.autoEnableSubtitle,
             this.insertAutoEnableSubtitleSwitchButton,
-            this.doSomethingToCommentElements,
-            this.insertShowLoactionButton
+            this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)
     }
