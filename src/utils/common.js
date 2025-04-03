@@ -620,3 +620,23 @@ export const hidePlayerTooltip = tooltipElement => {
         `
     })
 }
+export const getCaller = (targetFunctionName = null) => {
+    try {
+        throw new Error()
+    } catch (e) {
+        const stackLines = e.stack.split('\n').slice(2) // 跳过前两行
+        if (!targetFunctionName) {
+            const match = stackLines[0]?.match(/at (\S+)/)
+            return match?.[1] || 'anonymous'
+        }
+        // 查找目标函数在调用栈中的位置
+        const targetIndex = stackLines.findIndex(line =>
+            line.includes(`at ${targetFunctionName}`))
+        if (targetIndex === -1 || targetIndex >= stackLines.length - 1) {
+            return null // 未找到目标函数或目标函数是最后一级
+        }
+        // 返回目标函数的调用者
+        const callerMatch = stackLines[targetIndex + 1]?.match(/at (\S+)/)
+        return callerMatch?.[1] || 'anonymous'
+    }
+}
