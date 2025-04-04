@@ -47,6 +47,7 @@ export const biliApis = {
         return main()
     },
     getCurrentVideoID (url = location.href) {
+        if (!url) return
         const { pathname } = new URL(url)
         if (pathname.startsWith('/video/')) {
             const match = pathname.match(/\/video\/(BV\w+)/)
@@ -58,6 +59,7 @@ export const biliApis = {
         return 'error'
     },
     async getVideoInformation (pageType, videoId) {
+        if (!videoId) return
         const url = pageType === 'video' ? `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}` : `https://api.bilibili.com/pgc/view/web/season?ep_id=${videoId}`
         if (pageType === 'video') {
             const { data: { code, data }} = await axios.get(url, { withCredentials: true })
