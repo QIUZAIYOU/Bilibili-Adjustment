@@ -37,11 +37,16 @@ export default {
     async setRecordRecommendVideoHistory () {
         const recordRecommendVideos = await elementSelectors.all('.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))')
         recordRecommendVideos.forEach( async video => {
-            const url = video.querySelector('a').href
-            const title = video.querySelector('h3').title
+            const url = video.querySelector('a')?.href
+            const title = video.querySelector('h3')?.title
             if (location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
-                const { data: { tid, tid_v2, tname, tname_v2, pic }} = await biliApis.getVideoInformation(biliApis.getCurrentVideoID(url))
-                await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic })
+                const data = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                if (data) {
+                    const { tid, tid_v2, tname, tname_v2, pic } = data
+                    await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic })
+                } else {
+                    return
+                }
             }
         })
         logger.info('首页视频推荐历史记录｜已开启')
