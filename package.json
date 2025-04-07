@@ -2,7 +2,7 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "2.3.3",
+  "version": "2.3.4",
   "license": "MIT",
   "type": "module",
   "scripts": {
