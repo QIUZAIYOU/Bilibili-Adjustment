@@ -61,7 +61,7 @@
 
 ### 2025
 
-`04.05 00:00`：修复因优化部分代码却忘记适配部分功能所导致的 「[首页视频推荐失效 #3](https://github.com/QIUZAIYOU/Bilibili-Adjustment/issues/3)」 的问题;
+`04.05 00:00`：修复首页「推荐视频历史记录」失效的问题;「[#3](https://github.com/QIUZAIYOU/Bilibili-Adjustment/issues/3)」;
 
 `04.02 23:04`：评论区标题最右侧添加「显示评论归属地」按钮，当脚本未按预期显示时可手动点击该按钮进行修复;
 
