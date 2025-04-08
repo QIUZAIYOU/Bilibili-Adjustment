@@ -534,14 +534,14 @@ export const fetchLatestScript = async () => {
     }
     throw new Error('所有CORS代理均不可用')
 }
-export const extractVersionFromScript = scriptContent => {
+const extractVersionFromScript = scriptContent => {
     const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.]+)/)
     if (versionMatch && versionMatch[1]) {
         return versionMatch[1]
     }
     return null
 }
-export const compareVersions = (current, latest) => {
+const compareVersions = (current, latest) => {
     const parsePart = part => {
         const num = parseInt(part, 10)
         return isNaN(num) ? part.toLowerCase() : num
@@ -559,20 +559,34 @@ export const compareVersions = (current, latest) => {
     }
     return false
 }
-export const promptForUpdate = async currentVersion => {
+const generateUpdateList = (items = []) => {
+    if (!Array.isArray(items)) return ''
+    return `
+        <ul class="adjustment-update-contents">
+            ${items.map((item, index) =>
+                `<li>${index + 1}. ${item}</li>`).join('')}
+        </ul>
+    `.replace(/\n\s+/g, '').trim() // 压缩空白字符
+}
+export const promptForUpdate = async (currentVersion, updateContents = '') => {
     const scriptContent = await fetchLatestScript()
     if (!scriptContent) {
         return
     }
     const latestVersion = extractVersionFromScript(scriptContent)
+    // const latestVersion = '9.9.9'
     if (!latestVersion) {
         console.error('Failed to extract version from the latest script')
         return
     }
     if (compareVersions(currentVersion, latestVersion)) {
+        const updateContentsHtml = Array.isArray(updateContents) ?
+            generateUpdateList(updateContents) :
+            updateContents
         const updatePopover = createElementAndInsert(getTemplates.replace('update', {
             current: currentVersion,
-            latest: latestVersion
+            latest: latestVersion,
+            contents: updateContentsHtml
         }), document.body, 'append')
         updatePopover.showPopover()
         const updateButton = updatePopover.querySelector('.adjustment-button-update')
