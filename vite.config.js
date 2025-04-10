@@ -10,16 +10,21 @@ export default defineConfig(({ mode }) => ({
         minify: 'terser',
         terserOptions: {
             compress: {
-                defaults: false,
-                join_vars: false,
-                sequences: false
+                defaults: true,
+                dead_code: true,
+                drop_debugger: true,
+                passes: 3
             },
             format: {
-                beautify: false,
                 comments: false,
-                indent_level: 0,
-                wrap_func_args: false,
-                preserve_annotations: false
+                ecma: 5,
+                wrap_iife: true
+            },
+            mangle: {
+                properties: {
+                    regex: /^_/,
+                    reserved: ['$super']
+                }
             }
         }
     },
@@ -64,37 +69,34 @@ export default defineConfig(({ mode }) => ({
         VitePluginBundleObfuscator({
             excludes: [],
             enable: true,
-            log: true,
+            log: false,
             autoExcludeNodeModules: false,
-            threadPool: false,
+            threadPool: true,
             options: {
                 compact: true,
                 controlFlowFlattening: true,
-                controlFlowFlatteningThreshold: 1,
-                deadCodeInjection: false,
-                debugProtection: false,
-                debugProtectionInterval: 0,
-                disableConsoleOutput: false,
+                controlFlowFlatteningThreshold: 0.75,
+                deadCodeInjection: true,
+                deadCodeInjectionThreshold: 0.4,
+                debugProtection: true,
+                debugProtectionInterval: 2000,
+                disableConsoleOutput: true,
                 identifierNamesGenerator: 'hexadecimal',
-                log: false,
-                numbersToExpressions: false,
-                renameGlobals: false,
+                numbersToExpressions: true,
+                renameGlobals: true,
                 selfDefending: true,
                 simplify: true,
-                splitStrings: false,
-                stringArray: false,
-                stringArrayCallsTransform: false,
-                stringArrayCallsTransformThreshold: 0.5,
-                stringArrayEncoding: [],
+                splitStrings: true,
+                splitStringsChunkLength: 5,
+                stringArray: true,
+                stringArrayEncoding: ['base64'],
                 stringArrayIndexShift: true,
                 stringArrayRotate: true,
                 stringArrayShuffle: true,
-                stringArrayWrappersCount: 1,
+                stringArrayWrappersCount: 2,
                 stringArrayWrappersChainedCalls: true,
-                stringArrayWrappersParametersMaxCount: 2,
-                stringArrayWrappersType: 'variable',
-                stringArrayThreshold: 0.75,
-                unicodeEscapeSequence: false
+                transformObjectKeys: true,
+                unicodeEscapeSequence: true
             }
         })
     ]
