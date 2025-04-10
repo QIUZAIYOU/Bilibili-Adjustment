@@ -10,15 +10,21 @@ export default defineConfig(({ mode }) => ({
         minify: 'terser',
         terserOptions: {
             compress: {
-                defaults: false
+                defaults: false,
+                join_vars: false,
+                sequences: false
             },
             format: {
-                comments: false
+                beautify: false,
+                comments: false,
+                indent_level: 0,
+                wrap_func_args: false,
+                preserve_annotations: false
             }
         }
     },
     esbuild: {
-        drop: ['debugger'] //打包去除
+        drop: ['debugger']
     },
     resolve: {
         alias: {
