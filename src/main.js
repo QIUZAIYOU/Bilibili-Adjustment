@@ -36,7 +36,6 @@ const initializeApp = () => {
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
 initializeApp()
 setTimeout(() => {
-    console.log(pkg.updateContents)
     promptForUpdate(pkg.version, pkg.updates).catch(error => {
         logger.error('检查更新失败', error)
     })
