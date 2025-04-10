@@ -57,7 +57,7 @@ export default {
                 }
             },
             immediate: true,
-            checkInterval: 2000
+            checkInterval: 10
         })
     },
     isVideoCanplaythrough (videoElement) {
