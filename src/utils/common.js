@@ -254,11 +254,20 @@ export const isTabActive = (options = {}) => {
         if (newState !== lastState) {
             active = newState
             lastState = newState
-            onActiveChange?.(newState)
+            onActiveChange?.(active)
+            active && unsubscribe()
         }
     }
     // 主监听函数
     const setupListeners = () => {
+        if (checkInterval > 0) {
+            intervalId = setInterval(() => {
+                const currentState = visibilityInfo
+                    ? document[visibilityInfo.state] === 'visible'
+                    : document.hasFocus()
+                updateState(currentState)
+            }, checkInterval)
+        }
         if (visibilityInfo) {
             const handleVisibilityChange = () => {
                 updateState(document[visibilityInfo.state] === 'visible')
@@ -286,21 +295,14 @@ export const isTabActive = (options = {}) => {
             }
         }
     }
-    if (checkInterval > 0) {
-        intervalId = setInterval(() => {
-            const currentState = visibilityInfo
-                ? document[visibilityInfo.state] === 'visible'
-                : document.hasFocus()
-            updateState(currentState)
-        }, checkInterval)
-    }
     const cleanup = setupListeners()
+    const unsubscribe = () => {
+        cleanup?.()
+        if (intervalId) clearInterval(intervalId)
+    }
     return {
         getCurrentState: () => active,
-        unsubscribe: () => {
-            cleanup?.()
-            if (intervalId) clearInterval(intervalId)
-        }
+        unsubscribe
     }
 }
 export const monitorHrefChange = callback => {
