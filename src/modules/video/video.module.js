@@ -177,20 +177,6 @@ export default {
         video.currentTime = targetTime
         video.play()
     },
-    async clickVideoTimeAutoLocation () {
-        const batchSelectors = ['video', 'videoCommentRoot']
-        const [video, host] = await elementSelectors.batch(batchSelectors)
-        const descriptionClickTargets = this.userConfigs.page_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
-        if (descriptionClickTargets.length > 0) {
-            descriptionClickTargets.forEach(target => {
-                addEventListenerToElement(target, 'click', async event => {
-                    event.stopPropagation()
-                    await this.locateToPlayer()
-                    this.handleJumpToVideoTime(video, target)
-                })
-            })
-        }
-    },
     async doSomethingToCommentElements () {
         const observers = new Set()
         const batchSelectors = ['video', 'videoCommentRoot']
@@ -226,11 +212,14 @@ export default {
             })
             observers.add(observer)
         }
-        const handleVideoTimeElements = host => {
-            const videoTimeElements = shadowDOMHelper.batchQuery(host, {
+        const handleVideoTimeElements = async currentHost => {
+            const descriptionVideoTimeElements = this.userConfigs.page_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
+            const commentVideoTimeElements = await shadowDOMHelper.batchQuery(currentHost, {
                 videoTime: shadowDomSelectors.videoTime,
                 replyVideoTime: shadowDomSelectors.replyVideoTime
             })
+            const videoTimeElements = [...descriptionVideoTimeElements, ...commentVideoTimeElements]
+            // logger.debug('视频时间点元素:', videoTimeElements)
             videoTimeElements.forEach(element => {
                 addEventListenerToElement(element, 'click', async event => {
                     event.stopPropagation()
@@ -527,7 +516,6 @@ export default {
         this.locateToPlayer()
         const hrefChangeFunctions = [
             this.insertVideoDescriptionToComment,
-            this.clickVideoTimeAutoLocation,
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
         ]
@@ -542,7 +530,6 @@ export default {
             this.autoCancelMute,
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButtons,
-            this.clickVideoTimeAutoLocation,
             this.unlockEpisodeSelector,
             this.autoEnableSubtitle,
             this.insertAutoEnableSubtitleSwitchButton,

@@ -36,8 +36,8 @@ const initializeApp = () => {
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
 initializeApp()
 setTimeout(() => {
-    const updateContents = ['使用更合理的 V3 版本号;', '优化「自动更新」弹窗样式，新增「更新内容」显示(如果有的话);']
-    promptForUpdate(pkg.version, updateContents).catch(error => {
+    console.log(pkg.updateContents)
+    promptForUpdate(pkg.version, pkg.updates).catch(error => {
         logger.error('检查更新失败', error)
     })
 }, 0)
