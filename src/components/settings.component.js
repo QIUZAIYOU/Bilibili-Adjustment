@@ -34,7 +34,7 @@ export class SettingsComponent {
             OffsetTop: this.userConfigs.offset_top,
             PlayerOffsetTop: this.userConfigs.player_offset_top,
             ClickPlayerAutoLocate: this.userConfigs.click_player_auto_location,
-            SelectedPlayerModeClose: this.userConfigs.selected_player_mode === 'close',
+            SelectedPlayerModeClose: this.userConfigs.selected_player_mode === 'normal',
             SelectedPlayerModeWide: this.userConfigs.selected_player_mode === 'wide',
             SelectedPlayerModeWeb: this.userConfigs.selected_player_mode === 'web',
             WebfullUnlock: this.userConfigs.webfull_unlock,
@@ -87,6 +87,13 @@ export class SettingsComponent {
         })
         elementSelectors.each('SelectPlayerModeButtons', btn => {
             addEventListenerToElement(btn, 'click', async e => {
+                const buttons = btn.closest('.adjustment-checkboxGroup').querySelectorAll('input[name="PlayerMode"]')
+                buttons.forEach(b => {
+                    b.checked = false
+                    b.setAttribute('checked', 'false')
+                })
+                btn.checked = true
+                btn.setAttribute('checked', 'true')
                 await storageService.legacySet('selected_player_mode', e.target.value)
             })
         })
