@@ -3,7 +3,7 @@
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
   "version": "3.3.2",
-  "updates": ["修复评论区视频简介时间锚点跳转功能；"],
+  "updates": ["修复评论区「视频简介时间锚点」跳转功能;"],
   "license": "MIT",
   "type": "module",
   "scripts": {
