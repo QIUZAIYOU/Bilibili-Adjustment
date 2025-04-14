@@ -44,16 +44,15 @@ export default {
     },
     initMonitors () {
         monitorHrefChange( async () => {
-            // logger.info('视频资源丨链接已改变')
+            logger.debug('视频资源丨链接已改变')
             this.handleHrefChangedFunctionsSequentially()
         })
-        const monitorTabActiveState = isTabActive({
+        isTabActive({
             onActiveChange: async isActive => {
                 if (isActive) {
                     logger.info('标签页｜已激活')
                     insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
                     this.checkVideoCanplaythrough(await elementSelectors.video)
-                    monitorTabActiveState.unsubscribe()
                 }
             },
             immediate: true,
