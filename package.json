@@ -2,7 +2,7 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.3.4",
+  "version": "3.3.5",
   "updates": ["修复当链接变化时「自动返回至播放器」等功能未按预期执行的问题;"],
   "license": "MIT",
   "type": "module",
