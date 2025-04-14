@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.3.3",
-  "updates": ["修复评论区「视频简介时间锚点」跳转功能;","修复「播放器默认模式」选择「关闭」时导致的页面异常锁定及选项样式异常显示的问题;"],
+  "version": "3.3.4",
+  "updates": ["修复当链接变化时「自动返回至播放器」等功能未按预期执行的问题;"],
   "license": "MIT",
   "type": "module",
   "scripts": {
