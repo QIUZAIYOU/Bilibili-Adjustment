@@ -232,33 +232,28 @@ export const isTabActive = (options = {}) => {
         onActiveChange = null,
         passive = true,
         checkInterval = 300,
-        immediate = false
+        immediate = false,
+        once = false
     } = options
     let active = true
     let lastState = true
     let intervalId = null
-    const visibilityInfo = (() => {
-        const prefixes = ['', 'webkit', 'ms', 'moz']
-        for (const prefix of prefixes) {
-            const key = prefix ? `${prefix}Hidden` : 'hidden'
-            if (key in document) {
-                return {
-                    event: prefix ? `${prefix}visibilitychange` : 'visibilitychange',
-                    state: prefix ? `${prefix}VisibilityState` : 'visibilityState'
-                }
-            }
-        }
-        return null
-    })()
+    let hasTriggered = false
     const updateState = newState => {
         if (newState !== lastState) {
             active = newState
             lastState = newState
-            onActiveChange?.(active)
-            active && unsubscribe()
+            if (!hasTriggered || !once) {
+                onActiveChange?.(active)
+                if (once && active) {
+                    hasTriggered = true
+                    unsubscribe()
+                } else {
+                    active && unsubscribe()
+                }
+            }
         }
     }
-    // 主监听函数
     const setupListeners = () => {
         if (checkInterval > 0) {
             intervalId = setInterval(() => {
@@ -273,9 +268,14 @@ export const isTabActive = (options = {}) => {
                 updateState(document[visibilityInfo.state] === 'visible')
             }
             document.addEventListener(visibilityInfo.event, handleVisibilityChange, { passive })
-            // 新增立即执行逻辑
             if (immediate && document[visibilityInfo.state] === 'visible') {
-                onActiveChange?.(true)
+                if (!hasTriggered || !once) {
+                    onActiveChange?.(true)
+                    if (once) {
+                        hasTriggered = true
+                        unsubscribe()
+                    }
+                }
             }
             return () => {
                 document.removeEventListener(visibilityInfo.event, handleVisibilityChange, { passive })
@@ -287,7 +287,13 @@ export const isTabActive = (options = {}) => {
             window.addEventListener('blur', handleBlur, { passive })
             updateState(document.hasFocus())
             if (immediate && document.hasFocus()) {
-                onActiveChange?.(true)
+                if (!hasTriggered || !once) {
+                    onActiveChange?.(true)
+                    if (once) {
+                        hasTriggered = true
+                        unsubscribe()
+                    }
+                }
             }
             return () => {
                 window.removeEventListener('focus', handleFocus, { passive })
@@ -295,6 +301,19 @@ export const isTabActive = (options = {}) => {
             }
         }
     }
+    const visibilityInfo = (() => {
+        const prefixes = ['', 'webkit', 'ms', 'moz']
+        for (const prefix of prefixes) {
+            const key = prefix ? `${prefix}Hidden` : 'hidden'
+            if (key in document) {
+                return {
+                    event: prefix ? `${prefix}visibilitychange` : 'visibilitychange',
+                    state: prefix ? `${prefix}VisibilityState` : 'visibilityState'
+                }
+            }
+        }
+        return null
+    })()
     const cleanup = setupListeners()
     const unsubscribe = () => {
         cleanup?.()
