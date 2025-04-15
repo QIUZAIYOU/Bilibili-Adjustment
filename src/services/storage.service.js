@@ -42,7 +42,7 @@ export class StorageService {
     }
     constructor () {
         if (!window.indexedDB) {
-            throw new Error('Browser does not support IndexedDB')
+            throw new Error('浏览器不支持 IndexedDB')
         }
         if (StorageService.#instance) {
             return StorageService.#instance

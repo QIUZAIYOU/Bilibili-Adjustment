@@ -28,7 +28,7 @@ export class LoggerService {
     }
     log (level, ...args) {
         if (LoggerService.ENABLED_LEVELS[level]) {
-            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)丨' : ''}${import.meta.env.DEV ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
+            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? '(调试)丨' : ' '}${import.meta.env.DEV ? this.module : ''}`, LoggerService.LEVELS[level], ...args)
         }
     }
     info (...args) {

@@ -22,7 +22,7 @@ export class ModuleSystem {
         this.#validateModule(module)
         const { name } = module
         if (this.#modules.has(name)) {
-            this.#handleError(`Module ${name} already registered`, 'warn')
+            this.#handleError(`模块 ${name} 已注册`, 'warn')
             return
         }
         this.#modules.set(name, {
@@ -41,16 +41,16 @@ export class ModuleSystem {
         eventBus.emit('system:init-start', { timestamp: startTime })
         try {
             const moduleNames = Array.from(this.#modules.keys())
-            this.#logger.debug(`模块初始化: ${moduleNames.join(', ')}`)
+            this.#logger.debug(`正在初始化模块: ${moduleNames.join(', ')}`)
             await this.#initializeModules(moduleNames)
             eventBus.emit('system:init-success', {
                 duration: Date.now() - startTime,
                 moduleCount: this.#modules.size
             })
-            this.#logger.debug(`模块初始化耗时： ${Date.now() - startTime} ms`)
+            this.#logger.debug(`模块初始化完成，耗时: ${Date.now() - startTime} 毫秒`)
         } catch (error) {
             eventBus.emit('system:init-fail', { error })
-            throw this.#enhanceError(error, 'System initialization failed')
+            throw this.#enhanceError(error, '系统初始化失败')
         }
     }
     getModule (name) {
@@ -68,7 +68,7 @@ export class ModuleSystem {
                 moduleMeta.instance.install()
             }
             moduleMeta.status = 'active'
-            this.#logger.debug(`模块初始化✅: ${moduleMeta.definition.name}`)
+            this.#logger.debug(`模块初始化成功: ${moduleMeta.definition.name}`)
         } catch (error) {
             moduleMeta.status = 'error'
             this.#handleError(error, 'critical', { module: moduleMeta.definition.name })
@@ -82,7 +82,7 @@ export class ModuleSystem {
     }
     #validateModule (module) {
         if (!module.name) {
-            throw new Error('Module must have a name property')
+            throw new Error('模块必须包含 name 属性')
         }
     }
     #createModuleInstance (moduleDef) {
@@ -132,7 +132,7 @@ export class ModuleSystem {
             ...metadata
         })
         if (level === 'critical') {
-            this.#logger.error(`[CRITICAL] ${message}`, metadata)
+            this.#logger.error(`[严重错误] ${message}`, metadata)
         }
     }
 }
