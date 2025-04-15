@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.2.5',
+    version: '2.3.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -511,6 +511,26 @@ export default {
             documentScrollTo(await getElementOffsetToDocument(videoComment).top - 10)
         })
     },
+    async handleVideoPauseOnTabSwitch () {
+        if (!this.userConfigs.pause_video) return
+        const video = await elementSelectors.video
+        let playFlag = false
+        const tabState = isTabActive({
+            onActiveChange: async isActive => {
+                if (!isActive) {
+                    video.pause()
+                    playFlag = true
+                } else if (this.userConfigs.continue_play && playFlag) {
+                    video.play()
+                    playFlag = false
+                }
+            },
+            checkInterval: 100
+        })
+        return () => {
+            tabState.unsubscribe()
+        }
+    },
     async handleHrefChangedFunctionsSequentially (){
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
@@ -533,6 +553,7 @@ export default {
             this.unlockEpisodeSelector,
             this.autoEnableSubtitle,
             this.insertAutoEnableSubtitleSwitchButton,
+            this.handleVideoPauseOnTabSwitch,
             this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)

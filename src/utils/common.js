@@ -250,8 +250,6 @@ export const isTabActive = (options = {}) => {
                 if (once && active) {
                     hasTriggered = true
                     unsubscribe()
-                } else {
-                    active && unsubscribe()
                 }
             }
         }
