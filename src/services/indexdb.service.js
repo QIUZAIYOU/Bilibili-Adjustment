@@ -24,7 +24,7 @@ class IndexedDBService {
                 resolve(this.db)
             }
             request.onerror = event => {
-                reject(new Error(`Database error: ${event.target.error}`))
+                reject(new Error(`数据库错误: ${event.target.error}`))
             }
         })
     }

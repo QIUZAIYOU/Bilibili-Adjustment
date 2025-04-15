@@ -63,9 +63,9 @@ export class EventBus {
     }
     #handleError (error, context, handler) {
         if (this.#debug) {
-            this.#logger.error(`[EventBus] Error in handler for ${context.event}:`, {
+            this.#logger.error(`[EventBus] 处理 ${context.event} 事件时发生错误:`, {
                 error,
-                handler: handler.name || 'anonymous',
+                handler: handler.name || '匿名函数',
                 args: context.args
             })
         }

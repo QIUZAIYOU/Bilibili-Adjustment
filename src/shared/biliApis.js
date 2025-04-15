@@ -63,7 +63,7 @@ export const biliApis = {
         const url = pageType === 'video' ? `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}` : `https://api.bilibili.com/pgc/view/web/season?ep_id=${videoId}`
         if (pageType === 'video') {
             const { data: { code, data }} = await axios.get(url, { withCredentials: true })
-            // console.log(pageType, videoId, data)
+            // logger.debug(pageType, videoId, data)
             if (code === 0) return data
             else if (code === -400) logger.info('获取视频基本信息丨请求错误')
             else if (code === -403) logger.info('获取视频基本信息丨权限不足')
@@ -74,7 +74,7 @@ export const biliApis = {
             else logger.warn('获取视频基本信息丨请求错误')
         } else {
             const { data: { code, result }} = await axios.get(url, { withCredentials: true })
-            // console.log(pageType, videoId, result)
+            // logger.debug(pageType, videoId, result)
             if (code === 0) return result
         }
     },

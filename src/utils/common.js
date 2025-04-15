@@ -1,6 +1,8 @@
 /* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event */
+import { LoggerService } from '@/services/logger.service'
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
+const logger = new LoggerService('Common')
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const delay = (func, timeout, ...args) => new Promise(resolve => {
     setTimeout(() => {
@@ -166,7 +168,7 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
             ? targets.filter(el => el instanceof Element)
             : [targets].filter(el => el instanceof Element)
     if (elements.length === 0) {
-        console.warn('No valid elements found for event listener')
+        logger.warn('未找到有效的元素用于添加事件监听器')
         return () => {}
     }
     const finalOptions = {
@@ -178,7 +180,7 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
         try {
             element.addEventListener(type, callback, finalOptions)
         } catch (error) {
-            console.error('Failed to add event listener to element:', error)
+            logger.error('添加元素事件监听器失败:', error)
         }
     })
     return () => {
@@ -186,7 +188,7 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
             try {
                 element.removeEventListener(type, callback, finalOptions)
             } catch (error) {
-                console.error('Failed to remove event listener from element:', error)
+                logger.error('移除元素事件监听器失败:', error)
             }
         })
     }
@@ -214,7 +216,7 @@ export const executeFunctionsSequentially = async (
                 await executeFunctionsSequentially(result.callback, options)
             }
         } catch (error) {
-            console.error('函数执行失败:', error)
+            logger.error('函数执行失败:', error)
             if (!continueOnError) hasError = true
         } finally {
             activeCount--
@@ -344,7 +346,7 @@ export const monitorHrefChange = callback => {
             try {
                 callback()
             } catch (e) {
-                console.error('Href change callback error:', e)
+                logger.error('URL变更回调错误:', e)
             }
         }
     }
@@ -393,7 +395,7 @@ export const createElementAndInsert = (HtmlString, target, method = 'append') =>
         }
         return insertedNodes.length > 1 ? insertedNodes : insertedNodes[0]
     } catch (error) {
-        console.error('Failed to create and insert elements:', error)
+        logger.error('创建并插入元素失败:', error)
         throw error
     }
 }
@@ -512,7 +514,7 @@ export const fetchLatestScript = async () => {
     }
     const cachedData = validateCache()
     if (cachedData) {
-        console.log('使用缓存的脚本')
+        logger.info('使用缓存的脚本数据')
         return cachedData
     }
     const CORSProxyList = [
@@ -550,7 +552,7 @@ export const fetchLatestScript = async () => {
             }))
             return data
         } catch (error) {
-            console.warn(`代理 ${proxy} 请求失败:`, error.message)
+            logger.warn(`代理 ${proxy} 请求失败:`, error.message)
         }
     }
     throw new Error('所有CORS代理均不可用')
@@ -590,16 +592,16 @@ const generateUpdateList = (items = []) => {
     `.replace(/\n\s+/g, '').trim() // 压缩空白字符
 }
 export const promptForUpdate = async (currentVersion, updateContents = '') => {
+    logger.info('检查更新')
     const scriptContent = await fetchLatestScript()
-    if (!scriptContent) {
-        return
-    }
+    if (!scriptContent) return
     const latestVersion = extractVersionFromScript(scriptContent)
     // const latestVersion = '9.9.9'
     if (!latestVersion) {
-        console.error('Failed to extract version from the latest script')
+        logger.error('从最新脚本中提取版本号失败')
         return
     }
+    logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
     if (compareVersions(currentVersion, latestVersion)) {
         const updateContentsHtml = Array.isArray(updateContents) ?
             generateUpdateList(updateContents) :
@@ -615,6 +617,8 @@ export const promptForUpdate = async (currentVersion, updateContents = '') => {
             updatePopover.hidePopover()
             window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js')
         })
+    } else {
+        logger.info('已是最新版本')
     }
 }
 export const initializeCheckbox = (elements, userConfigs, configKey) => {
@@ -623,7 +627,7 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
         if (!(element instanceof HTMLInputElement)) return
         const key = configKey || camelToSnake(element.id)
         if (!(key in userConfigs)) {
-            console.warn(`配置键 "${key}" 不存在于用户配置中`)
+            logger.warn(`配置键 "${key}" 不存在于用户配置中`)
             return
         }
         const value = Boolean(userConfigs[key])
@@ -654,24 +658,4 @@ export const hidePlayerTooltip = tooltipElement => {
             visibility: hidden;
         `
     })
-}
-export const getCaller = (targetFunctionName = null) => {
-    try {
-        throw new Error()
-    } catch (e) {
-        const stackLines = e.stack.split('\n').slice(2) // 跳过前两行
-        if (!targetFunctionName) {
-            const match = stackLines[0]?.match(/at (\S+)/)
-            return match?.[1] || 'anonymous'
-        }
-        // 查找目标函数在调用栈中的位置
-        const targetIndex = stackLines.findIndex(line =>
-            line.includes(`at ${targetFunctionName}`))
-        if (targetIndex === -1 || targetIndex >= stackLines.length - 1) {
-            return null // 未找到目标函数或目标函数是最后一级
-        }
-        // 返回目标函数的调用者
-        const callerMatch = stackLines[targetIndex + 1]?.match(/at (\S+)/)
-        return callerMatch?.[1] || 'anonymous'
-    }
 }
