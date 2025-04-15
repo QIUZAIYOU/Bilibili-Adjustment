@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.3.5",
-  "updates": ["修复当链接变化时「自动返回至播放器」等功能未按预期执行的问题;"],
+  "version": "3.4.0",
+  "updates": ["适配原有「离开页面自动暂停视频」及「返回页面恢复播放」功能;"],
   "license": "MIT",
   "type": "module",
   "scripts": {
