@@ -23,7 +23,7 @@ export default {
         })
     },
     async preFunctions () {
-        await storageService.legacySet('page_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        await storageService.userSet('page_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
         this.registSettings()
@@ -124,7 +124,7 @@ export default {
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
         const playerContainer = await elementSelectors.playerContainer
-        await storageService.legacySet('player_offset_top', await getElementOffsetToDocument(playerContainer).top)
+        await storageService.userSet('player_offset_top', await getElementOffsetToDocument(playerContainer).top)
         const playerMode = playerContainer.getAttribute('data-screen')
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
@@ -350,7 +350,7 @@ export default {
         initializeCheckbox(AutoEnableSubtitleSwitchInput, this.userConfigs, 'auto_subtitle')
         addEventListenerToElement(AutoEnableSubtitleSwitchInput, 'change', async e => {
             const isChecked = e.target.checked
-            await storageService.legacySet('auto_subtitle', Boolean(isChecked))
+            await storageService.userSet('auto_subtitle', Boolean(isChecked))
             AutoEnableSubtitleSwitchInput.checked = isChecked
             AutoSubtitle.checked = isChecked
             AutoEnableSubtitleSwitchInput.setAttribute('checked', isChecked.toString())

@@ -1,3 +1,4 @@
+/* global FileReader,Blob */
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, camelToSnake, initializeCheckbox } from '@/utils/common'
@@ -65,14 +66,14 @@ export class SettingsComponent {
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = camelToSnake(e.target.id)
-            await storageService.legacySet(configKey, Boolean(e.target.checked))
-            e.target.setAttribute('checked', await storageService.legacyGet(configKey))
+            await storageService.userSet(configKey, Boolean(e.target.checked))
+            e.target.setAttribute('checked', await storageService.userGet(configKey))
             if (e.target.id === 'IsVip'){
                 Checkbox4K.style.display = e.target.checked ? 'flex' : 'none'
                 Checkbox8K.style.display = e.target.checked ? 'flex' : 'none'
             }
             if (e.target.id === 'OffsetTop'){
-                await storageService.legacySet(configKey, e.target.value)
+                await storageService.userSet(configKey, e.target.value)
             }
             if (e.target.id === 'AutoSubtitle'){
                 const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
@@ -83,7 +84,7 @@ export class SettingsComponent {
             }
         })
         addEventListenerToElement(OffsetTop, 'change', async e => {
-            await storageService.legacySet('offset_top', e.target.value)
+            await storageService.userSet('offset_top', e.target.value)
         })
         elementSelectors.each('SelectPlayerModeButtons', btn => {
             addEventListenerToElement(btn, 'click', async e => {
@@ -94,9 +95,19 @@ export class SettingsComponent {
                 })
                 btn.checked = true
                 btn.setAttribute('checked', 'true')
-                await storageService.legacySet('selected_player_mode', e.target.value)
+                await storageService.userSet('selected_player_mode', e.target.value)
             })
         })
+        const handleSettingsFileSelectors = ['ExportUserConfigs', 'ImportUserConfigs', 'ImportUserConfigsFileInput']
+        const [ExportUserConfigs, ImportUserConfigs, ImportUserConfigsFileInput] = await elementSelectors.batch(handleSettingsFileSelectors)
+        const handleSettingsFileElements = [ExportUserConfigs, ImportUserConfigs, ImportUserConfigsFileInput]
+        addEventListenerToElement(handleSettingsFileElements, 'click', async e => {
+            if (e.target.id === 'ExportUserConfigs') this.exportUserConfigs()
+            if (e.target.id === 'ImportUserConfigs') {
+                ImportUserConfigsFileInput.click()
+            }
+        })
+        addEventListenerToElement(ImportUserConfigsFileInput, 'change', e => this.importUserConfigs(e))
     }
     renderDynamicSettings (){
         const dynamicSettings = getTemplates.replace('dynamicSettings', {
@@ -111,5 +122,48 @@ export class SettingsComponent {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
+    }
+    async exportUserConfigs () {
+        try {
+            const settings = await storageService.getAll('user')
+            const blob = new Blob([JSON.stringify(settings)], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            a.href = url
+            a.download = `bilibili_adjustment_settings_${new Date().toISOString().slice(0, 10)}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+        } catch (error) {
+            console.error('导出设置失败:', error)
+        }
+    }
+    async importUserConfigs (event) {
+        const file = event?.target?.files?.[0]
+        if (!file) return
+        try {
+            const reader = new FileReader()
+            reader.onload = async e => {
+                try {
+                    const userConfigs = JSON.parse(e.target.result)
+                    const userConfigsArray = Object.entries(userConfigs).map(([key, value]) => ({
+                        key,
+                        value
+                    }))
+                    await storageService.batchSet('user', userConfigsArray)
+                    location.reload()
+                } catch (parseError) {
+                    console.error('解析设置文件失败:', parseError)
+                    alert('导入失败：文件格式不正确')
+                }
+            }
+            reader.onerror = () => {
+                console.error('读取文件失败')
+                alert('读取文件失败，请重试')
+            }
+            reader.readAsText(file)
+        } catch (error) {
+            console.error('导入设置失败:', error)
+            alert('导入设置失败: ' + error.message)
+        }
     }
 }

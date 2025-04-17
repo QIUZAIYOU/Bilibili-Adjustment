@@ -49,7 +49,7 @@ export class ConfigService {
         }
         try {
             for (const [key, defaultValue] of this.DEFAULT_VALUES.entries()) {
-                const currentValue = await storageService.legacyGet(key)
+                const currentValue = await storageService.userGet(key)
                 if (currentValue === null || currentValue === undefined) {
                     await this.setValue(key, defaultValue)
                 }
@@ -68,7 +68,7 @@ export class ConfigService {
             if (this.#cache.has(name)) {
                 return this.#cache.get(name)
             }
-            const value = await storageService.legacyGet(name)
+            const value = await storageService.userGet(name)
             if (value === null || value === undefined) {
                 const defaultValue = this.DEFAULT_VALUES.get(name)
                 if (defaultValue !== undefined) {
@@ -90,7 +90,7 @@ export class ConfigService {
         }
         try {
             this.#cache.set(name, value)
-            await storageService.legacySet(name, value)
+            await storageService.userSet(name, value)
         } catch (error) {
             this.#cache.delete(name)
             this.#logger.error('配置存储失败', error)

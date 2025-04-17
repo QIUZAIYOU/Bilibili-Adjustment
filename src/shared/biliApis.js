@@ -91,8 +91,8 @@ export const biliApis = {
     async isVip () {
         const userId = this.getCookieByName('DedeUserID')
         const { data: { card: { vip: { status }}}} = await biliApis.getUserInformation(userId)
-        if (status) storageService.legacySet('is_vip', true)
-        else storageService.legacySet('is_vip', false)
+        if (status) storageService.userSet('is_vip', true)
+        else storageService.userSet('is_vip', false)
     },
     async getUserVideoList (userId) {
         const wib = await biliApis.getQueryWithWbi({ mid: userId })

@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.4.0",
-  "updates": ["适配原有「离开页面自动暂停视频」及「返回页面恢复播放」功能;"],
+  "version": "3.5.0",
+  "updates": ["新增「用户配置」导入/导出功能(在设置界面最底部/失败弹窗提示原因/成功自动刷新应用新配置);"],
   "license": "MIT",
   "type": "module",
   "scripts": {
