@@ -76,8 +76,8 @@ export class StorageService {
         const db = this.#dbs.get(dbName)
         return db.get('keyval', key).then(data => data?.value)
     }
-    legacySet (key, value) { return this.set('user', key, value) }
-    legacyGet (key) { return this.get('user', key) }
+    userSet (key, value) { return this.set('user', key, value) }
+    userGet (key) { return this.get('user', key) }
     async getAll (dbName, indexName, queryRange, pageSize) {
         const db = this.#dbs.get(dbName)
         const result = await db.getAll('keyval', indexName, queryRange, pageSize)
@@ -96,21 +96,12 @@ export class StorageService {
         const range = IDBKeyRange.bound(startTime, endTime)
         return this.getAll('by_timestamp', range, pageSize)
     }
-    async batch (dbName, operations) {
+    async batchSet (dbName, configsArray) {
         const db = this.#dbs.get(dbName)
-        return db.transaction(['keyval'], 'readwrite', async stores => {
-            for (const { type, key, value } of operations) {
-                if (type === 'set') {
-                    await stores.keyval.put({
-                        key,
-                        value,
-                        timestamp: Date.now()
-                    })
-                } else if (type === 'delete') {
-                    await stores.keyval.delete(key)
-                }
-            }
-        })
+        for (const config of configsArray) {
+            const { key, value } = config
+            await db.update('keyval', { key, value, timestamp: Date.now() })
+        }
     }
     async getCount (dbName, range) {
         const db = this.#dbs.get(dbName, range)
