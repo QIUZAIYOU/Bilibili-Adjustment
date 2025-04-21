@@ -416,6 +416,7 @@ export default {
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.page_type === 'bangumi') return
+        document.querySelector('#commentapp > bili-comments').shadowRoot.querySelector('#adjustment-comment-description')?.remove()
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescription, videoDescriptionInfo, host] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
