@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.5.0",
-  "updates": ["新增「用户配置」导入/导出功能(在设置界面最底部/失败弹窗提示原因/成功自动刷新应用新配置);"],
+  "version": "3.6.0",
+  "updates": ["「动态页」适配「IP属地展示」及「标签(UP主觉得很赞)」移除功能;"],
   "license": "MIT",
   "type": "module",
   "scripts": {
