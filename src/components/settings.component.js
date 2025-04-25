@@ -1,5 +1,4 @@
-/* global FileReader,Blob */
-import _ from 'lodash'
+/* global FileReader,Blob,_ */
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, initializeCheckbox } from '@/utils/common'
