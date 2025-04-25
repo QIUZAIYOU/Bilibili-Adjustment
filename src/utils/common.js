@@ -559,7 +559,7 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
     const elementList = Array.isArray(elements) ? elements : [elements]
     elementList.forEach(element => {
         if (!(element instanceof HTMLInputElement)) return
-        const key = configKey || _.snakeCase(element.id).replace('4_k', '4k').replace('8_k', '8k')
+        const key = configKey || _.snakeCase(element.id).replace(/(\d)_k/g, '$1k')
         if (!(key in userConfigs)) {
             logger.warn(`配置键 "${key}" 不存在于用户配置中`)
             return
