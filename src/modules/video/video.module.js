@@ -416,37 +416,40 @@ export default {
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
         if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.page_type === 'bangumi') return
+        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
+        // logger.debug(videoInfo)
+        const videoDescription = videoInfo.desc
         document.querySelector('#commentapp > bili-comments').shadowRoot.querySelector('#adjustment-comment-description')?.remove()
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
-        const [videoDescription, videoDescriptionInfo, host] = await elementSelectors.batch(batchSelectors)
+        const [videoDescriptionElement, videoDescriptionInfoElement, host] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
-            const baseURI = videoDescriptionInfo.baseURI
+            const baseURI = videoDescriptionInfoElement.baseURI
             if (baseURI === location.href){
                 clearInterval(checkAndTrigger)
                 const adjustmentCommentDescription = await elementSelectors.query('adjustmentCommentDescription')
                 adjustmentCommentDescription?.remove()
                 const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
                 // logger.debug(videoCommentReplyListShadowRoot)
-                if (videoDescription.childElementCount > 1 && videoDescriptionInfo.childElementCount > 0) {
+                if (videoDescriptionElement.childElementCount > 1 && videoDescriptionInfoElement.childElementCount > 0) {
                     const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
                     const template = document.createElement('template')
                     template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
                         videoCommentDescription: styles.videoCommentDescription,
                         upAvatarFaceLink: upAvatarFaceLink,
-                        processVideoCommentDescription: this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
+                        processVideoCommentDescription: this.processVideoCommentDescriptionHtml(videoDescription)
                     })
                     const clone = template.content.cloneNode(true)
                     videoCommentReplyListShadowRoot?.prepend(clone)
                     await sleep(300)
                     if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
-                        // logger.info('视频简介丨已插入')
+                        logger.debug('视频简介丨已插入')
                     } else {
                         this.insertVideoDescriptionToComment()
                     }
                 } else {
-                    const videoDescriptionInfo = await elementSelectors.videoDescriptionInfo
-                    videoDescriptionInfo.innerHTML = this.processVideoCommentDescriptionHtml(videoDescriptionInfo.innerHTML)
-                    // logger.info('视频简介丨已替换')
+                    const videoDescriptionElement = await elementSelectors.videoDescriptionInfo
+                    videoDescriptionElement.innerHTML = this.processVideoCommentDescriptionHtml(videoDescription)
+                    logger.debug('视频简介丨已替换')
                 }
             }
         }, 300)
