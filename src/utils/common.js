@@ -1,5 +1,6 @@
 /* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event */
 import { LoggerService } from '@/services/logger.service'
+import _ from 'lodash'
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('Common')
@@ -9,58 +10,6 @@ export const delay = (func, timeout, ...args) => new Promise(resolve => {
         resolve(func(...args))
     }, timeout)
 })
-export const debounce = (func, delay = 300, immediate = false) => {
-    let timer = null
-    let lastArgs = null
-    let lastThis = null
-    const debounced = function (...args) {
-        lastArgs = args
-        lastThis = this
-        if (timer && immediate) {
-            clearTimeout(timer)
-            timer = null
-        }
-        if (!timer && immediate) {
-            func.apply(lastThis, lastArgs)
-        }
-        timer = setTimeout(() => {
-            if (!immediate) {
-                func.apply(lastThis, lastArgs)
-            }
-            timer = null
-        }, delay)
-    }
-    debounced.cancel = () => {
-        clearTimeout(timer)
-        timer = null
-    }
-    return debounced
-}
-export const throttle = (func, limit = 300, trailing = true) => {
-    let lastFunc
-    let lastRan
-    let inThrottle = false // 新增节流状态标志
-    const throttled = function (...args) {
-        if (!inThrottle) {
-            func.apply(this, args)
-            lastRan = Date.now()
-            inThrottle = true
-        } else if (trailing) {
-            clearTimeout(lastFunc)
-            lastFunc = setTimeout(() => {
-                if (Date.now() - lastRan >= limit) {
-                    func.apply(this, args)
-                    lastRan = Date.now()
-                }
-            }, limit - (Date.now() - lastRan))
-        }
-    }
-    throttled.cancel = () => {
-        clearTimeout(lastFunc)
-        inThrottle = false
-    }
-    return throttled
-}
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
     if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/')) return 'video'
@@ -136,15 +85,12 @@ export const getElementOffsetToDocument = element => {
 export const getElementComputedStyle = (element, propertyName) => {
     const style = window.getComputedStyle(element)
     if (Array.isArray(propertyName)) {
-        return propertyName.reduce((obj, prop) => {
-            obj[prop] = style.getPropertyValue(prop)
-            return obj
-        }, {})
+        return _.pick(style, propertyName)
     }
     if (typeof propertyName === 'string') {
         return style.getPropertyValue(propertyName)
     }
-    return Array.from(style).reduce((obj, property) => {
+    return _.reduce(style, (obj, property) => {
         obj[property] = style.getPropertyValue(property)
         return obj
     }, {})
@@ -193,40 +139,34 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
         })
     }
 }
-export const isAsyncFunction = targetFunction => targetFunction.constructor.name === 'AsyncFunction'
+export const isAsyncFunction = targetFunction => _.isFunction(targetFunction) && targetFunction[Symbol.toStringTag] === 'AsyncFunction'
 export const executeFunctionsSequentially = async (
     functionsArray,
     options = { concurrency: 1, continueOnError: false }
 ) => {
     const { concurrency, continueOnError } = options
-    const queue = [...functionsArray]
+    const chunks = _.chunk(functionsArray, concurrency)
     const results = []
-    let activeCount = 0
-    let hasError = false
-    const processQueue = async () => {
-        if (queue.length === 0 || activeCount >= concurrency || hasError) return
-        activeCount++
-        const func = queue.shift()
-        try {
-            const result = isAsyncFunction(func)
-                ? await func()
-                : func()
-            results.push(result)
-            if (result?.callback) {
-                await executeFunctionsSequentially(result.callback, options)
-            }
-        } catch (error) {
-            logger.error('函数执行失败:', error)
-            if (!continueOnError) hasError = true
-        } finally {
-            activeCount--
-            await processQueue()
-        }
+    for (const chunk of chunks) {
+        const chunkResults = await Promise.allSettled(
+            chunk.map(async func => {
+                try {
+                    const result = isAsyncFunction(func)
+                        ? await func()
+                        : func()
+                    if (result?.callback) {
+                        await executeFunctionsSequentially(result.callback, options)
+                    }
+                    return result
+                } catch (error) {
+                    logger.error('函数执行失败:', error)
+                    if (!continueOnError) throw error
+                    return null
+                }
+            })
+        )
+        results.push(...chunkResults)
     }
-    const workers = Array(Math.min(concurrency, functionsArray.length))
-        .fill()
-        .map(processQueue)
-    await Promise.all(workers)
     return results
 }
 export const isTabActive = (options = {}) => {
@@ -434,8 +374,6 @@ export const getBodyHeight = () => {
     const docHeight = document.documentElement.clientHeight || 0
     return bodyHeight < docHeight ? bodyHeight : docHeight
 }
-export const camelToSnake = str => str.replace(/(?:^|\.?)([A-Z])/g, (x, y) => '_' + y.toLowerCase())
-    .replace(/^_/, '')
 export const updateVideoSizeStyle = (mode = 'normal') => {
     const baseWidth = 1920
     const baseHeight = 1080
@@ -584,10 +522,9 @@ const generateUpdateList = (items = []) => {
     if (!Array.isArray(items)) return ''
     return `
         <ul class="adjustment-update-contents">
-            ${items.map((item, index) =>
-                `<li>${index + 1}. ${item}</li>`).join('')}
+            ${_.map(items, (item, index) => `<li>${index + 1}. ${item}</li>`).join('')}
         </ul>
-    `.replace(/\n\s+/g, '').trim() // 压缩空白字符
+    `.replace(/\n\s+/g, '').trim()
 }
 export const promptForUpdate = async (currentVersion, updateContents = '') => {
     logger.info('检查更新')
@@ -623,7 +560,7 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
     const elementList = Array.isArray(elements) ? elements : [elements]
     elementList.forEach(element => {
         if (!(element instanceof HTMLInputElement)) return
-        const key = configKey || camelToSnake(element.id)
+        const key = configKey || _.snakeCase(element.id).replace('4_k', '4k').replace('8_k', '8k')
         if (!(key in userConfigs)) {
             logger.warn(`配置键 "${key}" 不存在于用户配置中`)
             return

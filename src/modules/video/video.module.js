@@ -5,7 +5,8 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, debounce, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
+import _ from 'lodash'
+import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { regexps } from '@/shared/regexps'
@@ -34,10 +35,10 @@ export default {
         eventBus.on('logger:show', (_, { type, message }) => {
             logger[type](message)
         })
-        eventBus.on('video:canplaythrough', debounce(this.autoSelectPlayerMode, true))
-        eventBus.on('video:playerModeSelected', debounce(this.autoLocateToPlayer, true))
-        eventBus.once('video:startOtherFunctions', debounce(this.handleExecuteFunctionsSequentially, 500, true))
-        eventBus.once('video:webfullPlayerModeUnlock', debounce(this.insertLocateToCommentButton, 500, true))
+        eventBus.on('video:canplaythrough', _.debounce(this.autoSelectPlayerMode, { 'leading': true, 'trailing': false }))
+        eventBus.on('video:playerModeSelected', _.debounce(this.autoLocateToPlayer, { 'leading': true, 'trailing': false }))
+        eventBus.once('video:startOtherFunctions', _.debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false }))
+        eventBus.once('video:webfullPlayerModeUnlock', _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false }))
     },
     async registSettings (){
         await settingsComponent.init(this.userConfigs)

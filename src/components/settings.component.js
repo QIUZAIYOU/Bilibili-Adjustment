@@ -1,7 +1,8 @@
 /* global FileReader,Blob */
+import _ from 'lodash'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { detectivePageType, createElementAndInsert, addEventListenerToElement, camelToSnake, initializeCheckbox } from '@/utils/common'
+import { detectivePageType, createElementAndInsert, addEventListenerToElement, initializeCheckbox } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
 export class SettingsComponent {
     constructor () {
@@ -65,7 +66,7 @@ export class SettingsComponent {
         const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
-            const configKey = camelToSnake(e.target.id)
+            const configKey = _.snakeCase(e.target.id).replace('4_k', '4k').replace('8_k', '8k')
             await storageService.userSet(configKey, Boolean(e.target.checked))
             e.target.setAttribute('checked', await storageService.userGet(configKey))
             if (e.target.id === 'IsVip'){
