@@ -1,6 +1,5 @@
-/* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event */
+/* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event,_ */
 import { LoggerService } from '@/services/logger.service'
-import _ from 'lodash'
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('Common')

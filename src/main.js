@@ -1,3 +1,4 @@
+import _ from 'lodash'
 import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
@@ -6,6 +7,7 @@ const logger = new LoggerService('Main')
 import { insertStyleToDocument, detectivePageType, promptForUpdate } from '@/utils/common'
 import { styles } from '@/shared/styles'
 import pkg from '../package.json' with { type: 'json' }
+window._ = _
 const initializeApp = () => {
     ConfigService.initialize().then(() => {
         logger.debug('ConfigService 初始化完成')

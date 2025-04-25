@@ -2,7 +2,7 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.6.2",
+  "version": "3.6.3",
   "updates": [
     "「动态页」适配「IP属地展示」及「标签(UP主觉得很赞)」移除功能;修复正则表达式对「时间格式字符串」匹配不全的问题;使用「Lodash」库优化部分函数;"
   ],
