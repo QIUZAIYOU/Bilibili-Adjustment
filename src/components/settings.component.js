@@ -65,7 +65,7 @@ export class SettingsComponent {
         const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
-            const configKey = _.snakeCase(e.target.id).replace(/(\d)_k/g, '$1k')
+            const configKey = _.snakeCase(e.target.id).replace(/_(\d)_k/g, '$1k')
             await storageService.userSet(configKey, Boolean(e.target.checked))
             e.target.setAttribute('checked', await storageService.userGet(configKey))
             if (e.target.id === 'IsVip'){
