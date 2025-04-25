@@ -23,7 +23,7 @@ export default defineConfig(({ mode }) => ({
             mangle: {
                 properties: {
                     regex: /^_/,
-                    reserved: ['$super']
+                    reserved: ['$super', '_']
                 }
             }
         }
