@@ -485,6 +485,7 @@ export const fetchLatestScript = async () => {
                 data,
                 time: Date.now()
             }))
+            logger.info(`代理 ${proxy} 请求成功`)
             return data
         } catch (error) {
             logger.warn(`代理 ${proxy} 请求失败:`, error.message)
