@@ -480,12 +480,12 @@ export const fetchLatestScript = async () => {
     const shuffledProxyList = [...CORSProxyList].sort(() => Math.random() - 0.5)
     for (const proxy of shuffledProxyList) {
         try {
+            logger.info(`代理 ${proxy} 请求成功`)
             const data = await tryFetch(proxy)
             localStorage.setItem(cacheKey, JSON.stringify({
                 data,
                 time: Date.now()
             }))
-            logger.info(`代理 ${proxy} 请求成功`)
             return data
         } catch (error) {
             logger.warn(`代理 ${proxy} 请求失败:`, error.message)
