@@ -170,97 +170,32 @@ export const executeFunctionsSequentially = async (
 }
 export const isTabActive = (options = {}) => {
     const {
-        onActiveChange = null,
-        passive = true,
-        checkInterval = 300,
+        onActiveChange,
         immediate = false,
-        once = false
+        once = false,
+        checkInterval = 1000
     } = options
-    let active = true
-    let lastState = true
-    let intervalId = null
-    let hasTriggered = false
-    const updateState = newState => {
-        if (newState !== lastState) {
-            active = newState
-            lastState = newState
-            if (!hasTriggered || !once) {
-                onActiveChange?.(active)
-                if (once && active) {
-                    hasTriggered = true
-                    unsubscribe()
-                }
-            }
-        }
-    }
-    const setupListeners = () => {
-        if (checkInterval > 0) {
-            intervalId = setInterval(() => {
-                const currentState = visibilityInfo
-                    ? document[visibilityInfo.state] === 'visible'
-                    : document.hasFocus()
-                updateState(currentState)
-            }, checkInterval)
-        }
-        if (visibilityInfo) {
-            const handleVisibilityChange = () => {
-                updateState(document[visibilityInfo.state] === 'visible')
-            }
-            document.addEventListener(visibilityInfo.event, handleVisibilityChange, { passive })
-            if (immediate && document[visibilityInfo.state] === 'visible') {
-                if (!hasTriggered || !once) {
-                    onActiveChange?.(true)
-                    if (once) {
-                        hasTriggered = true
-                        unsubscribe()
-                    }
-                }
-            }
-            return () => {
-                document.removeEventListener(visibilityInfo.event, handleVisibilityChange, { passive })
+    const checkVisibility = () => {
+        const currentState = document.visibilityState
+        if (currentState === 'visible') {
+            logger.debug('页面已激活')
+            onActiveChange?.(true)
+            if (once) {
+                clearInterval(intervalId)
+                intervalId = null
             }
         } else {
-            const handleFocus = () => updateState(true)
-            const handleBlur = () => updateState(false)
-            window.addEventListener('focus', handleFocus, { passive })
-            window.addEventListener('blur', handleBlur, { passive })
-            updateState(document.hasFocus())
-            if (immediate && document.hasFocus()) {
-                if (!hasTriggered || !once) {
-                    onActiveChange?.(true)
-                    if (once) {
-                        hasTriggered = true
-                        unsubscribe()
-                    }
-                }
-            }
-            return () => {
-                window.removeEventListener('focus', handleFocus, { passive })
-                window.removeEventListener('blur', handleBlur, { passive })
-            }
+            logger.debug('页面未激活')
+            onActiveChange?.(false)
         }
     }
-    const visibilityInfo = (() => {
-        const prefixes = ['', 'webkit', 'ms', 'moz']
-        for (const prefix of prefixes) {
-            const key = prefix ? `${prefix}Hidden` : 'hidden'
-            if (key in document) {
-                return {
-                    event: prefix ? `${prefix}visibilitychange` : 'visibilitychange',
-                    state: prefix ? `${prefix}VisibilityState` : 'visibilityState'
-                }
-            }
+    immediate && checkVisibility()
+    let intervalId = setInterval(checkVisibility, checkInterval)
+    return () => {
+        if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
         }
-        return null
-    })()
-    const cleanup = setupListeners()
-    const unsubscribe = () => {
-        cleanup?.()
-        if (intervalId) clearInterval(intervalId)
-    }
-    return {
-        getCurrentState: () => active,
-        unsubscribe
     }
 }
 export const monitorHrefChange = callback => {
