@@ -529,3 +529,9 @@ export const hidePlayerTooltip = tooltipElement => {
         `
     })
 }
+export const generateMentionUserLinks = (username, desc_v2) => {
+    const matchedItem = desc_v2.find(item => item.raw_text === username)
+    return matchedItem
+        ? `<a target="_blank" href="//space.bilibili.com/${matchedItem.biz_id}" class="mention-user" data-v-8ced1e78="">@${matchedItem.raw_text} </a>`
+        : `@${username}`
+}

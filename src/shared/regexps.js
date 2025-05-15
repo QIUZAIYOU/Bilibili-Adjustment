@@ -6,7 +6,8 @@ export const regexps = {
         videoId: /(?<!(>|\/))\bBV(?:1[1-9a-km-zA-Z]|2[0-9a-zA-Z])[0-9a-zA-Z]{8}\b(?!<)/g,
         readId: /\bcv\d{7}\b/g,
         blankLine: /^\s*$(?:\r?\n?)/gm,
-        specialBlank: /(%09)+/g
+        specialBlank: /(%09)+/g,
+        user: /@([^\s]+)/g
     },
     dynamic: {
         newIndexLink: /(https:\/\/t.bilibili.com\/pages\/nav\/index_new).*/i,
