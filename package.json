@@ -2,9 +2,9 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.7.1",
+  "version": "3.7.2",
   "updates": [
-    "插入评论区的「视频简介」适配高亮「@用户名」格式字符串，可直接点击跳转至用户主页;优化 URL 的正则表达式，避免匹配到版本号(如:1.2.3/v1.2.3);"
+    "插入评论区的「视频简介」适配高亮「@用户名」格式字符串，可直接点击跳转至用户主页;优化 URL 的正则表达式，避免匹配到版本号(如:1.2.3/v1.2.3)和文件名(如:image.png);"
   ],
   "license": "MIT",
   "type": "module",

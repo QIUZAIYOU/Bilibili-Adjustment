@@ -8,7 +8,7 @@ import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, getTotalSecondsFromTimeString, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip, generateMentionUserLinks } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
-import { regexps } from '@/shared/regexps'
+import { formatVideoCommentDescription } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
@@ -409,15 +409,6 @@ export default {
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         // logger.debug(videoInfo)
         const videoDescription = videoInfo.desc
-        const processVideoCommentDescriptionHtml = html => html.replace(regexps.video.specialBlank, '%20')
-            .replace(regexps.video.nbspToBlank, ' ')
-            .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
-            .replace(regexps.video.url, match => `<a href="${match}" target="_blank">${match}</a>`)
-            .replace(regexps.video.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`)
-            .replace(regexps.video.readId, match =>
-                `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
-            .replace(regexps.video.blankLine, '')
-            .replace(regexps.video.user, (_, p1) => generateMentionUserLinks(p1, videoInfo.desc_v2))
         document.querySelector('#commentapp > bili-comments').shadowRoot.querySelector('#adjustment-comment-description')?.remove()
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescriptionElement, videoDescriptionInfoElement, host] = await elementSelectors.batch(batchSelectors)
@@ -435,7 +426,7 @@ export default {
                     template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
                         videoCommentDescription: styles.videoCommentDescription,
                         upAvatarFaceLink: upAvatarFaceLink,
-                        processVideoCommentDescription: processVideoCommentDescriptionHtml(videoDescription)
+                        processVideoCommentDescription: formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
                     })
                     const clone = template.content.cloneNode(true)
                     videoCommentReplyListShadowRoot?.prepend(clone)
@@ -447,7 +438,7 @@ export default {
                     }
                 } else {
                     const videoDescriptionElement = await elementSelectors.videoDescriptionInfo
-                    videoDescriptionElement.innerHTML = processVideoCommentDescriptionHtml(videoDescription)
+                    videoDescriptionElement.innerHTML = formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
                     logger.debug('视频简介丨已替换')
                 }
             }
