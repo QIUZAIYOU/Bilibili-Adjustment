@@ -526,7 +526,7 @@ export default {
         }
     },
     async autoEnableHiResMode (){
-        if (!this.userConfigs.vip || !this.userConfigs.auto_hi_res) return
+        if (!this.userConfigs.is_vip || !this.userConfigs.auto_hi_res) return
         const highResButton = await elementSelectors.highResButton
         if (highResButton && !highResButton.className.includes('bpx-state-active')){
             highResButton.click()
