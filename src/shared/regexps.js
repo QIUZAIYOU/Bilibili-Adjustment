@@ -360,3 +360,78 @@ export const formatVideoCommentDescription = (html, desc_v2) => html.replace(reg
         `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
     .replace(regexps.video.blankLine, '')
     .replace(regexps.video.user, (_, p1) => generateMentionUserLinks(p1, desc_v2))
+const adjustPunctuation = sentence => sentence.replace(/【(.*?)】/gu, (match, text) => {
+    const punctuationMatch = text.match(/^(\p{P}+)(.*)/u)
+    if (punctuationMatch) {
+        const punctuation = punctuationMatch[1]
+        const remainingText = punctuationMatch[2]
+        return punctuation + '【' + remainingText + '】'
+    } else {
+        return match
+    }
+})
+export const findRepeatUnit = str => {
+    const urlRegex = regexps.video.url
+    const parts = []
+    let lastIndex = 0
+    let match
+    urlRegex.lastIndex = 0
+    while ((match = urlRegex.exec(str)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push({ type: 'text', content: str.substring(lastIndex, match.index) })
+        }
+        parts.push({ type: 'url', content: match[0] })
+        lastIndex = match.index + match[0].length
+    }
+    if (lastIndex < str.length) {
+        parts.push({ type: 'text', content: str.substring(lastIndex) })
+    }
+    const processedParts = parts.map(part => {
+        if (part.type === 'url') {
+            return part.content
+        } else {
+            let remainingText = part.content
+            let result = ''
+            while (remainingText.length > 0) {
+                let maxCount = 0
+                let bestLen = 0
+                let bestStart = 0
+                const n = remainingText.length
+                for (let len = 1; len <= Math.floor(n / 2); len++) {
+                    let currentMaxCount = 0
+                    let currentBestStart = 0
+                    for (let start = 0; start <= n - len; start++) {
+                        const unit = remainingText.substring(start, start + len)
+                        let count = 1
+                        let i = start + len
+                        while (i + len <= n && remainingText.substring(i, i + len) === unit) {
+                            count++
+                            i += len
+                        }
+                        if (count > currentMaxCount) {
+                            currentMaxCount = count
+                            currentBestStart = start
+                        }
+                    }
+                    if (currentMaxCount > maxCount || (currentMaxCount === maxCount && len < bestLen)) {
+                        maxCount = currentMaxCount
+                        bestLen = len
+                        bestStart = currentBestStart
+                    }
+                }
+                if (maxCount > 3) {
+                    const unit = remainingText.substring(bestStart, bestStart + bestLen)
+                    const prefix = remainingText.substring(0, bestStart)
+                    const repeatPart = adjustPunctuation(`「${unit}×${maxCount}」`)
+                    result += prefix + repeatPart
+                    remainingText = remainingText.substring(bestStart + maxCount * bestLen)
+                } else {
+                    result += remainingText
+                    remainingText = ''
+                }
+            }
+            return result
+        }
+    })
+    return processedParts.join('')
+}
