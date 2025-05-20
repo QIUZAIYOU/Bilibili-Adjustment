@@ -31,7 +31,8 @@ export class ConfigService {
         ['continue_play', false],
         ['auto_subtitle', false],
         ['show_location', true],
-        ['remove_comment_tags', true]
+        ['remove_comment_tags', true],
+        ['auto_hi_res', true]
     ])
     static async initialize () {
         if (this.#initialized) return

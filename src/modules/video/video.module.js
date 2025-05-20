@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.3.0',
+    version: '2.4.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -525,6 +525,14 @@ export default {
             tabState.unsubscribe()
         }
     },
+    async autoEnableHiResMode (){
+        if (!this.userConfigs.vip || !this.userConfigs.auto_hi_res) return
+        const highResButton = await elementSelectors.highResButton
+        if (highResButton && !highResButton.className.includes('bpx-state-active')){
+            highResButton.click()
+            logger.info('Hi-Res无损音质丨已启用')
+        }
+    },
     async handleHrefChangedFunctionsSequentially (){
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
@@ -542,6 +550,7 @@ export default {
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
             this.autoCancelMute,
+            this.autoEnableHiResMode,
             this.insertVideoDescriptionToComment,
             this.insertSideFloatNavToolsButtons,
             this.unlockEpisodeSelector,
