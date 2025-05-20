@@ -73,7 +73,6 @@ export class SettingsComponent {
             if (e.target.id === 'IsVip'){
                 const relyElements = [Checkbox4K, Checkbox8K, AutoHiRes]
                 relyElements.forEach( element => {
-                    console.log(element.id)
                     if (element.id === 'AutoHiRes') element.closest('.adjustment-form-item').style.display = e.target.checked ? 'flex' : 'none'
                     else element.style.display = e.target.checked ? 'flex' : 'none'
                 })
