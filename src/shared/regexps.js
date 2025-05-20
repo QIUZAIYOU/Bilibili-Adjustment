@@ -329,7 +329,7 @@ export const regexps = {
         nbspToBlank: /&nbsp;/gi,
         timeString: /\b(?:[0-5]?\d|60):[0-5]\d\b/g,
         url: new RegExp(
-            `(?<!((href|url)="))(?:(?:http|https|ftp)://)?(?!\\d+(?:\\.\\d+)+$)(?!v\\d+(?:\\.\\d+)+$)(?![a-zA-Z]*\\d+(?:\\.\\d+)+$)[a-zA-Z][\\w-]+(?:\\.[a-zA-Z][\\w-]+)*\\.(?:${tldsRegex})(?:[\\w\\-.,@?^=%&:/~+#;]*[\\w\\-@?^=%&/~+#;])?`, 'g'
+            `(?<!((href|url)="))(?:(?:http|https|ftp)://)?(?!\\d+(?:\\.\\d+)+$)(?!v\\d+(?:\\.\\d+)+$)(?![a-zA-Z]*\\d+(?:\\.\\d+)+$)(?:[a-zA-Z0-9][\\w-]*\\.)*[a-zA-Z][\\w-]+\\.(?:${tldsRegex})(?:[\\w\\-.,@?^=%&:/~+#;]*[\\w\\-@?^=%&/~+#;])?`, 'g'
         ),
         videoId: /(?<!(>|\/))\bBV(?:1[1-9a-km-zA-Z]|2[0-9a-zA-Z])[0-9a-zA-Z]{8}\b(?!<)/g,
         readId: /\bcv\d{7}\b/g,
@@ -348,6 +348,7 @@ export const regexps = {
         TopicDetailLink: /https:\/\/t.bilibili.com\/topic\/[0-9]+/i
     }
 }
+// console.log(regexps.video.url)
 export const formatVideoCommentDescription = (html, desc_v2) => html.replace(regexps.video.specialBlank, '%20')
     .replace(regexps.video.nbspToBlank, ' ')
     .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)

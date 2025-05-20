@@ -51,26 +51,32 @@ export class SettingsComponent {
             ContinuePlay: this.userConfigs.continue_play,
             AutoSubtitle: this.userConfigs.auto_subtitle,
             AutoReload: this.userConfigs.auto_reload,
-            RemoveCommentTags: this.userConfigs.hide_reply_tag
+            RemoveCommentTags: this.userConfigs.hide_reply_tag,
+            AutoHiRes: this.userConfigs.auto_hi_res,
+            AutoHiResStyle: this.userConfigs.is_vip ? 'flex' : 'none'
         })
         createElementAndInsert(videoSettings, document.body)
     }
     async initVideoSettingsEventListeners () {
-        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags']
-        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes']
+        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes] = await elementSelectors.batch(batchSelectors)
         addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags]
+        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = _.snakeCase(e.target.id).replace(/_(\d)_k/g, '$1k')
             await storageService.userSet(configKey, Boolean(e.target.checked))
             e.target.setAttribute('checked', await storageService.userGet(configKey))
             if (e.target.id === 'IsVip'){
-                Checkbox4K.style.display = e.target.checked ? 'flex' : 'none'
-                Checkbox8K.style.display = e.target.checked ? 'flex' : 'none'
+                const relyElements = [Checkbox4K, Checkbox8K, AutoHiRes]
+                relyElements.forEach( element => {
+                    console.log(element.id)
+                    if (element.id === 'AutoHiRes') element.closest('.adjustment-form-item').style.display = e.target.checked ? 'flex' : 'none'
+                    else element.style.display = e.target.checked ? 'flex' : 'none'
+                })
             }
             if (e.target.id === 'OffsetTop'){
                 await storageService.userSet(configKey, e.target.value)
