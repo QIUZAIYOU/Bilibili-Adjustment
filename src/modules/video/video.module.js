@@ -402,6 +402,7 @@ export default {
             const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
             VideoSettingsPopover.showPopover()
         })
+        logger.debug('侧边栏工具丨插入成功')
     },
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
@@ -546,13 +547,13 @@ export default {
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
+            this.insertSideFloatNavToolsButtons,
             this.webfullPlayerModeUnlock,
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
             this.autoCancelMute,
             this.autoEnableHiResMode,
             this.insertVideoDescriptionToComment,
-            this.insertSideFloatNavToolsButtons,
             this.unlockEpisodeSelector,
             this.autoEnableSubtitle,
             this.insertAutoEnableSubtitleSwitchButton,

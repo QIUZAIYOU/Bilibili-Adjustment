@@ -1,8 +1,10 @@
 /* global FileReader,Blob,_ */
+import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, initializeCheckbox } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
+const logger = new LoggerService('Settings')
 export class SettingsComponent {
     constructor () {
         this.userConfigs = {}
@@ -139,7 +141,7 @@ export class SettingsComponent {
             a.click()
             URL.revokeObjectURL(url)
         } catch (error) {
-            console.error('导出设置失败:', error)
+            logger.error('导出设置失败:', error)
         }
     }
     async importUserConfigs (event) {
@@ -157,17 +159,17 @@ export class SettingsComponent {
                     await storageService.batchSet('user', userConfigsArray)
                     location.reload()
                 } catch (parseError) {
-                    console.error('解析设置文件失败:', parseError)
+                    logger.error('解析设置文件失败:', parseError)
                     alert('导入失败：文件格式不正确')
                 }
             }
             reader.onerror = () => {
-                console.error('读取文件失败')
+                logger.error('读取文件失败')
                 alert('读取文件失败，请重试')
             }
             reader.readAsText(file)
         } catch (error) {
-            console.error('导入设置失败:', error)
+            logger.error('导入设置失败:', error)
             alert('导入设置失败: ' + error.message)
         }
     }
