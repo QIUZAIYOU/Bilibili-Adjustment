@@ -20,7 +20,7 @@
     "@stylistic/eslint-plugin-js": "^4.2.0",
     "eslint": "^9.21.0",
     "javascript-obfuscator": "^4.1.1",
-    "vite": "^6.3.5",
+    "vite": "npm:rolldown-vite@latest",
     "vite-plugin-bundle-obfuscator": "^1.4.2",
     "vite-plugin-monkey": "^5.0.8"
   },
@@ -28,5 +28,8 @@
     "axios": "^1.8.2",
     "lodash": "^4.17.21",
     "md5": "^2.3.0"
+  },
+  "overrides": {
+    "vite": "npm:rolldown-vite@latest"
   }
 }
