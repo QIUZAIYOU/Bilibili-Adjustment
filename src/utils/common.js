@@ -457,7 +457,7 @@ const generateUpdateList = (items = []) => {
     if (!Array.isArray(items)) return ''
     return `
         <ul class="adjustment-update-contents">
-            ${_.map(items, (item, index) => `<li>${index + 1}. ${item}</li>`).join('')}
+            ${_.map(items, (item, index) => `<li>${index + 1}. ${item};</li>`).join('')}
         </ul>
     `.replace(/\n\s+/g, '').trim()
 }
@@ -473,7 +473,7 @@ export const promptForUpdate = async (currentVersion, updateContents = '') => {
     }
     logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
     if (compareVersions(currentVersion, latestVersion)) {
-        const updateContentsHtml = generateUpdateList(updateContents.split('丨'))
+        const updateContentsHtml = generateUpdateList(updateContents.split(';'))
         const updatePopover = createElementAndInsert(getTemplates.replace('update', {
             current: currentVersion,
             latest: latestVersion,
