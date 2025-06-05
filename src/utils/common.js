@@ -473,9 +473,7 @@ export const promptForUpdate = async (currentVersion, updateContents = '') => {
     }
     logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
     if (compareVersions(currentVersion, latestVersion)) {
-        const updateContentsHtml = Array.isArray(updateContents) ?
-            generateUpdateList(updateContents) :
-            updateContents
+        const updateContentsHtml = generateUpdateList(updateContents.split('丨'))
         const updatePopover = createElementAndInsert(getTemplates.replace('update', {
             current: currentVersion,
             latest: latestVersion,
