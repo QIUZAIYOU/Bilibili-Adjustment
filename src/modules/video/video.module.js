@@ -14,7 +14,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 export default {
     name: 'video',
-    version: '2.4.0',
+    version: '3.0.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -538,6 +538,7 @@ export default {
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
         const hrefChangeFunctions = [
+            this.autoEnableSubtitle,
             this.insertVideoDescriptionToComment,
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
@@ -551,11 +552,11 @@ export default {
             this.webfullPlayerModeUnlock,
             this.clickPlayerAutoLocate,
             this.autoSelectVideoHighestQuality,
+            this.autoEnableSubtitle,
             this.autoCancelMute,
             this.autoEnableHiResMode,
             this.insertVideoDescriptionToComment,
             this.unlockEpisodeSelector,
-            this.autoEnableSubtitle,
             this.insertAutoEnableSubtitleSwitchButton,
             this.handleVideoPauseOnTabSwitch,
             this.doSomethingToCommentElements
