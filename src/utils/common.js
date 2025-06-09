@@ -148,7 +148,10 @@ export const executeFunctionsSequentially = async (
     const results = []
     for (const chunk of chunks) {
         const chunkResults = await Promise.allSettled(
-            chunk.map(async func => {
+            chunk.map(async item => { // 处理单个项（可能是数组或函数）
+                // 判断是否为数组，非数组则包装为 [func, true]
+                const [func, execute = true] = Array.isArray(item) ? item : [item, true]
+                if (!execute) return null // 跳过不执行的函数
                 try {
                     const result = isAsyncFunction(func)
                         ? await func()
