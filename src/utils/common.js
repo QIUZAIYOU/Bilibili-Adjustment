@@ -181,7 +181,7 @@ export const isTabActive = (options = {}) => {
     const checkVisibility = () => {
         const currentState = document.visibilityState
         if (currentState === 'visible') {
-            logger.debug('页面已激活')
+            // logger.debug('页面已激活')
             onActiveChange?.(true)
             if (once) {
                 clearInterval(intervalId)

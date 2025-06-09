@@ -1,4 +1,4 @@
-/* global requestAnimationFrame,_ */
+/* global ,_ */
 import { ShadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
@@ -15,7 +15,7 @@ const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
 export default {
     name: 'video',
-    version: '3.0.0',
+    version: '3.1.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -178,129 +178,58 @@ export default {
         video.play()
     },
     async doSomethingToCommentElements () {
+        const video = await elementSelectors.video
+        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
+        const videoDescription = videoInfo.desc
         const showLocation = (host, location) => {
             try {
                 const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
-                logger.debug(host)
-                const pubdate = shadowDOMHelper.queryDescendant(host, '#pubdate')
-                logger.debug(pubdate)
-                requestAnimationFrame(() => {
-                    createElementAndInsert(locationWrapperHtml, pubdate, 'after')
-                })
+                const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
+                createElementAndInsert(locationWrapperHtml, pubdate, 'after')
             } catch (error) {
                 logger.error('插入位置信息失败:', error)
             }
         }
-        shadowDOMHelper.observeInsertion('#feed', element => {
-            if (element){
-                const videoCommentRenderders = shadowDOMHelper.querySelectorAll('bili-comment-thread-renderer')
-                logger.debug(videoCommentRenderders)
-                videoCommentRenderders.forEach(renderder => {
-                    showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+        const activeTimeSeek = host => {
+            const timeSeekElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.timeSeekElement, true)
+            timeSeekElements.forEach(element => {
+                addEventListenerToElement(element, 'click', async event => {
+                    event.stopPropagation()
+                    await this.locateToPlayer()
+                    this.handleJumpToVideoTime(video, element)
                 })
+            })
+        }
+        const removeCommentTagElements = host => {
+            const tagElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.commentTags, true)
+            tagElements.forEach(tag => {
+                tag.remove()
+            })
+        }
+        // const formatVideoCommentContents = host => {
+        //     const contents = shadowDOMHelper.queryDescendant(host, '#contents')
+        //     contents.innerHTML = formatVideoCommentContents(contents.innerHTML)
+        // }
+        shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
+            if (root.isConnected){
+                const videoCommentRenderders = shadowDOMHelper.querySelectorAll(shadowDomSelectors.commentRenderder)
+                videoCommentRenderders.forEach(renderder => {
+                    activeTimeSeek(renderder)
+                    if (this.userConfigs.show_location){
+                        showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                    }
+                    if (this.userConfigs.remove_comment_tags){
+                        removeCommentTagElements(renderder)
+                    }
+                })
+                shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
+                    activeTimeSeek(renderder)
+                    if (this.userConfigs.show_location){
+                        showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                    }
+                }, root)
             }
         })
-        // const observers = new Set()
-        // const batchSelectors = ['video', 'videoCommentRoot']
-        // const [video, host] = await elementSelectors.batch(batchSelectors)
-        // const insertLocation = (element, location) => {
-        //     try {
-        //         const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
-        //         const pubdate = shadowDOMHelper.querySelectorAll(element, shadowDomSelectors.replyPublicDate)
-        //         requestAnimationFrame(() => {
-        //             pubdate.forEach(date => {
-        //                 if (date.isConnected) {
-        //                     createElementAndInsert(locationWrapperHtml, date, 'after')
-        //                 }
-        //             })
-        //         })
-        //     } catch (error) {
-        //         logger.error('插入位置信息失败:', error)
-        //     }
-        // }
-        // const watchMoreRepliesElements = element => {
-        //     const observer = shadowDOMHelper.watchQuery(element, '', async reply => {
-        //         if (reply?.data?.reply_control?.location) {
-        //             insertLocation(reply, reply.data.reply_control.location)
-        //         } else {
-        //             insertLocation(reply, 'IP属地：未知')
-        //         }
-        //     }, {
-        //         nodeNameFilter: 'bili-comment-reply-renderer',
-        //         debounce: 100,
-        //         maxRetries: 5,
-        //         observeExisting: true,
-        //         scanInterval: 1000
-        //     })
-        //     observers.add(observer)
-        // }
-        // const handleVideoTimeElements = async currentHost => {
-        //     const descriptionVideoTimeElements = this.userConfigs.page_type === 'video' ? await shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.descriptionVideoTime) : []
-        //     const commentVideoTimeElements = await shadowDOMHelper.batchQuery(currentHost, {
-        //         videoTime: shadowDomSelectors.videoTime,
-        //         replyVideoTime: shadowDomSelectors.replyVideoTime
-        //     })
-        //     const videoTimeElements = [...descriptionVideoTimeElements, ...commentVideoTimeElements]
-        //     // logger.debug('视频时间点元素:', videoTimeElements)
-        //     videoTimeElements.forEach(element => {
-        //         addEventListenerToElement(element, 'click', async event => {
-        //             event.stopPropagation()
-        //             await this.locateToPlayer()
-        //             this.handleJumpToVideoTime(video, element)
-        //         })
-        //     })
-        // }
-        // const showLocation = (host, elements) => {
-        //     const repliesElements = shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.commentRepliesRenderer)
-        //     const allRepliesElements = [...elements, ...repliesElements]
-        //     allRepliesElements.forEach(reply => {
-        //         insertLocation(reply, reply.data.reply_control.location ?? 'IP属地：未知')
-        //         if (reply.nodeName.toLowerCase() === 'bili-comment-replies-renderer'){
-        //             watchMoreRepliesElements(reply)
-        //         }
-        //     })
-        // }
-        // const removeCommentTagElements = host => {
-        //     const tagElements = shadowDOMHelper.querySelectorAll(host, shadowDomSelectors.commentTags)
-        //     tagElements.forEach(tag => {
-        //         tag.remove()
-        //     })
-        // }
-        // const commentRenderderContainer = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer, { forever: true })
-        // if (commentRenderderContainer){
-        //     shadowDOMHelper.watchQuery(
-        //         host,
-        //         shadowDomSelectors.commentRenderderContainer,
-        //         async item => {
-        //             // logger.info('评论区元素更新:', item)
-        //             handleVideoTimeElements(item)
-        //             const replyElements = shadowDOMHelper.querySelectorAll(item, shadowDomSelectors.commentRenderder)
-        //             if (this.userConfigs.show_location){
-        //                 showLocation(item, replyElements)
-        //             }
-        //             if (this.userConfigs.remove_comment_tags){
-        //                 removeCommentTagElements(item)
-        //             }
-        //         },
-        //         {
-        //             nodeNameFilter: 'bili-comment-thread-renderer',
-        //             debounce: 100,
-        //             maxRetries: 5,
-        //             observeExisting: true,
-        //             scanInterval: 100
-        //         }
-        //     )
-        // }
-        // return () => {
-        //     observers.forEach(observer => {
-        //         try {
-        //             observer?.disconnect?.()
-        //         } catch (error) {
-        //             logger.error('清理观察者失败:', error)
-        //         }
-        //     })
-        //     observers.clear()
-        // }
     },
     async autoSelectVideoHighestQuality () {
         const qualityMap = {
@@ -426,21 +355,18 @@ export default {
     },
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
-        if (!this.userConfigs.insert_video_description_to_comment || this.userConfigs.page_type === 'bangumi') return
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
-        // logger.debug(videoInfo)
         const videoDescription = videoInfo.desc
-        document.querySelector('#commentapp > bili-comments').shadowRoot.querySelector('#adjustment-comment-description')?.remove()
+        shadowDOMHelper.querySelector('#adjustment-comment-description')?.remove()
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
-        const [videoDescriptionElement, videoDescriptionInfoElement, host] = await elementSelectors.batch(batchSelectors)
+        const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
             const baseURI = videoDescriptionInfoElement.baseURI
             if (baseURI === location.href){
                 clearInterval(checkAndTrigger)
                 const adjustmentCommentDescription = await elementSelectors.query('adjustmentCommentDescription')
                 adjustmentCommentDescription?.remove()
-                const videoCommentReplyListShadowRoot = await shadowDOMHelper.queryUntil(host, shadowDomSelectors.commentRenderderContainer)
-                // logger.debug(videoCommentReplyListShadowRoot)
+                const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
                 if (videoDescriptionElement.childElementCount > 1 && videoDescriptionInfoElement.childElementCount > 0) {
                     const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
                     const template = document.createElement('template')
@@ -451,13 +377,13 @@ export default {
                     })
                     const clone = template.content.cloneNode(true)
                     videoCommentReplyListShadowRoot?.prepend(clone)
-                    await sleep(300)
-                    if (await shadowDOMHelper.querySelector(host, shadowDomSelectors.descriptionRenderer)) {
+                    if (shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
                         logger.debug('视频简介丨已插入')
                     } else {
                         this.insertVideoDescriptionToComment()
                     }
-                } else {
+                }
+                else {
                     const videoDescriptionElement = await elementSelectors.videoDescriptionInfo
                     videoDescriptionElement.innerHTML = findRepeatUnit(formatVideoCommentDescription(videoDescription, videoInfo.desc_v2))
                     logger.debug('视频简介丨已替换')
@@ -545,7 +471,8 @@ export default {
         }
     },
     async autoEnableHiResMode (){
-        const highResButton = await elementSelectors.highResButton
+        // const highResButton = await elementSelectors.highResButton
+        const highResButton = await elementSelectors.query('highResButton')
         if (highResButton && !highResButton.className.includes('bpx-state-active')){
             highResButton.click()
             logger.info('Hi-Res无损音质丨已启用')
@@ -556,7 +483,7 @@ export default {
         this.locateToPlayer()
         const hrefChangeFunctions = [
             [this.autoEnableSubtitle, Boolean(this.userConfigs.auto_subtitle)],
-            this.insertVideoDescriptionToComment,
+            [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
         ]
@@ -566,16 +493,16 @@ export default {
     handleExecuteFunctionsSequentially () {
         const functions = [
             this.insertSideFloatNavToolsButtons,
-            [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
-            [this.autoSelectVideoHighestQuality, Boolean(this.userConfigs.auto_select_video_highest_quality)],
-            [this.autoEnableSubtitle, Boolean(this.userConfigs.auto_subtitle)],
             this.autoCancelMute,
-            [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
-            // this.insertVideoDescriptionToComment,
             this.unlockEpisodeSelector,
+            [this.autoEnableSubtitle, Boolean(this.userConfigs.auto_subtitle)],
+            [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
+            [this.autoSelectVideoHighestQuality, Boolean(this.userConfigs.auto_select_video_highest_quality)],
+            [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
             this.insertAutoEnableSubtitleSwitchButton,
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
+            [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)

@@ -143,14 +143,11 @@ const selectors = {
 }
 export const shadowDomSelectors = {
     descriptionRenderer: '#feed > bili-adjustment-comment-thread-renderer',
-    descriptionVideoTime: '#feed > #bili-adjustment-contents > [data-type="seek"]',
-    videoTime: '#comment >> bili-rich-text >> #contents > a[data-type="seek"]',
-    replyVideoTime: 'bili-comment-replies-renderer >> bili-comment-reply-renderer >> bili-rich-text >> #contents > a[data-type="seek"]',
-    commentHeaderNavbar: 'bili-comments-header-renderer > #navbar',
+    timeSeekElement: '[data-type="seek"]',
     commentRenderderContainer: '#feed',
     commentRenderder: 'bili-comment-renderer',
     commentRepliesRenderer: 'bili-comment-replies-renderer',
-    replyPublicDate: '#footer > bili-comment-action-buttons-renderer >> #pubdate',
+    commentReplyRenderder: 'bili-comment-reply-renderer',
     commentTags: '#tags'
 }
 const createCachedQuery = async (selector, all = false) => {
