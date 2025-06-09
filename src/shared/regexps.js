@@ -361,6 +361,10 @@ export const formatVideoCommentDescription = (html, desc_v2) => html.replace(reg
         `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
     .replace(regexps.video.blankLine, '')
     .replace(regexps.video.user, (_, p1) => generateMentionUserLinks(p1, desc_v2))
+// export const formatVideoCommentContents = html => html.replace(regexps.video.url, match => {
+//     if (fileExtensions.includes(match.split('.')[1])) return match
+//     return `<a href="${match.includes('http') ? match : `https://${match}`}" target="_blank" asifadeaway>${match}</a>`
+// })
 const adjustPunctuation = sentence => sentence.replace(/【(.*?)】/gu, (match, text) => {
     const punctuationMatch = text.match(/^(\p{P}+)(.*)/u)
     if (punctuationMatch) {
