@@ -377,6 +377,7 @@ const adjustPunctuation = sentence => sentence.replace(/【(.*?)】/gu, (match, 
 })
 export const findRepeatUnit = str => {
     const urlRegex = regexps.video.url
+    const ignorePattern = /^(——|—|—|-|_)+$/g
     const parts = []
     let lastIndex = 0
     let match
@@ -407,6 +408,8 @@ export const findRepeatUnit = str => {
                     let currentBestStart = 0
                     for (let start = 0; start <= n - len; start++) {
                         const unit = remainingText.substring(start, start + len)
+                        // 忽略特定字符
+                        if (ignorePattern.test(unit)) continue
                         let count = 1
                         let i = start + len
                         while (i + len <= n && remainingText.substring(i, i + len) === unit) {
