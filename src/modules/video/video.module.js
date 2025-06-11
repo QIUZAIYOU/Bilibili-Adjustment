@@ -8,7 +8,7 @@ import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
-import { formatVideoCommentDescription, findRepeatUnit } from '@/shared/regexps'
+import { formatVideoCommentDescription } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
@@ -372,7 +372,7 @@ export default {
                     template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
                         videoCommentDescription: styles.videoCommentDescription,
                         upAvatarFaceLink: upAvatarFaceLink,
-                        processVideoCommentDescription: findRepeatUnit(formatVideoCommentDescription(videoDescription, videoInfo.desc_v2))
+                        processVideoCommentDescription: formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
                     })
                     const clone = template.content.cloneNode(true)
                     videoCommentReplyListShadowRoot?.prepend(clone)
@@ -384,7 +384,7 @@ export default {
                 }
                 else {
                     const videoDescriptionElement = await elementSelectors.videoDescriptionInfo
-                    videoDescriptionElement.innerHTML = findRepeatUnit(formatVideoCommentDescription(videoDescription, videoInfo.desc_v2))
+                    videoDescriptionElement.innerHTML = formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
                     logger.debug('视频简介丨已替换')
                 }
             }
