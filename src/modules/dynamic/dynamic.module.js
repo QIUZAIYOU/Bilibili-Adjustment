@@ -67,6 +67,8 @@ export default {
         const listItem = buttonElement.closest(elementSelectors.value('dynamicListItem'))
         const showLocation = (host, location) => {
             try {
+                const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
+                if (existingLocation) return
                 const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
                 const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
                 createElementAndInsert(locationWrapperHtml, pubdate, 'after')

@@ -179,10 +179,10 @@ export default {
     },
     async doSomethingToCommentElements () {
         const video = await elementSelectors.video
-        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
-        const videoDescription = videoInfo.desc
         const showLocation = (host, location) => {
             try {
+                const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
+                if (existingLocation) return
                 const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
                 const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
                 createElementAndInsert(locationWrapperHtml, pubdate, 'after')
@@ -212,16 +212,6 @@ export default {
         // }
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
             if (root.isConnected){
-                // const videoCommentRenderders = shadowDOMHelper.querySelectorAll(shadowDomSelectors.commentRenderder)
-                // videoCommentRenderders.forEach(renderder => {
-                //     activeTimeSeek(renderder)
-                //     if (this.userConfigs.show_location){
-                //         showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
-                //     }
-                //     if (this.userConfigs.remove_comment_tags){
-                //         removeCommentTagElements(renderder)
-                //     }
-                // })
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
                     activeTimeSeek(renderder)
                     if (this.userConfigs.show_location){
@@ -366,7 +356,7 @@ export default {
         // const perfStart = performance.now()
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         const videoDescription = videoInfo.desc
-        shadowDOMHelper.querySelector('#adjustment-comment-description')?.remove()
+        shadowDOMHelper.querySelector(elementSelectors.value('adjustmentCommentDescription'))?.remove()
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
