@@ -211,7 +211,7 @@ export default {
         //     contents.innerHTML = formatVideoCommentContents(contents.innerHTML)
         // }
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
-            if (root.isConnected){
+            if (root){
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
                     activeTimeSeek(renderder)
                     if (this.userConfigs.show_location){
