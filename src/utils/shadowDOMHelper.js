@@ -2,7 +2,6 @@
 export class ShadowDOMHelper {
     constructor () {
         this.observers = new WeakSet()
-        this.processedNodes = new WeakSet()
     }
     /**
      * 通过 CSS 选择器获取指定的元素，优化为单次深度优先搜索。
