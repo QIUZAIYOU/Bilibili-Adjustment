@@ -212,8 +212,17 @@ export default {
         // }
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
             if (root.isConnected){
-                const videoCommentRenderders = shadowDOMHelper.querySelectorAll(shadowDomSelectors.commentRenderder)
-                videoCommentRenderders.forEach(renderder => {
+                // const videoCommentRenderders = shadowDOMHelper.querySelectorAll(shadowDomSelectors.commentRenderder)
+                // videoCommentRenderders.forEach(renderder => {
+                //     activeTimeSeek(renderder)
+                //     if (this.userConfigs.show_location){
+                //         showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                //     }
+                //     if (this.userConfigs.remove_comment_tags){
+                //         removeCommentTagElements(renderder)
+                //     }
+                // })
+                shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
                     activeTimeSeek(renderder)
                     if (this.userConfigs.show_location){
                         showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
@@ -221,7 +230,7 @@ export default {
                     if (this.userConfigs.remove_comment_tags){
                         removeCommentTagElements(renderder)
                     }
-                })
+                }, root)
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
                     activeTimeSeek(renderder)
                     if (this.userConfigs.show_location){

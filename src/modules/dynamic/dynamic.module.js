@@ -1,4 +1,3 @@
-/* global requestAnimationFrame */
 import { ShadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
@@ -81,16 +80,14 @@ export default {
                 tag.remove()
             })
         }
-        await sleep(500)
-        const videoCommentRenderders = shadowDOMHelper.queryDescendant(listItem, shadowDomSelectors.commentRenderder, true)
-        videoCommentRenderders.forEach(renderder => {
+        shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
             if (this.userConfigs.show_location){
                 showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
             }
             if (this.userConfigs.remove_comment_tags){
                 removeCommentTagElements(renderder)
             }
-        })
+        }, listItem)
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
             if (this.userConfigs.show_location){
                 showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
