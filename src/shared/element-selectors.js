@@ -21,6 +21,7 @@ const selectors = {
     videoBwp: 'bwp-video',
     videoTitleArea: '#viewbox_report',
     videoFloatNav: '.fixed-sidenav-storage',
+    videoFloatNavBackToTopButton: '.back-to-top-wrap',
     videoComment: '#commentapp',
     videoCommentRoot: 'bili-comments',
     videoCommentReplyList: '#comment .reply-list',

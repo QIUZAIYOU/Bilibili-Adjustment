@@ -4,7 +4,7 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponent } from '@/components/settings.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { sleep, isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
+import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 import { styles } from '@/shared/styles'
@@ -62,6 +62,7 @@ export default {
         addEventListenerToElement(dynamicSettingsOpenButton, 'click', () => {
             DynamicSettingsPopover.showPopover()
         })
+        logger.debug('侧边栏工具丨插入成功')
     },
     async doSomethingToCommentElements (buttonElement){
         const listItem = buttonElement.closest(elementSelectors.value('dynamicListItem'))

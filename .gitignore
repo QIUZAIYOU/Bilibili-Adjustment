@@ -1,4 +1,5 @@
 /node_modules
+/.vscode
 /.history
 /src/Untitled-1.html
 /dist
