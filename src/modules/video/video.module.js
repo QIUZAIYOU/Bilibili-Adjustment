@@ -15,7 +15,7 @@ const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
 export default {
     name: 'video',
-    version: '3.1.0',
+    version: '3.1.1',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -314,7 +314,7 @@ export default {
     },
     async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
-        const dataV = floatNav.lastChild.attributes[1].name
+        const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild.attributes[1].name : ''
         let locateButton, videoSettingsOpenButton
         if (this.userConfigs.page_type === 'video') {
             locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
@@ -322,26 +322,26 @@ export default {
                 style: '',
                 dataV: dataV,
                 text: '定位'
-            }), floatNav.lastChild, 'prepend')
+            }), floatNav.lastElementChild, 'prepend')
             videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
                 dataV: dataV,
                 floatNavMenuItemClass: '',
                 text: '设置'
-            }), floatNav.lastChild, 'prepend')
+            }), floatNav.lastElementChild, 'prepend')
         }
         if (this.userConfigs.page_type === 'bangumi') {
-            const floatNavMenuItemClass = floatNav.lastChild.lastChild.getAttribute('class')
             locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
-                class: `${floatNavMenuItemClass} bili-adjustment-icon locate`,
-                style: 'style="height:40px;padding:0"',
-                dataV: '',
+                class: 'bili-adjustment-icon locate',
+                style: `style="height:40px;padding:0;${styles.videoSettingsOpenButton}"`,
+                dataV: dataV,
                 text: ''
-            }), floatNav.lastChild, 'before')
+            }), floatNav, 'append')
             videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
-                floatNavMenuItemClass: floatNavMenuItemClass,
+                floatNavMenuItemClass: '',
+                style: `style="${styles.videoSettingsOpenButton}"`,
                 dataV: '',
                 text: ''
-            }), floatNav.lastChild, 'before')
+            }), floatNav, 'append')
         }
         addEventListenerToElement(locateButton, 'click', async () => {
             await this.locateToPlayer()
