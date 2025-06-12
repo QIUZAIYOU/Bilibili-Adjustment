@@ -1,4 +1,4 @@
-node_modules
-.history/
-src/Untitled-1.html
-dist/
+/node_modules
+/.history
+/src/Untitled-1.html
+/dist
