@@ -351,14 +351,14 @@ export const regexps = {
 // console.log(regexps.video.url)
 export const formatVideoCommentDescription = (html, desc_v2) => html.replace(regexps.video.specialBlank, '%20')
     .replace(regexps.video.nbspToBlank, ' ')
-    .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}">${match}</a>`)
+    .replace(regexps.video.timeString, match => `<a data-type="seek" data-video-part="-1" data-video-time="${getTotalSecondsFromTimeString(match)}" bilibili-adjustment-element>${match}</a>`)
     .replace(regexps.video.url, match => {
         if (fileExtensions.includes(match.split('.')[1])) return match
-        return `<a href="${match.includes('http') ? match : `https://${match}`}" target="_blank">${match}</a>`
+        return `<a href="${match.includes('http') ? match : `https://${match}`}" target="_blank" bilibili-adjustment-element>${match}</a>`
     })
-    .replace(regexps.video.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank">${match}</a>`)
+    .replace(regexps.video.videoId, match => `<a href="https://www.bilibili.com/video/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`)
     .replace(regexps.video.readId, match =>
-        `<a href="https://www.bilibili.com/read/${match}" target="_blank">${match}</a>`)
+        `<a href="https://www.bilibili.com/read/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`)
     .replace(regexps.video.blankLine, '')
     .replace(regexps.video.user, (_, p1) => generateMentionUserLinks(p1, desc_v2))
 // export const formatVideoCommentContents = html => html.replace(regexps.video.url, match => {
