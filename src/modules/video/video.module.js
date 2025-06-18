@@ -8,14 +8,14 @@ import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
-import { formatVideoCommentDescription } from '@/shared/regexps'
+import { formatVideoCommentDescription, formatVideoCommentContents } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
 export default {
     name: 'video',
-    version: '3.1.1',
+    version: '3.2.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -191,7 +191,9 @@ export default {
             }
         }
         const activeTimeSeek = host => {
-            const timeSeekElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.timeSeekElement, true)
+            const descriptionTimeSeekElements = shadowDOMHelper.querySelectorAll('#adjustment-comment-description a[data-type="seek"]')
+            const commentTimeSeekElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.timeSeekElement, true)
+            const timeSeekElements = [...descriptionTimeSeekElements, ...commentTimeSeekElements]
             timeSeekElements.forEach(element => {
                 addEventListenerToElement(element, 'click', async event => {
                     event.stopPropagation()
@@ -206,13 +208,14 @@ export default {
                 tag.remove()
             })
         }
-        // const formatVideoCommentContents = host => {
-        //     const contents = shadowDOMHelper.queryDescendant(host, '#contents')
-        //     contents.innerHTML = formatVideoCommentContents(contents.innerHTML)
-        // }
+        const formatCommentContents = host => {
+            const contents = shadowDOMHelper.queryDescendant(host, '#contents')
+            contents.innerHTML = formatVideoCommentContents(contents)
+        }
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
             if (root){
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
+                    formatCommentContents(renderder)
                     activeTimeSeek(renderder)
                     if (this.userConfigs.show_location){
                         showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
@@ -222,6 +225,7 @@ export default {
                     }
                 }, root)
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
+                    formatCommentContents(renderder)
                     activeTimeSeek(renderder)
                     if (this.userConfigs.show_location){
                         showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
@@ -381,8 +385,7 @@ export default {
                     } else {
                         this.insertVideoDescriptionToComment()
                     }
-                }
-                else {
+                } else {
                     const videoDescriptionElement = await elementSelectors.videoDescriptionInfo
                     videoDescriptionElement.innerHTML = formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
                     logger.debug('视频简介丨已替换')
