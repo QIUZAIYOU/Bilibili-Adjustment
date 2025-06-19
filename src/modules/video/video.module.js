@@ -268,7 +268,6 @@ export default {
         }
     },
     async autoCancelMute () {
-        if (!this.userConfigs.auto_cancel_mute) return
         const batchSelectors = ['mutedButton', 'volumeButton']
         const [mutedButton, volumeButton] = await elementSelectors.batch(batchSelectors)
         if (!mutedButton || !volumeButton) return
@@ -496,7 +495,7 @@ export default {
         const functions = [
             this.insertSideFloatNavToolsButtons,
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
-            this.autoCancelMute,
+            [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
             this.unlockEpisodeSelector,
             [this.autoEnableSubtitle, Boolean(this.userConfigs.auto_subtitle)],
             [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
