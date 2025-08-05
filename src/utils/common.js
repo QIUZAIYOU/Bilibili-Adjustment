@@ -11,7 +11,7 @@ export const delay = (func, timeout, ...args) => new Promise(resolve => {
 })
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
-    if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/')) return 'video'
+    if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/') || pathname.startsWith('/list/')) return 'video'
     if (host === 'www.bilibili.com' && pathname === '/') return 'home'
     if (origin === 'https://t.bilibili.com') return 'dynamic'
     return 'other'
