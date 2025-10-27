@@ -283,10 +283,13 @@ export default {
     async autoEnableSubtitle () {
         const switchSubtitleButton = await elementSelectors.switchSubtitleButton
         if (!switchSubtitleButton) return
-        const enableStatus = switchSubtitleButton.children[0].children[0].children[0].children[1].childElementCount === 1
-        if (!enableStatus) {
-            switchSubtitleButton.children[0].children[0].click()
-            logger.info('视频字幕丨已开启')
+        const [subtitleLanguageChinese, subtitleCloseSwitch] = await elementSelectors.batch(['subtitleLanguageChinese', 'subtitleCloseSwitch'])
+        const isSubtitleClosed = subtitleCloseSwitch.classList.contains('bpx-state-active') // 字幕是否已关闭
+        if (isSubtitleClosed) {
+            subtitleLanguageChinese.click() // 点击中文字幕选项开启字幕
+            if (subtitleLanguageChinese.classList.contains('bpx-state-active')) {
+                logger.info('视频字幕（中文）丨已开启')
+            }
         }
     },
     async insertAutoEnableSubtitleSwitchButton () {
