@@ -93,6 +93,8 @@ const selectors = {
     clearRecommendVideoHistoryButton: '#clearRecommendVideoHistoryButton',
     notChargeHighLevelCover: '.not-charge-high-level-cover',
     switchSubtitleButton: '.bpx-player-ctrl-btn.bpx-player-ctrl-subtitle',
+    subtitleLanguageChinese: '.bpx-player-ctrl-subtitle-language-item[data-lan="ai-zh"]',
+    subtitleCloseSwitch: '.bpx-player-ctrl-subtitle-close-switch',
     dynamicListItem: '.bili-dyn-list__item',
     dynamicSidebar: '.bili-dyn-sidebar',
     dynamicCommentLoadButton: '[data-type="comment"]:not(.active)',
