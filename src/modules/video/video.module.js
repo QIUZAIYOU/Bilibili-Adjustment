@@ -15,7 +15,7 @@ const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
 export default {
     name: 'video',
-    version: '3.2.0',
+    version: '3.2.1',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -281,14 +281,13 @@ export default {
         }
     },
     async autoEnableSubtitle () {
-        const switchSubtitleButton = await elementSelectors.switchSubtitleButton
-        if (!switchSubtitleButton) return
-        const [subtitleLanguageChinese, subtitleCloseSwitch] = await elementSelectors.batch(['subtitleLanguageChinese', 'subtitleCloseSwitch'])
-        const isSubtitleClosed = subtitleCloseSwitch.classList.contains('bpx-state-active') // 字幕是否已关闭
-        if (isSubtitleClosed) {
-            subtitleLanguageChinese.click() // 点击中文字幕选项开启字幕
-            if (subtitleLanguageChinese.classList.contains('bpx-state-active')) {
-                logger.info('视频字幕（中文）丨已开启')
+        if(Boolean(this.userConfigs.auto_subtitle)) {
+            const switchSubtitleButton = await elementSelectors.switchSubtitleButton
+            if (!switchSubtitleButton) return
+            const subtitleLanguageChineseAI = await elementSelectors.subtitleLanguageChineseAI
+            subtitleLanguageChineseAI.click()
+            if (subtitleLanguageChineseAI.classList.contains('bpx-state-active')) {
+                logger.info('视频字幕（中文AI）丨已开启')
             }
         }
     },
@@ -486,13 +485,13 @@ export default {
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
         const hrefChangeFunctions = [
-            [this.autoEnableSubtitle, Boolean(this.userConfigs.auto_subtitle)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
         videoCanplaythrough && executeFunctionsSequentially(hrefChangeFunctions)
+        this.autoEnableSubtitle(Boolean(this.userConfigs.auto_subtitle))
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
@@ -500,7 +499,6 @@ export default {
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
             [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
             this.unlockEpisodeSelector,
-            [this.autoEnableSubtitle, Boolean(this.userConfigs.auto_subtitle)],
             [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
             [this.autoSelectVideoHighestQuality, Boolean(this.userConfigs.auto_select_video_highest_quality)],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
@@ -510,5 +508,6 @@ export default {
             this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)
+        this.autoEnableSubtitle()
     }
 }
