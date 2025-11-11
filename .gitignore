@@ -1,5 +1,30 @@
-/node_modules
-/.vscode
-/.history
+# Dependencies
+node_modules/
+
+# IDE and Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Build output
+dist/
+build/
+
+# Temporary files
+.history/
+*.tmp
+*.temp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Project specific
 /src/Untitled-1.html
-/dist
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
