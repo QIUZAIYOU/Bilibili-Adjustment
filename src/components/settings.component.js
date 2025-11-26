@@ -55,18 +55,19 @@ export class SettingsComponent {
             AutoReload: this.userConfigs.auto_reload,
             RemoveCommentTags: this.userConfigs.hide_reply_tag,
             AutoHiRes: this.userConfigs.auto_hi_res,
-            AutoHiResStyle: this.userConfigs.is_vip ? 'flex' : 'none'
+            AutoHiResStyle: this.userConfigs.is_vip ? 'flex' : 'none',
+            AutoCheckUpdate: this.userConfigs.auto_check_update
         })
         createElementAndInsert(videoSettings, document.body)
     }
     async initVideoSettingsEventListeners () {
-        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes']
-        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate']
+        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate] = await elementSelectors.batch(batchSelectors)
         addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes]
+        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = _.snakeCase(e.target.id).replace(/_(\d)_k/g, '$1k')
