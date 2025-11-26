@@ -90,6 +90,7 @@ const selectors = {
     indexRecommendVideoHistoryCategoryButtonAll: '#indexRecommendVideoHistoryCategory li.all,#indexRecommendVideoHistoryCategoryV2 li.all_v2',
     indexRecommendVideoHistoryList: '#indexRecommendVideoHistoryList',
     indexRecommendVideoHistoryListItem: '#indexRecommendVideoHistoryList li',
+    indexRecommendVideoHistorySearchInput: '#indexRecommendVideoHistorySearchInput',
     clearRecommendVideoHistoryButton: '#clearRecommendVideoHistoryButton',
     notChargeHighLevelCover: '.not-charge-high-level-cover',
     switchSubtitleButton: '[aria-label="字幕"]',

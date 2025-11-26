@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整 Development",
   "author": "QIAN",
-  "version": "3.9.4",
-  "updates": "修复字幕相关功能（适配B站新版字幕功能，现在将强制开启「中文AI」字幕，无视视频作者默认开启的字幕）;",
+  "version": "3.9.5",
+  "updates": "修复首页「推荐视频历史记录」数据显示不全的问题;为「推荐视频历史记录」添加搜索功能，支持关键词搜索;",
   "license": "MIT",
   "type": "module",
   "scripts": {

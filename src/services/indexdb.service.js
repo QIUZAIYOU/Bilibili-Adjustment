@@ -72,7 +72,7 @@ class IndexedDBService {
             request.onerror = event => reject(event.target.error)
         })
     }
-    async _executeCursorQuery (storeName, indexName, range, pageSize = 100) {
+    async _executeCursorQuery (storeName, indexName, range, pageSize = null) {
         await this.connect()
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly')
@@ -85,10 +85,12 @@ class IndexedDBService {
                 cursor = event.target.result
                 if (cursor) {
                     results.push(cursor.value)
-                    if (results.length >= pageSize) {
+                    // 如果没有设置 pageSize 或者结果数量还没有达到 pageSize，则继续查询
+                    if (pageSize === null || pageSize === undefined || results.length < pageSize) {
+                        cursor.continue()
+                    } else {
                         return resolve({ results, continue: () => cursor.continue() })
                     }
-                    cursor.continue()
                 } else {
                     resolve({ results, continue: null })
                 }
