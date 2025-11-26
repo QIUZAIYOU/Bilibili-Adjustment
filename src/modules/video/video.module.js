@@ -281,7 +281,7 @@ export default {
         }
     },
     async autoEnableSubtitle () {
-        if(Boolean(this.userConfigs.auto_subtitle)) {
+        if (this.userConfigs.auto_subtitle) {
             const switchSubtitleButton = await elementSelectors.switchSubtitleButton
             if (!switchSubtitleButton) return
             const subtitleLanguageChineseAI = await elementSelectors.subtitleLanguageChineseAI
