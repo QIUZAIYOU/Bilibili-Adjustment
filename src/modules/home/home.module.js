@@ -9,7 +9,7 @@ import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'home',
-    version: '1.0.0',
+    version: '1.1.0',
     async install () {
         eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
@@ -67,6 +67,11 @@ export default {
             if (event.newState === 'closed') {
                 indexApp.style.pointerEvents = 'auto'
                 indexRecommendVideoHistoryPopoverTitle.querySelector('span').innerText = '首页视频推荐历史记录'
+                // 清空搜索框内容
+                const searchInput = document.getElementById('indexRecommendVideoHistorySearchInput')
+                if (searchInput) {
+                    searchInput.value = ''
+                }
             }
         })
         const indexRecommendVideoHistoryOpenButton = await elementSelectors.indexRecommendVideoHistoryOpenButton
@@ -80,12 +85,36 @@ export default {
     async generatorIndexRecommendVideoHistoryContents () {
         const indexRecommendVideoHistories = await storageService.getAll('index')
         const totalCount = await storageService.getCount('index')
-        const batchSelectors = ['indexRecommendVideoHistoryPopoverTitleCount', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList']
-        const [indexRecommendVideoHistoryPopoverTitleCount, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['indexRecommendVideoHistoryPopoverTitleCount', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList', 'indexRecommendVideoHistorySearchInput']
+        const [indexRecommendVideoHistoryPopoverTitleCount, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList, indexRecommendVideoHistorySearchInput] = await elementSelectors.batch(batchSelectors)
         indexRecommendVideoHistoryCategory.innerHTML = '<li class="all adjustment_button primary plain">全部</li>'
         indexRecommendVideoHistoryCategoryV2.innerHTML = ''
         indexRecommendVideoHistoryList.innerHTML = ''
         indexRecommendVideoHistoryPopoverTitleCount.innerText = `首页视频推荐历史记录(${totalCount})`
+        // 搜索功能
+        const filterAndDisplayVideos = (searchKeyword = '', selectedTid = null) => {
+            indexRecommendVideoHistoryList.innerHTML = ''
+            for (const record of Object.entries(indexRecommendVideoHistories)) {
+                const video = record[1]
+                const matchesSearch = !searchKeyword || video.title.toLowerCase().includes(searchKeyword.toLowerCase())
+                const matchesCategory = !selectedTid || [video.tid, video.tid_v2].includes(selectedTid)
+                if (matchesSearch && matchesCategory) {
+                    createElementAndInsert(`<li><span><img src="${video.pic}"></span><a href="${video.url}" target="_blank">${video.title}</a></li>`, indexRecommendVideoHistoryList)
+                }
+            }
+        }
+        // 监听搜索输入
+        let searchTimeout
+        addEventListenerToElement(indexRecommendVideoHistorySearchInput, 'input', event => {
+            clearTimeout(searchTimeout)
+            searchTimeout = setTimeout(() => {
+                const searchKeyword = event.target.value.trim()
+                // 获取当前激活的分类按钮
+                const activeCategory = document.querySelector('#indexRecommendVideoHistoryCategory li.active, #indexRecommendVideoHistoryCategoryV2 li.active')
+                const selectedTid = activeCategory && activeCategory.dataset.tid ? Number(activeCategory.dataset.tid) : null
+                filterAndDisplayVideos(searchKeyword, selectedTid)
+            }, 300)
+        })
         const setCategoryButtonActiveClass = async element => {
             elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
                 item.classList.remove('active')
@@ -117,28 +146,21 @@ export default {
         for (const category of tnameV2List){
             createElementAndInsert(`<li data-tid="${category.tid_v2}">${category.tname_v2}</li>`, indexRecommendVideoHistoryCategoryV2)
         }
-        for (const record of Object.entries(indexRecommendVideoHistories)){
-            createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList)
-        }
+        // 初始显示所有视频
+        filterAndDisplayVideos()
         elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
             addEventListenerToElement(item, 'click', async () => {
                 setCategoryButtonActiveClass(item)
-                indexRecommendVideoHistoryList.innerHTML = ''
                 const tid = Number(item.dataset.tid)
-                for (const record of Object.entries(indexRecommendVideoHistories)) {
-                    if ([record[1].tid, record[1].tid_v2].includes(tid)) {
-                        createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList)
-                    }
-                }
+                const searchKeyword = indexRecommendVideoHistorySearchInput.value.trim()
+                filterAndDisplayVideos(searchKeyword, tid)
             })
         })
         elementSelectors.each('indexRecommendVideoHistoryCategoryButtonAll', item => {
             addEventListenerToElement(item, 'click', async () => {
                 setCategoryButtonActiveClass(item)
-                indexRecommendVideoHistoryList.innerHTML = ''
-                for (const record of Object.entries(indexRecommendVideoHistories)) {
-                    createElementAndInsert(`<li><span><img src="${record[1].pic}"></span><a href="${record[1].url}" target="_blank">${record[1].title}</a></li>`, indexRecommendVideoHistoryList)
-                }
+                const searchKeyword = indexRecommendVideoHistorySearchInput.value.trim()
+                filterAndDisplayVideos(searchKeyword)
             })
         })
     },
