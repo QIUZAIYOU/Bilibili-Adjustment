@@ -32,7 +32,8 @@ export class ConfigService {
         ['auto_subtitle', false],
         ['show_location', true],
         ['remove_comment_tags', true],
-        ['auto_hi_res', true]
+        ['auto_hi_res', true],
+        ['auto_check_update', true]
     ])
     static async initialize () {
         if (this.#initialized) return
