@@ -131,6 +131,7 @@ const selectors = {
     AutoSubtitle: '#AutoSubtitle',
     AutoHiRes: '#AutoHiRes',
     RemoveCommentTags: '#RemoveCommentTags',
+    AutoCheckUpdate: '#AutoCheckUpdate',
     ExportUserConfigs: '#ExportUserConfigs',
     ImportUserConfigsFileInput: '#ImportUserConfigsFileInput',
     ImportUserConfigs: '#ImportUserConfigs',
