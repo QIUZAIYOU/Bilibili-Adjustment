@@ -1,4 +1,4 @@
-/* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event,_ */
+/* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event,_,fetch */
 import { LoggerService } from '@/services/logger.service'
 import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
@@ -375,19 +375,29 @@ export const updateVideoSizeStyle = (mode = 'normal') => {
 export const fetchLatestScript = async () => {
     const cacheKey = 'latestScriptCache'
     const cacheDuration = 24 * 60 * 60 * 1000
+    // 更严格的缓存验证
     const validateCache = () => {
-        const cachedContent = localStorage.getItem(cacheKey)
-        if (!cachedContent) return null
         try {
-            const { data, time } = JSON.parse(cachedContent)
-            return Date.now() - time < cacheDuration ? data : null
-        } catch {
+            const cachedContent = localStorage.getItem(cacheKey)
+            if (!cachedContent) return null
+            const parsed = JSON.parse(cachedContent)
+            if (!parsed || typeof parsed !== 'object' || !parsed.data || !parsed.time) {
+                localStorage.removeItem(cacheKey) // 清除无效缓存
+                return null
+            }
+            if (Date.now() - parsed.time < cacheDuration) {
+                logger.info('使用缓存的脚本数据')
+                return parsed.data
+            }
+            return null
+        } catch (error) {
+            logger.warn('缓存验证失败，清除无效缓存:', error.message)
+            localStorage.removeItem(cacheKey)
             return null
         }
     }
     const cachedData = validateCache()
     if (cachedData) {
-        logger.info('使用缓存的脚本数据')
         return cachedData
     }
     const CORSProxyList = [
@@ -395,101 +405,220 @@ export const fetchLatestScript = async () => {
         'https://cors.aiideai-hq.workers.dev/?destination=',
         'https://api.allorigins.win/raw?url=',
         'https://api.codetabs.com/v1/proxy?quest=',
-        'https://thingproxy.freeboard.io/fetch/',
-        'https://cloudflare-cors-anywhere.aiideai-hq.workers.dev?url='
+        'https://thingproxy.freeboard.io/fetch/'
     ]
     const targetURL = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
-    const tryFetch = async (proxy, retries = 3) => {
+    // 带超时的fetch函数
+    const fetchWithTimeout = async (url, options = {}, timeout = 30000) => {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), timeout)
+        try {
+            const response = await fetch(url, {
+                ...options,
+                signal: controller.signal
+            })
+            clearTimeout(timeoutId)
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`)
+            }
+            return await response.text()
+        } catch (error) {
+            clearTimeout(timeoutId)
+            throw error
+        }
+    }
+    const tryFetch = async (proxy, retries = 2) => {
         for (let i = 0; i < retries; i++) {
             try {
-                const client = axios.create({
-                    baseURL: `${proxy}${encodeURIComponent(targetURL)}`,
-                    timeout: 20000,
+                const fullUrl = `${proxy}${encodeURIComponent(targetURL)}`
+                logger.debug(`尝试通过代理 ${proxy} 获取脚本 (尝试 ${i + 1}/${retries})`)
+                const data = await fetchWithTimeout(fullUrl, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                })
-                const response = await client.get()
-                return response.data
+                }, 20000)
+                if (data && typeof data === 'string' && data.trim()) {
+                    logger.debug(`代理 ${proxy} 请求成功`)
+                    return data
+                } else {
+                    throw new Error('返回的数据无效')
+                }
             } catch (error) {
-                if (i === retries - 1) throw error
-                await sleep(1000 * (i + 1)) // 指数退避
+                const errorMsg = error.name === 'AbortError' ? '请求超时' : error.message
+                logger.warn(`代理 ${proxy} 请求失败 (${i + 1}/${retries}):`, errorMsg)
+                if (i === retries - 1) {
+                    throw new Error(`代理请求失败: ${errorMsg}`)
+                }
+                // 指数退避
+                await sleep(1000 * Math.pow(2, i))
             }
         }
     }
+    // 随机排序代理列表，避免总是从第一个开始
     const shuffledProxyList = [...CORSProxyList].sort(() => Math.random() - 0.5)
     for (const proxy of shuffledProxyList) {
         try {
-            logger.debug(`代理 ${proxy} 请求成功`)
             const data = await tryFetch(proxy)
-            localStorage.setItem(cacheKey, JSON.stringify({
-                data,
-                time: Date.now()
-            }))
-            return data
+            // 验证获取的数据是否有效
+            if (data && typeof data === 'string' && data.trim()) {
+                // 保存到缓存
+                localStorage.setItem(cacheKey, JSON.stringify({
+                    data,
+                    time: Date.now()
+                }))
+                return data
+            }
         } catch (error) {
-            logger.warn(`代理 ${proxy} 请求失败:`, error.message)
+            logger.warn(`代理 ${proxy} 处理失败:`, error.message)
+            // 继续尝试下一个代理
         }
     }
-    throw new Error('所有CORS代理均不可用')
+    // 如果所有代理都失败，尝试使用缓存（即使过期）作为后备
+    const expiredCache = localStorage.getItem(cacheKey)
+    if (expiredCache) {
+        try {
+            const parsed = JSON.parse(expiredCache)
+            if (parsed && parsed.data) {
+                logger.warn('所有代理请求失败，使用过期缓存数据')
+                return parsed.data
+            }
+        } catch {
+            // 忽略过期缓存解析错误
+        }
+    }
+    throw new Error('所有CORS代理均不可用，且无可用缓存')
 }
 const extractVersionFromScript = scriptContent => {
-    const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.]+)/)
+    const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.-]+)/)
     if (versionMatch && versionMatch[1]) {
         return versionMatch[1]
     }
     return null
 }
-const compareVersions = (current, latest) => {
-    const parsePart = part => {
-        const num = parseInt(part, 10)
-        return isNaN(num) ? part.toLowerCase() : num
+const extractChangelogFromScript = scriptContent => {
+    // 尝试从 @update 或 @changelog 标签中提取更新内容
+    const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
+    if (updateMatch && updateMatch[1]) {
+        return updateMatch[1].trim()
     }
-    const currentParts = current.split('.').map(parsePart)
-    const latestParts = latest.split('.').map(parsePart)
-    for (let i = 0; i < Math.max(currentParts.length, latestParts.length); i++) {
-        const curr = currentParts[i] || 0
-        const last = latestParts[i] || 0
-        if (typeof curr !== typeof last) {
-            return String(last) > String(curr)
+    const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
+    if (changelogMatch && changelogMatch[1]) {
+        return changelogMatch[1].trim()
+    }
+    // 尝试从注释块中提取更新内容
+    const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
+    if (commentBlockMatch) {
+        return commentBlockMatch[0]
+            .replace(/\/\*|\*\//g, '')
+            .replace(/(?:更新日志|changelog)/i, '')
+            .trim()
+    }
+    return ''
+}
+const compareVersions = (current, latest) => {
+    const parseVersion = version => {
+        const [core, pre] = version.split('-')
+        const coreParts = core.split('.').map(part => parseInt(part, 10) || 0)
+        const preParts = pre ? pre.split('.').map(part => {
+            const num = parseInt(part, 10)
+            return isNaN(num) ? part.toLowerCase() : num
+        }) : []
+        return { coreParts, preParts }
+    }
+    const curr = parseVersion(current)
+    const last = parseVersion(latest)
+    // 比较核心版本号
+    for (let i = 0; i < Math.max(curr.coreParts.length, last.coreParts.length); i++) {
+        const currPart = curr.coreParts[i] || 0
+        const lastPart = last.coreParts[i] || 0
+        if (lastPart > currPart) return true
+        if (lastPart < currPart) return false
+    }
+    // 核心版本号相同，比较预发布版本
+    // 没有预发布版本的版本比有预发布版本的版本更新
+    if (curr.preParts.length && !last.preParts.length) return false
+    if (!curr.preParts.length && last.preParts.length) return true
+    // 比较预发布版本部分
+    for (let i = 0; i < Math.max(curr.preParts.length, last.preParts.length); i++) {
+        const currPart = curr.preParts[i] || 0
+        const lastPart = last.preParts[i] || 0
+        if (typeof currPart !== typeof lastPart) {
+            // 数字比字符串小
+            return typeof lastPart === 'number' ? false : true
         }
-        if (last > curr) return true
-        if (last < curr) return false
+        if (lastPart > currPart) return true
+        if (lastPart < currPart) return false
     }
     return false
 }
-const generateUpdateList = (items = []) => {
-    if (!Array.isArray(items)) return ''
-    return `
-        <ul class="adjustment-update-contents">
-            ${_.map(items, (item, index) => `<li>${index + 1}. ${item};</li>`).join('')}
-        </ul>
-    `.replace(/\n\s+/g, '').trim()
-}
-export const promptForUpdate = async (currentVersion, updateContents = '') => {
-    logger.info('检查更新')
-    const scriptContent = await fetchLatestScript()
-    if (!scriptContent) return
-    const latestVersion = extractVersionFromScript(scriptContent)
-    // const latestVersion = '9.9.9'
-    if (!latestVersion) {
-        logger.error('从最新脚本中提取版本号失败')
-        return
+const generateUpdateList = changelog => {
+    if (!changelog) return ''
+    // 如果是字符串，尝试解析为列表
+    if (typeof changelog === 'string') {
+        // 按分号分割
+        const items = changelog
+            .split(';')
+            .map(item => item.trim())
+            .filter(item => item)
+        return `
+            <ol class="adjustment-update-contents">
+                ${_.map(items, item => `<li>${item}</li>`).join('')}
+            </ol>
+        `.replace(/\n\s+/g, '').trim()
     }
-    logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
-    if (compareVersions(currentVersion, latestVersion)) {
-        const updateContentsHtml = generateUpdateList(updateContents.split(';'))
-        const updatePopover = createElementAndInsert(getTemplates.replace('update', {
-            current: currentVersion,
-            latest: latestVersion,
-            contents: updateContentsHtml
-        }), document.body, 'append')
-        updatePopover.showPopover()
-        const updateButton = updatePopover.querySelector('.adjustment-button-update')
-        updateButton.addEventListener('click', () => {
-            updatePopover.hidePopover()
-            window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js')
-        })
-    } else {
-        logger.info('已是最新版本')
+    // 如果是数组，直接生成列表
+    if (Array.isArray(changelog)) {
+        return `
+            <ol class="adjustment-update-contents">
+                ${_.map(changelog, item => `<li>${item}</li>`).join('')}
+            </ol>
+        `.replace(/\n\s+/g, '').trim()
+    }
+    return ''
+}
+export const promptForUpdate = async (currentVersion, updates) => {
+    logger.info('检查更新')
+    try {
+        const scriptContent = await fetchLatestScript()
+        if (!scriptContent) {
+            logger.warn('未获取到最新脚本内容')
+            return
+        }
+        const latestVersion = extractVersionFromScript(scriptContent)
+        // const latestVersion = '9.9.9'
+        if (!latestVersion) {
+            logger.error('从最新脚本中提取版本号失败')
+            return
+        }
+        logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
+        if (compareVersions(currentVersion, latestVersion)) {
+            // 使用传入的 updates 内容
+            const updateContentsHtml = generateUpdateList(updates)
+            const updatePopover = createElementAndInsert(getTemplates.replace('update', {
+                current: currentVersion,
+                latest: latestVersion,
+                contents: updateContentsHtml
+            }), document.body, 'append')
+            updatePopover.showPopover()
+            const updateButton = updatePopover.querySelector('.adjustment-button-update')
+            const closeButton = updatePopover.querySelector('.adjustment-button-close')
+            updateButton.addEventListener('click', () => {
+                updatePopover.hidePopover()
+                window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+            })
+            if (closeButton) {
+                closeButton.addEventListener('click', () => {
+                    updatePopover.hidePopover()
+                })
+            }
+            // 30秒后自动关闭弹窗
+            setTimeout(() => {
+                updatePopover.hidePopover()
+            }, 30000)
+        } else {
+            logger.info('已是最新版本')
+        }
+    } catch (error) {
+        logger.error('检查更新过程中发生错误:', error)
+        // 不抛出错误，避免影响应用正常运行
     }
 }
 export const initializeCheckbox = (elements, userConfigs, configKey) => {

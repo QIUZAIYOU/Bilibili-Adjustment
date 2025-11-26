@@ -37,8 +37,16 @@ const initializeApp = () => {
 }
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
 initializeApp()
-setTimeout(() => {
-    promptForUpdate(pkg.version, pkg.updates).catch(error => {
-        logger.error('检查更新失败', error)
-    })
+setTimeout(async () => {
+    try {
+        // 检查用户是否启用了自动检查更新
+        const autoCheckUpdate = await ConfigService.getValue('auto_check_update')
+        if (autoCheckUpdate) {
+            await promptForUpdate(pkg.version, pkg.updates)
+        } else {
+            logger.info('自动检查更新已被用户禁用')
+        }
+    } catch (error) {
+        logger.error('检查更新配置失败', error)
+    }
 }, 0)
