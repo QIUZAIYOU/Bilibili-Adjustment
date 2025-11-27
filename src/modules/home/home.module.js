@@ -9,7 +9,7 @@ import { styles } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'home',
-    version: '1.1.0',
+    version: '1.1.1',
     async install () {
         eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
@@ -40,10 +40,11 @@ export default {
             const url = video.querySelector('a')?.href
             const title = video.querySelector('h3')?.title
             if (location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
-                const data = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
-                if (data) {
-                    const { tid, tid_v2, tname, tname_v2, pic } = data
-                    await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic })
+                const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                if (videoInfo) {
+                    const { tid, tid_v2, tname, tname_v2, pic, owner } = videoInfo
+                    const author = owner?.name || '未知作者'
+                    await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic, author })
                 } else {
                     return
                 }
@@ -96,10 +97,12 @@ export default {
             indexRecommendVideoHistoryList.innerHTML = ''
             for (const record of Object.entries(indexRecommendVideoHistories)) {
                 const video = record[1]
-                const matchesSearch = !searchKeyword || video.title.toLowerCase().includes(searchKeyword.toLowerCase())
+                const matchesSearch = !searchKeyword ||
+                    video.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
+                    (video.author && video.author.toLowerCase().includes(searchKeyword.toLowerCase()))
                 const matchesCategory = !selectedTid || [video.tid, video.tid_v2].includes(selectedTid)
                 if (matchesSearch && matchesCategory) {
-                    createElementAndInsert(`<li><span><img src="${video.pic}"></span><a href="${video.url}" target="_blank">${video.title}</a></li>`, indexRecommendVideoHistoryList)
+                    createElementAndInsert(`<li><span><img src="${video.pic}"></span><div class="video-info"><a href="${video.url}" target="_blank">${video.title}</a><div class="video-author">UP: ${video.author || '未知作者'}</div></div></li>`, indexRecommendVideoHistoryList)
                 }
             }
         }
