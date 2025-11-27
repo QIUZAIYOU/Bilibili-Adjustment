@@ -50,7 +50,7 @@ export default {
                 }
             }
         })
-        logger.info('首页视频推荐历史记录｜已开启')
+        logger.info('首页视频推荐历史｜已记录')
     },
     async insertIndexRecommendVideoHistoryPopover () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper

@@ -405,7 +405,8 @@ export const fetchLatestScript = async () => {
         'https://cors.aiideai-hq.workers.dev/?destination=',
         'https://api.allorigins.win/raw?url=',
         'https://api.codetabs.com/v1/proxy?quest=',
-        'https://thingproxy.freeboard.io/fetch/'
+        'https://thingproxy.freeboard.io/fetch/',
+        'https://cros2.aiideai-hq.workers.dev/?'
     ]
     const targetURL = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
     // 带超时的fetch函数
@@ -427,11 +428,12 @@ export const fetchLatestScript = async () => {
             throw error
         }
     }
-    const tryFetch = async (proxy, retries = 2) => {
+    const tryFetch = async (proxy, targetURL, retries = 2) => {
         for (let i = 0; i < retries; i++) {
             try {
                 const fullUrl = `${proxy}${encodeURIComponent(targetURL)}`
                 logger.debug(`尝试通过代理 ${proxy} 获取脚本 (尝试 ${i + 1}/${retries})`)
+                logger.debug(`完整请求URL: ${fullUrl}`)
                 const data = await fetchWithTimeout(fullUrl, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
                 }, 20000)
@@ -456,7 +458,7 @@ export const fetchLatestScript = async () => {
     const shuffledProxyList = [...CORSProxyList].sort(() => Math.random() - 0.5)
     for (const proxy of shuffledProxyList) {
         try {
-            const data = await tryFetch(proxy)
+            const data = await tryFetch(proxy, targetURL)
             // 验证获取的数据是否有效
             if (data && typeof data === 'string' && data.trim()) {
                 // 保存到缓存
