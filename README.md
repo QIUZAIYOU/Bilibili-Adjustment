@@ -37,10 +37,10 @@
 ## 🛠 功能列表
 
 ### 首页调整
-1. **推荐视频回溯**: 首页新增推荐视频历史记录（仅记录前10个推荐位中的非广告内容），防止误点刷新错过想看的视频；
+1. **推荐视频回溯**：首页新增推荐视频历史记录（仅记录前10个推荐位中的非广告内容），防止误点刷新错过想看的视频；
 
 ### 动态页调整
-1. **默认显示「投稿视频」**: 默认显示「投稿视频」内容，支持自定义URL以防未来变化；
+1. **默认显示「投稿视频」**：默认显示「投稿视频」内容，支持自定义URL以防未来变化；
 
 ### 播放页调整
 1. **自动定位播放器**：进入播放页后自动滚动至播放器，支持偏移量设置；
@@ -134,10 +134,10 @@
 ## ⭐ 第二版与第一版
 
 ### 第二版
-Github: [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-Adjustment-Archived) (已归档)
+Github：[哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-Adjustment-Archived) (已归档)
 
 ### 第一版
-Github:
+Github： 
 - [哔哩哔哩（bilibili.com）播放页调整](https://github.com/QIUZAIYOU/Bilibili-VideoPage-Adjustment) (已归档)
 - [哔哩哔哩（bilibili.com）动态页调整](https://github.com/QIUZAIYOU/Bilibili-DynamicPage-Adjustment) (已归档)
 
