@@ -408,7 +408,7 @@ export const fetchLatestScript = async () => {
         'https://thingproxy.freeboard.io/fetch/',
         'https://cros2.aiideai-hq.workers.dev/?'
     ]
-    const targetURL = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
+    const targetURL = encodeURIComponent('https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js')
     // 带超时的fetch函数
     const fetchWithTimeout = async (url, options = {}, timeout = 30000) => {
         const controller = new AbortController()
@@ -431,7 +431,7 @@ export const fetchLatestScript = async () => {
     const tryFetch = async (proxy, targetURL, retries = 2) => {
         for (let i = 0; i < retries; i++) {
             try {
-                const fullUrl = `${proxy}${encodeURIComponent(targetURL)}`
+                const fullUrl = `${proxy}${targetURL}`
                 logger.debug(`尝试通过代理 ${proxy} 获取脚本 (尝试 ${i + 1}/${retries})`)
                 logger.debug(`完整请求URL: ${fullUrl}`)
                 const data = await fetchWithTimeout(fullUrl, {
@@ -445,7 +445,7 @@ export const fetchLatestScript = async () => {
                 }
             } catch (error) {
                 const errorMsg = error.name === 'AbortError' ? '请求超时' : error.message
-                logger.warn(`代理 ${proxy} 请求失败 (${i + 1}/${retries}):`, errorMsg)
+                logger.warn(`代理 ${proxy}${targetURL} 请求失败 (${i + 1}/${retries}):`, errorMsg)
                 if (i === retries - 1) {
                     throw new Error(`代理请求失败: ${errorMsg}`)
                 }
@@ -469,7 +469,7 @@ export const fetchLatestScript = async () => {
                 return data
             }
         } catch (error) {
-            logger.warn(`代理 ${proxy} 处理失败:`, error.message)
+            logger.warn(`代理 ${proxy}${targetURL} 处理失败 丨`, error.message)
             // 继续尝试下一个代理
         }
     }
@@ -495,26 +495,26 @@ const extractVersionFromScript = scriptContent => {
     }
     return null
 }
-const extractChangelogFromScript = scriptContent => {
-    // 尝试从 @update 或 @changelog 标签中提取更新内容
-    const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
-    if (updateMatch && updateMatch[1]) {
-        return updateMatch[1].trim()
-    }
-    const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
-    if (changelogMatch && changelogMatch[1]) {
-        return changelogMatch[1].trim()
-    }
-    // 尝试从注释块中提取更新内容
-    const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
-    if (commentBlockMatch) {
-        return commentBlockMatch[0]
-            .replace(/\/\*|\*\//g, '')
-            .replace(/(?:更新日志|changelog)/i, '')
-            .trim()
-    }
-    return ''
-}
+// const extractChangelogFromScript = scriptContent => {
+//     // 尝试从 @update 或 @changelog 标签中提取更新内容
+//     const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
+//     if (updateMatch && updateMatch[1]) {
+//         return updateMatch[1].trim()
+//     }
+//     const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
+//     if (changelogMatch && changelogMatch[1]) {
+//         return changelogMatch[1].trim()
+//     }
+//     // 尝试从注释块中提取更新内容
+//     const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
+//     if (commentBlockMatch) {
+//         return commentBlockMatch[0]
+//             .replace(/\/\*|\*\//g, '')
+//             .replace(/(?:更新日志|changelog)/i, '')
+//             .trim()
+//     }
+//     return ''
+// }
 const compareVersions = (current, latest) => {
     const parseVersion = version => {
         const [core, pre] = version.split('-')
