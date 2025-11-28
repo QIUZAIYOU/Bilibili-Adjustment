@@ -615,6 +615,23 @@ export const promptForUpdate = async (currentVersion, updates) => {
             setTimeout(() => {
                 updatePopover.hidePopover()
             }, 30000)
+        } else if (compareVersions(latestVersion, currentVersion)) {
+            // 当前版本大于最新版本，清除缓存
+            logger.info('当前版本大于最新版本，清除缓存')
+            localStorage.removeItem('latestScriptCache')
+            // 更新缓存到最新版本
+            try {
+                const scriptContent = await fetchLatestScript()
+                if (scriptContent) {
+                    localStorage.setItem('latestScriptCache', JSON.stringify({
+                        data: scriptContent,
+                        time: Date.now()
+                    }))
+                    logger.info('缓存已更新')
+                }
+            } catch (error) {
+                logger.error('更新缓存失败:', error)
+            }
         } else {
             logger.info('已是最新版本')
         }
