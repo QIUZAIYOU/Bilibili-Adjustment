@@ -409,7 +409,7 @@ export const fetchLatestScript = async () => {
     ]
     const targetURL = encodeURIComponent('https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js')
     // 带超时的fetch函数
-    const fetchWithTimeout = async (url, options = {}, timeout = 30000) => {
+    const fetchWithTimeout = async (url, options = {}, timeout = 60000) => {
         const controller = new AbortController()
         const timeoutId = setTimeout(() => controller.abort(), timeout)
         try {
@@ -435,7 +435,7 @@ export const fetchLatestScript = async () => {
                 logger.debug(`完整请求URL: ${fullUrl}`)
                 const data = await fetchWithTimeout(fullUrl, {
                     headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }, 20000)
+                }, 60000)
                 if (data && typeof data === 'string' && data.trim()) {
                     logger.debug(`代理 ${proxy} 请求成功`)
                     return data
