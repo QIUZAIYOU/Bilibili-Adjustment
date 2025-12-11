@@ -130,7 +130,7 @@ export default {
                 // eslint-disable-next-line no-unused-vars
                 .reduce((acc, [_, value]) => {
                     const key = `${value.tid}_${value.tname}`
-                    return acc.has(key) ? acc : acc.set(key, { tname: value.tname, tid: value.tid })
+                    return acc.has(key) ? acc : acc.set(key, { tname: value.tname || `未知(tid:${value.tid})`, tid: value.tid })
                 }, new Map())
                 .values()
         )
@@ -139,7 +139,7 @@ export default {
                 // eslint-disable-next-line no-unused-vars
                 .reduce((acc, [_, value]) => {
                     const key = `${value.tid_v2}_${value.tname_v2}`
-                    return acc.has(key) ? acc : acc.set(key, { tname_v2: value.tname_v2, tid_v2: value.tid_v2 })
+                    return acc.has(key) ? acc : acc.set(key, { tname_v2: value.tname_v2 || `未知(tid_v2:${value.tid_v2})`, tid_v2: value.tid_v2 })
                 }, new Map())
                 .values()
         )
