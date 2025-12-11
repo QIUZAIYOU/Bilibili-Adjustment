@@ -1,6 +1,5 @@
 /* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event,_,fetch */
 import { LoggerService } from '@/services/logger.service'
-import axios from 'axios'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('Common')
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
@@ -495,26 +494,26 @@ const extractVersionFromScript = scriptContent => {
     }
     return null
 }
-// const extractChangelogFromScript = scriptContent => {
-//     // 尝试从 @update 或 @changelog 标签中提取更新内容
-//     const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
-//     if (updateMatch && updateMatch[1]) {
-//         return updateMatch[1].trim()
-//     }
-//     const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
-//     if (changelogMatch && changelogMatch[1]) {
-//         return changelogMatch[1].trim()
-//     }
-//     // 尝试从注释块中提取更新内容
-//     const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
-//     if (commentBlockMatch) {
-//         return commentBlockMatch[0]
-//             .replace(/\/\*|\*\//g, '')
-//             .replace(/(?:更新日志|changelog)/i, '')
-//             .trim()
-//     }
-//     return ''
-// }
+const extractChangelogFromScript = scriptContent => {
+    // 尝试从 @update 或 @changelog 标签中提取更新内容
+    const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
+    if (updateMatch && updateMatch[1]) {
+        return updateMatch[1].trim()
+    }
+    const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
+    if (changelogMatch && changelogMatch[1]) {
+        return changelogMatch[1].trim()
+    }
+    // 尝试从注释块中提取更新内容
+    const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
+    if (commentBlockMatch) {
+        return commentBlockMatch[0]
+            .replace(/\/\*|\*\//g, '')
+            .replace(/(?:更新日志|changelog)/i, '')
+            .trim()
+    }
+    return ''
+}
 const compareVersions = (current, latest) => {
     const parseVersion = version => {
         const [core, pre] = version.split('-')
@@ -576,7 +575,7 @@ const generateUpdateList = changelog => {
     }
     return ''
 }
-export const promptForUpdate = async (currentVersion, updates) => {
+export const promptForUpdate = async (currentVersion, localUpdates) => {
     logger.info('检查更新')
     try {
         const scriptContent = await fetchLatestScript()
@@ -592,8 +591,10 @@ export const promptForUpdate = async (currentVersion, updates) => {
         }
         logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
         if (compareVersions(currentVersion, latestVersion)) {
-            // 使用传入的 updates 内容
-            const updateContentsHtml = generateUpdateList(updates)
+            // 提取最新脚本中的更新内容
+            const latestUpdates = extractChangelogFromScript(scriptContent)
+            // 如果无法从远程脚本提取更新内容，则使用本地更新内容作为后备
+            const updateContentsHtml = generateUpdateList(latestUpdates || localUpdates)
             const updatePopover = createElementAndInsert(getTemplates.replace('update', {
                 current: currentVersion,
                 latest: latestVersion,
