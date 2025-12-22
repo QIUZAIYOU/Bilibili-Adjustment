@@ -16,7 +16,7 @@ const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
 export default {
     name: 'video',
-    version: '3.2.1',
+    version: '3.3.0',
     async install () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
@@ -482,20 +482,71 @@ export default {
             logger.info('Hi-Res无损音质丨已启用')
         }
     },
-    async getVideoSubtitle (){
+    async identifyAdvertisementTimestamps () {
+        // 检查自动跳广告开关是否开启
+        if (!this.userConfigs.auto_skip) {
+            logger.info('自动跳过广告丨功能已关闭')
+            return
+        }
         const bvid = biliApis.getCurrentVideoID(window.location.href)
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
         const cid = videoInfo.cid
         const up_mid = videoInfo.owner.mid
         const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
-        return subtitle
-    },
-    async identifyAdvertisementTimestamps () {
-        const subtitle = await this.getVideoSubtitle()
-        if (!subtitle) return
-        const timestamps = await deepseekService.identifyAdvertisementTimestamps(subtitle)
-        logger.info('广告时间戳识别结果:', timestamps)
+        // logger.info('获取视频字幕', subtitle)
+        if (subtitle.length === 0) return
+        const subtitlesJsonString = JSON.stringify(subtitle)
+        const timestamps = await deepseekService.identifyAdvertisementSegments(subtitlesJsonString)
+        // logger.info('广告时间戳识别结果:', timestamps)
+        // 调用自动跳过广告函数
+        this.autoSkipAdvertisementSegments(timestamps)
         return timestamps
+    },
+    async autoSkipAdvertisementSegments (advertisementSegments) {
+        if (!advertisementSegments || advertisementSegments.length === 0) {
+            logger.info('自动跳过广告丨无广告时间段落，功能已关闭')
+            return
+        }
+        const video = await elementSelectors.video
+        if (!video) return
+        // 按start时间升序排序，确保正确处理多个广告时间段
+        const sortedSegments = [...advertisementSegments].sort((a, b) => a.start - b.start)
+        const processedSegments = new Set()
+        const handleTimeUpdate = () => {
+            const currentTime = Math.floor(video.currentTime)
+            // 遍历所有广告时间段，检查是否需要跳转
+            for (const segment of sortedSegments) {
+                const { start, end } = segment
+                const segmentKey = `${start}-${end}`
+                // 只处理未处理过的时间段
+                if (!processedSegments.has(segmentKey)) {
+                    // 当播放到start时间时，跳转到end时间
+                    if (currentTime === start) {
+                        logger.info(`自动跳过广告丨从 ${start}s 跳转到 ${end}s`)
+                        video.currentTime = end
+                        processedSegments.add(segmentKey)
+                        break
+                    }
+                    // 如果当前时间已经在广告时间段内，直接跳转到end时间
+                    if (currentTime > start && currentTime < end) {
+                        logger.info(`自动跳过广告丨当前在广告时间段 ${start}s-${end}s 内，跳转到 ${end}s`)
+                        video.currentTime = end
+                        processedSegments.add(segmentKey)
+                        break
+                    }
+                }
+            }
+            // 当所有广告都处理完后，移除事件监听器
+            if (processedSegments.size === sortedSegments.length) {
+                video.removeEventListener('timeupdate', handleTimeUpdate)
+                logger.info('自动跳过广告丨所有广告已处理完成，移除事件监听器')
+            }
+        }
+        // 添加事件监听器
+        video.addEventListener('timeupdate', handleTimeUpdate)
+        logger.info('自动跳过广告丨已启动，共检测到', sortedSegments.length, '个广告时间段')
+        // 初始检查，处理当前时间已经在广告时间段内的情况
+        handleTimeUpdate()
     },
     async handleHrefChangedFunctionsSequentially (){
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
@@ -512,6 +563,7 @@ export default {
     handleExecuteFunctionsSequentially () {
         const functions = [
             this.insertSideFloatNavToolsButtons,
+            [this.autoSkipAdvertisementSegments, Boolean(this.userConfigs.auto_skip)],
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
             [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
             this.unlockEpisodeSelector,
@@ -521,8 +573,7 @@ export default {
             this.insertAutoEnableSubtitleSwitchButton,
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
-            this.doSomethingToCommentElements,
-            this.identifyAdvertisementTimestamps
+            this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)
         this.autoEnableSubtitle()
