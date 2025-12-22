@@ -10,6 +10,7 @@ import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { formatVideoCommentDescription, formatVideoCommentContents } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
+import { deepseekService } from '@/services/deepseek.service'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
@@ -481,6 +482,21 @@ export default {
             logger.info('Hi-Res无损音质丨已启用')
         }
     },
+    async getVideoSubtitle (){
+        const bvid = biliApis.getCurrentVideoID(window.location.href)
+        const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
+        const cid = videoInfo.cid
+        const up_mid = videoInfo.owner.mid
+        const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
+        return subtitle
+    },
+    async identifyAdvertisementTimestamps () {
+        const subtitle = await this.getVideoSubtitle()
+        if (!subtitle) return
+        const timestamps = await deepseekService.identifyAdvertisementTimestamps(subtitle)
+        logger.info('广告时间戳识别结果:', timestamps)
+        return timestamps
+    },
     async handleHrefChangedFunctionsSequentially (){
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
@@ -505,7 +521,8 @@ export default {
             this.insertAutoEnableSubtitleSwitchButton,
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
-            this.doSomethingToCommentElements
+            this.doSomethingToCommentElements,
+            this.identifyAdvertisementTimestamps
         ]
         executeFunctionsSequentially(functions)
         this.autoEnableSubtitle()
