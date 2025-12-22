@@ -56,13 +56,14 @@ export class SettingsComponent {
             RemoveCommentTags: this.userConfigs.hide_reply_tag,
             AutoHiRes: this.userConfigs.auto_hi_res,
             AutoHiResStyle: this.userConfigs.is_vip ? 'flex' : 'none',
-            AutoCheckUpdate: this.userConfigs.auto_check_update
+            AutoCheckUpdate: this.userConfigs.auto_check_update,
+            AiApikey: this.userConfigs.ai_apikey
         })
         createElementAndInsert(videoSettings, document.body)
     }
     async initVideoSettingsEventListeners () {
-        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate']
-        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate', 'AiApikey']
+        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, AiApikey] = await elementSelectors.batch(batchSelectors)
         addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
@@ -93,6 +94,9 @@ export class SettingsComponent {
         })
         addEventListenerToElement(OffsetTop, 'change', async e => {
             await storageService.userSet('offset_top', e.target.value)
+        })
+        addEventListenerToElement(AiApikey, 'change', async e => {
+            await storageService.userSet('ai_apikey', e.target.value)
         })
         elementSelectors.each('SelectPlayerModeButtons', btn => {
             addEventListenerToElement(btn, 'click', async e => {

@@ -33,7 +33,8 @@ export class ConfigService {
         ['show_location', true],
         ['remove_comment_tags', true],
         ['auto_hi_res', true],
-        ['auto_check_update', true]
+        ['auto_check_update', true],
+        ['ai_apikey', '']
     ])
     static async initialize () {
         if (this.#initialized) return

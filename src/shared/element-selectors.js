@@ -132,6 +132,7 @@ const selectors = {
     AutoHiRes: '#AutoHiRes',
     RemoveCommentTags: '#RemoveCommentTags',
     AutoCheckUpdate: '#AutoCheckUpdate',
+    AiApikey: '#AiApikey',
     ExportUserConfigs: '#ExportUserConfigs',
     ImportUserConfigsFileInput: '#ImportUserConfigsFileInput',
     ImportUserConfigs: '#ImportUserConfigs',
