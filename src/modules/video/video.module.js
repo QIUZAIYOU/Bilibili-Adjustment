@@ -544,7 +544,7 @@ export default {
         }
         // 添加事件监听器
         video.addEventListener('timeupdate', handleTimeUpdate)
-        logger.info('自动跳过广告丨已启动，共检测到', sortedSegments.length, '个广告时间段')
+        logger.info('自动跳过广告丨已启动，共检测到', sortedSegments.length, '个广告时间段', sortedSegments)
         // 初始检查，处理当前时间已经在广告时间段内的情况
         handleTimeUpdate()
     },
@@ -563,7 +563,7 @@ export default {
     handleExecuteFunctionsSequentially () {
         const functions = [
             this.insertSideFloatNavToolsButtons,
-            [this.autoSkipAdvertisementSegments, Boolean(this.userConfigs.auto_skip)],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip)],
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
             [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
             this.unlockEpisodeSelector,
