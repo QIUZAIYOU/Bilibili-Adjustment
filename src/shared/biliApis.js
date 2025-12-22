@@ -80,7 +80,7 @@ export const biliApis = {
     },
     async getUserInformation (userId) {
         const url = `https://api.bilibili.com/x/web-interface/card?mid=${userId}`
-        const { data, data: { code }} = await axios.get(url, { withCredentials: true })
+        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
         if (code === 0) return data
         else if (code === -400) logger.info('获取用户基本信息丨请求错误')
         else if (code === -403) logger.info('获取用户基本信息丨权限不足')
@@ -91,8 +91,8 @@ export const biliApis = {
     async getVideoSubtitle (bvid, cid, up_mid){
         const wib = await biliApis.getQueryWithWbi({ bvid: bvid, cid: cid, up_mid: up_mid })
         const url = `https://api.bilibili.com/x/web-interface/view/conclusion/get?${wib}`
-        const { data, data: { code }} = await axios.get(url, { withCredentials: true })
-        if (code === 0) return data
+        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+        if (code === 0) return data?.model_result?.subtitle?.[0]?.part_subtitle || []
         else if (code === -101) logger.info('获取视频字幕丨账号未登录')
         else if (code === -400) logger.info('获取视频字幕丨请求错误')
         else if (code === -403) logger.info('获取视频字幕丨访问权限不足')
@@ -108,7 +108,7 @@ export const biliApis = {
     async getUserVideoList (userId) {
         const wib = await biliApis.getQueryWithWbi({ mid: userId })
         const url = `https://api.bilibili.com/x/space/wbi/arc/search?${wib}`
-        const { data, data: { code }} = await axios.get(url, { withCredentials: true })
+        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
         if (code === 0) return data
         else if (code === -400) {
             logger.info('获取用户投稿视频列表丨权限不足')
