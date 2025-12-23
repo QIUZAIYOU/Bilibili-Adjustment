@@ -552,6 +552,7 @@ export default {
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         this.locateToPlayer()
         const hrefChangeFunctions = [
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
             this.unlockEpisodeSelector
