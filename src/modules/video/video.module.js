@@ -564,7 +564,6 @@ export default {
     handleExecuteFunctionsSequentially () {
         const functions = [
             this.insertSideFloatNavToolsButtons,
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip)],
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
             [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
             this.unlockEpisodeSelector,
@@ -574,6 +573,7 @@ export default {
             this.insertAutoEnableSubtitleSwitchButton,
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip)],
             this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)
