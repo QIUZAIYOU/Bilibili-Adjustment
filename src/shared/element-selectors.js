@@ -75,7 +75,7 @@ const selectors = {
     saveRecordsButton: '#saveRecordsButton',
     uploadSkipTimeNodesButton: '#uploadSkipTimeNodesButton',
     syncSkipTimeNodesButton: '#syncSkipTimeNodesButton',
-    indexApp: '#i_cecream',
+    indexApp: '#app',
     indexRecommendVideo: '.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))',
     indexRecommendVideoRollButtonWrapper: '.recommended-container_floor-aside .feed-roll-btn',
     indexRecommendVideoHistoryPopoverTitle: '#indexRecommendVideoHistoryPopoverTitle',
