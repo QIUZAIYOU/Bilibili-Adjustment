@@ -34,7 +34,12 @@ export class ConfigService {
         ['remove_comment_tags', true],
         ['auto_hi_res', true],
         ['auto_check_update', true],
-        ['ai_apikey', '']
+        ['ai_apikey', ''],
+        // 日志级别配置
+        ['log_level_info', true],
+        ['log_level_error', true],
+        ['log_level_warn', true],
+        ['log_level_debug', import.meta.env.DEV]
     ])
     static async initialize () {
         if (this.#initialized) return
