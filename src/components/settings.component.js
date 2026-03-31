@@ -57,18 +57,23 @@ export class SettingsComponent {
             AutoHiRes: this.userConfigs.auto_hi_res,
             AutoHiResStyle: this.userConfigs.is_vip ? 'flex' : 'none',
             AutoCheckUpdate: this.userConfigs.auto_check_update,
-            AiApikey: this.userConfigs.ai_apikey
+            AiApikey: this.userConfigs.ai_apikey,
+            // 日志级别配置
+            LogLevelInfo: this.userConfigs.log_level_info,
+            LogLevelError: this.userConfigs.log_level_error,
+            LogLevelWarn: this.userConfigs.log_level_warn,
+            LogLevelDebug: this.userConfigs.log_level_debug
         })
         createElementAndInsert(videoSettings, document.body)
     }
     async initVideoSettingsEventListeners () {
-        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate', 'AiApikey']
-        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, AiApikey] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate', 'AiApikey', 'LogLevelInfo', 'LogLevelError', 'LogLevelWarn', 'LogLevelDebug']
+        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, AiApikey, LogLevelInfo, LogLevelError, LogLevelWarn, LogLevelDebug] = await elementSelectors.batch(batchSelectors)
         addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate]
+        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, LogLevelInfo, LogLevelError, LogLevelWarn, LogLevelDebug]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = _.snakeCase(e.target.id).replace(/_(\d)_k/g, '$1k')
@@ -90,6 +95,11 @@ export class SettingsComponent {
                     AutoEnableSubtitleSwitchInput.checked = e.target?.checked
                     AutoEnableSubtitleSwitchInput.setAttribute('checked', e.target?.checked.toString())
                 }
+            }
+            // 当日志级别配置变化时，更新日志级别，动态导入 LoggerService 避免循环依赖
+            if (e.target.id.startsWith('LogLevel')) {
+                const { LoggerService } = await import('@/services/logger.service')
+                await LoggerService.updateLogLevelsFromConfig()
             }
         })
         addEventListenerToElement(OffsetTop, 'change', async e => {

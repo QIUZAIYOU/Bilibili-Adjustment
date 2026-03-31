@@ -178,58 +178,67 @@ export default {
         video.currentTime = targetTime
         video.play()
     },
+    // 显示评论IP属地
+    showLocation (host, location) {
+        try {
+            const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
+            if (existingLocation) return
+            const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
+            const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
+            createElementAndInsert(locationWrapperHtml, pubdate, 'after')
+        } catch (error) {
+            logger.error('插入位置信息失败:', error)
+        }
+    },
+    
+    // 激活评论时间锚点
+    async activeTimeSeek (host, video) {
+        const descriptionTimeSeekElements = shadowDOMHelper.querySelectorAll('#adjustment-comment-description a[data-type="seek"]')
+        const commentTimeSeekElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.timeSeekElement, true)
+        const timeSeekElements = [...descriptionTimeSeekElements, ...commentTimeSeekElements]
+        timeSeekElements.forEach(element => {
+            addEventListenerToElement(element, 'click', async event => {
+                event.stopPropagation()
+                await this.locateToPlayer()
+                this.handleJumpToVideoTime(video, element)
+            })
+        })
+    },
+    
+    // 移除评论标签
+    removeCommentTagElements (host) {
+        const tagElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.commentTags, true)
+        tagElements.forEach(tag => {
+            tag.remove()
+        })
+    },
+    
+    // 格式化评论内容
+    formatCommentContents (host) {
+        const contents = shadowDOMHelper.queryDescendant(host, '#contents')
+        contents.innerHTML = formatVideoCommentContents(contents)
+    },
+    
+    // 处理评论元素
     async doSomethingToCommentElements () {
         const video = await elementSelectors.video
-        const showLocation = (host, location) => {
-            try {
-                const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
-                if (existingLocation) return
-                const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
-                const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
-                createElementAndInsert(locationWrapperHtml, pubdate, 'after')
-            } catch (error) {
-                logger.error('插入位置信息失败:', error)
-            }
-        }
-        const activeTimeSeek = host => {
-            const descriptionTimeSeekElements = shadowDOMHelper.querySelectorAll('#adjustment-comment-description a[data-type="seek"]')
-            const commentTimeSeekElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.timeSeekElement, true)
-            const timeSeekElements = [...descriptionTimeSeekElements, ...commentTimeSeekElements]
-            timeSeekElements.forEach(element => {
-                addEventListenerToElement(element, 'click', async event => {
-                    event.stopPropagation()
-                    await this.locateToPlayer()
-                    this.handleJumpToVideoTime(video, element)
-                })
-            })
-        }
-        const removeCommentTagElements = host => {
-            const tagElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.commentTags, true)
-            tagElements.forEach(tag => {
-                tag.remove()
-            })
-        }
-        const formatCommentContents = host => {
-            const contents = shadowDOMHelper.queryDescendant(host, '#contents')
-            contents.innerHTML = formatVideoCommentContents(contents)
-        }
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
             if (root){
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
-                    formatCommentContents(renderder)
-                    activeTimeSeek(renderder)
+                    this.formatCommentContents(renderder)
+                    this.activeTimeSeek(renderder, video)
                     if (this.userConfigs.show_location){
-                        showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                        this.showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
                     }
                     if (this.userConfigs.remove_comment_tags){
-                        removeCommentTagElements(renderder)
+                        this.removeCommentTagElements(renderder)
                     }
                 }, root)
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
-                    formatCommentContents(renderder)
-                    activeTimeSeek(renderder)
+                    this.formatCommentContents(renderder)
+                    this.activeTimeSeek(renderder, video)
                     if (this.userConfigs.show_location){
-                        showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                        this.showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
                     }
                 }, root)
             }
@@ -408,6 +417,18 @@ export default {
             })
         }
     },
+    // 重置播放器布局
+    async resetPlayerLayout (playerWrap, player) {
+        insertStyleToDocument({
+            'UnlockWebPlayerStyle': styles.UnlockWebPlayer,
+            'ResetPlayerLayoutStyle': styles.ResetPlayerLayout
+        })
+        playerWrap.append(player)
+        await storageService.set('current_player_mode', 'wide')
+        await this.locateToPlayer()
+    },
+    
+    // 解锁网页全屏模式
     async webfullPlayerModeUnlock () {
         const batchSelectors = [
             'app',
@@ -421,27 +442,25 @@ export default {
             'playerModeFullControlButton'
         ]
         const [app, playerWrap, player, playerWebscreen, wideEnterButton, wideLeaveButton, webEnterButton, webLeaveButton, fullControlButton] = await elementSelectors.batch(batchSelectors)
-        const resetPlayerLayout = async () => {
-            insertStyleToDocument({
-                'UnlockWebPlayerStyle': styles.UnlockWebPlayer,
-                'ResetPlayerLayoutStyle': styles.ResetPlayerLayout
-            })
-            playerWrap.append(player)
-            await storageService.set('current_player_mode', 'wide')
-            await this.locateToPlayer()
-        }
+        
+        // 插入解锁样式
         insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
         app.prepend(playerWebscreen)
+        
+        // 监听模式切换按钮
         addEventListenerToElement([webLeaveButton, wideEnterButton, wideLeaveButton, fullControlButton], 'click', async () => {
             await sleep(100)
-            await resetPlayerLayout()
+            await this.resetPlayerLayout(playerWrap, player)
         })
+        
+        // 监听网页全屏进入按钮
         addEventListenerToElement(webEnterButton, 'click', async () => {
             const UnlockWebPlayerStyle = elementSelectors.UnlockWebPlayerStyle
             !UnlockWebPlayerStyle && insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
             app.prepend(playerWebscreen)
             await this.locateToPlayer()
         })
+        
         logger.info('网页全屏丨已解锁')
         eventBus.emit('video:webfullPlayerModeUnlock')
     },
