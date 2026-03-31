@@ -5,6 +5,7 @@ export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
     #modules = new Map()
+    #moduleCache = new Map() // 模块缓存，避免重复加载
     #config = {
         lazyInit: false
     }
@@ -60,6 +61,42 @@ export class ModuleSystem {
             this.#initializeModule(moduleMeta)
         }
         return moduleMeta.instance
+    }
+    
+    // 动态加载模块
+    async loadModule(moduleName, moduleConfig) {
+        this.register(moduleConfig)
+        const moduleMeta = this.#modules.get(moduleName)
+        if (moduleMeta && !moduleMeta.instance) {
+            this.#initializeModule(moduleMeta)
+        }
+        return moduleMeta?.instance
+    }
+    
+    // 卸载模块
+    unloadModule(moduleName) {
+        const moduleMeta = this.#modules.get(moduleName)
+        if (moduleMeta) {
+            // 调用模块的卸载方法（如果存在）
+            if (moduleMeta.instance && typeof moduleMeta.instance.uninstall === 'function') {
+                try {
+                    moduleMeta.instance.uninstall()
+                } catch (error) {
+                    this.#handleError(`模块 ${moduleName} 卸载失败`, 'warn', { error })
+                }
+            }
+            // 从模块列表中移除
+            this.#modules.delete(moduleName)
+            eventBus.emit('module:unloaded', { name: moduleName })
+            this.#logger.debug(`模块已卸载: ${moduleName}`)
+        }
+    }
+    
+    // 清空所有模块
+    clearModules() {
+        const moduleNames = Array.from(this.#modules.keys())
+        moduleNames.forEach(name => this.unloadModule(name))
+        this.#logger.debug('所有模块已清空')
     }
     #initializeModule (moduleMeta) {
         try {

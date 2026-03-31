@@ -22,13 +22,33 @@ export class LoggerService {
         warn: true,
         debug: import.meta.env.DEV
     }
-    static PAGE_TYPE_PREFIX = getPageTypePrefix()
+    
+    // 根据用户配置更新日志级别
+    static async updateLogLevelsFromConfig() {
+        try {
+            // 动态导入 ConfigService，避免循环依赖
+            const { ConfigService } = await import('@/services/config.service')
+            const logLevels = {
+                info: await ConfigService.getValue('log_level_info'),
+                error: await ConfigService.getValue('log_level_error'),
+                warn: await ConfigService.getValue('log_level_warn'),
+                debug: await ConfigService.getValue('log_level_debug')
+            }
+            this.updateLogLevels(logLevels)
+        } catch (error) {
+            console.error('更新日志级别失败:', error)
+        }
+    }
+    static get PAGE_TYPE_PREFIX () {
+        return getPageTypePrefix()
+    }
     constructor (module) {
         this.module = module
     }
     log (level, ...args) {
         if (LoggerService.ENABLED_LEVELS[level]) {
-            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX}${level === 'debug' ? `(调试)丨${this.module}` : import.meta.env.DEV ? ` ${this.module}` : ''}`, LoggerService.LEVELS[level], ...args)
+            const timestamp = new Date().toLocaleTimeString()
+            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX} ${timestamp}${level === 'debug' ? `(调试)丨${this.module}` : import.meta.env.DEV ? ` ${this.module}` : ''}`, LoggerService.LEVELS[level], ...args)
         }
     }
     info (...args) {
@@ -42,5 +62,13 @@ export class LoggerService {
     }
     debug (...args) {
         this.log('debug', ...args)
+    }
+    // 静态方法：更新日志级别配置
+    static updateLogLevels(levels) {
+        Object.assign(LoggerService.ENABLED_LEVELS, levels)
+    }
+    // 静态方法：获取当前日志级别配置
+    static getLogLevels() {
+        return { ...LoggerService.ENABLED_LEVELS }
     }
 }
