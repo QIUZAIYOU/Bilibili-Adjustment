@@ -35,11 +35,16 @@ export class ConfigService {
         ['auto_hi_res', true],
         ['auto_check_update', true],
         ['ai_apikey', ''],
+        ['ai_provider', 'deepseek'], // AI 服务提供商 (deepseek, openai)
         // 日志级别配置
         ['log_level_info', true],
         ['log_level_error', true],
         ['log_level_warn', true],
-        ['log_level_debug', import.meta.env.DEV]
+        ['log_level_debug', import.meta.env.DEV],
+        // 更新配置
+        ['update_check_frequency', 24], // 更新检查频率（小时）
+        ['auto_update', false], // 自动更新
+        ['skip_update_check', false] // 跳过更新检查
     ])
     static async initialize () {
         if (this.#initialized) return

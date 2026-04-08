@@ -10,10 +10,13 @@ import { biliApis } from '@/shared/biliApis'
 import { styles } from '@/shared/styles'
 import { formatVideoCommentDescription, formatVideoCommentContents } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
-import { deepseekService } from '@/services/deepseek.service'
+import { aiService, initializeAIService } from '@/services/ai.service'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
+
+// 跟踪广告识别函数的执行状态
+let advertisementIdentified = false
 export default {
     name: 'video',
     version: '3.3.0',
@@ -90,6 +93,16 @@ export default {
         }
     },
     async autoSelectPlayerMode () {
+        // 先判断当前播放器模式是否已经是用户设置的模式
+        const playerContainer = await elementSelectors.playerContainer
+        const currentPlayerMode = playerContainer.getAttribute('data-screen')
+        
+        if (currentPlayerMode === this.userConfigs.selected_player_mode) {
+            logger.debug(`屏幕模式丨当前已是${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : this.userConfigs.selected_player_mode === 'web' ? '网页全屏' : '正常'}模式，跳过切换`)
+            eventBus.emit('video:playerModeSelected')
+            return
+        }
+        
         const selectPlayerModeStrategies = [
             {
                 type: 'wide',
@@ -153,6 +166,23 @@ export default {
             eventBus.emit('video:startOtherFunctions')
             return
         }
+        
+        // 先判断当前页面是否已经定位到了播放器位置
+        const playerContainer = await elementSelectors.playerContainer
+        const playerMode = playerContainer.getAttribute('data-screen')
+        const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
+        const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
+        const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
+        const targetOffset = playerOffsetTop - this.userConfigs.offset_top
+        const currentScrollTop = window.scrollY
+        
+        // 允许一定的误差范围（50px）
+        if (Math.abs(currentScrollTop - targetOffset) < 50) {
+            logger.debug('自动定位丨当前已在播放器位置附近，跳过定位')
+            eventBus.emit('video:startOtherFunctions')
+            return
+        }
+        
         await sleep(300)
         await this.locateToPlayer()
         logger.info('自动定位丨成功')
@@ -303,6 +333,16 @@ export default {
     },
     async insertAutoEnableSubtitleSwitchButton () {
         const [playerDanmuSetting, playerTooltipArea, AutoSubtitle] = await elementSelectors.batch(['playerDanmuSetting', 'playerTooltipArea', 'AutoSubtitle'])
+        
+        // 检查是否已经存在自动开启字幕的开关按钮
+        const existingSwitchButton = document.getElementById('autoEnableSubtitleSwitchButton')
+        const existingTip = document.getElementById('autoEnableSubtitleTip')
+        
+        if (existingSwitchButton && existingTip) {
+            logger.debug('自动开启字幕开关丨已存在，跳过插入')
+            return
+        }
+        
         const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButton', {
             autoSubtitle: this.userConfigs.auto_subtitle
         }), playerDanmuSetting, 'after')
@@ -330,56 +370,87 @@ export default {
     async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild.attributes[1].name : ''
+        
+        // 检查是否已经存在定位按钮和设置按钮
+        const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
+        const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
+        
+        if (existingLocateButton && existingSettingsButton) {
+            logger.debug('侧边栏工具丨已存在，跳过插入')
+            return
+        }
+        
         let locateButton, videoSettingsOpenButton
         if (this.userConfigs.page_type === 'video') {
-            locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
-                class: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
-                style: '',
-                dataV: dataV,
-                text: '定位'
-            }), floatNav.lastElementChild, 'prepend')
-            videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
-                dataV: dataV,
-                floatNavMenuItemClass: '',
-                text: '设置'
-            }), floatNav.lastElementChild, 'prepend')
+            if (!existingLocateButton) {
+                locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
+                    class: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
+                    style: '',
+                    dataV: dataV,
+                    text: '定位'
+                }), floatNav.lastElementChild, 'prepend')
+                addEventListenerToElement(locateButton, 'click', async () => {
+                    await this.locateToPlayer()
+                })
+            }
+            if (!existingSettingsButton) {
+                videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
+                    dataV: dataV,
+                    floatNavMenuItemClass: '',
+                    text: '设置'
+                }), floatNav.lastElementChild, 'prepend')
+                addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
+                    const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
+                    VideoSettingsPopover.showPopover()
+                })
+            }
         }
         if (this.userConfigs.page_type === 'bangumi') {
-            locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
-                class: 'bili-adjustment-icon locate',
-                style: `style="height:40px;padding:0;${styles.videoSettingsOpenButton}"`,
-                dataV: dataV,
-                text: ''
-            }), floatNav, 'append')
-            videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
-                floatNavMenuItemClass: '',
-                style: `style="${styles.videoSettingsOpenButton}"`,
-                dataV: '',
-                text: ''
-            }), floatNav, 'append')
+            if (!existingLocateButton) {
+                locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
+                    class: 'bili-adjustment-icon locate',
+                    style: `style="height:40px;padding:0;${styles.videoSettingsOpenButton}"`,
+                    dataV: dataV,
+                    text: ''
+                }), floatNav, 'append')
+                addEventListenerToElement(locateButton, 'click', async () => {
+                    await this.locateToPlayer()
+                })
+            }
+            if (!existingSettingsButton) {
+                videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
+                    floatNavMenuItemClass: '',
+                    style: `style="${styles.videoSettingsOpenButton}"`,
+                    dataV: '',
+                    text: ''
+                }), floatNav, 'append')
+                addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
+                    const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
+                    VideoSettingsPopover.showPopover()
+                })
+            }
         }
-        addEventListenerToElement(locateButton, 'click', async () => {
-            await this.locateToPlayer()
-        })
-        addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
-            const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
-            VideoSettingsPopover.showPopover()
-        })
         logger.debug('侧边栏工具丨插入成功')
     },
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         const videoDescription = videoInfo.desc
+        
+        // 移除现有的视频简介元素
         shadowDOMHelper.querySelector(elementSelectors.value('adjustmentCommentDescription'))?.remove()
+        
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
             const baseURI = videoDescriptionInfoElement.baseURI
             if (baseURI === location.href){
                 clearInterval(checkAndTrigger)
+                
+                // 再次移除现有的视频简介元素，确保不会重复
                 const adjustmentCommentDescription = await elementSelectors.query('adjustmentCommentDescription')
                 adjustmentCommentDescription?.remove()
+                
                 const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
                 if (videoDescriptionElement.childElementCount > 1 && videoDescriptionInfoElement.childElementCount > 0) {
                     const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
@@ -507,19 +578,44 @@ export default {
             logger.info('自动跳过广告丨功能已关闭')
             return
         }
+        
+        // 检查是否已经执行过广告识别
+        if (advertisementIdentified) {
+            logger.debug('自动跳过广告丨已执行过，跳过重复执行')
+            return
+        }
+        
+        // 标记广告识别已执行
+        advertisementIdentified = true
+        
+        // 30秒后重置广告识别状态，以便在视频切换时重新执行
+        setTimeout(() => {
+            advertisementIdentified = false
+        }, 30000)
+        
         const bvid = biliApis.getCurrentVideoID(window.location.href)
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
         const cid = videoInfo.cid
         const up_mid = videoInfo.owner.mid
         const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
         // logger.info('获取视频字幕', subtitle)
-        if (subtitle.length === 0) return
+        if (!subtitle || subtitle.length === 0) {
+            return
+        }
         const subtitlesJsonString = JSON.stringify(subtitle)
-        const timestamps = await deepseekService.identifyAdvertisementSegments(subtitlesJsonString)
-        // logger.info('广告时间戳识别结果:', timestamps)
-        // 调用自动跳过广告函数
-        this.autoSkipAdvertisementSegments(timestamps)
-        return timestamps
+        // 初始化AI服务
+        try {
+            await initializeAIService()
+            const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
+            // logger.info('广告时间戳识别结果:', timestamps)
+            // 调用自动跳过广告函数
+            this.autoSkipAdvertisementSegments(timestamps)
+            return timestamps
+        } catch (error) {
+            logger.error('AI服务初始化或广告识别失败:', error)
+            logger.warn('自动跳过广告功能暂时不可用，请检查AI服务配置')
+            return []
+        }
     },
     async autoSkipAdvertisementSegments (advertisementSegments) {
         if (!advertisementSegments || advertisementSegments.length === 0) {
