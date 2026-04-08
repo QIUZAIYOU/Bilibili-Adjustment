@@ -12,23 +12,69 @@ export class SettingsComponent {
     async init (userConfigs) {
         this.userConfigs = userConfigs
         this.pageType = detectivePageType()
-        this.render(this.pageType)
+        await this.render(this.pageType)
     }
-    render (pageType) {
-        switch (pageType) {
-            case 'video':
-                this.renderVideoSettings()
-                this.initVideoSettingsEventListeners()
-                break
-            case 'dynamic':
-                this.renderDynamicSettings()
-                this.initDynamicSettingsEventListeners()
-                break
-            default:
-                break
+    async render (pageType) {
+        try {
+            switch (pageType) {
+                case 'video':
+                    this.renderVideoSettings()
+                    await this.initVideoSettingsEventListeners()
+                    break
+                case 'dynamic':
+                    this.renderDynamicSettings()
+                    await this.initDynamicSettingsEventListeners()
+                    break
+                default:
+                    logger.debug(`不支持的页面类型: ${pageType}`)
+                    break
+            }
+        } catch (error) {
+            logger.error('设置面板渲染失败', error)
         }
     }
     renderVideoSettings (){
+        // 先检查是否已经存在设置面板，如果存在，就先移除它
+        const existingSettings = document.getElementById('VideoSettingsPopover')
+        if (existingSettings) {
+            existingSettings.remove()
+        }
+        
+        // 生成 AI 服务提供商选项
+        const aiProviderOptions = [
+            { value: 'deepseek', label: 'DeepSeek' },
+            { value: 'openai', label: 'OpenAI' }
+        ].map(option => `
+            <option value="${option.value}" ${this.userConfigs.ai_provider === option.value ? 'selected' : ''}>
+                ${option.label}
+            </option>
+        `).join('')
+
+        // 生成更新检查频率选项
+        const updateCheckFrequencyOptions = [
+            { value: 6, label: '6小时' },
+            { value: 12, label: '12小时' },
+            { value: 24, label: '24小时' },
+            { value: 48, label: '48小时' },
+            { value: 72, label: '72小时' }
+        ].map(option => `
+            <option value="${option.value}" ${this.userConfigs.update_check_frequency === option.value ? 'selected' : ''}>
+                ${option.label}
+            </option>
+        `).join('')
+
+        // 生成日志级别选项
+        const logLevelOptions = [
+            { value: 'info', label: 'Info' },
+            { value: 'error', label: 'Error' },
+            { value: 'warn', label: 'Warn' },
+            { value: 'debug', label: 'Debug' }
+        ].map(option => `
+            <option value="${option.value}" ${this.userConfigs.log_level === option.value ? 'selected' : ''}>
+                ${option.label}
+            </option>
+        `).join('')
+
         const videoSettings = getTemplates.replace('videoSettings', {
             IsVip: this.userConfigs.is_vip,
             AutoLocate: this.userConfigs.auto_locate,
@@ -62,32 +108,91 @@ export class SettingsComponent {
             LogLevelInfo: this.userConfigs.log_level_info,
             LogLevelError: this.userConfigs.log_level_error,
             LogLevelWarn: this.userConfigs.log_level_warn,
-            LogLevelDebug: this.userConfigs.log_level_debug
+            LogLevelDebug: this.userConfigs.log_level_debug,
+            LOGLEVELOPTIONS: logLevelOptions,
+            // 更新配置
+            UpdateCheckFrequency: this.userConfigs.update_check_frequency,
+            UPDATECHECKFREQUENCYOPTIONS: updateCheckFrequencyOptions,
+            AutoUpdate: this.userConfigs.auto_update,
+            SkipUpdateCheck: this.userConfigs.skip_update_check,
+            // AI 服务配置
+            AIProvider: this.userConfigs.ai_provider,
+            AIPROVIDEROPTIONS: aiProviderOptions,
+            // 显示评论IP属地
+            ShowCommentLocation: this.userConfigs.show_comment_location
         })
         createElementAndInsert(videoSettings, document.body)
     }
     async initVideoSettingsEventListeners () {
-        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate', 'AiApikey', 'LogLevelInfo', 'LogLevelError', 'LogLevelWarn', 'LogLevelDebug']
-        const [app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, AiApikey, LogLevelInfo, LogLevelError, LogLevelWarn, LogLevelDebug] = await elementSelectors.batch(batchSelectors)
+        const batchSelectors = ['app', 'VideoSettingsPopover', 'IsVip', 'AutoLocate', 'AutoLocateVideo', 'AutoLocateBangumi', 'ClickPlayerAutoLocate', 'WebfullUnlock', 'AutoSelectVideoHighestQuality', 'ContainQuality4k', 'ContainQuality8k', 'InsertVideoDescriptionToComment', 'AutoSkip', 'PauseVideo', 'ContinuePlay', 'AutoSubtitle', 'OffsetTop', 'Checkbox4K', 'Checkbox8K', 'AutoReload', 'RemoveCommentTags', 'AutoHiRes', 'AutoCheckUpdate', 'AiApikey', 'LogLevelInfo', 'LogLevelError', 'LogLevelWarn', 'LogLevelDebug', 'UpdateCheckFrequency', 'AutoUpdate', 'SkipUpdateCheck', 'AIProvider', 'ShowCommentLocation']
+        // 批量获取元素，并验证选择器是否存在
+        const elements = await elementSelectors.batch(batchSelectors)
+        // 验证必要的选择器是否存在
+        const requiredSelectors = ['app', 'VideoSettingsPopover']
+        const missingSelectors = requiredSelectors.filter((selector, index) => !elements[index])
+        if (missingSelectors.length > 0) {
+            logger.warn(`缺少必要的选择器: ${missingSelectors.join(', ')}`)
+            return
+        }
+        // 使用对象映射方式，安全处理选择器不存在的情况
+        const elementsMap = {
+            app: elements[0],
+            VideoSettingsPopover: elements[1],
+            IsVip: elements[2],
+            AutoLocate: elements[3],
+            AutoLocateVideo: elements[4],
+            AutoLocateBangumi: elements[5],
+            ClickPlayerAutoLocate: elements[6],
+            WebfullUnlock: elements[7],
+            AutoSelectVideoHighestQuality: elements[8],
+            ContainQuality4k: elements[9],
+            ContainQuality8k: elements[10],
+            InsertVideoDescriptionToComment: elements[11],
+            AutoSkip: elements[12],
+            PauseVideo: elements[13],
+            ContinuePlay: elements[14],
+            AutoSubtitle: elements[15],
+            OffsetTop: elements[16],
+            Checkbox4K: elements[17],
+            Checkbox8K: elements[18],
+            AutoReload: elements[19],
+            RemoveCommentTags: elements[20],
+            AutoHiRes: elements[21],
+            AutoCheckUpdate: elements[22],
+            AiApikey: elements[23],
+            LogLevelInfo: elements[24],
+            LogLevelError: elements[25],
+            LogLevelWarn: elements[26],
+            LogLevelDebug: elements[27],
+            UpdateCheckFrequency: elements[28],
+            AutoUpdate: elements[29],
+            SkipUpdateCheck: elements[30],
+            AIProvider: elements[31],
+            ShowCommentLocation: elements[32]
+        }
+        // 从对象中提取元素，使用解构赋值提高代码可读性
+        const { app, VideoSettingsPopover, IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, OffsetTop, Checkbox4K, Checkbox8K, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, AiApikey, LogLevelInfo, LogLevelError, LogLevelWarn, LogLevelDebug, UpdateCheckFrequency, AutoUpdate, SkipUpdateCheck, AIProvider, ShowCommentLocation } = elementsMap
         addEventListenerToElement(VideoSettingsPopover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, LogLevelInfo, LogLevelError, LogLevelWarn, LogLevelDebug]
+        const checkboxElements = [IsVip, AutoLocate, AutoLocateVideo, AutoLocateBangumi, ClickPlayerAutoLocate, WebfullUnlock, AutoSelectVideoHighestQuality, ContainQuality4k, ContainQuality8k, InsertVideoDescriptionToComment, AutoSkip, PauseVideo, ContinuePlay, AutoSubtitle, AutoReload, RemoveCommentTags, AutoHiRes, AutoCheckUpdate, LogLevelInfo, LogLevelError, LogLevelWarn, LogLevelDebug, AutoUpdate, SkipUpdateCheck, ShowCommentLocation]
         initializeCheckbox(checkboxElements, this.userConfigs)
         addEventListenerToElement(checkboxElements, 'change', async e => {
             const configKey = _.snakeCase(e.target.id).replace(/_(\d)_k/g, '$1k')
-            await storageService.userSet(configKey, Boolean(e.target.checked))
-            e.target.setAttribute('checked', await storageService.userGet(configKey))
+            const value = Boolean(e.target.checked)
+            // 更新 storageService 中的值
+            await storageService.userSet(configKey, value)
+            // 更新 this.userConfigs 中的值
+            this.userConfigs[configKey] = value
+            // 更新元素的 checked 属性
+            e.target.setAttribute('checked', value)
             if (e.target.id === 'IsVip'){
                 const relyElements = [Checkbox4K, Checkbox8K, AutoHiRes]
                 relyElements.forEach( element => {
                     if (element.id === 'AutoHiRes') element.closest('.adjustment-form-item').style.display = e.target.checked ? 'flex' : 'none'
                     else element.style.display = e.target.checked ? 'flex' : 'none'
                 })
-            }
-            if (e.target.id === 'OffsetTop'){
-                await storageService.userSet(configKey, e.target.value)
             }
             if (e.target.id === 'AutoSubtitle'){
                 const AutoEnableSubtitleSwitchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
@@ -103,10 +208,33 @@ export class SettingsComponent {
             }
         })
         addEventListenerToElement(OffsetTop, 'change', async e => {
-            await storageService.userSet('offset_top', e.target.value)
+            const configKey = _.snakeCase(e.target.id).replace(/_(\d)_k/g, '$1k')
+            const value = e.target.value
+            // 更新 storageService 中的值
+            await storageService.userSet(configKey, value)
+            // 更新 this.userConfigs 中的值
+            this.userConfigs[configKey] = value
         })
         addEventListenerToElement(AiApikey, 'change', async e => {
-            await storageService.userSet('ai_apikey', e.target.value)
+            const value = e.target.value
+            // 更新 storageService 中的值
+            await storageService.userSet('ai_apikey', value)
+            // 更新 this.userConfigs 中的值
+            this.userConfigs.ai_apikey = value
+        })
+        addEventListenerToElement(UpdateCheckFrequency, 'change', async e => {
+            const value = parseInt(e.target.value) || 24
+            // 更新 storageService 中的值
+            await storageService.userSet('update_check_frequency', value)
+            // 更新 this.userConfigs 中的值
+            this.userConfigs.update_check_frequency = value
+        })
+        addEventListenerToElement(AIProvider, 'change', async e => {
+            const value = e.target.value
+            // 更新 storageService 中的值
+            await storageService.userSet('ai_provider', value)
+            // 更新 this.userConfigs 中的值
+            this.userConfigs.ai_provider = value
         })
         elementSelectors.each('SelectPlayerModeButtons', btn => {
             addEventListenerToElement(btn, 'click', async e => {
@@ -115,9 +243,13 @@ export class SettingsComponent {
                     b.checked = false
                     b.setAttribute('checked', 'false')
                 })
-                btn.checked = true
-                btn.setAttribute('checked', 'true')
-                await storageService.userSet('selected_player_mode', e.target.value)
+                e.target.checked = true
+                e.target.setAttribute('checked', 'true')
+                const selectedMode = e.target.value
+                // 更新 storageService 中的值
+                await storageService.userSet('selected_player_mode', selectedMode)
+                // 更新 this.userConfigs 中的值
+                this.userConfigs.selected_player_mode = selectedMode
             })
         })
         const handleSettingsFileSelectors = ['ExportUserConfigs', 'ImportUserConfigs', 'ImportUserConfigsFileInput']
@@ -132,6 +264,12 @@ export class SettingsComponent {
         addEventListenerToElement(ImportUserConfigsFileInput, 'change', e => this.importUserConfigs(e))
     }
     renderDynamicSettings (){
+        // 先检查是否已经存在设置面板，如果存在，就先移除它
+        const existingSettings = document.getElementById('DynamicSettingsPopover')
+        if (existingSettings) {
+            existingSettings.remove()
+        }
+        
         const dynamicSettings = getTemplates.replace('dynamicSettings', {
             DynamicVideoLink: this.userConfigs.dynamic_video_link
         })
