@@ -198,7 +198,10 @@ export default {
         documentScrollTo(playerOffsetTop - this.userConfigs.offset_top)
     },
     async clickPlayerAutoLocate () {
-        addEventListenerToElement(await elementSelectors.video, 'click', async () => {
+        addEventListenerToElement(await elementSelectors.playerContainer, 'click', async (e) => {
+            if (e.target.closest('.bpx-player-ctrl-bottom') || e.target.closest('.bpx-player-ctrl-top')) {
+                return
+            }
             await this.locateToPlayer()
         })
     },
