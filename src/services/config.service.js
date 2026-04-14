@@ -31,6 +31,7 @@ export class ConfigService {
         ['continue_play', false],
         ['auto_subtitle', false],
         ['show_location', true],
+        ['show_comment_location', true], // 显示评论IP属地
         ['remove_comment_tags', true],
         ['auto_hi_res', true],
         ['auto_check_update', true],
@@ -98,20 +99,13 @@ export class ConfigService {
         }
     }
     static async setValue (name, value) {
-        if (!this.#initialized) {
-            await this.initialize()
-        }
         try {
-            this.#cache.set(name, value)
             await storageService.userSet(name, value)
+            this.#cache.set(name, value)
         } catch (error) {
-            this.#cache.delete(name)
-            this.#logger.error('配置存储失败', error)
+            this.#logger.error('配置写入失败', error)
             throw error
         }
     }
-    static clearCache () {
-        this.#cache.clear()
-    }
 }
-export const configService = new ConfigService()
+export const ConfigServiceStatic = ConfigService
