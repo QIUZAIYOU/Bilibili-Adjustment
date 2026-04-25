@@ -22,9 +22,8 @@ export class LoggerService {
         warn: true,
         debug: import.meta.env.DEV
     }
-    
     // 根据用户配置更新日志级别
-    static async updateLogLevelsFromConfig() {
+    static async updateLogLevelsFromConfig () {
         try {
             // 动态导入 ConfigService，避免循环依赖
             const { ConfigService } = await import('@/services/config.service')
@@ -64,11 +63,11 @@ export class LoggerService {
         this.log('debug', ...args)
     }
     // 静态方法：更新日志级别配置
-    static updateLogLevels(levels) {
+    static updateLogLevels (levels) {
         Object.assign(LoggerService.ENABLED_LEVELS, levels)
     }
     // 静态方法：获取当前日志级别配置
-    static getLogLevels() {
+    static getLogLevels () {
         return { ...LoggerService.ENABLED_LEVELS }
     }
 }

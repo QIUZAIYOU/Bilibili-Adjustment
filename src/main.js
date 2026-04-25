@@ -9,24 +9,20 @@ import { updateService } from '@/services/update.service'
 import { styles } from '@/shared/styles'
 import pkg from '../package.json' with { type: 'json' }
 window._ = _
-
 // 模块缓存，避免重复加载
 const moduleCache = new Map()
 // 跟踪当前页面类型
 let currentModuleType = null
-
 // 防抖函数，避免频繁的页面类型检测
 const debouncedDetectPageType = _.debounce(async () => {
     try {
         const newModuleType = await detectivePageType()
         logger.debug(`页面类型: ${newModuleType}`)
-        
         // 只有当页面类型发生变化时才重新加载模块
         if (newModuleType === currentModuleType) {
             logger.debug(`页面类型未变化，跳过模块加载: ${newModuleType}`)
             return
         }
-        
         currentModuleType = newModuleType
         const moduleMap = {
             'video': () => import('@/modules/video/video.module.js'),
@@ -65,17 +61,12 @@ const debouncedDetectPageType = _.debounce(async () => {
         logger.error('页面类型检测失败', error)
     }
 }, 300, { 'leading': true, 'trailing': false })
-
 const initializeApp = () => {
     ConfigService.initialize().then(() => {
         logger.debug('ConfigService 初始化完成')
         // 根据用户配置更新日志级别，动态导入 LoggerService 避免循环依赖
-        return import('@/services/logger.service').then(({ LoggerService }) => {
-            return LoggerService.updateLogLevelsFromConfig()
-        })
-    }).then(() => {
-        return debouncedDetectPageType()
-    }).then(() => moduleSystem.init()).then(() => {
+        return import('@/services/logger.service').then(({ LoggerService }) => LoggerService.updateLogLevelsFromConfig())
+    }).then(() => debouncedDetectPageType()).then(() => moduleSystem.init()).then(() => {
         logger.info('应用初始化完成')
         eventBus.emit('app:ready')
         // 监听URL变化，当URL变化时重新检测页面类型并加载对应模块
@@ -93,7 +84,6 @@ const initializeApp = () => {
                     return
                 }
                 lastUrl = currentUrl
-                
                 isProcessingUrlChange = true
                 logger.debug('URL发生变化，重新检测页面类型并加载对应模块')
                 // 清空旧模块
@@ -110,7 +100,6 @@ const initializeApp = () => {
                 isProcessingUrlChange = false
             }
         }, 500, { 'leading': true, 'trailing': false })
-        
         monitorHrefChange(handleUrlChange)
     }).catch(error => {
         logger.error('应用初始化失败', error)
@@ -118,7 +107,6 @@ const initializeApp = () => {
 }
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
 initializeApp()
-
 // 检查更新
 setTimeout(async () => {
     try {

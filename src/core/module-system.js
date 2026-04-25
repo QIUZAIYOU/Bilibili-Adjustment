@@ -62,9 +62,8 @@ export class ModuleSystem {
         }
         return moduleMeta.instance
     }
-    
     // 动态加载模块
-    async loadModule(moduleName, moduleConfig) {
+    async loadModule (moduleName, moduleConfig) {
         this.register(moduleConfig)
         const moduleMeta = this.#modules.get(moduleName)
         if (moduleMeta && !moduleMeta.instance) {
@@ -72,9 +71,8 @@ export class ModuleSystem {
         }
         return moduleMeta?.instance
     }
-    
     // 卸载模块
-    unloadModule(moduleName) {
+    unloadModule (moduleName) {
         const moduleMeta = this.#modules.get(moduleName)
         if (moduleMeta) {
             // 调用模块的卸载方法（如果存在）
@@ -91,9 +89,8 @@ export class ModuleSystem {
             this.#logger.debug(`模块已卸载: ${moduleName}`)
         }
     }
-    
     // 清空所有模块
-    clearModules() {
+    clearModules () {
         const moduleNames = Array.from(this.#modules.keys())
         moduleNames.forEach(name => this.unloadModule(name))
         this.#logger.debug('所有模块已清空')
