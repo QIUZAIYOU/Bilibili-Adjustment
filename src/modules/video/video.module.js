@@ -14,7 +14,6 @@ import { aiService, initializeAIService } from '@/services/ai.service'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponent()
 const shadowDOMHelper = new ShadowDOMHelper()
-
 // 跟踪广告识别函数的执行状态
 let advertisementIdentified = false
 export default {
@@ -96,13 +95,11 @@ export default {
         // 先判断当前播放器模式是否已经是用户设置的模式
         const playerContainer = await elementSelectors.playerContainer
         const currentPlayerMode = playerContainer.getAttribute('data-screen')
-        
         if (currentPlayerMode === this.userConfigs.selected_player_mode) {
             logger.debug(`屏幕模式丨当前已是${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : this.userConfigs.selected_player_mode === 'web' ? '网页全屏' : '正常'}模式，跳过切换`)
             eventBus.emit('video:playerModeSelected')
             return
         }
-        
         const selectPlayerModeStrategies = [
             {
                 type: 'wide',
@@ -166,7 +163,6 @@ export default {
             eventBus.emit('video:startOtherFunctions')
             return
         }
-        
         // 先判断当前页面是否已经定位到了播放器位置
         const playerContainer = await elementSelectors.playerContainer
         const playerMode = playerContainer.getAttribute('data-screen')
@@ -175,14 +171,12 @@ export default {
         const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
         const targetOffset = playerOffsetTop - this.userConfigs.offset_top
         const currentScrollTop = window.scrollY
-        
         // 允许一定的误差范围（50px）
         if (Math.abs(currentScrollTop - targetOffset) < 50) {
             logger.debug('自动定位丨当前已在播放器位置附近，跳过定位')
             eventBus.emit('video:startOtherFunctions')
             return
         }
-        
         await sleep(300)
         await this.locateToPlayer()
         logger.info('自动定位丨成功')
@@ -198,7 +192,7 @@ export default {
         documentScrollTo(playerOffsetTop - this.userConfigs.offset_top)
     },
     async clickPlayerAutoLocate () {
-        addEventListenerToElement(await elementSelectors.playerContainer, 'click', async (e) => {
+        addEventListenerToElement(await elementSelectors.playerContainer, 'click', async e => {
             if (e.target.closest('.bpx-player-ctrl-bottom') || e.target.closest('.bpx-player-ctrl-top')) {
                 return
             }
@@ -223,7 +217,6 @@ export default {
             logger.error('插入位置信息失败:', error)
         }
     },
-    
     // 激活评论时间锚点
     async activeTimeSeek (host, video) {
         const descriptionTimeSeekElements = shadowDOMHelper.querySelectorAll('#adjustment-comment-description a[data-type="seek"]')
@@ -237,7 +230,6 @@ export default {
             })
         })
     },
-    
     // 移除评论标签
     removeCommentTagElements (host) {
         const tagElements = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.commentTags, true)
@@ -245,13 +237,11 @@ export default {
             tag.remove()
         })
     },
-    
     // 格式化评论内容
     formatCommentContents (host) {
         const contents = shadowDOMHelper.queryDescendant(host, '#contents')
         contents.innerHTML = formatVideoCommentContents(contents)
     },
-    
     // 处理评论元素
     async doSomethingToCommentElements () {
         const video = await elementSelectors.video
@@ -336,16 +326,13 @@ export default {
     },
     async insertAutoEnableSubtitleSwitchButton () {
         const [playerDanmuSetting, playerTooltipArea, AutoSubtitle] = await elementSelectors.batch(['playerDanmuSetting', 'playerTooltipArea', 'AutoSubtitle'])
-        
         // 检查是否已经存在自动开启字幕的开关按钮
         const existingSwitchButton = document.getElementById('autoEnableSubtitleSwitchButton')
         const existingTip = document.getElementById('autoEnableSubtitleTip')
-        
         if (existingSwitchButton && existingTip) {
             logger.debug('自动开启字幕开关丨已存在，跳过插入')
             return
         }
-        
         const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButton', {
             autoSubtitle: this.userConfigs.auto_subtitle
         }), playerDanmuSetting, 'after')
@@ -373,16 +360,13 @@ export default {
     async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild.attributes[1].name : ''
-        
         // 检查是否已经存在定位按钮和设置按钮
         const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
         const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
-        
         if (existingLocateButton && existingSettingsButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
-        
         let locateButton, videoSettingsOpenButton
         if (this.userConfigs.page_type === 'video') {
             if (!existingLocateButton) {
@@ -439,21 +423,17 @@ export default {
         // const perfStart = performance.now()
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         const videoDescription = videoInfo.desc
-        
         // 移除现有的视频简介元素
         shadowDOMHelper.querySelector(elementSelectors.value('adjustmentCommentDescription'))?.remove()
-        
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
             const baseURI = videoDescriptionInfoElement.baseURI
             if (baseURI === location.href){
                 clearInterval(checkAndTrigger)
-                
                 // 再次移除现有的视频简介元素，确保不会重复
                 const adjustmentCommentDescription = await elementSelectors.query('adjustmentCommentDescription')
                 adjustmentCommentDescription?.remove()
-                
                 const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
                 if (videoDescriptionElement.childElementCount > 1 && videoDescriptionInfoElement.childElementCount > 0) {
                     const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
@@ -501,7 +481,6 @@ export default {
         await storageService.set('current_player_mode', 'wide')
         await this.locateToPlayer()
     },
-    
     // 解锁网页全屏模式
     async webfullPlayerModeUnlock () {
         const batchSelectors = [
@@ -516,17 +495,14 @@ export default {
             'playerModeFullControlButton'
         ]
         const [app, playerWrap, player, playerWebscreen, wideEnterButton, wideLeaveButton, webEnterButton, webLeaveButton, fullControlButton] = await elementSelectors.batch(batchSelectors)
-        
         // 插入解锁样式
         insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
         app.prepend(playerWebscreen)
-        
         // 监听模式切换按钮
         addEventListenerToElement([webLeaveButton, wideEnterButton, wideLeaveButton, fullControlButton], 'click', async () => {
             await sleep(100)
             await this.resetPlayerLayout(playerWrap, player)
         })
-        
         // 监听网页全屏进入按钮
         addEventListenerToElement(webEnterButton, 'click', async () => {
             const UnlockWebPlayerStyle = elementSelectors.UnlockWebPlayerStyle
@@ -534,7 +510,6 @@ export default {
             app.prepend(playerWebscreen)
             await this.locateToPlayer()
         })
-        
         logger.info('网页全屏丨已解锁')
         eventBus.emit('video:webfullPlayerModeUnlock')
     },
@@ -581,21 +556,17 @@ export default {
             logger.info('自动跳过广告丨功能已关闭')
             return
         }
-        
         // 检查是否已经执行过广告识别
         if (advertisementIdentified) {
             logger.debug('自动跳过广告丨已执行过，跳过重复执行')
             return
         }
-        
         // 标记广告识别已执行
         advertisementIdentified = true
-        
         // 30秒后重置广告识别状态，以便在视频切换时重新执行
         setTimeout(() => {
             advertisementIdentified = false
         }, 30000)
-        
         const bvid = biliApis.getCurrentVideoID(window.location.href)
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
         const cid = videoInfo.cid

@@ -10,61 +10,50 @@ export const delay = (func, timeout, ...args) => new Promise(resolve => {
 })
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
-    
     // 过滤临时URL路径
     const temporaryPaths = ['/correspond/', '/api/', '/ajax/', '/pgc/', '/live/', '/h5/', '/game/']
     const isTemporaryPath = temporaryPaths.some(path => pathname.startsWith(path))
-    
     if (isTemporaryPath) {
         logger.debug(`检测到临时URL路径: ${pathname}，跳过页面类型检测`)
         return 'other'
     }
-    
     logger.debug(`检测页面类型: host=${host}, pathname=${pathname}, origin=${origin}`)
-    
     // 视频播放页（包括普通视频、番剧、列表）
     if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/') || pathname.startsWith('/list/')) {
-        logger.debug(`匹配到 video 类型页面`)
+        logger.debug('匹配到 video 类型页面')
         return 'video'
     }
-    
     // 首页
     if (host === 'www.bilibili.com' && pathname === '/') {
-        logger.debug(`匹配到 home 类型页面`)
+        logger.debug('匹配到 home 类型页面')
         return 'home'
     }
-    
     // 动态页
     if (origin === 'https://t.bilibili.com') {
-        logger.debug(`匹配到 dynamic 类型页面`)
+        logger.debug('匹配到 dynamic 类型页面')
         return 'dynamic'
     }
-    
     // 用户空间
     if (pathname.startsWith('/space/')) {
-        logger.debug(`匹配到 space 类型页面`)
+        logger.debug('匹配到 space 类型页面')
         return 'space'
     }
-    
     // 搜索结果页
     if (pathname.startsWith('/search/')) {
-        logger.debug(`匹配到 search 类型页面`)
+        logger.debug('匹配到 search 类型页面')
         return 'search'
     }
-    
     // 番剧详情页
     if (pathname.startsWith('/anime/')) {
-        logger.debug(`匹配到 anime 类型页面`)
+        logger.debug('匹配到 anime 类型页面')
         return 'anime'
     }
-    
     // 游戏中心
     if (pathname.startsWith('/gamecenter/')) {
-        logger.debug(`匹配到 gamecenter 类型页面`)
+        logger.debug('匹配到 gamecenter 类型页面')
         return 'gamecenter'
     }
-    
-    logger.debug(`未匹配到已知页面类型，返回 other`)
+    logger.debug('未匹配到已知页面类型，返回 other')
     return 'other'
 }
 export const isElementSizeChange = (el, callback) => {
