@@ -1,28 +1,24 @@
 import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import axios from 'axios'
-
 // AI 服务基类
 export class AIService {
     static #instance = null
     #logger = new LoggerService('AIService')
     #initialized = false
-    
-    constructor() {
+    constructor () {
         if (AIService.#instance) {
             return AIService.#instance
         }
         AIService.#instance = this
     }
-    
-    static getInstance() {
+    static getInstance () {
         if (!this.#instance) {
             this.#instance = new AIService()
         }
         return this.#instance
     }
-    
-    async initialize() {
+    async initialize () {
         if (this.#initialized) return
         try {
             await ConfigService.initialize()
@@ -31,22 +27,18 @@ export class AIService {
             this.#logger.error('AIService初始化失败', error)
         }
     }
-    
-    async getProvider() {
+    async getProvider () {
         await this.initialize()
         return ConfigService.getValue('ai_provider') || 'deepseek'
     }
-    
-    async getApiKey() {
+    async getApiKey () {
         await this.initialize()
         return ConfigService.getValue('ai_apikey')
     }
-    
-    async identifyAdvertisementTimestamps(subtitlesJsonString) {
+    async identifyAdvertisementTimestamps (subtitlesJsonString) {
         throw new Error('子类必须实现identifyAdvertisementTimestamps方法')
     }
-    
-    async identifyAdvertisementSegments(subtitlesJsonString) {
+    async identifyAdvertisementSegments (subtitlesJsonString) {
         await this.initialize()
         try {
             return await this.identifyAdvertisementTimestamps(subtitlesJsonString)
@@ -56,19 +48,16 @@ export class AIService {
         }
     }
 }
-
 // DeepSeek 实现
 export class DeepSeekAIService extends AIService {
     #logger = new LoggerService('DeepSeekAIService')
-    
-    async identifyAdvertisementTimestamps(subtitlesJsonString) {
+    async identifyAdvertisementTimestamps (subtitlesJsonString) {
         await this.initialize()
         const apiKey = await this.getApiKey()
         if (!apiKey) {
             this.#logger.error('DeepSeek API Key未配置')
             return []
         }
-        
         try {
             // 构建请求体
             const requestBody = {
@@ -122,7 +111,6 @@ export class DeepSeekAIService extends AIService {
                 ],
                 stream: false
             }
-            
             // 调用DeepSeek API
             const response = await axios.post('https://api.deepseek.com/chat/completions', requestBody, {
                 headers: {
@@ -130,7 +118,6 @@ export class DeepSeekAIService extends AIService {
                     'Authorization': `Bearer ${apiKey}`
                 }
             })
-            
             const data = response.data
             try {
                 const result = JSON.parse(data.choices[0].message.content)
@@ -183,19 +170,16 @@ export class DeepSeekAIService extends AIService {
         }
     }
 }
-
 // OpenAI 实现
 export class OpenAIAIService extends AIService {
     #logger = new LoggerService('OpenAIAIService')
-    
-    async identifyAdvertisementTimestamps(subtitlesJsonString) {
+    async identifyAdvertisementTimestamps (subtitlesJsonString) {
         await this.initialize()
         const apiKey = await this.getApiKey()
         if (!apiKey) {
             this.#logger.error('OpenAI API Key未配置')
             return []
         }
-        
         try {
             // 构建请求体
             const requestBody = {
@@ -249,7 +233,6 @@ export class OpenAIAIService extends AIService {
                 ],
                 stream: false
             }
-            
             // 调用OpenAI API
             const response = await axios.post('https://api.openai.com/v1/chat/completions', requestBody, {
                 headers: {
@@ -257,7 +240,6 @@ export class OpenAIAIService extends AIService {
                     'Authorization': `Bearer ${apiKey}`
                 }
             })
-            
             const data = response.data
             try {
                 const result = JSON.parse(data.choices[0].message.content)
@@ -304,12 +286,10 @@ export class OpenAIAIService extends AIService {
         }
     }
 }
-
 // 工厂方法，根据配置创建对应的AI服务实例
 export const createAIService = async () => {
     await ConfigService.initialize()
     const provider = ConfigService.getValue('ai_provider') || 'deepseek'
-    
     switch (provider) {
         case 'openai':
             return new OpenAIAIService()
@@ -318,12 +298,10 @@ export const createAIService = async () => {
             return new DeepSeekAIService()
     }
 }
-
 // 导出默认的AI服务实例
 export let aiService
 // 用于缓存初始化Promise，防止竞态条件
 export let aiServicePromise = null
-
 // 初始化AI服务实例
 export const initializeAIService = async () => {
     if (!aiServicePromise) {

@@ -39,7 +39,6 @@ export class SettingsComponent {
         if (existingSettings) {
             existingSettings.remove()
         }
-        
         // 生成 AI 服务提供商选项
         const aiProviderOptions = [
             { value: 'deepseek', label: 'DeepSeek' },
@@ -49,7 +48,6 @@ export class SettingsComponent {
                 ${option.label}
             </option>
         `).join('')
-
         // 生成更新检查频率选项
         const updateCheckFrequencyOptions = [
             { value: 6, label: '6小时' },
@@ -62,19 +60,7 @@ export class SettingsComponent {
                 ${option.label}
             </option>
         `).join('')
-
-        // 生成日志级别选项
-        const logLevelOptions = [
-            { value: 'info', label: 'Info' },
-            { value: 'error', label: 'Error' },
-            { value: 'warn', label: 'Warn' },
-            { value: 'debug', label: 'Debug' }
-        ].map(option => `
-            <option value="${option.value}" ${this.userConfigs.log_level === option.value ? 'selected' : ''}>
-                ${option.label}
-            </option>
-        `).join('')
-
+        // 日志级别已改为四个独立复选框，无需生成下拉选项
         const videoSettings = getTemplates.replace('videoSettings', {
             IsVip: this.userConfigs.is_vip,
             AutoLocate: this.userConfigs.auto_locate,
@@ -105,11 +91,10 @@ export class SettingsComponent {
             AutoCheckUpdate: this.userConfigs.auto_check_update,
             AiApikey: this.userConfigs.ai_apikey,
             // 日志级别配置
-            LogLevelInfo: this.userConfigs.log_level_info,
-            LogLevelError: this.userConfigs.log_level_error,
-            LogLevelWarn: this.userConfigs.log_level_warn,
-            LogLevelDebug: this.userConfigs.log_level_debug,
-            LOGLEVELOPTIONS: logLevelOptions,
+            LOGLEVELINFO: this.userConfigs.log_level_info,
+            LOGLEVELERROR: this.userConfigs.log_level_error,
+            LOGLEVELWARN: this.userConfigs.log_level_warn,
+            LOGLEVELDEBUG: this.userConfigs.log_level_debug,
             // 更新配置
             UpdateCheckFrequency: this.userConfigs.update_check_frequency,
             UPDATECHECKFREQUENCYOPTIONS: updateCheckFrequencyOptions,
@@ -269,7 +254,6 @@ export class SettingsComponent {
         if (existingSettings) {
             existingSettings.remove()
         }
-        
         const dynamicSettings = getTemplates.replace('dynamicSettings', {
             DynamicVideoLink: this.userConfigs.dynamic_video_link
         })

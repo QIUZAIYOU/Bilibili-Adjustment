@@ -2,26 +2,21 @@ import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
 import { createElementAndInsert } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
-
 const logger = new LoggerService('UpdateService')
-
 export class UpdateService {
     static #cacheKey = 'latestScriptCache'
     static #proxyStatusKey = 'proxyStatus'
     static #updateCheckExecuted = false
-    
     // 检查更新是否已经执行过
-    static isUpdateCheckExecuted() {
+    static isUpdateCheckExecuted () {
         return this.#updateCheckExecuted
     }
-    
     // 标记更新检查已执行
-    static markUpdateCheckExecuted() {
+    static markUpdateCheckExecuted () {
         this.#updateCheckExecuted = true
     }
-    
     // 智能代理选择
-    #getProxyList() {
+    #getProxyList () {
         const defaultProxies = [
             'https://qian.npkn.net/cors/?url=',
             'https://cors.aiideai-hq.workers.dev/?destination=',
@@ -30,7 +25,6 @@ export class UpdateService {
             'https://thingproxy.freeboard.io/fetch/',
             'https://cros2.aiideai-hq.workers.dev/?'
         ]
-        
         // 尝试获取代理状态
         try {
             const proxyStatus = localStorage.getItem(UpdateService.#proxyStatusKey)
@@ -48,39 +42,32 @@ export class UpdateService {
         } catch (error) {
             logger.warn('获取代理状态失败，使用默认代理列表:', error.message)
         }
-        
         // 随机排序代理列表，避免总是从第一个开始
         return [...defaultProxies].sort(() => Math.random() - 0.5)
     }
-    
     // 更新代理状态
-    #updateProxyStatus(proxy, success) {
+    #updateProxyStatus (proxy, success) {
         try {
             const proxyStatus = localStorage.getItem(UpdateService.#proxyStatusKey)
             const status = proxyStatus ? JSON.parse(proxyStatus) : {}
-            
             if (!status[proxy]) {
                 status[proxy] = { success: 0, total: 0, successRate: 0 }
             }
-            
             status[proxy].total++
             if (success) {
                 status[proxy].success++
             }
             status[proxy].successRate = status[proxy].success / status[proxy].total
-            
             localStorage.setItem(UpdateService.#proxyStatusKey, JSON.stringify(status))
         } catch (error) {
             logger.warn('更新代理状态失败:', error.message)
         }
     }
-    
     // 带超时的fetch函数
-    #fetchWithTimeout(url, options = {}, timeout = 30000) {
+    #fetchWithTimeout (url, options = {}, timeout = 30000) {
         return new Promise((resolve, reject) => {
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), timeout)
-            
             fetch(url, {
                 ...options,
                 signal: controller.signal
@@ -99,9 +86,8 @@ export class UpdateService {
                 })
         })
     }
-    
     // 尝试通过代理获取脚本
-    async #tryFetch(proxy, targetURL, retries = 2) {
+    async #tryFetch (proxy, targetURL, retries = 2) {
         for (let i = 0; i < retries; i++) {
             try {
                 const fullUrl = `${proxy}${targetURL}`
@@ -129,9 +115,8 @@ export class UpdateService {
             }
         }
     }
-    
     // 验证缓存
-    #validateCache(cacheDuration) {
+    #validateCache (cacheDuration) {
         try {
             const cachedContent = localStorage.getItem(UpdateService.#cacheKey)
             if (!cachedContent) return null
@@ -151,9 +136,8 @@ export class UpdateService {
             return null
         }
     }
-    
     // 获取最新脚本
-    async fetchLatestScript() {
+    async fetchLatestScript () {
         // 获取用户配置的更新检查频率
         let cacheDuration = 24 * 60 * 60 * 1000 // 默认24小时
         try {
@@ -164,16 +148,13 @@ export class UpdateService {
         } catch (error) {
             logger.warn('获取更新检查频率失败，使用默认值:', error.message)
         }
-        
         // 验证缓存
         const cachedData = this.#validateCache(cacheDuration)
         if (cachedData) {
             return cachedData
         }
-        
         const CORSProxyList = this.#getProxyList()
         const targetURL = encodeURIComponent('https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js')
-        
         // 尝试通过代理获取脚本
         for (const proxy of CORSProxyList) {
             try {
@@ -192,7 +173,6 @@ export class UpdateService {
                 // 继续尝试下一个代理
             }
         }
-        
         // 如果所有代理都失败，尝试使用缓存（即使过期）作为后备
         const expiredCache = localStorage.getItem(UpdateService.#cacheKey)
         if (expiredCache) {
@@ -206,21 +186,18 @@ export class UpdateService {
                 // 忽略过期缓存解析错误
             }
         }
-        
         throw new Error('所有CORS代理均不可用，且无可用缓存')
     }
-    
     // 从脚本内容中提取版本号
-    extractVersionFromScript(scriptContent) {
+    extractVersionFromScript (scriptContent) {
         const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.-]+)/)
         if (versionMatch && versionMatch[1]) {
             return versionMatch[1]
         }
         return null
     }
-    
     // 从脚本内容中提取更新内容
-    extractChangelogFromScript(scriptContent) {
+    extractChangelogFromScript (scriptContent) {
         // 尝试从 @update 或 @changelog 标签中提取更新内容
         const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
         if (updateMatch && updateMatch[1]) {
@@ -240,9 +217,8 @@ export class UpdateService {
         }
         return ''
     }
-    
     // 比较版本号
-    compareVersions(current, latest) {
+    compareVersions (current, latest) {
         const parseVersion = version => {
             const [core, pre] = version.split('-')
             const coreParts = core.split('.').map(part => parseInt(part, 10) || 0)
@@ -278,9 +254,8 @@ export class UpdateService {
         }
         return false
     }
-    
     // 生成更新内容列表
-    generateUpdateList(changelog) {
+    generateUpdateList (changelog) {
         if (!changelog) return ''
         // 如果是字符串，尝试解析为列表
         if (typeof changelog === 'string') {
@@ -305,9 +280,8 @@ export class UpdateService {
         }
         return ''
     }
-    
     // 显示更新弹窗
-    #showUpdatePopover(currentVersion, latestVersion, updateContentsHtml) {
+    #showUpdatePopover (currentVersion, latestVersion, updateContentsHtml) {
         const updatePopover = createElementAndInsert(getTemplates.replace('update', {
             current: currentVersion,
             latest: latestVersion,
@@ -330,9 +304,8 @@ export class UpdateService {
             updatePopover.hidePopover()
         }, 30000)
     }
-    
     // 检查更新
-    async checkForUpdates(currentVersion, localUpdates) {
+    async checkForUpdates (currentVersion, localUpdates) {
         // 检查是否需要跳过更新检查
         try {
             const skipUpdateCheck = await ConfigService.getValue('skip_update_check')
@@ -343,7 +316,6 @@ export class UpdateService {
         } catch (error) {
             logger.warn('获取跳过更新检查设置失败，继续检查更新:', error.message)
         }
-        
         logger.info('检查更新')
         try {
             const scriptContent = await this.fetchLatestScript()
@@ -362,7 +334,6 @@ export class UpdateService {
                 const latestUpdates = this.extractChangelogFromScript(scriptContent)
                 // 如果无法从远程脚本提取更新内容，则使用本地更新内容作为后备
                 const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
-                
                 // 检查是否启用自动更新
                 let autoUpdateEnabled = false
                 try {
@@ -370,7 +341,6 @@ export class UpdateService {
                 } catch (error) {
                     logger.warn('获取自动更新设置失败，使用默认值:', error.message)
                 }
-                
                 if (autoUpdateEnabled) {
                     logger.info('自动更新已启用，开始自动更新')
                     try {
@@ -390,10 +360,8 @@ export class UpdateService {
                             updatePopover.showPopover()
                             const updateButton = updatePopover.querySelector('.adjustment-button-update')
                             const closeButton = updatePopover.querySelector('.adjustment-button-close')
-                            
                             // 移除自动点击逻辑，要求用户手动确认
                             logger.info('自动更新已启用，等待用户确认')
-                            
                             updateButton.addEventListener('click', () => {
                                 updatePopover.hidePopover()
                                 window.open(updateUrl, '_blank')
@@ -422,5 +390,4 @@ export class UpdateService {
         }
     }
 }
-
 export const updateService = new UpdateService()
