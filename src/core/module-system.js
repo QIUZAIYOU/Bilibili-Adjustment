@@ -5,7 +5,6 @@ export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
     #modules = new Map()
-    #moduleCache = new Map() // 模块缓存，避免重复加载
     #config = {
         lazyInit: false
     }
@@ -36,7 +35,7 @@ export class ModuleSystem {
         eventBus.emit('module:registered', { name })
         this.#logger.debug(`模块已注册: ${name}`)
     }
-    async init (options = {}) {
+    async init () {
         await ConfigService.initializeDefaults()
         const startTime = Date.now()
         eventBus.emit('system:init-start', { timestamp: startTime })
@@ -138,7 +137,7 @@ export class ModuleSystem {
             this.#tryFallback(module, error)
         })
     }
-    #tryFallback (moduleName, error) {
+    #tryFallback (moduleName) {
         const fallbackModule = this.#modules.get(`${moduleName}-fallback`)
         if (fallbackModule) {
             this.register(fallbackModule)
