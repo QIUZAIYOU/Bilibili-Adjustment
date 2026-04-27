@@ -61,7 +61,9 @@ export class DeepSeekAIService extends AIService {
         try {
             // 构建请求体
             const requestBody = {
-                model: 'deepseek-chat',
+                model: "deepseek-v4-flash",
+                reasoning_effort: "high",
+                extra_body: {"thinking": {"type": "enabled"}},
                 messages: [
                     {
                         'role': 'system',
