@@ -1,4 +1,5 @@
 import packageJson from '../../package.json'
+import { registerTemplates, recordTemplateUsage, getTemplate } from './template-registry'
 const templates = {
     locateButton: '<div class="[[CLASS]]" [[STYLE]] title="定位至播放器" [[DATAV]] bilibili-adjustment-element><svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" class="icon" viewBox="0 0 1024 1024"><path fill="currentColor" d="M432 512a80 80 0 1 0 160 0 80 80 0 1 0-160 0z"/><path fill="currentColor" d="M960 480h-33.632C910.752 276.16 747.84 113.248 544 97.632V64a32 32 0 1 0-64 0v33.632C276.16 113.248 113.248 276.16 97.632 480H64a32 32 0 0 0 0 64h33.632C113.248 747.84 276.16 910.752 480 926.368V960a32 32 0 1 0 64 0v-33.632C747.84 910.752 910.752 747.84 926.368 544H960a32 32 0 1 0 0-64zM544 862.368V800a32 32 0 1 0-64 0v62.368C311.424 847.104 176.896 712.576 161.632 544H224a32 32 0 1 0 0-64h-62.368C176.896 311.424 311.424 176.896 480 161.632V224a32 32 0 0 0 64 0v-62.368C712.576 176.928 847.104 311.424 862.368 480H800a32 32 0 1 0 0 64h62.368C847.104 712.576 712.576 847.104 544 862.368z"/></svg>[[TEXT]]</div>',
     locateToCommentBtn: '<div class="bpx-player-ctrl-btn bpx-player-ctrl-comment" role="button" aria-label="前往评论" tabindex="0" bilibili-adjustment-element><div id="goToComments" class="bpx-player-ctrl-btn-icon"><span class="bpx-common-svg-icon"><svg class="icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="88" height="88" preserveAspectRatio="xMidYMid meet" style="width: 100%; height: 100%; transform: translate3d(0px, 0px, 0px);"><path d="M512 85.333c235.637 0 426.667 191.03 426.667 426.667S747.637 938.667 512 938.667a424.779 424.779 0 0 1-219.125-60.502A2786.56 2786.56 0 0 0 272.82 866.4l-104.405 28.48c-23.893 6.507-45.803-15.413-39.285-39.296l28.437-104.288c-11.008-18.688-18.219-31.221-21.803-37.91A424.885 424.885 0 0 1 85.333 512c0-235.637 191.03-426.667 426.667-426.667zm-102.219 549.76a32 32 0 1 0-40.917 49.216A223.179 223.179 0 0 0 512 736c52.97 0 103.19-18.485 143.104-51.67a32 32 0 1 0-40.907-49.215A159.19 159.19 0 0 1 512 672a159.19 159.19 0 0 1-102.219-36.907z" fill="#currentColor"/></svg></span></div></div>',
@@ -15,6 +16,8 @@ const templates = {
     autoEnableSubtitleSwitchButtonTip: '<div id="autoEnableSubtitleTip" class="bpx-player-tooltip-item" style="visibility: hidden; opacity: 0; transform: translate(0px, 0px);" bilibili-adjustment-element><div class="bpx-player-tooltip-title">[[AUTOENABLESUBTITLESWITCHBUTTONTIPTEXT]]</div></div>',
     bilibiliAdjustmentShowILocation: '<bilibili-adjustment-show-location bilibili-adjustment-element><style>bilibili-adjustment-show-location{font-size:13px;margin-left:auto;cursor:pointer;border:1px solid #424242;padding:2px 5px;border-radius:4px}bilibili-adjustment-show-location:hover{color:#00a1d6;border-color:#00a1d6}</style>显示评论归属地</bilibili-adjustment-show-location>'
 }
+// 初始化注册所有模板到 TemplateRegistry
+registerTemplates(templates)
 const replaceTemplateKeywords = (template, variables) => {
     if (variables) {
         Object.entries(variables).forEach(([key, value]) => {
@@ -27,8 +30,13 @@ const replaceTemplateKeywords = (template, variables) => {
 export const getTemplates = new Proxy(templates, {
     get (target, prop) {
         if (prop === 'replace') {
-            return (template, variables) => replaceTemplateKeywords(templates[template], variables)
+            return (template, variables) => {
+                recordTemplateUsage(template)
+                const templateContent = getTemplate(template) || templates[template]
+                return replaceTemplateKeywords(templateContent, variables)
+            }
         }
+        recordTemplateUsage(prop)
         return target[prop]
     }
 })
