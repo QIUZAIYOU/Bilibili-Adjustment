@@ -1,4 +1,4 @@
-/* global FileReader,Blob,_ */
+/* global _ */
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'

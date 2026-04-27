@@ -1,4 +1,4 @@
-/* global Document, DocumentFragment, DOMException, requestIdleCallback */
+/* global */
 export class ShadowDOMHelper {
     constructor () {
         this.observers = new WeakSet()

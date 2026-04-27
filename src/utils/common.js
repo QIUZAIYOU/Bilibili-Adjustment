@@ -1,6 +1,5 @@
-/* global getComputedStyle,localStorage,HTMLInputElement,requestAnimationFrame,Event,_,fetch */
+/* global _ */
 import { LoggerService } from '@/services/logger.service'
-import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('Common')
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const delay = (func, timeout, ...args) => new Promise(resolve => {

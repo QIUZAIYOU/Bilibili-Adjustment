@@ -1,4 +1,4 @@
-/* global ,_ */
+/* global _ */
 import { ShadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
@@ -425,34 +425,29 @@ export default {
         // const perfStart = performance.now()
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         const videoDescription = videoInfo.desc
-
         // 插入前检查：移除所有已存在的视频简介元素
         const existingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.value('adjustmentCommentDescription'))
         for (const el of existingDescriptions) {
             el.remove()
             logger.debug('视频简介丨插入前发现已存在，已移除')
         }
-
         // 断开旧的观察器，避免重复观察
         if (videoDescriptionObserver) {
             videoDescriptionObserver.disconnect()
             videoDescriptionObserver = null
         }
-
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
         const checkAndTrigger = setInterval(async () => {
             const baseURI = videoDescriptionInfoElement.baseURI
             if (baseURI === location.href){
                 clearInterval(checkAndTrigger)
-
                 // 再次执行插入前检查
                 const preExistingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.value('adjustmentCommentDescription'))
                 for (const el of preExistingDescriptions) {
                     el.remove()
                     logger.debug('视频简介丨插入前再次检查发现已存在，已移除')
                 }
-
                 const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
                 if (videoDescriptionElement.childElementCount > 1 && videoDescriptionInfoElement.childElementCount > 0) {
                     const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
@@ -464,12 +459,10 @@ export default {
                     })
                     const clone = template.content.cloneNode(true)
                     videoCommentReplyListShadowRoot?.prepend(clone)
-
                     // 启动 MutationObserver 监控插入后的重复情况
                     if (videoCommentReplyListShadowRoot) {
                         this._observeVideoDescriptionDuplicates(videoCommentReplyListShadowRoot)
                     }
-
                     if (shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
                         logger.debug('视频简介丨已插入')
                     } else {
