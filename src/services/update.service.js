@@ -136,7 +136,7 @@ export class UpdateService {
             return null
         }
     }
-    // 获取最新脚本
+    // 获取最新脚本内容
     async fetchLatestScript () {
         // 获取用户配置的更新检查频率
         let cacheDuration = 24 * 60 * 60 * 1000 // 默认24小时
@@ -197,17 +197,27 @@ export class UpdateService {
         return null
     }
     // 从脚本内容中提取更新内容
+    // 优先从脚本头部的 @updates 标签提取，其次从更新日志注释块提取
     extractChangelogFromScript (scriptContent) {
-        // 尝试从 @update 或 @changelog 标签中提取更新内容
+        if (!scriptContent || typeof scriptContent !== 'string') {
+            return ''
+        }
+        // 1. 尝试从 @updates 标签提取（脚本头部元数据）
+        const updatesMatch = scriptContent.match(/\/\/\s*@updates\s+(.+)/)
+        if (updatesMatch && updatesMatch[1]) {
+            return updatesMatch[1].trim()
+        }
+        // 2. 尝试从 @update 标签提取（多行）
         const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
         if (updateMatch && updateMatch[1]) {
             return updateMatch[1].trim()
         }
+        // 3. 尝试从 @changelog 标签提取
         const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
         if (changelogMatch && changelogMatch[1]) {
             return changelogMatch[1].trim()
         }
-        // 尝试从注释块中提取更新内容
+        // 4. 尝试从注释块中提取更新日志
         const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
         if (commentBlockMatch) {
             return commentBlockMatch[0]
@@ -218,6 +228,7 @@ export class UpdateService {
         return ''
     }
     // 比较版本号
+    // 返回 true 表示 latest > current（有新版本）
     compareVersions (current, latest) {
         const parseVersion = version => {
             const [core, pre] = version.split('-')
@@ -254,16 +265,26 @@ export class UpdateService {
         }
         return false
     }
-    // 生成更新内容列表
+    // 生成更新内容列表 HTML
     generateUpdateList (changelog) {
-        if (!changelog) return ''
-        // 如果是字符串，尝试解析为列表
+        if (!changelog) return '<div class="adjustment-update-contents">暂无更新说明</div>'
+        // 如果是字符串，尝试解析为列表（支持分号、换行分隔）
         if (typeof changelog === 'string') {
-            // 按分号分割
-            const items = changelog
+            // 先尝试按分号分割
+            let items = changelog
                 .split(';')
                 .map(item => item.trim())
                 .filter(item => item)
+            // 如果分号分割后只有一项，尝试按换行分割
+            if (items.length <= 1) {
+                items = changelog
+                    .split(/\n/)
+                    .map(item => item.trim())
+                    .filter(item => item && !item.match(/^[-=]+$/))
+            }
+            if (items.length === 0) {
+                return '<div class="adjustment-update-contents">暂无更新说明</div>'
+            }
             return `
                 <ol class="adjustment-update-contents">
                     ${items.map(item => `<li>${item}</li>`).join('')}
@@ -272,16 +293,24 @@ export class UpdateService {
         }
         // 如果是数组，直接生成列表
         if (Array.isArray(changelog)) {
+            if (changelog.length === 0) {
+                return '<div class="adjustment-update-contents">暂无更新说明</div>'
+            }
             return `
                 <ol class="adjustment-update-contents">
                     ${changelog.map(item => `<li>${item}</li>`).join('')}
                 </ol>
             `.replace(/\n\s+/g, '').trim()
         }
-        return ''
+        return '<div class="adjustment-update-contents">暂无更新说明</div>'
     }
     // 显示更新弹窗
     #showUpdatePopover (currentVersion, latestVersion, updateContentsHtml) {
+        // 检查是否已有更新弹窗，避免重复显示
+        const existingPopover = document.getElementById('UpdatePopover')
+        if (existingPopover) {
+            existingPopover.remove()
+        }
         const updatePopover = createElementAndInsert(getTemplates.replace('update', {
             current: currentVersion,
             latest: latestVersion,
@@ -301,11 +330,19 @@ export class UpdateService {
         }
         // 30秒后自动关闭弹窗
         setTimeout(() => {
-            updatePopover.hidePopover()
+            if (updatePopover && updatePopover.isConnected) {
+                updatePopover.hidePopover()
+            }
         }, 30000)
     }
     // 检查更新
     async checkForUpdates (currentVersion, localUpdates) {
+        // 防止重复检查
+        if (UpdateService.#updateCheckExecuted) {
+            logger.debug('更新检查已执行过，跳过')
+            return
+        }
+        UpdateService.#updateCheckExecuted = true
         // 检查是否需要跳过更新检查
         try {
             const skipUpdateCheck = await ConfigService.getValue('skip_update_check')
@@ -329,60 +366,44 @@ export class UpdateService {
                 return
             }
             logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
-            if (this.compareVersions(currentVersion, latestVersion)) {
-                // 提取最新脚本中的更新内容
-                const latestUpdates = this.extractChangelogFromScript(scriptContent)
-                // 如果无法从远程脚本提取更新内容，则使用本地更新内容作为后备
-                const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
-                // 检查是否启用自动更新
-                let autoUpdateEnabled = false
+            // 如果最新版本 <= 当前版本，不显示更新弹窗
+            if (!this.compareVersions(currentVersion, latestVersion)) {
+                logger.info('当前已是最新版本，无需更新')
+                return
+            }
+            // 提取最新脚本中的更新内容
+            const latestUpdates = this.extractChangelogFromScript(scriptContent)
+            // 优先使用远程脚本的更新内容，其次使用本地 package.json 的 updates
+            const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
+            // 检查是否启用自动更新
+            let autoUpdateEnabled = false
+            try {
+                autoUpdateEnabled = await ConfigService.getValue('auto_update')
+            } catch (error) {
+                logger.warn('获取自动更新设置失败，使用默认值:', error.message)
+            }
+            if (autoUpdateEnabled) {
+                logger.info('自动更新已启用，开始自动更新')
                 try {
-                    autoUpdateEnabled = await ConfigService.getValue('auto_update')
-                } catch (error) {
-                    logger.warn('获取自动更新设置失败，使用默认值:', error.message)
-                }
-                if (autoUpdateEnabled) {
-                    logger.info('自动更新已启用，开始自动更新')
-                    try {
-                        // 自动下载并更新脚本
-                        const updateUrl = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js'
-                        const response = await fetch(updateUrl)
-                        if (response.ok) {
-                            logger.info('脚本下载成功，准备更新')
-                            // 这里可以添加自动更新的逻辑，例如通过Tampermonkey API
-                            // 由于浏览器安全限制，自动更新可能需要用户交互
-                            // 因此这里我们仍然显示更新弹窗，但默认选择自动更新
-                            const updatePopover = createElementAndInsert(getTemplates.replace('update', {
-                                current: currentVersion,
-                                latest: latestVersion,
-                                contents: updateContentsHtml
-                            }), document.body, 'append')
-                            updatePopover.showPopover()
-                            const updateButton = updatePopover.querySelector('.adjustment-button-update')
-                            const closeButton = updatePopover.querySelector('.adjustment-button-close')
-                            // 移除自动点击逻辑，要求用户手动确认
-                            logger.info('自动更新已启用，等待用户确认')
-                            updateButton.addEventListener('click', () => {
-                                updatePopover.hidePopover()
-                                window.open(updateUrl, '_blank')
-                            })
-                            if (closeButton) {
-                                closeButton.addEventListener('click', () => {
-                                    updatePopover.hidePopover()
-                                })
-                            }
-                        } else {
-                            throw new Error(`下载脚本失败: ${response.status}`)
-                        }
-                    } catch (error) {
-                        logger.error('自动更新失败，显示手动更新弹窗:', error.message)
-                        // 自动更新失败，显示手动更新弹窗
+                    // 自动下载并更新脚本
+                    const updateUrl = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js'
+                    const response = await fetch(updateUrl)
+                    if (response.ok) {
+                        logger.info('脚本下载成功，准备更新')
+                        // 由于浏览器安全限制，自动更新可能需要用户交互
+                        // 因此这里我们仍然显示更新弹窗，但默认选择自动更新
                         this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
+                    } else {
+                        throw new Error(`下载脚本失败: ${response.status}`)
                     }
-                } else {
-                    // 显示手动更新弹窗
+                } catch (error) {
+                    logger.error('自动更新失败，显示手动更新弹窗:', error.message)
+                    // 自动更新失败，显示手动更新弹窗
                     this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
                 }
+            } else {
+                // 显示手动更新弹窗
+                this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
             }
         } catch (error) {
             logger.error('检查更新失败:', error.message)

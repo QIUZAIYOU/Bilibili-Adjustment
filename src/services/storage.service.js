@@ -78,6 +78,7 @@ export class StorageService {
     }
     userSet (key, value) { return this.set('user', key, value) }
     userGet (key) { return this.get('user', key) }
+    userRemove (key) { return this.remove('user', key) }
     async getAll (dbName, indexName, queryRange, pageSize) {
         const db = this.#dbs.get(dbName)
         const result = await db.getAll('keyval', indexName, queryRange, pageSize)
@@ -110,6 +111,10 @@ export class StorageService {
     async clear (dbName) {
         const db = this.#dbs.get(dbName)
         return db.clear('keyval')
+    }
+    async remove (dbName, key) {
+        const db = this.#dbs.get(dbName)
+        await db.delete('keyval', key)
     }
 }
 export const storageService = new StorageService()
