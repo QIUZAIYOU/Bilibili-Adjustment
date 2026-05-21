@@ -66,7 +66,15 @@ const initializeApp = () => {
         logger.debug('ConfigService 初始化完成')
         // 根据用户配置更新日志级别，动态导入 LoggerService 避免循环依赖
         return import('@/services/logger.service').then(({ LoggerService }) => LoggerService.updateLogLevelsFromConfig())
-    }).then(() => debouncedDetectPageType()).then(() => moduleSystem.init()).then(() => {
+    }).then(() => debouncedDetectPageType()).then(() => {
+        // 当页面类型为 other 时，跳过模块初始化和后续操作
+        if (currentModuleType === 'other') {
+            logger.debug('当前页面类型为 other，跳过模块初始化和更新检查')
+            return 'skip'
+        }
+        return moduleSystem.init()
+    }).then((result) => {
+        if (result === 'skip') return
         logger.info('应用初始化完成')
         eventBus.emit('app:ready')
         // 监听URL变化，当URL变化时重新检测页面类型并加载对应模块
@@ -90,6 +98,11 @@ const initializeApp = () => {
                 moduleSystem.clearModules()
                 // 重新检测页面类型并加载新模块
                 await debouncedDetectPageType()
+                // 当页面类型为 other 时，跳过模块重新初始化
+                if (currentModuleType === 'other') {
+                    logger.debug('URL变化后页面类型为 other，跳过模块重新初始化')
+                    return
+                }
                 // 重新初始化模块系统
                 await moduleSystem.init()
                 logger.info('模块系统重新初始化完成')
@@ -110,6 +123,11 @@ initializeApp()
 // 检查更新
 setTimeout(async () => {
     try {
+        // 当页面类型为 other 时，跳过更新检查
+        if (currentModuleType === 'other') {
+            logger.debug('当前页面类型为 other，跳过更新检查')
+            return
+        }
         // 检查用户是否启用了自动检查更新
         const autoCheckUpdate = await ConfigService.getValue('auto_check_update')
         if (autoCheckUpdate) {
