@@ -61,23 +61,26 @@ const debouncedDetectPageType = _.debounce(async () => {
         logger.error('页面类型检测失败', error)
     }
 }, 300, { 'leading': true, 'trailing': false })
-const initializeApp = () => {
-    ConfigService.initialize().then(() => {
+const initializeApp = async () => {
+    try {
+        // 1. 初始化配置服务
+        await ConfigService.initialize()
         logger.debug('ConfigService 初始化完成')
-        // 根据用户配置更新日志级别，动态导入 LoggerService 避免循环依赖
-        return import('@/services/logger.service').then(({ LoggerService }) => LoggerService.updateLogLevelsFromConfig())
-    }).then(() => debouncedDetectPageType()).then(() => {
-        // 当页面类型为 other 时，跳过模块初始化和后续操作
+        // 2. 根据用户配置更新日志级别
+        const { LoggerService } = await import('@/services/logger.service')
+        await LoggerService.updateLogLevelsFromConfig()
+        // 3. 检测页面类型
+        await debouncedDetectPageType()
+        // 4. 如果页面类型为 other，直接返回，不执行后续操作
         if (currentModuleType === 'other') {
-            logger.debug('当前页面类型为 other，跳过模块初始化和更新检查')
-            return 'skip'
+            // logger.info('当前页面类型为 other，跳过模块初始化和更新检查')
+            return
         }
-        return moduleSystem.init()
-    }).then((result) => {
-        if (result === 'skip') return
+        // 5. 初始化模块系统
+        await moduleSystem.init()
         logger.info('应用初始化完成')
         eventBus.emit('app:ready')
-        // 监听URL变化，当URL变化时重新检测页面类型并加载对应模块
+        // 6. 监听URL变化
         let isProcessingUrlChange = false
         let lastUrl = location.href
         const handleUrlChange = _.debounce(async () => {
@@ -114,28 +117,21 @@ const initializeApp = () => {
             }
         }, 500, { 'leading': true, 'trailing': false })
         monitorHrefChange(handleUrlChange)
-    }).catch(error => {
-        logger.error('应用初始化失败', error)
-    })
-}
-insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
-initializeApp()
-// 检查更新
-setTimeout(async () => {
-    try {
-        // 当页面类型为 other 时，跳过更新检查
-        if (currentModuleType === 'other') {
-            logger.debug('当前页面类型为 other，跳过更新检查')
-            return
-        }
-        // 检查用户是否启用了自动检查更新
-        const autoCheckUpdate = await ConfigService.getValue('auto_check_update')
-        if (autoCheckUpdate) {
-            await updateService.checkForUpdates(pkg.version, pkg.updates)
-        } else {
-            logger.info('自动检查更新已被用户禁用')
+        // 7. 检查更新（仅在非 other 页面执行）
+        try {
+            const autoCheckUpdate = await ConfigService.getValue('auto_check_update')
+            if (autoCheckUpdate) {
+                await updateService.checkForUpdates(pkg.version, pkg.updates)
+            } else {
+                logger.info('自动检查更新已被用户禁用')
+            }
+        } catch (error) {
+            logger.error('检查更新失败', error)
         }
     } catch (error) {
-        logger.error('检查更新配置失败', error)
+        logger.error('应用初始化失败', error)
     }
-}, 0)
+}
+insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
+// 启动应用
+initializeApp()
