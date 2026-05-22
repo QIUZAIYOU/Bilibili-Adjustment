@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整",
   "author": "QIAN",
-  "version": "3.10.18",
-  "updates": "优化自定义模型功能，支持独立配置 API 地址和 Key;修复自定义模型 API 请求格式错误;优化更新功能，从 .meta.js 获取更新内容，提升检查速度;修复更新弹窗显示旧版本内容的问题;新增设置项修改指导文档;修复其他类型页面的忽略逻辑;优化自动跳过广告功能说明文案;",
+  "version": "3.10.21",
+  "updates": "优化设置弹窗样式，修复设置项宽度及 tooltip 显示问题;修复 AI 服务配置联动显示逻辑;新增 auto_subtitle 双向同步逻辑，确保播放器开关与设置面板状态一致;优化 tooltip 组件，修复被 popover 顶层遮挡的问题;添加 auto_subtitle 变更调试日志;优化 tooltip 交互，鼠标移出图标后延迟隐藏，移入 tooltip 时保持显示，支持点击链接;",
   "license": "MIT",
   "type": "module",
   "scripts": {

@@ -3,16 +3,17 @@ import { ShadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { SettingsComponent } from '@/components/settings.component'
+// import { SettingsComponent } from '@/components/settings.component'
+import { SettingsComponentV2 } from '@/components/settings.component.v2'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
-import { styles } from '@/shared/styles'
+import { stylesV2 } from '@/shared/styles'
 import { formatVideoCommentDescription, formatVideoCommentContents } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 import { aiService, initializeAIService } from '@/services/ai.service'
 const logger = new LoggerService('VideoModule')
-const settingsComponent = new SettingsComponent()
+const settingsComponent = new SettingsComponentV2()
 const shadowDOMHelper = new ShadowDOMHelper()
 // 跟踪广告识别函数的执行状态
 let advertisementIdentified = false
@@ -22,7 +23,7 @@ export default {
     name: 'video',
     version: '3.3.0',
     async install () {
-        insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
+        insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
         eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
             await this.preFunctions()
@@ -57,7 +58,7 @@ export default {
             onActiveChange: async isActive => {
                 if (isActive) {
                     logger.info('标签页｜已激活')
-                    insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
+                    insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
                     this.checkVideoCanplaythrough(await elementSelectors.video)
                 }
             },
@@ -346,11 +347,15 @@ export default {
         addEventListenerToElement(AutoEnableSubtitleSwitchInput, 'change', async e => {
             const isChecked = e.target.checked
             await storageService.userSet('auto_subtitle', Boolean(isChecked))
-            AutoEnableSubtitleSwitchInput.checked = isChecked
-            AutoSubtitle.checked = isChecked
-            AutoEnableSubtitleSwitchInput.setAttribute('checked', isChecked.toString())
-            AutoSubtitle.setAttribute('checked', isChecked.toString())
-            AutoEnableSubtitleTooltipTitle.innerText = isChecked ? '关闭自动开启字幕' : '开启自动开启字幕'
+            requestAnimationFrame(() => {
+                AutoEnableSubtitleSwitchInput.checked = isChecked
+                AutoEnableSubtitleSwitchInput.toggleAttribute('checked', isChecked)
+                AutoEnableSubtitleTooltipTitle.innerText = isChecked ? '关闭自动开启字幕' : '开启自动开启字幕'
+                if (AutoSubtitle) {
+                    AutoSubtitle.checked = isChecked
+                    AutoSubtitle.toggleAttribute('checked', isChecked)
+                }
+            })
         })
         addEventListenerToElement(autoEnableSubtitleSwitchButton, 'mouseover', () => {
             showPlayerTooltip(autoEnableSubtitleSwitchButton, autoEnableSubtitleTip)
@@ -398,7 +403,7 @@ export default {
             if (!existingLocateButton) {
                 locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
                     class: 'bili-adjustment-icon locate',
-                    style: `style="height:40px;padding:0;${styles.videoSettingsOpenButton}"`,
+                    style: `style="height:40px;padding:0;${stylesV2.videoSettingsOpenButton}"`,
                     dataV: dataV,
                     text: ''
                 }), floatNav, 'append')
@@ -409,7 +414,7 @@ export default {
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
                     floatNavMenuItemClass: '',
-                    style: `style="${styles.videoSettingsOpenButton}"`,
+                    style: `style="${stylesV2.videoSettingsOpenButton}"`,
                     dataV: '',
                     text: ''
                 }), floatNav, 'append')
@@ -453,7 +458,7 @@ export default {
                     const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
                     const template = document.createElement('template')
                     template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
-                        videoCommentDescription: styles.videoCommentDescription,
+                        videoCommentDescription: stylesV2.videoCommentDescription,
                         upAvatarFaceLink: upAvatarFaceLink,
                         processVideoCommentDescription: formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
                     })
@@ -507,7 +512,7 @@ export default {
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         const { pages = false, ugc_season = false, episodes = false } = videoInfo
         if (pages || ugc_season || episodes) {
-            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
+            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': stylesV2.UnlockEpisodeSelector })
             elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
                 addEventListenerToElement(link, 'click', async () => {
                     await this.locateToPlayer()
@@ -518,8 +523,8 @@ export default {
     // 重置播放器布局
     async resetPlayerLayout (playerWrap, player) {
         insertStyleToDocument({
-            'UnlockWebPlayerStyle': styles.UnlockWebPlayer,
-            'ResetPlayerLayoutStyle': styles.ResetPlayerLayout
+            'UnlockWebPlayerStyle': stylesV2.UnlockWebPlayer,
+            'ResetPlayerLayoutStyle': stylesV2.ResetPlayerLayout
         })
         playerWrap.append(player)
         await storageService.set('current_player_mode', 'wide')
@@ -540,7 +545,7 @@ export default {
         ]
         const [app, playerWrap, player, playerWebscreen, wideEnterButton, wideLeaveButton, webEnterButton, webLeaveButton, fullControlButton] = await elementSelectors.batch(batchSelectors)
         // 插入解锁样式
-        insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
+        insertStyleToDocument({ 'UnlockWebPlayerStyle': stylesV2.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
         app.prepend(playerWebscreen)
         // 监听模式切换按钮
         addEventListenerToElement([webLeaveButton, wideEnterButton, wideLeaveButton, fullControlButton], 'click', async () => {
@@ -550,7 +555,7 @@ export default {
         // 监听网页全屏进入按钮
         addEventListenerToElement(webEnterButton, 'click', async () => {
             const UnlockWebPlayerStyle = elementSelectors.UnlockWebPlayerStyle
-            !UnlockWebPlayerStyle && insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
+            !UnlockWebPlayerStyle && insertStyleToDocument({ 'UnlockWebPlayerStyle': stylesV2.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
             app.prepend(playerWebscreen)
             await this.locateToPlayer()
         })

@@ -6,7 +6,7 @@ import { LoggerService } from '@/services/logger.service'
 const logger = new LoggerService('Main')
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
 import { updateService } from '@/services/update.service'
-import { styles } from '@/shared/styles'
+import { stylesV2 } from '@/shared/styles'
 import pkg from '../package.json' with { type: 'json' }
 window._ = _
 // 模块缓存，避免重复加载
@@ -132,6 +132,6 @@ const initializeApp = async () => {
         logger.error('应用初始化失败', error)
     }
 }
-insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
+insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
 // 启动应用
 initializeApp()

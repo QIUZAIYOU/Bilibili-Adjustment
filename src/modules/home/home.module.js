@@ -5,7 +5,7 @@ import { sleep, executeFunctionsSequentially, isTabActive, insertStyleToDocument
 import { biliApis } from '@/shared/biliApis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
-import { styles } from '@/shared/styles'
+import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'home',
@@ -20,7 +20,7 @@ export default {
         this.userConfigs = await storageService.getAll('user')
         if (isTabActive()) {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'IndexAdjustmentStyle': styles.IndexAdjustment })
+            insertStyleToDocument({ 'IndexAdjustmentStyle': stylesV2.IndexAdjustment })
             this.handleExecuteFunctionsSequentially()
             this.initEventListeners()
         }
