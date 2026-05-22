@@ -2,15 +2,17 @@ import { ShadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { SettingsComponent } from '@/components/settings.component'
+// import { SettingsComponent } from '@/components/settings.component'
+import { SettingsComponentV2 } from '@/components/settings.component.v2'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
-import { styles } from '@/shared/styles'
+import { stylesV2 } from '@/shared/styles'
 const shadowDOMHelper = new ShadowDOMHelper()
 const logger = new LoggerService('VideoModule')
-const settingsComponent = new SettingsComponent()
+// const settingsComponent = new SettingsComponent()
+const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'dynamic',
     version: '2.0.0',
@@ -25,7 +27,7 @@ export default {
         this.registSettings()
         if (isTabActive()) {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'DynamicSettingStyle': styles.DynamicSetting })
+            insertStyleToDocument({ 'DynamicSettingStyle': stylesV2.DynamicSetting })
             this.handleExecuteFunctionsSequentially()
         }
     },
@@ -56,11 +58,17 @@ export default {
         }
     },
     async insertSidebarButtons (){
-        const batchSelectors = ['dynamicSidebar', 'DynamicSettingsPopover']
-        const [dynamicSidebar, DynamicSettingsPopover] = await elementSelectors.batch(batchSelectors)
+        const dynamicSidebar = await elementSelectors.dynamicSidebar
+        if (!dynamicSidebar) {
+            logger.warn('动态页侧边栏未找到，跳过插入设置按钮')
+            return
+        }
         const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
         addEventListenerToElement(dynamicSettingsOpenButton, 'click', () => {
-            DynamicSettingsPopover.showPopover()
+            const DynamicSettingsPopover = document.getElementById('DynamicSettingsPopover')
+            if (DynamicSettingsPopover) {
+                DynamicSettingsPopover.showPopover()
+            }
         })
         logger.debug('侧边栏工具丨插入成功')
     },
