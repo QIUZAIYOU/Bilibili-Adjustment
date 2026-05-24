@@ -626,6 +626,65 @@ function generateBilibiliAdjustmentStyle() {
             background: #323232;
             border-color: #444;
         }
+
+        /* ========== 更新弹窗专用样式 ========== */
+        .adjustment-version {
+            display: flex;
+            gap: 16px;
+            margin-bottom: 16px;
+            padding: 12px 16px;
+            background: #2c2c2c;
+            border-radius: 8px;
+            font-size: 13px;
+            color: #888;
+        }
+
+        .adjustment-version div:first-child {
+            color: #aaa;
+        }
+
+        .adjustment-version div:last-child {
+            color: #00a1d6;
+            font-weight: 500;
+        }
+
+        .adjustment-update-contents {
+            margin: 0;
+            padding-left: 20px;
+            color: #ccc;
+            font-size: 13px;
+            line-height: 1.8;
+        }
+
+        .adjustment-update-contents li {
+            margin-bottom: 6px;
+            padding-left: 4px;
+        }
+
+        .adjustment-update-contents li::marker {
+            color: #00a1d6;
+        }
+
+        .adjustment-button-group {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 12px;
+            padding-top: 16px;
+            margin-top: 16px;
+            border-top: 1px solid #333;
+        }
+
+        /* 更新弹窗标题特殊处理 */
+        #UpdatePopover .adjustment-popover-title {
+            font-size: 18px;
+        }
+
+        #UpdatePopover .adjustment-popover-subtitle {
+            font-size: 12px;
+            color: #888;
+            margin-top: 4px;
+        }
     `.replace(/\s+/g, ' ').trim()
 }
 
