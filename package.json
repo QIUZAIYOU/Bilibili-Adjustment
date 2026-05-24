@@ -2,8 +2,8 @@
   "name": "bilibili-adjustment",
   "description": "哔哩哔哩（bilibili.com）调整",
   "author": "QIAN",
-  "version": "3.10.21",
-  "updates": "优化设置弹窗样式，修复设置项宽度及 tooltip 显示问题;修复 AI 服务配置联动显示逻辑;新增 auto_subtitle 双向同步逻辑，确保播放器开关与设置面板状态一致;优化 tooltip 组件，修复被 popover 顶层遮挡的问题;添加 auto_subtitle 变更调试日志;优化 tooltip 交互，鼠标移出图标后延迟隐藏，移入 tooltip 时保持显示，支持点击链接;",
+  "version": "3.10.22",
+  "updates": "修复设置项宽度被 refreshVisibility 覆盖为 flex 的问题;优化更新弹窗布局，新增版本信息、更新列表和按钮组样式;修复 tooltip 交互，支持鼠标移入 tooltip 保持显示并点击链接;修复 AI 服务配置联动显示逻辑;新增 auto_subtitle 双向同步逻辑;",
   "license": "MIT",
   "type": "module",
   "scripts": {

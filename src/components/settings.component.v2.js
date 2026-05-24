@@ -440,7 +440,7 @@ export class SettingsComponentV2 {
             }
             
             // 更新显示状态
-            domItem.style.display = isVisible ? 'flex' : 'none'
+            domItem.style.display = isVisible ? 'block' : 'none'
             
             logger.debug(`刷新可见性: ${id} = ${isVisible} (use_custom_model: ${this.userConfigs.use_custom_model})`)
         })
