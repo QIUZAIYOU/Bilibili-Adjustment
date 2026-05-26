@@ -55,55 +55,157 @@ export default {
     async insertIndexRecommendVideoHistoryPopover () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
         const indexRecommendVideoHistoryOpenButtonTemplate = getTemplates.indexRecommendVideoHistoryOpenButton
-        const indexRecommendVideoHistoryPopoverTemplate = getTemplates.indexRecommendVideoHistoryPopover
         createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper)
-        const indexRecommendVideoHistoryPopover = createElementAndInsert(indexRecommendVideoHistoryPopoverTemplate, document.body)
-        const batchSelectors = ['indexApp', 'indexRecommendVideoHistoryPopoverTitle']
-        addEventListenerToElement(indexRecommendVideoHistoryPopover, 'toggle', async event => {
-            const [indexApp, indexRecommendVideoHistoryPopoverTitle] = await elementSelectors.batch(batchSelectors)
-            if (event.newState === 'open') {
-                indexApp.style.pointerEvents = 'none'
-                this.generatorIndexRecommendVideoHistoryContents()
-            }
-            if (event.newState === 'closed') {
-                indexApp.style.pointerEvents = 'auto'
-                indexRecommendVideoHistoryPopoverTitle.querySelector('span').innerText = '首页视频推荐历史记录'
-                // 清空搜索框内容
-                const searchInput = document.getElementById('indexRecommendVideoHistorySearchInput')
-                if (searchInput) {
-                    searchInput.value = ''
-                }
-            }
-        })
         const indexRecommendVideoHistoryOpenButton = await elementSelectors.indexRecommendVideoHistoryOpenButton
+        // 绑定清空按钮事件（只需绑定一次）
+        const clearBtn = await elementSelectors.clearRecommendVideoHistoryButton
+        addEventListenerToElement(clearBtn, 'click', async () => {
+            this.clearRecommendVideoHistory()
+        })
+        // 点击打开按钮时创建并显示弹窗（延迟创建避免自动显示）
         addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
-            const clearRecommendVideoHistoryButton = await elementSelectors.clearRecommendVideoHistoryButton
-            addEventListenerToElement(clearRecommendVideoHistoryButton, 'click', async () => {
-                this.clearRecommendVideoHistory()
-            })
+            // 检查是否已存在弹窗，避免重复创建
+            let wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
+            if (!wrapper) {
+                const template = getTemplates.indexRecommendVideoHistoryPopover
+                wrapper = createElementAndInsert(template, document.body)
+                // 点击遮罩层关闭弹窗
+                addEventListenerToElement(wrapper, 'click', (event) => {
+                    if (event.target === wrapper) {
+                        wrapper.style.display = 'none'
+                        const searchInput = document.getElementById('indexRecommendVideoHistorySearchInput')
+                        if (searchInput) {
+                            searchInput.value = ''
+                        }
+                    }
+                })
+            }
+            wrapper.style.display = 'flex'
+            this.generatorIndexRecommendVideoHistoryContents()
         })
     },
+    async clearRecommendVideoHistory (){
+        await storageService.clear('index')
+        const wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
+        if (wrapper) {
+            wrapper.style.display = 'none'
+        }
+    },
     async generatorIndexRecommendVideoHistoryContents () {
-        const indexRecommendVideoHistories = await storageService.getAll('index')
+        const indexRecommendVideoHistoriesRaw = await storageService.getAllRaw('index')
+        const indexRecommendVideoHistories = {}
+        for (const item of indexRecommendVideoHistoriesRaw) {
+            indexRecommendVideoHistories[item.key] = {
+                ...item.value,
+                timestamp: item.timestamp
+            }
+        }
         const totalCount = await storageService.getCount('index')
-        const batchSelectors = ['indexRecommendVideoHistoryPopoverTitleCount', 'indexRecommendVideoHistoryCategory', 'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryList', 'indexRecommendVideoHistorySearchInput']
-        const [indexRecommendVideoHistoryPopoverTitleCount, indexRecommendVideoHistoryCategory, indexRecommendVideoHistoryCategoryV2, indexRecommendVideoHistoryList, indexRecommendVideoHistorySearchInput] = await elementSelectors.batch(batchSelectors)
-        indexRecommendVideoHistoryCategory.innerHTML = '<li class="all adjustment_button primary plain">全部</li>'
-        indexRecommendVideoHistoryCategoryV2.innerHTML = ''
+        const batchSelectors = ['indexRecommendVideoHistoryPopoverTitle', 'indexRecommendVideoHistoryList', 'indexRecommendVideoHistorySearchInput']
+        const [indexRecommendVideoHistoryPopoverTitle, indexRecommendVideoHistoryList, indexRecommendVideoHistorySearchInput] = await elementSelectors.batch(batchSelectors)
         indexRecommendVideoHistoryList.innerHTML = ''
-        indexRecommendVideoHistoryPopoverTitleCount.innerText = `首页视频推荐历史记录(${totalCount})`
-        // 搜索功能
-        const filterAndDisplayVideos = (searchKeyword = '', selectedTid = null) => {
+        // 更新标题中的数量
+        const titleSpan = indexRecommendVideoHistoryPopoverTitle.querySelector('span')
+        if (titleSpan) {
+            titleSpan.innerText = `首页视频推荐历史记录(${totalCount})`
+        }
+        // 将对象转换为数组并按时间排序（最新的在前）
+        const videoList = Object.entries(indexRecommendVideoHistories)
+            .map(([key, value]) => ({ ...value, _key: key, _timestamp: value.timestamp || 0 }))
+            .sort((a, b) => b._timestamp - a._timestamp)
+        // 懒加载配置
+        const PAGE_SIZE = 50
+        let currentPage = 0
+        let filteredList = videoList
+        let isLoading = false
+        let observer = null
+        // 移除旧的 loading 指示器
+        const removeLoadingIndicator = () => {
+            const loadingEl = document.getElementById('indexHistoryLoading')
+            if (loadingEl) loadingEl.remove()
+        }
+        // 显示 loading 指示器
+        const showLoadingIndicator = () => {
+            removeLoadingIndicator()
+            if (filteredList.length > (currentPage + 1) * PAGE_SIZE) {
+                const loadingEl = document.createElement('div')
+                loadingEl.id = 'indexHistoryLoading'
+                loadingEl.className = 'loading-state'
+                loadingEl.innerHTML = '<div class="loading-spinner"></div><span>加载中...</span>'
+                indexRecommendVideoHistoryList.appendChild(loadingEl)
+                return true
+            }
+            return false
+        }
+        // 加载一页数据
+        const loadPage = () => {
+            const start = currentPage * PAGE_SIZE
+            const end = start + PAGE_SIZE
+            const pageData = filteredList.slice(start, end)
+            for (const video of pageData) {
+                createElementAndInsert(`
+                    <li>
+                        <span><img src="${video.pic}" loading="lazy" alt="${video.title || ''}"></span>
+                        <div class="video-info">
+                            <a href="${video.url}" target="_blank" title="${video.title || ''}">${video.title || '未知标题'}</a>
+                            <div class="video-author">UP: ${video.author || '未知作者'}</div>
+                        </div>
+                    </li>
+                `, indexRecommendVideoHistoryList)
+            }
+            currentPage++
+        }
+        // 搜索并显示视频
+        const filterAndDisplayVideos = (searchKeyword = '') => {
+            // 清理旧的 observer
+            if (observer) {
+                observer.disconnect()
+                observer = null
+            }
             indexRecommendVideoHistoryList.innerHTML = ''
-            for (const record of Object.entries(indexRecommendVideoHistories)) {
-                const video = record[1]
-                const matchesSearch = !searchKeyword ||
-                    video.title.toLowerCase().includes(searchKeyword.toLowerCase()) ||
-                    (video.author && video.author.toLowerCase().includes(searchKeyword.toLowerCase()))
-                const matchesCategory = !selectedTid || [video.tid, video.tid_v2].includes(selectedTid)
-                if (matchesSearch && matchesCategory) {
-                    createElementAndInsert(`<li><span><img src="${video.pic}"></span><div class="video-info"><a href="${video.url}" target="_blank">${video.title}</a><div class="video-author">UP: ${video.author || '未知作者'}</div></div></li>`, indexRecommendVideoHistoryList)
-                }
+            currentPage = 0
+            const keyword = searchKeyword.toLowerCase().trim()
+            filteredList = keyword
+                ? videoList.filter(video =>
+                    (video.title && video.title.toLowerCase().includes(keyword)) ||
+                    (video.author && video.author.toLowerCase().includes(keyword))
+                )
+                : videoList
+            if (filteredList.length === 0) {
+                indexRecommendVideoHistoryList.innerHTML = '<div class="empty-state">没有找到匹配的视频</div>'
+                return
+            }
+            // 加载第一页
+            loadPage()
+            // 如果还有更多数据，设置 IntersectionObserver
+            if (filteredList.length > PAGE_SIZE) {
+                const sentinel = document.createElement('div')
+                sentinel.id = 'indexHistorySentinel'
+                sentinel.className = 'sentinel'
+                indexRecommendVideoHistoryList.appendChild(sentinel)
+                observer = new IntersectionObserver((entries) => {
+                    if (entries[0].isIntersecting && !isLoading) {
+                        isLoading = true
+                        if (showLoadingIndicator()) {
+                            // 模拟延迟加载效果
+                            setTimeout(() => {
+                                loadPage()
+                                removeLoadingIndicator()
+                                if (filteredList.length <= currentPage * PAGE_SIZE) {
+                                    sentinel.remove()
+                                }
+                                isLoading = false
+                            }, 100)
+                        } else {
+                            sentinel.remove()
+                            isLoading = false
+                        }
+                    }
+                }, {
+                    root: indexRecommendVideoHistoryList,
+                    rootMargin: '100px'
+                })
+                observer.observe(sentinel)
             }
         }
         // 监听搜索输入
@@ -111,72 +213,23 @@ export default {
         addEventListenerToElement(indexRecommendVideoHistorySearchInput, 'input', event => {
             clearTimeout(searchTimeout)
             searchTimeout = setTimeout(() => {
-                const searchKeyword = event.target.value.trim()
-                // 获取当前激活的分类按钮
-                const activeCategory = document.querySelector('#indexRecommendVideoHistoryCategory li.active, #indexRecommendVideoHistoryCategoryV2 li.active')
-                const selectedTid = activeCategory && activeCategory.dataset.tid ? Number(activeCategory.dataset.tid) : null
-                filterAndDisplayVideos(searchKeyword, selectedTid)
+                filterAndDisplayVideos(event.target.value)
             }, 300)
         })
-        const setCategoryButtonActiveClass = async element => {
-            elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
-                item.classList.remove('active')
-            })
-            await sleep(100)
-            element.classList.add('active')
-        }
-        const tnameList = Array.from(
-            Object.entries(indexRecommendVideoHistories)
-                // eslint-disable-next-line no-unused-vars
-                .reduce((acc, [_, value]) => {
-                    const key = `${value.tid}_${value.tname}`
-                    return acc.has(key) ? acc : acc.set(key, { tname: value.tname || `未知(tid:${value.tid})`, tid: value.tid })
-                }, new Map())
-                .values()
-        )
-        const tnameV2List = Array.from(
-            Object.entries(indexRecommendVideoHistories)
-                // eslint-disable-next-line no-unused-vars
-                .reduce((acc, [_, value]) => {
-                    const key = `${value.tid_v2}_${value.tname_v2}`
-                    return acc.has(key) ? acc : acc.set(key, { tname_v2: value.tname_v2 || `未知(tid_v2:${value.tid_v2})`, tid_v2: value.tid_v2 })
-                }, new Map())
-                .values()
-        )
-        for (const category of tnameList){
-            createElementAndInsert(`<li data-tid="${category.tid}">${category.tname}</li>`, indexRecommendVideoHistoryCategory)
-        }
-        for (const category of tnameV2List){
-            createElementAndInsert(`<li data-tid="${category.tid_v2}">${category.tname_v2}</li>`, indexRecommendVideoHistoryCategoryV2)
-        }
-        // 初始显示所有视频
+        // 初始显示第一页视频
         filterAndDisplayVideos()
-        elementSelectors.each('indexRecommendVideoHistoryCategoryButtons', item => {
-            addEventListenerToElement(item, 'click', async () => {
-                setCategoryButtonActiveClass(item)
-                const tid = Number(item.dataset.tid)
-                const searchKeyword = indexRecommendVideoHistorySearchInput.value.trim()
-                filterAndDisplayVideos(searchKeyword, tid)
-            })
-        })
-        elementSelectors.each('indexRecommendVideoHistoryCategoryButtonAll', item => {
-            addEventListenerToElement(item, 'click', async () => {
-                setCategoryButtonActiveClass(item)
-                const searchKeyword = indexRecommendVideoHistorySearchInput.value.trim()
-                filterAndDisplayVideos(searchKeyword)
-            })
-        })
     },
     async clearRecommendVideoHistory (){
         await storageService.clear('index')
-        const indexRecommendVideoHistoryPopover = await elementSelectors.indexRecommendVideoHistoryPopover
-        indexRecommendVideoHistoryPopover.hidePopover()
+        const wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
+        if (wrapper) {
+            wrapper.style.display = 'none'
+        }
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
             this.setRecordRecommendVideoHistory,
-            this.insertIndexRecommendVideoHistoryPopover,
-            this.generatorIndexRecommendVideoHistoryContents
+            this.insertIndexRecommendVideoHistoryPopover
         ]
         executeFunctionsSequentially(functions)
     }

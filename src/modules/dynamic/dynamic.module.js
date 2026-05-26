@@ -2,7 +2,6 @@ import { ShadowDOMHelper } from '@/utils/shadowDOMHelper'
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-// import { SettingsComponent } from '@/components/settings.component'
 import { SettingsComponentV2 } from '@/components/settings.component.v2'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
 import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
@@ -11,7 +10,6 @@ import { getTemplates } from '@/shared/templates'
 import { stylesV2 } from '@/shared/styles'
 const shadowDOMHelper = new ShadowDOMHelper()
 const logger = new LoggerService('VideoModule')
-// const settingsComponent = new SettingsComponent()
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'dynamic',
