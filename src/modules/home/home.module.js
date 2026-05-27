@@ -57,12 +57,7 @@ export default {
         const indexRecommendVideoHistoryOpenButtonTemplate = getTemplates.indexRecommendVideoHistoryOpenButton
         createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper)
         const indexRecommendVideoHistoryOpenButton = await elementSelectors.indexRecommendVideoHistoryOpenButton
-        // 绑定清空按钮事件（只需绑定一次）
-        const clearBtn = await elementSelectors.clearRecommendVideoHistoryButton
-        addEventListenerToElement(clearBtn, 'click', async () => {
-            this.clearRecommendVideoHistory()
-        })
-        // 点击打开按钮时创建并显示弹窗（延迟创建避免自动显示）
+        // 点击打开按钮时创建并显示弹窗
         addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
             // 检查是否已存在弹窗，避免重复创建
             let wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
@@ -79,8 +74,17 @@ export default {
                         }
                     }
                 })
+                // 绑定清空按钮事件（弹窗创建后只绑定一次）
+                const clearBtn = document.getElementById('clearRecommendVideoHistoryButton')
+                if (clearBtn) {
+                    addEventListenerToElement(clearBtn, 'click', async () => {
+                        this.clearRecommendVideoHistory()
+                    })
+                }
             }
             wrapper.style.display = 'flex'
+            // 等待 DOM 更新后再渲染内容
+            await new Promise(resolve => requestAnimationFrame(resolve))
             this.generatorIndexRecommendVideoHistoryContents()
         })
     },
