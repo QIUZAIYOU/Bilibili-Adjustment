@@ -9,7 +9,7 @@ import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'home',
-    version: '1.2.1',
+    version: '1.2.2',
     async install () {
         eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
