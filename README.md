@@ -65,9 +65,9 @@
 - 修复首页「推荐视频历史记录」偶现报错 `TypeError` 的问题，添加 `url` 与 `title` 变量存在性守卫，避免在未找到对应 DOM 元素时脚本崩溃；
 - 修复点击「换一换」时 `this` 上下文丢失导致无法正确记录视频的问题，将函数引用改为箭头函数包装，确保 `this` 绑定正确；
 - 替换 CSS `:has()` 选择器为 JavaScript 过滤器，消除 Firefox 浏览器兼容性差异；
-- 修复 `storageService.getCount` 方法中 `Map.get()` 多余参数问题；
+- 修复 `storageService.getCount` 方法中 `Map.get()` 多余参数问题；  
 
-`05.29 22:16`：优化检查更新弹窗布局，标题文字居中显示，更新条目容器<ol>固定最大高度支持上下滚动，更新条目添加长文本断行保护；
+`05.29 22:16`：优化检查更新弹窗布局，标题文字居中显示，更新条目容器固定最大高度支持上下滚动，更新条目添加长文本断行保护；  
 
 `05.29 22:00`：修复打开弹窗有时报错 TypeError: Cannot set properties of undefined (setting 'innerHTML')，点击换一换时弹窗DOM未创建即渲染，添加DOM存在性守卫跳过；
 
