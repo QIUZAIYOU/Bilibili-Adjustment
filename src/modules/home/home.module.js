@@ -9,7 +9,7 @@ import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('VideoModule')
 export default {
     name: 'home',
-    version: '1.1.1',
+    version: '1.2.1',
     async install () {
         eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
@@ -35,22 +35,29 @@ export default {
         })
     },
     async setRecordRecommendVideoHistory () {
-        const recordRecommendVideos = await elementSelectors.all('.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))')
-        recordRecommendVideos.forEach( async video => {
-            const url = video.querySelector('a')?.href
-            const title = video.querySelector('h3')?.title
-            if (location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
-                const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
-                if (videoInfo) {
-                    const { tid, tid_v2, tname, tname_v2, pic, owner } = videoInfo
-                    const author = owner?.name || '未知作者'
-                    await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic, author })
-                } else {
-                    return
+        if (this._isRecording) return
+        this._isRecording = true
+        const sessionTimestamp = Date.now()
+        try {
+            const recordRecommendVideos = await elementSelectors.all('.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))')
+            let order = 0
+            for (const video of recordRecommendVideos) {
+                const url = video.querySelector('a')?.href
+                const title = video.querySelector('h3')?.title
+                if (location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
+                    const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                    if (videoInfo) {
+                        const { tid, tid_v2, tname, tname_v2, pic, owner } = videoInfo
+                        const author = owner?.name || '未知作者'
+                        await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic, author, order, sessionTimestamp })
+                        order++
+                    }
                 }
             }
-        })
-        logger.info('首页视频推荐历史｜已记录')
+            logger.info('首页视频推荐历史｜已记录')
+        } finally {
+            this._isRecording = false
+        }
     },
     async insertIndexRecommendVideoHistoryPopover () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
@@ -96,6 +103,8 @@ export default {
         }
     },
     async generatorIndexRecommendVideoHistoryContents () {
+        // 弹窗 DOM 还未创建时直接跳过（如点击"换一换"触发了渲染但弹窗未打开）
+        if (!document.getElementById('indexRecommendVideoHistoryList')) return
         const indexRecommendVideoHistoriesRaw = await storageService.getAllRaw('index')
         const indexRecommendVideoHistories = {}
         for (const item of indexRecommendVideoHistoriesRaw) {
@@ -113,10 +122,10 @@ export default {
         if (titleSpan) {
             titleSpan.innerText = `首页视频推荐历史记录(${totalCount})`
         }
-        // 将对象转换为数组并按时间排序（最新的在前）
+        // 先按批次时间倒序（最新批次排最前），批次内按页面顺序升序
         const videoList = Object.entries(indexRecommendVideoHistories)
-            .map(([key, value]) => ({ ...value, _key: key, _timestamp: value.timestamp || 0 }))
-            .sort((a, b) => b._timestamp - a._timestamp)
+            .map(([key, value]) => ({ ...value, _key: key, _order: value.order ?? 0, _sessionTimestamp: value.sessionTimestamp ?? 0 }))
+            .sort((a, b) => b._sessionTimestamp - a._sessionTimestamp || a._order - b._order)
         // 懒加载配置
         const PAGE_SIZE = 50
         let currentPage = 0
