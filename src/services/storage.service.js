@@ -105,8 +105,8 @@ export class StorageService {
         }
     }
     async getCount (dbName, range) {
-        const db = this.#dbs.get(dbName, range)
-        return db.count('keyval')
+        const db = this.#dbs.get(dbName)
+        return db.count('keyval', range)
     }
     async clear (dbName) {
         const db = this.#dbs.get(dbName)
