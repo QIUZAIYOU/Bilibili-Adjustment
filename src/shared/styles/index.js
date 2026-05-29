@@ -650,15 +650,18 @@ function generateBilibiliAdjustmentStyle() {
 
         .adjustment-update-contents {
             margin: 0;
-            padding-left: 20px;
+            padding: 4px 16px 4px 24px;
             color: #ccc;
             font-size: 13px;
             line-height: 1.8;
+            max-height: 400px;
+            overflow-y: auto;
         }
 
         .adjustment-update-contents li {
             margin-bottom: 6px;
             padding-left: 4px;
+            word-break: break-word;
         }
 
         .adjustment-update-contents li::marker {
@@ -678,6 +681,7 @@ function generateBilibiliAdjustmentStyle() {
         /* 更新弹窗标题特殊处理 */
         #UpdatePopover .adjustment-popover-title {
             font-size: 18px;
+            text-align: center;
         }
 
         #UpdatePopover .adjustment-popover-subtitle {
