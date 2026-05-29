@@ -29,8 +29,8 @@ export default {
         const indexRecommendVideoRollButton = await elementSelectors.indexRecommendVideoRollButton
         addEventListenerToElement(indexRecommendVideoRollButton, 'click', async () => {
             executeFunctionsSequentially([
-                this.setRecordRecommendVideoHistory,
-                this.generatorIndexRecommendVideoHistoryContents
+                () => this.setRecordRecommendVideoHistory(),
+                () => this.generatorIndexRecommendVideoHistoryContents()
             ])
         })
     },
@@ -39,17 +39,21 @@ export default {
         this._isRecording = true
         const sessionTimestamp = Date.now()
         try {
-            const recordRecommendVideos = await elementSelectors.all('.recommended-container_floor-aside .feed-card:nth-child(-n+11):not(:has([class*="-ad"]))')
+            // 先用 JS 过滤而非依赖 CSS :has()（在 Firefox 中 :has() 搭配 :not() 存在兼容性差异）
+            const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
+            const recordRecommendVideos = [...allCards].filter(card => !card.querySelector('[class*="-ad"]'))
             let order = 0
             for (const video of recordRecommendVideos) {
                 const url = video.querySelector('a')?.href
                 const title = video.querySelector('h3')?.title
-                if (location.host.includes('bilibili.com') && !url.includes('cm.bilibili.com')) {
+                if (location.host.includes('bilibili.com') && url && !url.includes('cm.bilibili.com')) {
                     const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
                     if (videoInfo) {
                         const { tid, tid_v2, tname, tname_v2, pic, owner } = videoInfo
                         const author = owner?.name || '未知作者'
-                        await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic, author, order, sessionTimestamp })
+                        if (title) {
+                            await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic, author, order, sessionTimestamp })
+                        }
                         order++
                     }
                 }
@@ -241,8 +245,8 @@ export default {
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
-            this.setRecordRecommendVideoHistory,
-            this.insertIndexRecommendVideoHistoryPopover
+            () => this.setRecordRecommendVideoHistory(),
+            () => this.insertIndexRecommendVideoHistoryPopover()
         ]
         executeFunctionsSequentially(functions)
     }
