@@ -628,7 +628,19 @@ function generateBilibiliAdjustmentStyle() {
         }
 
         /* ========== 更新弹窗专用样式 ========== */
-        .adjustment-version {
+        #UpdatePopover .adjustment-popover-title {
+            font-size: 24px;
+            text-align: center;
+            padding: 20px;
+        }
+
+        #UpdatePopover .adjustment-popover-subtitle {
+            font-size: 16px;
+            color: #888;
+            margin-top: 4px;
+        }
+
+        #UpdatePopover .adjustment-version {
             display: flex;
             gap: 16px;
             margin-bottom: 16px;
@@ -639,36 +651,37 @@ function generateBilibiliAdjustmentStyle() {
             color: #888;
         }
 
-        .adjustment-version div:first-child {
+        #UpdatePopover .adjustment-version div:first-child {
             color: #aaa;
         }
 
-        .adjustment-version div:last-child {
+        #UpdatePopover .adjustment-version div:last-child {
             color: #00a1d6;
             font-weight: 500;
         }
 
-        .adjustment-update-contents {
+        #UpdatePopover .adjustment-update-contents {
             margin: 0;
             padding: 4px 16px 4px 24px;
             color: #ccc;
             font-size: 13px;
             line-height: 1.8;
-            max-height: 400px;
+            max-height: 500px;
             overflow-y: auto;
         }
 
-        .adjustment-update-contents li {
+        #UpdatePopover .adjustment-update-contents li {
             margin-bottom: 6px;
             padding-left: 4px;
             word-break: break-word;
+            list-style: disc;
         }
 
-        .adjustment-update-contents li::marker {
+        #UpdatePopover .adjustment-update-contents li::marker {
             color: #00a1d6;
         }
 
-        .adjustment-button-group {
+        #UpdatePopover .adjustment-button-group {
             display: flex;
             align-items: center;
             justify-content: flex-end;
@@ -676,18 +689,6 @@ function generateBilibiliAdjustmentStyle() {
             padding-top: 16px;
             margin-top: 16px;
             border-top: 1px solid #333;
-        }
-
-        /* 更新弹窗标题特殊处理 */
-        #UpdatePopover .adjustment-popover-title {
-            font-size: 18px;
-            text-align: center;
-        }
-
-        #UpdatePopover .adjustment-popover-subtitle {
-            font-size: 12px;
-            color: #888;
-            margin-top: 4px;
         }
     `.replace(/\s+/g, ' ').trim()
 }

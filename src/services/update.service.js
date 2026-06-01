@@ -286,9 +286,9 @@ export class UpdateService {
                 return '<div class="adjustment-update-contents">暂无更新说明</div>'
             }
             return `
-                <ol class="adjustment-update-contents">
+                <ul class="adjustment-update-contents">
                     ${items.map(item => `<li>${item}</li>`).join('')}
-                </ol>
+                </ul>
             `.replace(/\n\s+/g, '').trim()
         }
         // 如果是数组，直接生成列表
@@ -297,9 +297,9 @@ export class UpdateService {
                 return '<div class="adjustment-update-contents">暂无更新说明</div>'
             }
             return `
-                <ol class="adjustment-update-contents">
+                <ul class="adjustment-update-contents">
                     ${changelog.map(item => `<li>${item}</li>`).join('')}
-                </ol>
+                </ul>
             `.replace(/\n\s+/g, '').trim()
         }
         return '<div class="adjustment-update-contents">暂无更新说明</div>'
