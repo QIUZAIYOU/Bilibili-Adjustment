@@ -99,6 +99,16 @@ export const biliApis = {
         else if (code === 'ERR_BAD_REQUEST') logger.info('获取视频字幕丨请求失败')
         else logger.warn('获取视频字幕丨请求失败')
     },
+    async checkVideoPaid (aid, cid) {
+        const wbi = await biliApis.getQueryWithWbi({ aid, cid })
+        const url = `https://api.bilibili.com/x/player/wbi/v2?${wbi}`
+        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+        if (code === 0) {
+            return data?.elec_high_level?.privilege_type !== 0
+        }
+        logger.warn('获取视频付费状态丨请求失败')
+        return false
+    },
     async isVip () {
         const userId = this.getCookieByName('DedeUserID')
         const { data: { card: { vip: { status }}}} = await biliApis.getUserInformation(userId)

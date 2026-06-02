@@ -18,7 +18,7 @@ export const popoverStyles = {
         font-size: ${theme.fontSize.xxl};
         color: #fff;
 
-        .adjustment-popover-subtitle {
+        .subTitle {
             font-size: ${theme.fontSize.sm};
             margin-top: ${theme.spacing.xs};
             color: ${theme.colors.textSecondary};
