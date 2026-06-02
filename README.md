@@ -198,4 +198,11 @@ GitHub：
 
 - 提交 Issue：[GitHub Issues](https://github.com/QIUZAIYOU/Bilibili-Adjustment/issues)
 
+---
+
+如果这个脚本对你的日常使用有所帮助，让你刷 B 站的时候省心了一些，不妨请我喝杯咖啡 ☕  
+每一份鼓励，都是让我把这个小工具打磨得更好的动力 🙏
+
+![收款码](PayQrcode.png)
+
 感谢您的支持与使用！🌟
