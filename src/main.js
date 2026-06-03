@@ -67,8 +67,12 @@ const initializeApp = async () => {
         await ConfigService.initialize()
         logger.debug('ConfigService 初始化完成')
         // 2. 根据用户配置更新日志级别
-        const { LoggerService } = await import('@/services/logger.service')
-        await LoggerService.updateLogLevelsFromConfig()
+        await LoggerService.updateLogLevelsFromConfig({
+            log_level_info: await ConfigService.getValue('log_level_info'),
+            log_level_error: await ConfigService.getValue('log_level_error'),
+            log_level_warn: await ConfigService.getValue('log_level_warn'),
+            log_level_debug: await ConfigService.getValue('log_level_debug')
+        })
         // 3. 检测页面类型
         await debouncedDetectPageType()
         // 4. 如果页面类型为 other，直接返回，不执行后续操作
