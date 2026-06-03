@@ -260,7 +260,7 @@ const resolveSelector = selectorKey => {
         return getSelector(selectorKey)
     }
     // 兼容直接使用 CSS 选择器字符串的情况（用于外部传入的原始选择器）
-    if (typeof selectorKey === 'string' && selectorKey.includes(' ') || selectorKey.startsWith('#') || selectorKey.startsWith('.')) {
+    if (typeof selectorKey === 'string' && (selectorKey.includes(' ') || selectorKey.startsWith('#') || selectorKey.startsWith('.') || selectorKey.startsWith('['))) {
         return selectorKey
     }
     logger.error(`未注册的选择器: "${selectorKey}"，请先在 element-selectors.js 中定义或在 SelectorRegistry 中注册`)

@@ -60,6 +60,8 @@
 
 ### 2026
 
+`06.03 15:51` — 修复 resolveSelector 未处理 `[` 前缀属性选择器导致未注册错误；泛化 refreshVisibility 运行时刷新所有 visible 条件（is_vip 联动隐藏等）；子项可见性控制上移到容器层消除空容器占位；移除 `continue_play` 上遗留的 is_vip 限制；消除 build 警告
+
 `06.03 15:51` — 优化播放页设置弹窗布局：父开关关闭时自动隐藏二级选项（自动定位至播放器、自动选择最高画质、暂停视频的子项联动显示/隐藏）；修复自动开启字幕偶现 TypeError
 
 `06.02 15:52` — 新增首页推荐视频付费识别，调用播放器 API 检测付费视频并在页面标题中添加「付费视频」标记；抽象 `checkVideoPaid` 到 biliApis 服务；付费识别与历史记录解耦，独立为 `markRecommendVideoPaidStatus` 随首页初始化执行
