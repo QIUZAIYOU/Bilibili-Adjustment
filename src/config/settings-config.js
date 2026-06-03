@@ -25,12 +25,12 @@ export const videoSettingsConfig = [
             {
                 id: 'auto_locate_video',
                 type: 'checkbox',
-                label: '普通视频(video)',
+                label: '普通视频',
             },
             {
                 id: 'auto_locate_bangumi',
                 type: 'checkbox',
-                label: '其他视频(bangumi)',
+                label: '番剧视频',
             }
         ],
         tips: '勾选自动定位至播放器后，video 和 bangumi 两者全选或全不选，默认在这两种类型视频播放页都执行；否则勾选哪种类型，就只在这种类型的播放页才执行'
