@@ -470,7 +470,7 @@ export class SettingsComponentV2 {
             )
 
             if (childrenContainer) {
-                childrenContainer.style.display = parentEnabled ? 'block' : 'none'
+                childrenContainer.style.display = parentEnabled ? 'flex' : 'none'
                 logger.debug(`刷新子项容器可见性: ${parentId} 的子项容器 = ${parentEnabled}`)
             }
         })
