@@ -323,8 +323,7 @@ export class SettingsComponentV2 {
 
         // 日志级别变更
         if (configId.startsWith('log_level_')) {
-            const { LoggerService } = await import('@/services/logger.service')
-            await LoggerService.updateLogLevelsFromConfig()
+            await LoggerService.updateLogLevelsFromConfig(this.userConfigs)
         }
 
         // 自动开启字幕同步到播放器开关
@@ -410,39 +409,28 @@ export class SettingsComponentV2 {
     }
 
     /**
-     * 刷新设置项可见性 - 简单直接版本
+     * 刷新设置项可见性 —— 遍历所有配置项，重新评估 visible 条件
      */
     refreshVisibility (popover) {
-        // 直接查找所有 ai 相关配置项
-        const checkItems = ['ai_provider', 'ai_apikey', 'ai_model', 
-                           'custom_model_api_url', 'custom_model_api_key', 'custom_model_id']
-        
-        checkItems.forEach(id => {
-            // 查找 wrapper 元素（外层容器）
-            let domItem = popover.querySelector(`.adjustment-setting-item-wrapper[data-config-id="${id}"]`)
+        const allItems = this.getAllConfigItems()
+
+        allItems.forEach(item => {
+            if (!item.visible) return // 没有 visible 条件的项不处理
+
+            const isVisible = typeof item.visible === 'function'
+                ? item.visible(this.userConfigs)
+                : Boolean(item.visible)
+
+            // 查找 DOM：先找 wrapper，再找 item 本身
+            let domItem = popover.querySelector(`.adjustment-setting-item-wrapper[data-config-id="${item.id}"]`)
             if (!domItem) {
-                // 如果找不到 wrapper，尝试查找内部的 item 元素（兼容旧结构）
-                domItem = popover.querySelector(`[data-config-id="${id}"]`)
+                domItem = popover.querySelector(`[data-config-id="${item.id}"]`)
             }
-            
-            if (!domItem) {
-                logger.debug(`刷新可见性: ${id} 元素未找到`)
-                return
-            }
-            
-            let isVisible = true
-            if (id === 'ai_provider' || id === 'ai_apikey' || id === 'ai_model') {
-                // 这些项在 use_custom_model 为 false 时显示
-                isVisible = !this.userConfigs.use_custom_model
-            } else if (id === 'custom_model_api_url' || id === 'custom_model_api_key' || id === 'custom_model_id') {
-                // 这些项在 use_custom_model 为 true 时显示
-                isVisible = this.userConfigs.use_custom_model
-            }
-            
-            // 更新显示状态
+            if (!domItem) return
+
             domItem.style.display = isVisible ? 'block' : 'none'
-            
-            logger.debug(`刷新可见性: ${id} = ${isVisible} (use_custom_model: ${this.userConfigs.use_custom_model})`)
+
+            logger.debug(`刷新可见性: ${item.id} = ${isVisible}`)
         })
 
         // 处理设置有子项的可见性（父开关关闭时隐藏子项）
@@ -451,8 +439,8 @@ export class SettingsComponentV2 {
 
     /**
      * 处理父子设置项的可见性
-     * 当父 checkbox 未开启时，隐藏整个 .adjustment-setting-children 容器
-     * 子项自身的 visible 条件（如 is_vip）由 renderItem 的 isVisible 处理
+     * 容器可见条件：父 checkbox 开启 且 至少有一个子项满足自身 visible 条件
+     * 子项自身的 visible 条件（如 is_vip）作用于容器层而非单个子项 wrapper
      */
     handleChildrenVisibility (popover) {
         // 所有包含 children 的父项 id 列表
@@ -463,6 +451,17 @@ export class SettingsComponentV2 {
             if (!parentCheckbox) return
 
             const parentEnabled = parentCheckbox.checked
+            const parentConfig = this.findConfigItem(parentId)
+            if (!parentConfig?.children) return
+
+            // 检查是否有子项在当前配置下可见
+            const anyChildVisible = parentConfig.children.some(child => {
+                if (!child.visible) return true
+                if (typeof child.visible === 'function') return child.visible(this.userConfigs)
+                return Boolean(child.visible)
+            })
+
+            const containerVisible = parentEnabled && anyChildVisible
 
             // 查找父项下的 .adjustment-setting-children 容器
             const childrenContainer = popover.querySelector(
@@ -470,8 +469,8 @@ export class SettingsComponentV2 {
             )
 
             if (childrenContainer) {
-                childrenContainer.style.display = parentEnabled ? 'flex' : 'none'
-                logger.debug(`刷新子项容器可见性: ${parentId} 的子项容器 = ${parentEnabled}`)
+                childrenContainer.style.display = containerVisible ? 'flex' : 'none'
+                logger.debug(`刷新子项容器可见性: ${parentId} 容器 = ${containerVisible} (父=${parentEnabled}, 有子项可见=${anyChildVisible})`)
             }
         })
     }

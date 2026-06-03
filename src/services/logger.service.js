@@ -23,15 +23,13 @@ export class LoggerService {
         debug: import.meta.env.DEV
     }
     // 根据用户配置更新日志级别
-    static async updateLogLevelsFromConfig () {
+    static async updateLogLevelsFromConfig (configValues) {
         try {
-            // 动态导入 ConfigService，避免循环依赖
-            const { ConfigService } = await import('@/services/config.service')
             const logLevels = {
-                info: await ConfigService.getValue('log_level_info'),
-                error: await ConfigService.getValue('log_level_error'),
-                warn: await ConfigService.getValue('log_level_warn'),
-                debug: await ConfigService.getValue('log_level_debug')
+                info: configValues?.log_level_info ?? true,
+                error: configValues?.log_level_error ?? true,
+                warn: configValues?.log_level_warn ?? true,
+                debug: configValues?.log_level_debug ?? (import.meta.env.DEV)
             }
             this.updateLogLevels(logLevels)
         } catch (error) {

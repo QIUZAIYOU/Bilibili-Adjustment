@@ -113,8 +113,7 @@ export const videoSettingsConfig = [
             {
                 id: 'continue_play',
                 type: 'checkbox',
-                label: '返回页面恢复播放',
-                visible: (configs) => configs.is_vip
+                label: '返回页面恢复播放'
             }
         ]
     },

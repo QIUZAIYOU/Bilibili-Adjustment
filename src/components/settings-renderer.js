@@ -121,7 +121,13 @@ export class SettingsRenderer {
 
         const switchClass = value ? 'on' : ''
         const hasChildren = item.children && item.children.length > 0
-        const childrenDisplayStyle = value ? 'flex' : 'none'
+        // 容器可见条件：父开关开启 且 至少有一个子项满足自身 visible 条件
+        const anyChildVisible = item.children?.some(child => {
+            if (!child.visible) return true
+            if (typeof child.visible === 'function') return child.visible(userConfigs)
+            return Boolean(child.visible)
+        }) ?? true
+        const childrenDisplayStyle = (value && anyChildVisible) ? 'flex' : 'none'
         const tipsIcon = this.renderTipsIcon(item, userConfigs)
 
         // 日志配置等inline项：紧凑布局，一行多个
