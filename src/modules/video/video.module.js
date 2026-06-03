@@ -320,6 +320,10 @@ export default {
             const switchSubtitleButton = await elementSelectors.switchSubtitleButton
             if (!switchSubtitleButton) return
             const subtitleLanguageChineseAI = await elementSelectors.subtitleLanguageChineseAI
+            if (!subtitleLanguageChineseAI) {
+                logger.warn('视频字幕（中文AI）丨未找到字幕按钮，可能页面结构已变更')
+                return
+            }
             subtitleLanguageChineseAI.click()
             if (subtitleLanguageChineseAI.classList.contains('bpx-state-active')) {
                 logger.info('视频字幕（中文AI）丨已开启')

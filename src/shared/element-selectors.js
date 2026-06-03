@@ -374,8 +374,8 @@ export const elementSelectors = new Proxy(selectors, {
             return sel ? document.querySelectorAll(sel) : []
         }}
         if (prop === 'each') return each
-        // 返回带验证的选择器字符串
-        return createCachedQuery(target[prop])
+        // 返回带验证的选择器字符串（传 prop 注册名，让 resolveSelector 查表）
+        return createCachedQuery(prop)
     }
 })
 // ========== 页面卸载时清理 ==========

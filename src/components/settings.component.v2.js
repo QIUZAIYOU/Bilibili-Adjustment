@@ -444,6 +444,36 @@ export class SettingsComponentV2 {
             
             logger.debug(`刷新可见性: ${id} = ${isVisible} (use_custom_model: ${this.userConfigs.use_custom_model})`)
         })
+
+        // 处理设置有子项的可见性（父开关关闭时隐藏子项）
+        this.handleChildrenVisibility(popover)
+    }
+
+    /**
+     * 处理父子设置项的可见性
+     * 当父 checkbox 未开启时，隐藏整个 .adjustment-setting-children 容器
+     * 子项自身的 visible 条件（如 is_vip）由 renderItem 的 isVisible 处理
+     */
+    handleChildrenVisibility (popover) {
+        // 所有包含 children 的父项 id 列表
+        const parentIds = ['auto_locate', 'auto_select_video_highest_quality', 'pause_video']
+
+        parentIds.forEach(parentId => {
+            const parentCheckbox = popover.querySelector(`#${parentId}`)
+            if (!parentCheckbox) return
+
+            const parentEnabled = parentCheckbox.checked
+
+            // 查找父项下的 .adjustment-setting-children 容器
+            const childrenContainer = popover.querySelector(
+                `.adjustment-setting-item[data-config-id="${parentId}"] > .adjustment-setting-children`
+            )
+
+            if (childrenContainer) {
+                childrenContainer.style.display = parentEnabled ? 'block' : 'none'
+                logger.debug(`刷新子项容器可见性: ${parentId} 的子项容器 = ${parentEnabled}`)
+            }
+        })
     }
 
     /**

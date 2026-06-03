@@ -121,6 +121,7 @@ export class SettingsRenderer {
 
         const switchClass = value ? 'on' : ''
         const hasChildren = item.children && item.children.length > 0
+        const childrenDisplayStyle = value ? 'block' : 'none'
         const tipsIcon = this.renderTipsIcon(item, userConfigs)
 
         // 日志配置等inline项：紧凑布局，一行多个
@@ -151,7 +152,7 @@ export class SettingsRenderer {
                         </div>
                     </div>
                 </div>
-                ${hasChildren ? `<div class="adjustment-setting-children">${children}</div>` : ''}
+                ${hasChildren ? `<div class="adjustment-setting-children" style="display: ${childrenDisplayStyle};">${children}</div>` : ''}
             </div>
         `.trim()
     }
