@@ -346,8 +346,10 @@ export class UnifiedAIService extends AIService {
                 { role: 'user', content: subtitlesJsonString }
             ]
             const content = await adapter.chat(apiKey, model, messages, useCustomModel)
+            // 去除 AI 返回内容中的 markdown 代码块包裹（如 ```json ... ```）
+            const jsonStr = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
             try {
-                const result = JSON.parse(content)
+                const result = JSON.parse(jsonStr)
                 if (!Array.isArray(result)) {
                     this.#logger.error('AI响应格式错误，预期数组格式')
                     return []
