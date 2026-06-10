@@ -60,7 +60,7 @@
 
 ### 2026
 
-`06.03 16:47` — 移除AI服务中广告识别提示词硬编码，改为从 `shared/adDetectionPrompt.js` 共享模块导入解耦
+`06.10 16:47` — 移除AI服务中广告识别提示词硬编码，改为从 `shared/adDetectionPrompt.js` 共享模块导入解耦
 
 `06.03 15:51` — 修复 resolveSelector 未处理 `[` 前缀属性选择器导致未注册错误；泛化 refreshVisibility 运行时刷新所有 visible 条件（is_vip 联动隐藏等）；子项可见性控制上移到容器层消除空容器占位；移除 `continue_play` 上遗留的 is_vip 限制；消除 build 警告
 
