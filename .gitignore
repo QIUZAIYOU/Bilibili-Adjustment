@@ -24,6 +24,9 @@ Thumbs.db
 # Project specific
 /src/Untitled-1.html
 
+# Environment variables (local credentials)
+.env
+
 # Logs
 *.log
 npm-debug.log*
