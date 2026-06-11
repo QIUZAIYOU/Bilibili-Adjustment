@@ -6,6 +6,8 @@ description: 完整发布流程：更新版本号 → 更新说明 → git推送
 
 按顺序完成以下 5 步，每步完成后再执行下一步。
 
+> ⚠️ FTP 凭证通过 `.env` 文件提供（已 `.gitignore`），发布前请确认 `.env` 中已填写正确的 `FTP_PASSWORD`。
+
 ## 1. 更新版本号
 - 判断本次变更类型：修 Bug / 优化 → 改 Y；新增功能 / 重大更新 → 改 X
 - 更新 `package.json` 的 `version` 字段
@@ -28,8 +30,9 @@ npm run build
 ```
 
 ## 5. FTP 上传
-上传 `dist/` 下的两个文件到阿里云虚拟主机：
+上传 `dist/` 下的两个文件到阿里云虚拟主机（自动加载 `.env` 中的凭证）：
 ```bash
+set -a && source .env 2>/dev/null && set +a
 curl -T dist/bilibili-adjustment.user.js ftp://$FTP_HOST/htdocs/UserScripts/bilibili/ --user $FTP_USER:$FTP_PASSWORD --ssl
 curl -T dist/bilibili-adjustment.meta.js ftp://$FTP_HOST/htdocs/UserScripts/bilibili/ --user $FTP_USER:$FTP_PASSWORD --ssl
 ```
@@ -37,6 +40,7 @@ curl -T dist/bilibili-adjustment.meta.js ftp://$FTP_HOST/htdocs/UserScripts/bili
 ## 验证
 列出 FTP 目录确认文件存在：
 ```bash
+set -a && source .env 2>/dev/null && set +a
 curl ftp://$FTP_HOST/htdocs/UserScripts/bilibili/ --user $FTP_USER:$FTP_PASSWORD --ssl -l
 ```
 
