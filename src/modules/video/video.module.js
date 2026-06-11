@@ -567,6 +567,8 @@ export default {
     },
     async insertLocateToCommentButton (){
         if (!this.userConfigs.webfull_unlock || this.userConfigs.page_type === 'bangumi' || this.userConfigs.selected_player_mode !== 'web') return
+        // 防止重复添加
+        if (document.getElementById('goToComments')) return
         const batchSelectors = ['playerControllerBottomRight', 'videoComment']
         const [playerControllerBottomRight, videoComment] = await elementSelectors.batch(batchSelectors)
         const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight)
