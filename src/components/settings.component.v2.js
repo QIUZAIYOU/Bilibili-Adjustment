@@ -1,5 +1,6 @@
 /* global _ */
 import { LoggerService } from '@/services/logger.service'
+import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, initializeCheckbox } from '@/utils/common'
@@ -630,17 +631,29 @@ export class SettingsComponentV2 {
 
     /**
      * 导出用户配置
+     * 合并已存储的配置与默认值，确保所有已知配置项都被导出
      */
     async exportUserConfigs () {
         try {
-            const settings = await storageService.getAll('user')
-            const blob = new Blob([JSON.stringify(settings)], { type: 'application/json' })
+            // 获取所有已存储的配置
+            const storedSettings = await storageService.getAll('user')
+            const storedMap = new Map(storedSettings.map(s => [s.key, s.value]))
+
+            // 合并默认值与已存值，确保每项都被导出
+            const mergedConfigs = {}
+            for (const [key, defaultValue] of ConfigService.DEFAULT_VALUES.entries()) {
+                mergedConfigs[key] = storedMap.has(key) ? storedMap.get(key) : defaultValue
+            }
+
+            const configCount = Object.keys(mergedConfigs).length
+            const blob = new Blob([JSON.stringify(mergedConfigs, null, 2)], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
             a.download = `bilibili_adjustment_settings_${new Date().toISOString().slice(0, 10)}.json`
             a.click()
             URL.revokeObjectURL(url)
+            logger.info(`配置已导出，共 ${configCount} 项`)
         } catch (error) {
             logger.error('导出设置失败:', error)
         }
@@ -648,6 +661,8 @@ export class SettingsComponentV2 {
 
     /**
      * 导入用户配置
+     * 兼容新版 {key: value} 和旧版 [{key, value, timestamp}] 两种格式
+     * 只导入已知的有效配置项，忽略未知键
      */
     async importUserConfigs (event) {
         const file = event?.target?.files?.[0]
@@ -656,12 +671,39 @@ export class SettingsComponentV2 {
             const reader = new FileReader()
             reader.onload = async e => {
                 try {
-                    const userConfigs = JSON.parse(e.target.result)
-                    const userConfigsArray = Object.entries(userConfigs).map(([key, value]) => ({
-                        key,
-                        value
-                    }))
-                    await storageService.batchSet('user', userConfigsArray)
+                    const data = JSON.parse(e.target.result)
+                    let configEntries = []
+
+                    if (Array.isArray(data)) {
+                        // 兼容旧版导出格式: [{key, value, timestamp}]
+                        configEntries = data
+                            .filter(item => item && item.key)
+                            .map(item => ({ key: item.key, value: item.value }))
+                    } else if (typeof data === 'object' && data !== null) {
+                        // 新版格式: {key: value}
+                        configEntries = Object.entries(data).map(([key, value]) => ({ key, value }))
+                    } else {
+                        alert('导入失败：文件格式不正确')
+                        return
+                    }
+
+                    // 只导入已知的配置项，过滤掉未知的键
+                    const validKeys = new Set(ConfigService.DEFAULT_VALUES.keys())
+                    const validEntries = configEntries.filter(entry => validKeys.has(entry.key))
+                    const skippedCount = configEntries.length - validEntries.length
+
+                    if (validEntries.length === 0) {
+                        alert('导入失败：文件中没有有效的配置项')
+                        return
+                    }
+
+                    await storageService.batchSet('user', validEntries)
+
+                    let message = `成功导入 ${validEntries.length} 项配置`
+                    if (skippedCount > 0) {
+                        message += `，已忽略 ${skippedCount} 项未知配置`
+                    }
+                    alert(message)
                     location.reload()
                 } catch (parseError) {
                     logger.error('解析设置文件失败:', parseError)

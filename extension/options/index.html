@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>哔哩哔哩调整 - 设置</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="options-container">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <h1>⚙️ 哔哩哔哩调整</h1>
+        <span class="version" id="version">v3.13.3</span>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav">
+        <a href="#player" class="nav-item active" data-section="player">▶ 播放页</a>
+        <a href="#home" class="nav-item" data-section="home">🏠 首页</a>
+        <a href="#dynamic" class="nav-item" data-section="dynamic">📱 动态页</a>
+        <a href="#ad-skip" class="nav-item" data-section="ad-skip">🚫 广告跳过</a>
+        <a href="#ai" class="nav-item" data-section="ai">🤖 AI 服务</a>
+        <a href="#update" class="nav-item" data-section="update">🔄 更新</a>
+        <a href="#about" class="nav-item" data-section="about">ℹ️ 关于</a>
+      </nav>
+    </aside>
+
+    <main class="main-content">
+      <!-- ========== 播放页设置 ========== -->
+      <section id="section-player" class="settings-section active">
+        <h2>▶ 播放页设置</h2>
+
+        <div class="setting-card">
+          <h3>自动定位播放器</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>启用</span>
+              <input type="checkbox" id="auto_locate" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label>偏移量 (px):</label>
+            <input type="number" id="offset_top" min="0" max="500" value="5" class="input-number">
+          </div>
+          <div class="setting-row">
+            <label>点击播放器时定位:</label>
+            <input type="checkbox" id="click_player_auto_locate" checked>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>播放器模式</h3>
+          <div class="setting-row">
+            <label>默认模式:</label>
+            <select id="selected_player_mode" class="input-select">
+              <option value="wide">宽屏</option>
+              <option value="web-full">网页全屏</option>
+              <option value="normal">常规</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>画质与音质</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>自动选择最高画质</span>
+              <input type="checkbox" id="auto_select_video_highest_quality" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>包含 4K 画质</span>
+              <input type="checkbox" id="contain_quality4k">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>包含 8K 画质</span>
+              <input type="checkbox" id="contain_quality8k">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>Hi-Res 无损音质</span>
+              <input type="checkbox" id="auto_hi_res">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>字幕</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>自动开启中文 AI 字幕</span>
+              <input type="checkbox" id="auto_subtitle">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>网页全屏</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>网页全屏解锁（可滚动查看评论）</span>
+              <input type="checkbox" id="webfull_unlock">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>视频简介</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>优化后插入评论区</span>
+              <input type="checkbox" id="insert_video_description_to_comment" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>评论</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>显示评论 IP 属地</span>
+              <input type="checkbox" id="show_comment_location" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>移除评论标签（"UP主觉得很赞"）</span>
+              <input type="checkbox" id="remove_comment_tags" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>播放控制</h3>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>离开页面时暂停视频</span>
+              <input type="checkbox" id="pause_video">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>返回页面时继续播放</span>
+              <input type="checkbox" id="continue_play">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>视频播放结束后自动重新播放</span>
+              <input type="checkbox" id="auto_reload">
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>自动取消静音</span>
+              <input type="checkbox" id="auto_cancel_mute" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 首页设置 ========== -->
+      <section id="section-home" class="settings-section">
+        <h2>🏠 首页设置</h2>
+        <div class="setting-card">
+          <h3>推荐视频历史记录</h3>
+          <p class="setting-desc">记录前 10 个推荐位中的非广告视频，防止误刷新错过想看的视频</p>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>启用记录</span>
+              <input type="checkbox" id="home_history_enabled" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 动态页设置 ========== -->
+      <section id="section-dynamic" class="settings-section">
+        <h2>📱 动态页设置</h2>
+        <div class="setting-card">
+          <h3>默认显示「投稿视频」</h3>
+          <div class="setting-row">
+            <label>URL 模板:</label>
+            <input type="text" id="dynamic_video_link" value="https://t.bilibili.com/?tab=video" class="input-text">
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 广告跳过设置 ========== -->
+      <section id="section-ad-skip" class="settings-section">
+        <h2>🚫 广告跳过设置</h2>
+        <div class="setting-card">
+          <h3>自动跳过广告</h3>
+          <p class="setting-desc">使用 AI 识别并跳过视频中的广告片段（需要视频有 AI 字幕）</p>
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>启用</span>
+              <input type="checkbox" id="auto_skip">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div class="setting-card">
+          <h3>跳过指定时间节点</h3>
+          <div class="setting-row">
+            <label>跳过头尾 (秒):</label>
+            <div class="input-group">
+              <input type="number" id="skip_start" min="0" value="0" class="input-number" placeholder="开头">
+              <span>～</span>
+              <input type="number" id="skip_end" min="0" value="0" class="input-number" placeholder="结尾">
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== AI 服务 ========== -->
+      <section id="section-ai" class="settings-section">
+        <h2>🤖 AI 服务配置</h2>
+        <div class="setting-card">
+          <h3>广告识别 AI</h3>
+          <p class="setting-desc">用于在视频中自动识别广告片段。需要 API Key。</p>
+          <div class="setting-row">
+            <label>提供商:</label>
+            <select id="ai_provider" class="input-select">
+              <option value="siliconflow">硅基流动 (SiliconFlow)</option>
+              <option value="custom">自定义 (OpenAI 兼容)</option>
+            </select>
+          </div>
+          <div class="setting-row">
+            <label>API Key:</label>
+            <input type="password" id="ai_apikey" class="input-text" placeholder="sk-...">
+          </div>
+          <div class="setting-row">
+            <label>模型:</label>
+            <select id="ai_model" class="input-select">
+              <option value="deepseek-ai/DeepSeek-V3">DeepSeek-V3</option>
+              <option value="deepseek-ai/DeepSeek-R1">DeepSeek-R1</option>
+              <option value="Qwen/Qwen2.5-72B-Instruct-128K">Qwen2.5-72B</option>
+            </select>
+          </div>
+          <div class="setting-row" id="customModelGroup" style="display:none;">
+            <label>自定义 API 地址:</label>
+            <input type="text" id="custom_base_url" class="input-text" placeholder="https://api.openai.com/v1">
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 更新设置 ========== -->
+      <section id="section-update" class="settings-section">
+        <h2>🔄 更新设置</h2>
+        <div class="setting-card">
+          <div class="setting-row">
+            <label class="toggle-row">
+              <span>自动检查更新</span>
+              <input type="checkbox" id="auto_check_update" checked>
+              <span class="slider"></span>
+            </label>
+          </div>
+          <div class="setting-row">
+            <label>检查频率 (小时):</label>
+            <input type="number" id="update_check_frequency" min="1" max="168" value="24" class="input-number">
+          </div>
+        </div>
+      </section>
+
+      <!-- ========== 关于 ========== -->
+      <section id="section-about" class="settings-section">
+        <h2>ℹ️ 关于</h2>
+        <div class="setting-card about-card">
+          <p><strong>哔哩哔哩（bilibili.com）调整</strong></p>
+          <p>版本: <span id="aboutVersion">v3.13.3</span></p>
+          <p>作者: QIAN</p>
+          <p>许可证: GPL-3.0</p>
+          <p>
+            <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank">
+              GitHub 仓库 →
+            </a>
+          </p>
+          <hr>
+          <div class="actions">
+            <button class="btn btn-secondary" id="exportConfig">📤 导出配置</button>
+            <button class="btn btn-secondary" id="importConfig">📥 导入配置</button>
+            <button class="btn btn-danger" id="resetConfig">🗑️ 重置全部配置</button>
+          </div>
+          <input type="file" id="importFileInput" accept=".json" style="display:none">
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="toast" id="toast"></div>
+  <script src="script.js"></script>
+</body>
+</html>

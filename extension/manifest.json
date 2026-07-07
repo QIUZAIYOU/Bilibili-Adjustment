@@ -1,0 +1,79 @@
+{
+  "manifest_version": 3,
+  "name": "哔哩哔哩（bilibili.com）调整",
+  "short_name": "B站调整",
+  "version": "3.13.3",
+  "description": "哔哩哔哩体验增强工具：首页推荐视频历史记录、播放页自动定位最高画质、网页全屏解锁、自动跳过广告、AI 字幕、动态页调整等",
+  "author": "QIAN",
+  "homepage_url": "https://github.com/QIUZAIYOU/Bilibili-Adjustment",
+
+  "icons": {
+    "16": "icons/icon-16.png",
+    "48": "icons/icon-48.png",
+    "128": "icons/icon-128.png"
+  },
+
+  "action": {
+    "default_popup": "popup/index.html",
+    "default_title": "哔哩哔哩调整",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "48": "icons/icon-48.png",
+      "128": "icons/icon-128.png"
+    }
+  },
+
+  "options_ui": {
+    "page": "options/index.html",
+    "open_in_tab": true
+  },
+
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.bilibili.com/*",
+        "*://t.bilibili.com/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_end"
+    }
+  ],
+
+  "permissions": [
+    "storage",
+    "alarms"
+  ],
+
+  "host_permissions": [
+    "*://www.bilibili.com/*",
+    "*://t.bilibili.com/*",
+    "*://api.bilibili.com/*",
+    "*://api.bilibili.com/x/*"
+  ],
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "options/*",
+        "popup/*",
+        "icons/*",
+        "scripts/bridge-inject.js",
+        "scripts/utils/*",
+        "scripts/shared/*",
+        "scripts/shared/styles/*",
+        "scripts/core/*",
+        "scripts/services/*",
+        "scripts/config/*",
+        "scripts/components/*",
+        "scripts/modules/*",
+        "scripts/init.js"
+      ],
+      "matches": ["*://www.bilibili.com/*", "*://t.bilibili.com/*"]
+    }
+  ]
+}
