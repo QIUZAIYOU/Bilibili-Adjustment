@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>哔哩哔哩调整</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="popup-container">
+    <header class="popup-header">
+      <h1>⚙️ 哔哩哔哩调整</h1>
+      <span class="version" id="version">v3.13.3</span>
+    </header>
+
+    <div class="status-bar">
+      <span class="status-label">扩展状态</span>
+      <span class="status-dot active" id="statusDot"></span>
+      <span class="status-text" id="statusText">运行中</span>
+    </div>
+
+    <div class="quick-toggles">
+      <div class="toggle-group">
+        <h3>播放页</h3>
+        <label class="toggle-row">
+          <span>自动定位播放器</span>
+          <input type="checkbox" id="auto_locate" checked>
+          <span class="slider"></span>
+        </label>
+        <div class="setting-row">
+          <label>默认模式:</label>
+          <select id="selected_player_mode" class="input-select">
+            <option value="wide">宽屏</option>
+            <option value="normal">常规</option>
+            <option value="web">网页全屏</option>
+          </select>
+        </div>
+        <label class="toggle-row">
+          <span>自动最高画质</span>
+          <input type="checkbox" id="auto_select_video_highest_quality" checked>
+          <span class="slider"></span>
+        </label>
+        <label class="toggle-row">
+          <span>网页全屏解锁</span>
+          <input type="checkbox" id="webfull_unlock">
+          <span class="slider"></span>
+        </label>
+        <label class="toggle-row">
+          <span>自动开启字幕</span>
+          <input type="checkbox" id="auto_subtitle">
+          <span class="slider"></span>
+        </label>
+        <label class="toggle-row">
+          <span>自动跳过广告</span>
+          <input type="checkbox" id="auto_skip">
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <h3>首页 & 动态</h3>
+        <label class="toggle-row">
+          <span>推荐视频历史记录</span>
+          <input type="checkbox" id="home_history_enabled" checked>
+          <span class="slider"></span>
+        </label>
+        <label class="toggle-row">
+          <span>显示评论 IP 属地</span>
+          <input type="checkbox" id="show_comment_location" checked>
+          <span class="slider"></span>
+        </label>
+        <label class="toggle-row">
+          <span>移除评论标签</span>
+          <input type="checkbox" id="remove_comment_tags" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+
+      <div class="toggle-group">
+        <h3>系统</h3>
+        <label class="toggle-row">
+          <span>自动检查更新</span>
+          <input type="checkbox" id="auto_check_update" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn btn-primary" id="openOptions">🔧 完整设置</button>
+      <button class="btn btn-secondary" id="checkUpdate">🔄 检查更新</button>
+    </div>
+
+    <div class="update-info" id="updateInfo" style="display:none;"></div>
+
+    <footer class="popup-footer">
+      <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank">GitHub</a>
+      <span class="sep">·</span>
+      <span>作者: QIAN</span>
+    </footer>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

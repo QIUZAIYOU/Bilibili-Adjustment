@@ -1,0 +1,31 @@
+// ===== scripts/shared/regexps.js =====
+window.__biliExt = window.__biliExt || {}
+
+window.__biliExt.regexps = {
+  url: /https?:\/\/[^\s'"<>)]+/g,
+  bilibiliVideoUrl: /https?:\/\/(?:www\.)?bilibili\.com\/video\/(BV[\w]+)/,
+  bilibiliBangumiUrl: /https?:\/\/(?:www\.)?bilibili\.com\/bangumi\/play\/(ss[\d]+|ep[\d]+)/,
+  timeAnchor: /(\d{1,2}:\d{2}(?::\d{2})?)/g,
+  atUser: /@([\u4e00-\u9fa5\w-]+)/g,
+  commentTag: /UP主觉得很赞|UP主觉得很不错|UP 主觉得很赞|UP 主觉得很不错/,
+  emoji: /\[[\u4e00-\u9fa5\w]+\]/g,
+  htmlTag: /<[^>]*>/g,
+  bvid: /BV[\w]+/,
+  avid: /av\d+/i,
+  cid: /cid=(\d+)/,
+  epId: /ep(\d+)/,
+  ssId: /ss(\d+)/,
+  pParam: /[?&]p=(\d+)/,
+  tParam: /[?&]t=(\d+)/,
+  cleanUrl: /^https?:\/\/[^/]+\//,
+  number: /\d+/g,
+  chinese: /[\u4e00-\u9fa5]/,
+  whitespace: /\s+/g,
+  newline: /\n+/g,
+  boldMarkdown: /\*\*(.+?)\*\*/g,
+  italicMarkdown: /\*(.+?)\*/g,
+  codeMarkdown: /`(.+?)`/g,
+  strikethroughMarkdown: /~(.+?)~/g,
+  linkMarkdown: /\[(.+?)\]\((.+?)\)/g,
+  imageMarkdown: /!\[(.+?)\]\((.+?)\)/g,
+}
