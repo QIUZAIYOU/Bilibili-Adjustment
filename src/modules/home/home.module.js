@@ -42,9 +42,15 @@ export default {
             const url = video.querySelector('a')?.href
             const title = video.querySelector('h3')?.title
             if (location.host.includes('bilibili.com') && url && !url.includes('cm.bilibili.com') && title) {
-                const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                let videoInfo
+                try {
+                    videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                } catch {}
                 if (videoInfo) {
-                    const isPaid = await biliApis.checkVideoPaid(videoInfo.aid, videoInfo.cid)
+                    let isPaid = false
+                    try {
+                        isPaid = await biliApis.checkVideoPaid(videoInfo.aid, videoInfo.cid)
+                    } catch {}
                     if (isPaid) {
                         const titleEl = video.querySelector('h3')
                         if (titleEl) {
@@ -69,12 +75,22 @@ export default {
                 const url = video.querySelector('a')?.href
                 const title = video.querySelector('h3')?.title
                 if (location.host.includes('bilibili.com') && url && !url.includes('cm.bilibili.com')) {
-                    const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                    let videoInfo
+                    try {
+                        videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                    } catch {}
                     if (videoInfo) {
+                        let tags = []
+                        try {
+                            const bvid = biliApis.getCurrentVideoID(url)
+                            if (bvid && bvid !== 'error') tags = await biliApis.getVideoTags(bvid) || []
+                        } catch (e) {
+                            logger.debug('获取视频标签失败', e?.message)
+                        }
                         const { tid, tid_v2, tname, tname_v2, pic, owner } = videoInfo
                         const author = owner?.name || '未知作者'
                         if (title) {
-                            await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, url, pic, author, order, sessionTimestamp })
+                            await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, tags, url, pic, author, order, sessionTimestamp })
                         }
                         order++
                     }
@@ -152,6 +168,35 @@ export default {
         const videoList = Object.entries(indexRecommendVideoHistories)
             .map(([key, value]) => ({ ...value, _key: key, _order: value.order ?? 0, _sessionTimestamp: value.sessionTimestamp ?? 0 }))
             .sort((a, b) => b._sessionTimestamp - a._sessionTimestamp || a._order - b._order)
+        // 收集所有视频的标签，去重后生成分类按钮
+        const allTags = [...new Set(videoList.flatMap(v => v.tags || []))].sort()
+        let selectedTag = ''
+        // 创建分类按钮栏（如果已存在则复用）
+        let categoryBar = document.getElementById('indexRecommendVideoHistoryCategoryV2')
+        let historyBody = document.querySelector('.history-body')
+        if (!historyBody) {
+            historyBody = document.createElement('div')
+            historyBody.className = 'history-body'
+            // 将 categoryBar 和 videoList 包裹起来
+            indexRecommendVideoHistoryList.after(historyBody)
+            historyBody.appendChild(categoryBar || document.createElement('ul'))
+            historyBody.appendChild(indexRecommendVideoHistoryList)
+        }
+        if (!categoryBar) {
+            categoryBar = document.createElement('ul')
+            categoryBar.id = 'indexRecommendVideoHistoryCategoryV2'
+            historyBody.prepend(categoryBar)
+        }
+        categoryBar.innerHTML = '<li class="all_v2 active">全部</li>' + allTags.map(t => `<li>${t}</li>`).join('')
+        // 分类按钮点击筛选
+        categoryBar.querySelectorAll('li').forEach(li => {
+            addEventListenerToElement(li, 'click', () => {
+                categoryBar.querySelectorAll('li').forEach(l => l.classList.remove('active'))
+                li.classList.add('active')
+                selectedTag = li.classList.contains('all_v2') ? '' : li.textContent
+                filterAndDisplayVideos(document.getElementById('indexRecommendVideoHistorySearchInput')?.value || '')
+            })
+        })
         // 懒加载配置
         const PAGE_SIZE = 50
         let currentPage = 0
@@ -204,12 +249,15 @@ export default {
             indexRecommendVideoHistoryList.innerHTML = ''
             currentPage = 0
             const keyword = searchKeyword.toLowerCase().trim()
-            filteredList = keyword
-                ? videoList.filter(video =>
-                    (video.title && video.title.toLowerCase().includes(keyword)) ||
-                    (video.author && video.author.toLowerCase().includes(keyword))
-                )
-                : videoList
+            filteredList = videoList.filter(video => {
+                // 标签筛选
+                if (selectedTag && !(video.tags || []).includes(selectedTag)) return false
+                // 关键字搜索
+                if (keyword &&
+                    !(video.title && video.title.toLowerCase().includes(keyword)) &&
+                    !(video.author && video.author.toLowerCase().includes(keyword))) return false
+                return true
+            })
             if (filteredList.length === 0) {
                 indexRecommendVideoHistoryList.innerHTML = '<div class="empty-state">没有找到匹配的视频</div>'
                 return

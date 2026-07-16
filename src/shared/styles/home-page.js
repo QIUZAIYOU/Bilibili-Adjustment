@@ -18,7 +18,7 @@ export const homePageStyles = {
             background: rgba(0, 0, 0, 0.6);
         }
         .adjustment-history-popover {
-            width: 520px;
+            width: 820px;
             border: 1px solid ${theme.colors.border};
             outline: 0;
             background: ${theme.colors.backgroundLight};
@@ -75,14 +75,56 @@ export const homePageStyles = {
         #indexRecommendVideoHistorySearchInput::placeholder {
             color: ${theme.colors.textDisabled};
         }
+        #indexRecommendVideoHistoryCategoryV2 {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            list-style: none;
+            margin: 0;
+            padding: 0 12px 0 0;
+            align-content: start;
+            overflow-y: auto;
+            flex-shrink: 0;
+            width: 340px;
+            border-right: 1px solid ${theme.colors.border};
+        }
+        #indexRecommendVideoHistoryCategoryV2 li {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 10px 6px;
+            border: 1px solid ${theme.colors.border};
+            border-radius: 6px;
+            font-size: ${theme.fontSize.sm};
+            color: ${theme.colors.textSecondary};
+            cursor: pointer;
+            transition: all ${theme.transitions.fast};
+            line-height: 1.3;
+            word-break: break-all;
+        }
+        #indexRecommendVideoHistoryCategoryV2 li:hover {
+            background: rgba(255,255,255,0.05);
+            color: ${theme.colors.primary};
+        }
+        #indexRecommendVideoHistoryCategoryV2 li.active {
+            background: ${theme.colors.primary}20;
+            color: ${theme.colors.primary};
+            border-color: ${theme.colors.primary}40;
+        }
+        .history-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            gap: 8px;
+        }
         #indexRecommendVideoHistoryList {
             list-style: none;
             margin: 0;
             padding: 0;
             overflow-y: auto;
             overflow-x: hidden;
-            max-height: calc(80vh - 140px);
             flex: 1;
+            min-height: 0;
         }
         #indexRecommendVideoHistoryList li {
             display: flex;

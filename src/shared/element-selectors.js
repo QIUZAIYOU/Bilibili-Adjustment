@@ -22,11 +22,14 @@ const selectors = {
     playerEndingRelateVideo: '.bpx-player-ending-related-item',
     volumeButton: '.bpx-player-ctrl-volume-icon',
     mutedButton: '.bpx-player-ctrl-muted-icon',
+    // 右键菜单
+    playerContextMenu: '.bpx-player-contextmenu',
     // 视频
     video: '#bilibili-player video',
     videoWrap: '#bilibili-player .bpx-player-video-wrap',
     videoBwp: 'bwp-video',
     videoTitleArea: '#viewbox_report',
+    playerTitle: '#player-title',
     videoFloatNav: '.fixed-sidenav-storage',
     videoFloatNavBackToTopButton: '.back-to-top-wrap',
     // 评论区
