@@ -23,7 +23,7 @@ export const detectivePageType = () => {
         return 'video'
     }
     // 首页
-    if (host === 'www.bilibili.com' && pathname === '/') {
+    if (host === 'www.bilibili.com' && (pathname === '/' || pathname === '/index.html')) {
         logger.debug('匹配到 home 类型页面')
         return 'home'
     }

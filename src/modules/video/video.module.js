@@ -94,6 +94,12 @@ export default {
         }
     },
     async autoSelectPlayerMode () {
+        // 电影播放页若默认宽屏则跳过（电影页本身已宽屏，重复执行会退出宽屏）
+        if (await this.hasPlayerTitle() && this.userConfigs.selected_player_mode === 'wide') {
+            logger.debug('屏幕模式丨电影播放页且默认宽屏，跳过切换')
+            eventBus.emit('video:playerModeSelected')
+            return
+        }
         // 先判断当前播放器模式是否已经是用户设置的模式
         const playerContainer = await elementSelectors.playerContainer
         const currentPlayerMode = playerContainer.getAttribute('data-screen')
@@ -513,6 +519,7 @@ export default {
     },
     async unlockEpisodeSelector () {
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
+        if (!videoInfo) return
         const { pages = false, ugc_season = false, episodes = false } = videoInfo
         if (pages || ugc_season || episodes) {
             insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': stylesV2.UnlockEpisodeSelector })
@@ -577,6 +584,95 @@ export default {
             documentScrollTo(await getElementOffsetToDocument(videoComment).top - 10)
         })
     },
+    // 判断页面是否存在 #player-title（特殊播放页标识，需跳过部分功能）
+    _playerTitleCache: undefined,
+    async hasPlayerTitle () {
+        if (this._playerTitleCache !== undefined) return this._playerTitleCache
+        // 快速路径：DOM 检测
+        if (document.querySelector('#player-title')) {
+            this._playerTitleCache = true
+            return true
+        }
+        // 番剧/电影页通过 API 进一步检测
+        if (this.userConfigs?.page_type !== 'bangumi') {
+            this._playerTitleCache = false
+            return false
+        }
+        try {
+            const epId = biliApis.getCurrentVideoID(window.location.href)
+            if (!epId || epId === 'error') { this._playerTitleCache = false; return false }
+            const info = await biliApis.getEpisodeInfo(epId)
+            const isMovie = info?.season_type === 2 || info?.type_name === '电影'
+            this._playerTitleCache = isMovie
+            return isMovie
+        } catch {
+            this._playerTitleCache = false
+            return false
+        }
+    },
+    // 视频画面旋转
+    videoRotateState: 0,
+    async initVideoRotate () {
+        const video = await elementSelectors.video
+        if (!video) return
+        // 监听右键菜单事件，注入旋转选项
+        video.addEventListener('contextmenu', () => {
+            let attempts = 0
+            const tryInject = () => {
+                const menu = document.querySelector('.bpx-player-contextmenu')
+                if (!menu) {
+                    if (++attempts < 15) setTimeout(tryInject, 20)
+                    return
+                }
+                // 移除旧的旋转菜单项
+                menu.querySelectorAll('[data-action^="rotate_"]').forEach(el => el.remove())
+                const oldDivider = menu.querySelector('.bpx-player-contextmenu-rotate-divider')
+                if (oldDivider) oldDivider.remove()
+                // 分割线
+                const divider = document.createElement('li')
+                divider.className = 'bpx-player-contextmenu-rotate-divider'
+                divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.12);margin:4px 16px;list-style:none'
+                menu.appendChild(divider)
+                // 旋转选项：复原为绝对值，顺/逆时针为相对当前状态
+                const rotateItems = [
+                    { action: 'rotate_normal', label: '复原', deg: 0, absolute: true },
+                    { action: 'rotate_cw', label: '顺时针90°', deg: 90, absolute: false },
+                    { action: 'rotate_ccw', label: '逆时针90°', deg: -90, absolute: false }
+                ]
+                rotateItems.forEach(({ action, label, deg, absolute }) => {
+                    const li = document.createElement('li')
+                    li.setAttribute('data-action', action)
+                    li.textContent = label
+                    li.addEventListener('click', e => {
+                        e.stopPropagation()
+                        this.applyVideoRotation(absolute ? deg : this.videoRotateState + deg)
+                        menu.classList.remove('bpx-player-active')
+                    })
+                    menu.appendChild(li)
+                })
+            }
+            setTimeout(tryInject, 20)
+        })
+        // 全屏切换时重新应用旋转
+        document.addEventListener('fullscreenchange', () => {
+            this.applyVideoRotation(this.videoRotateState)
+        })
+    },
+    applyVideoRotation (degrees) {
+        const video = document.querySelector('#bilibili-player video')
+        if (!video) return
+        this.videoRotateState = degrees
+        if (degrees === 0) {
+            video.style.transform = ''
+            video.style.transformOrigin = ''
+        } else {
+            const vw = video.videoWidth
+            const vh = video.videoHeight
+            const scale = (vw && vh) ? Math.min(vw, vh) / Math.max(vw, vh) : 9 / 16
+            video.style.transform = `rotate(${degrees}deg) scale(${scale})`
+            video.style.transformOrigin = 'center center'
+        }
+    },
     async handleVideoPauseOnTabSwitch () {
         const video = await elementSelectors.video
         let playFlag = false
@@ -623,6 +719,7 @@ export default {
         }, 30000)
         const bvid = biliApis.getCurrentVideoID(window.location.href)
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
+        if (!videoInfo) return
         const cid = videoInfo.cid
         const up_mid = videoInfo.owner.mid
         const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
@@ -693,30 +790,42 @@ export default {
     },
     async handleHrefChangedFunctionsSequentially (){
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
+        // 切换视频时重置画面旋转
+        if (this.videoRotateState !== 0) {
+            this.videoRotateState = 0
+            const video = document.querySelector('#bilibili-player video')
+            if (video) {
+                video.style.transform = ''
+                video.style.transformOrigin = ''
+            }
+        }
         this.locateToPlayer()
+        const hasTitle = await this.hasPlayerTitle()
         const hrefChangeFunctions = [
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip)],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
-            this.unlockEpisodeSelector
+            [this.unlockEpisodeSelector, !hasTitle]
         ]
         const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
         videoCanplaythrough && executeFunctionsSequentially(hrefChangeFunctions)
         this.autoEnableSubtitle(Boolean(this.userConfigs.auto_subtitle))
     },
-    handleExecuteFunctionsSequentially () {
+    async handleExecuteFunctionsSequentially () {
+        const hasTitle = await this.hasPlayerTitle()
         const functions = [
             this.insertSideFloatNavToolsButtons,
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
             [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
-            this.unlockEpisodeSelector,
+            this.initVideoRotate,
+            [this.unlockEpisodeSelector, !hasTitle],
             [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
             [this.autoSelectVideoHighestQuality, Boolean(this.userConfigs.auto_select_video_highest_quality)],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
             this.insertAutoEnableSubtitleSwitchButton,
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip)],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
             this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(functions)

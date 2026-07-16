@@ -7,6 +7,15 @@ export const videoPageStyles = {
             cursor: not-allowed;
             pointer-events: none;
         }
+
+        #bilibili-player video {
+            transition: transform 0.3s ease;
+            transform-origin: center center;
+        }
+
+        .bpx-player-video-wrap {
+            overflow: visible !important;
+        }
     `,
 
     commentDescription: `

@@ -127,5 +127,16 @@ export const biliApis = {
         } else {
             logger.info('获取用户投稿视频列表丨请求失败')
         }
+    },
+    async getEpisodeInfo (epId) {
+        const url = `https://api.bilibili.com/pgc/season/episode/web/info?ep_id=${epId}`
+        const { data: { code, result }} = await axios.get(url, { withCredentials: true })
+        if (code === 0) return result
+    },
+    async getVideoTags (bvid) {
+        try {
+            const { data: { code, data }} = await axios.get(`https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`)
+            if (code === 0 && Array.isArray(data)) return data.map(t => t.tag_name)
+        } catch {}
     }
 }

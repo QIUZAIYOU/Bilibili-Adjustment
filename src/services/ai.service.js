@@ -346,8 +346,9 @@ export class UnifiedAIService extends AIService {
                 { role: 'user', content: subtitlesJsonString }
             ]
             const content = await adapter.chat(apiKey, model, messages, useCustomModel)
-            // 去除 AI 返回内容中的 markdown 代码块包裹（如 ```json ... ```）
-            const jsonStr = content.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '').trim()
+            // 提取 AI 返回内容中的 JSON 数组：从首个 [ 到最后一个 ]
+            const match = content.match(/\[\s*\{[\s\S]*\}\]/)
+            const jsonStr = match ? match[0] : content.trim()
             try {
                 const result = JSON.parse(jsonStr)
                 if (!Array.isArray(result)) {
