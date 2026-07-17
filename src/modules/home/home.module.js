@@ -80,17 +80,15 @@ export default {
                         videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
                     } catch {}
                     if (videoInfo) {
-                        let tags = []
+                        const { tid, tid_v2, tname, tname_v2, pic, owner, aid } = videoInfo
+                        let category = ''
                         try {
-                            const bvid = biliApis.getCurrentVideoID(url)
-                            if (bvid && bvid !== 'error') tags = await biliApis.getVideoTags(bvid) || []
-                        } catch (e) {
-                            logger.debug('获取视频标签失败', e?.message)
-                        }
-                        const { tid, tid_v2, tname, tname_v2, pic, owner } = videoInfo
+                            const detail = await biliApis.getVideoDetail(aid, videoInfo.tid_v2)
+                            category = detail?.pid_name_v2 || ''
+                        } catch {}
                         const author = owner?.name || '未知作者'
                         if (title) {
-                            await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, tags, url, pic, author, order, sessionTimestamp })
+                            await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, category, url, pic, author, order, sessionTimestamp })
                         }
                         order++
                     }
@@ -168,8 +166,8 @@ export default {
         const videoList = Object.entries(indexRecommendVideoHistories)
             .map(([key, value]) => ({ ...value, _key: key, _order: value.order ?? 0, _sessionTimestamp: value.sessionTimestamp ?? 0 }))
             .sort((a, b) => b._sessionTimestamp - a._sessionTimestamp || a._order - b._order)
-        // 收集所有视频的标签，去重后生成分类按钮
-        const allTags = [...new Set(videoList.flatMap(v => v.tags || []))].sort()
+        // 收集所有视频的分类名，去重后生成分类按钮
+        const allTags = [...new Set(videoList.flatMap(v => v.category ? [v.category] : []))].sort()
         let selectedTag = ''
         // 创建分类按钮栏（如果已存在则复用）
         let categoryBar = document.getElementById('indexRecommendVideoHistoryCategoryV2')
@@ -250,8 +248,8 @@ export default {
             currentPage = 0
             const keyword = searchKeyword.toLowerCase().trim()
             filteredList = videoList.filter(video => {
-                // 标签筛选
-                if (selectedTag && !(video.tags || []).includes(selectedTag)) return false
+                // 分类筛选
+                if (selectedTag && video.category !== selectedTag) return false
                 // 关键字搜索
                 if (keyword &&
                     !(video.title && video.title.toLowerCase().includes(keyword)) &&
