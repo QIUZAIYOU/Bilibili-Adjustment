@@ -554,6 +554,14 @@ export class SettingsComponentV2 {
                 await this.saveConfig(e.target.id, e.target.value.trim())
             })
         })
+
+        // 绑定保存按钮点击事件 — 配置已即时保存，点击仅关闭弹窗
+        const saveBtn = document.getElementById('DynamicSettingsSaveButton')
+        if (saveBtn) {
+            addEventListenerToElement(saveBtn, 'click', () => {
+                popover.hidePopover()
+            })
+        }
     }
 
     // ==================== 通用方法 ====================
