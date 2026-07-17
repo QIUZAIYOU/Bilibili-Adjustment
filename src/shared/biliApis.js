@@ -138,5 +138,22 @@ export const biliApis = {
             const { data: { code, data }} = await axios.get(`https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`)
             if (code === 0 && Array.isArray(data)) return data.map(t => t.tag_name)
         } catch {}
+    },
+    async getVideoDetail (aid, tid_v2) {
+        try {
+            const wbi = await biliApis.getQueryWithWbi({ aid, need_view: 1 })
+            const { data: { code, data }} = await axios.get(`https://api.bilibili.com/x/web-interface/wbi/view/detail?${wbi}`, { withCredentials: true })
+            if (code === 0 && data) {
+                // 优先从 Related 关联视频中查找当前视频的父分类
+                if (tid_v2 && data.Related) {
+                    for (const item of data.Related) {
+                        if (item.tidv2 === tid_v2 && item.pid_name_v2) {
+                            return { pid_name_v2: item.pid_name_v2 }
+                        }
+                    }
+                }
+                return data
+            }
+        } catch {}
     }
 }
