@@ -34,6 +34,11 @@ export default {
     },
     changeCurrentHrefToVideoSubmissions (){
         const dynamic_video_link = this.userConfigs.dynamic_video_link
+        // 若链接为空则跳过跳转，防止 location.href = '' 无限刷新
+        if (!dynamic_video_link) {
+            logger.warn('动态页｜「投稿视频」链接为空，跳过跳转，请重新设置')
+            return false
+        }
         const currentHref = location.href
         const indexLink = 'https://t.bilibili.com/pages/nav/index'
         if (
