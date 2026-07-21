@@ -1,0 +1,25 @@
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "security"
+    # 安全更新：patch 和 minor 版本自动合并
+    allow:
+      - dependency-type: "direct"
+      - dependency-type: "indirect"
+    versioning-strategy: increase
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
+      include: "scope"
+    # 将安全更新 PR 标记为自动合并
+    pull-request-branch-name:
+      separator: "-"
