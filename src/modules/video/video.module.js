@@ -379,11 +379,12 @@ export default {
         // 检查是否已经存在定位按钮和设置按钮
         const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
         const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
-        if (existingLocateButton && existingSettingsButton) {
+        const existingUpButton = floatNav.querySelector('.bili-adjustment-icon.up')
+        if (existingLocateButton && existingSettingsButton && existingUpButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
-        let locateButton, videoSettingsOpenButton
+        let locateButton, videoSettingsOpenButton, upButton
         if (this.userConfigs.page_type === 'video') {
             if (!existingLocateButton) {
                 locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
@@ -406,6 +407,26 @@ export default {
                     const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
                     VideoSettingsPopover.showPopover()
                 })
+            }
+            if (!existingUpButton && this.userConfigs.page_type === 'video') {
+                upButton = createElementAndInsert(getTemplates.replace('upButton', {
+                    style: '',
+                    dataV: dataV,
+                    text: ''
+                }), floatNav.lastElementChild, 'prepend')
+                addEventListenerToElement(upButton, 'click', async () => {
+                    const mid = this._cachedMid || (() => {
+                        try {
+                            const info = JSON.parse(sessionStorage.getItem('bilibili_video_info') || '{}')
+                            return info.owner?.mid
+                        } catch {}
+                    })()
+                    if (mid) window.open(`https://space.bilibili.com/${mid}`, '_blank')
+                })
+                // 异步获取 mid 缓存
+                biliApis.getVideoInformation('video', biliApis.getCurrentVideoID()).then(info => {
+                    if (info?.owner?.mid) this._cachedMid = info.owner.mid
+                }).catch(() => {})
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
