@@ -138,6 +138,13 @@ export const videoSettingsConfig = [
         tips: '显示评论用户的IP属地信息',
         category: 'basic'
     },
+    {
+        id: 'auto_cancel_mute',
+        type: 'checkbox',
+        label: '自动取消静音',
+        tips: '进入视频页面时如果处于静音状态则自动取消静音',
+        category: 'basic'
+    },
     // AI 服务配置区域
     {
         id: 'ai_section',

@@ -258,7 +258,7 @@ export default {
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
                     this.formatCommentContents(renderder)
                     this.activeTimeSeek(renderder, video)
-                    if (this.userConfigs.show_location){
+                    if (this.userConfigs.show_comment_location){
                         this.showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
                     }
                     if (this.userConfigs.remove_comment_tags){
@@ -268,7 +268,7 @@ export default {
                 shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
                     this.formatCommentContents(renderder)
                     this.activeTimeSeek(renderder, video)
-                    if (this.userConfigs.show_location){
+                    if (this.userConfigs.show_comment_location){
                         this.showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
                     }
                 }, root)
@@ -837,7 +837,7 @@ export default {
         const functions = [
             this.insertSideFloatNavToolsButtons,
             [this.clickPlayerAutoLocate, Boolean(this.userConfigs.click_player_auto_locate)],
-            [this.autoCancelMute, Boolean(this.userConfigs.auto_subtitle)],
+            [this.autoCancelMute, Boolean(this.userConfigs.auto_cancel_mute)],
             this.initVideoRotate,
             [this.unlockEpisodeSelector, !hasTitle],
             [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
