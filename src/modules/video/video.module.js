@@ -44,6 +44,20 @@ export default {
         eventBus.on('video:playerModeSelected', _.debounce(this.autoLocateToPlayer, { 'leading': true, 'trailing': false }))
         eventBus.once('video:startOtherFunctions', _.debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false }))
         eventBus.once('video:webfullPlayerModeUnlock', _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false }))
+        // 监听播放器模式变化，记录用户手动切换的模式
+        this._lastPlayerMode = sessionStorage.getItem('bili_last_player_mode') || this.userConfigs?.selected_player_mode || 'normal'
+        this._modeSwitchCooldown = parseInt(sessionStorage.getItem('bili_mode_cooldown') || '0')
+        elementSelectors.playerContainer.then(container => {
+            if (!container) return
+            const observer = new MutationObserver(() => {
+                const mode = container.getAttribute('data-screen')
+                if (mode && mode !== this._lastPlayerMode) {
+                    this._lastPlayerMode = mode
+                    sessionStorage.setItem('bili_last_player_mode', mode)
+                }
+            })
+            observer.observe(container, { attributeFilter: ['data-screen'] })
+        })
     },
     async registSettings (){
         await settingsComponent.init(this.userConfigs)
@@ -100,6 +114,24 @@ export default {
             eventBus.emit('video:playerModeSelected')
             return
         }
+        // 若用户手动切换过播放器模式且开启了保持功能，跳过切换
+        if (this.userConfigs.preserve_player_mode && this._lastPlayerMode && this._lastPlayerMode !== this.userConfigs.selected_player_mode) {
+            const enabledModes = []
+            if (this.userConfigs.preserve_mode_wide) enabledModes.push('wide')
+            if (this.userConfigs.preserve_mode_web) enabledModes.push('web')
+            if (this.userConfigs.preserve_mode_full) enabledModes.push('full')
+            if (enabledModes.includes(this._lastPlayerMode)) {
+                logger.debug(`屏幕模式丨${this._lastPlayerMode}模式已保持`)
+                eventBus.emit('video:playerModeSelected')
+                return
+            }
+        }
+        // 切换冷却期：3秒内不重复切换，防止 B 站 player 重初始化重复触发
+        if (this._modeSwitchCooldown && Date.now() - this._modeSwitchCooldown < 3000) {
+            logger.debug('屏幕模式丨切换冷却中，跳过')
+            eventBus.emit('video:playerModeSelected')
+            return
+        }
         // 先判断当前播放器模式是否已经是用户设置的模式
         const playerContainer = await elementSelectors.playerContainer
         const currentPlayerMode = playerContainer.getAttribute('data-screen')
@@ -137,6 +169,9 @@ export default {
             const video = await elementSelectors.video
             const success = await this.isPlayerModeSwitchSuccess(this.userConfigs.selected_player_mode, video)
             if (success) {
+                this._modeSwitchCooldown = Date.now()
+                sessionStorage.setItem('bili_mode_cooldown', String(this._modeSwitchCooldown))
+                sessionStorage.setItem('bili_last_player_mode', this.userConfigs.selected_player_mode)
                 logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
                 eventBus.emit('video:playerModeSelected')
             }
@@ -193,6 +228,8 @@ export default {
     async locateToPlayer () {
         const playerContainer = await elementSelectors.query('playerContainer')
         const playerMode = playerContainer.getAttribute('data-screen')
+        // 全屏模式下滚动无效，直接跳过
+        if (playerMode === 'full') return
         const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
         const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
         // logger.debug(headerComputedStyle.position, headerComputedStyle.height)
@@ -820,7 +857,19 @@ export default {
                 video.style.transformOrigin = ''
             }
         }
-        this.locateToPlayer()
+        await this.locateToPlayer()
+        // 重新绑定播放器模式观察器（SPA 导航后元素可能被替换）
+        elementSelectors.playerContainer.then(container => {
+            if (!container) return
+            const observer = new MutationObserver(() => {
+                const mode = container.getAttribute('data-screen')
+                if (mode && mode !== this._lastPlayerMode) {
+                    this._lastPlayerMode = mode
+                    sessionStorage.setItem('bili_last_player_mode', mode)
+                }
+            })
+            observer.observe(container, { attributeFilter: ['data-screen'] })
+        })
         const hasTitle = await this.hasPlayerTitle()
         const hrefChangeFunctions = [
             [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],

@@ -361,6 +361,7 @@ function generateBilibiliAdjustmentStyle() {
             background: #212121;
             border-radius: 8px;
             border: 1px solid #333;
+            overflow-x: auto;
         }
 
         .adjustment-setting-children .adjustment-setting-item {

@@ -445,7 +445,7 @@ export class SettingsComponentV2 {
      */
     handleChildrenVisibility (popover) {
         // 所有包含 children 的父项 id 列表
-        const parentIds = ['auto_locate', 'auto_select_video_highest_quality', 'pause_video']
+        const parentIds = ['auto_locate', 'auto_select_video_highest_quality', 'pause_video', 'preserve_player_mode']
 
         parentIds.forEach(parentId => {
             const parentCheckbox = popover.querySelector(`#${parentId}`)
