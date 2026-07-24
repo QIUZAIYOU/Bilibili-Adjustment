@@ -95,7 +95,7 @@ export default {
             })
         }
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
-            if (this.userConfigs.show_location){
+            if (this.userConfigs.show_comment_location){
                 showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
             }
             if (this.userConfigs.remove_comment_tags){
@@ -103,7 +103,7 @@ export default {
             }
         }, listItem)
         shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
-            if (this.userConfigs.show_location){
+            if (this.userConfigs.show_comment_location){
                 showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
             }
         }, listItem)
