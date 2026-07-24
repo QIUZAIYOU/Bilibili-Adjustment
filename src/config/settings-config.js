@@ -63,6 +63,30 @@ export const videoSettingsConfig = [
         category: 'basic'
     },
     {
+        id: 'preserve_player_mode',
+        type: 'checkbox',
+        label: '上下集切换时保持当前屏幕模式',
+        tips: '切换上下集时不切换回默认模式，保持当前选择的屏幕模式',
+        category: 'basic',
+        children: [
+            {
+                id: 'preserve_mode_wide',
+                type: 'checkbox',
+                label: '宽屏'
+            },
+            {
+                id: 'preserve_mode_web',
+                type: 'checkbox',
+                label: '网页全屏'
+            },
+            {
+                id: 'preserve_mode_full',
+                type: 'checkbox',
+                label: '全屏'
+            }
+        ]
+    },
+    {
         id: 'webfull_unlock',
         type: 'checkbox',
         label: '网页全屏模式解锁',
