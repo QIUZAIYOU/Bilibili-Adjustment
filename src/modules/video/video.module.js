@@ -47,8 +47,7 @@ export default {
         eventBus.once('video:webfullPlayerModeUnlock', _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false }))
         this.autoReapplyUnlockOnFullscreenExit()
         // 监听播放器模式变化，记录用户手动切换的模式
-        this._lastPlayerMode = sessionStorage.getItem('bili_last_player_mode') || this.userConfigs?.selected_player_mode || 'normal'
-        this._modeSwitchCooldown = parseInt(sessionStorage.getItem('bili_mode_cooldown') || '0')
+        this._lastPlayerMode = this.userConfigs?.selected_player_mode || 'normal'
         elementSelectors.playerContainer.then(container => {
             if (!container) return
             const observer = new MutationObserver(() => {
@@ -238,7 +237,6 @@ export default {
         if (playerMode === 'full') return
         const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
         const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
-        // logger.debug(headerComputedStyle.position, headerComputedStyle.height)
         const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
         documentScrollTo(playerOffsetTop - this.userConfigs.offset_top)
     },
@@ -437,7 +435,19 @@ export default {
                     text: '定位'
                 }), floatNav.lastElementChild, 'prepend')
                 addEventListenerToElement(locateButton, 'click', async () => {
-                    await this.locateToPlayer()
+                    // 小窗关闭时临时开启，定位后再关闭
+                    const miniOpenBtn = document.querySelector('.mini-player-window[title="点击打开迷你播放器"]')
+                    const miniCloseBtn = document.querySelector('.mini-player-window[title="点击关闭迷你播放器"]')
+                    if (miniOpenBtn && !miniCloseBtn) {
+                        miniOpenBtn.click()
+                        await sleep(50)
+                        await this.locateToPlayer()
+                        await sleep(50)
+                        // 使用固定选择器关闭小窗（不依赖 B 站的 title 状态切换）
+                        document.querySelector('#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item')?.click()
+                    } else {
+                        await this.locateToPlayer()
+                    }
                 })
             }
             if (!existingSettingsButton) {
@@ -481,7 +491,17 @@ export default {
                     text: ''
                 }), floatNav, 'append')
                 addEventListenerToElement(locateButton, 'click', async () => {
-                    await this.locateToPlayer()
+                    const miniOpenBtn = document.querySelector('.mini-player-window[title="点击打开迷你播放器"]')
+                    const miniCloseBtn = document.querySelector('.mini-player-window[title="点击关闭迷你播放器"]')
+                    if (miniOpenBtn && !miniCloseBtn) {
+                        miniOpenBtn.click()
+                        await sleep(50)
+                        await this.locateToPlayer()
+                        await sleep(50)
+                        document.querySelector('#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item')?.click()
+                    } else {
+                        await this.locateToPlayer()
+                    }
                 })
             }
             if (!existingSettingsButton) {

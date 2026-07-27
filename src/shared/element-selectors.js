@@ -73,6 +73,10 @@ const selectors = {
     switchSubtitleButton: '[aria-label="字幕"]',
     subtitleLanguageChineseAI: '[data-lan="ai-zh"]',
     subtitleCloseSwitch: '[data-action="close"]',
+    // 迷你播放器
+    miniPlayer: '#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item',
+    miniPlayerOpen: '.mini-player-window[title="点击打开迷你播放器"]',
+    miniPlayerClose: '.mini-player-window[title="点击关闭迷你播放器"]',
     // UP主信息
     membersContainer: '.members-info-container',
     membersUpAvatarFace: '.membersinfo-upcard:first-child picture img',
