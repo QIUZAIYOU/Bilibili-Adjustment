@@ -9,15 +9,19 @@ export const commonStyles = {
 
     resetPlayerLayout: `
         body {
-            padding-top: 0;
-            position: auto;
+            padding-top: 0 !important;
+            position: auto !important;
         }
         #playerWrap {
-            display: block;
+            height: auto !important;
+            overflow: visible !important;
         }
-        #bilibili-player {
+        #bilibili-player.mode-webscreen {
             height: auto;
-            position: relative;
+            position: relative !important;
+            top: auto;
+            left: auto;
+            width: auto;
         }
         .bpx-player-mini-warp {
             display: none;
