@@ -287,14 +287,15 @@ const createCachedQuery = async (selectorKey, all = false) => {
         return all ? [] : null
     }
     const cacheKey = `${selector}|${all}`
-    // 检查缓存
-    if (elementCache.has(cacheKey)) {
+    // 只缓存单元素查询。集合查询必须每次重新读取，避免新增/删除节点后返回过期结果。
+    if (!all && elementCache.has(cacheKey)) {
         const cached = elementCache.get(cacheKey)
-        const elements = Array.isArray(cached.element) ? cached.element : [cached.element]
-        if (elements.every(el => el?.isConnected && el.matches?.(selector))) {
+        const element = cached.element
+        if (element?.isConnected && element.matches?.(selector)) {
             recordUsage(selectorKey, performance.now() - startTime)
-            return all ? elements : elements[0]
+            return element
         }
+        cached.observer?.disconnect()
         elementCache.delete(cacheKey)
     }
     const queryMethod = all ? 'querySelectorAll' : 'querySelector'
@@ -320,23 +321,26 @@ const createCachedQuery = async (selectorKey, all = false) => {
             }, 10000)
         })
     }
-    let result = document[queryMethod](selector) || await waitForElements()
-    if (all && !(result instanceof NodeList)) {
-        result = result ? [result] : []
+    let result = document[queryMethod](selector)
+    if ((all && result.length === 0) || (!all && !result)) {
+        result = await waitForElements()
     }
-    // 存储缓存
+    if (all) {
+        recordUsage(selectorKey, performance.now() - startTime)
+        return result instanceof NodeList ? [...result] : result ? [result] : []
+    }
+    // 存储单元素缓存，并在其父节点变化时失效
     trimCache()
-    elementCache.set(cacheKey, {
-        element: all ? [...result] : result,
-        observer: new MutationObserver(() => elementCache.delete(cacheKey))
+    const observer = new MutationObserver(() => {
+        observer.disconnect()
+        elementCache.delete(cacheKey)
     })
-    if (result && !all && result.parentElement) {
-        elementCache.get(cacheKey).observer.observe(result.parentElement, {
-            childList: true
-        })
+    elementCache.set(cacheKey, { element: result, observer })
+    if (result?.parentElement) {
+        observer.observe(result.parentElement, { childList: true })
     }
     recordUsage(selectorKey, performance.now() - startTime)
-    return all ? [...result] : result
+    return result
 }
 /**
  * 遍历所有匹配元素

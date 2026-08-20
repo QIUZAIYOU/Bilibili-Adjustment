@@ -4,26 +4,34 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponentV2 } from '@/components/settings.component.v2'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { isTabActive, createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 import { stylesV2 } from '@/shared/styles'
 const shadowDOMHelper = new ShadowDOMHelper()
-const logger = new LoggerService('VideoModule')
+const logger = new LoggerService('DynamicModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'dynamic',
     version: '2.0.0',
     async install () {
-        eventBus.on('app:ready', async () => {
+        this._cleanup = []
+        this._cleanup.push(eventBus.on('app:ready', async () => {
             logger.info('动态模块｜已加载')
             await this.preFunctions()
-        })
+        }))
+    },
+    async uninstall () {
+        this._cleanup?.forEach(cleanup => cleanup())
+        this._cleanup = []
+        document.getElementById('DynamicSettingsOpenButton')?.remove()
+        document.getElementById('DynamicSettingsPopover')?.remove()
+        insertStyleToDocument({ 'DynamicSettingStyle': '' })
     },
     async preFunctions () {
         this.userConfigs = await storageService.getAll('user')
-        this.registSettings()
-        if (isTabActive()) {
+        await this.registSettings()
+        if (document.visibilityState === 'visible') {
             logger.info('标签页｜已激活')
             insertStyleToDocument({ 'DynamicSettingStyle': stylesV2.DynamicSetting })
             this.handleExecuteFunctionsSequentially()
@@ -67,12 +75,13 @@ export default {
             return
         }
         const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
-        addEventListenerToElement(dynamicSettingsOpenButton, 'click', () => {
+        const cleanup = addEventListenerToElement(dynamicSettingsOpenButton, 'click', () => {
             const DynamicSettingsPopover = document.getElementById('DynamicSettingsPopover')
             if (DynamicSettingsPopover) {
                 DynamicSettingsPopover.showPopover()
             }
         })
+        this._cleanup.push(cleanup)
         logger.debug('侧边栏工具丨插入成功')
     },
     async doSomethingToCommentElements (buttonElement){
@@ -81,9 +90,11 @@ export default {
             try {
                 const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
                 if (existingLocation) return
-                const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
+                const locationWrapperHtml = '<div id="location" style="margin-left:5px"></div>'
                 const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
-                createElementAndInsert(locationWrapperHtml, pubdate, 'after')
+                if (!pubdate) return
+                const locationElement = createElementAndInsert(locationWrapperHtml, pubdate, 'after')
+                if (locationElement) locationElement.textContent = location || 'IP属地：未知'
             } catch (error) {
                 logger.error('插入位置信息失败:', error)
             }
@@ -94,31 +105,31 @@ export default {
                 tag.remove()
             })
         }
-        shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
+        this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
             if (this.userConfigs.show_comment_location){
-                showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                showLocation(renderder, renderder.data?.reply_control?.location ?? 'IP属地：未知')
             }
             if (this.userConfigs.remove_comment_tags){
                 removeCommentTagElements(renderder)
             }
-        }, listItem)
-        shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
+        }, listItem))
+        this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
             if (this.userConfigs.show_comment_location){
-                showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                showLocation(renderder, renderder.data?.reply_control?.location ?? 'IP属地：未知')
             }
-        }, listItem)
+        }, listItem))
     },
     handleLoadComments () {
         const handledButtons = new WeakMap()
-        shadowDOMHelper.observeInsertion(elementSelectors.value('dynamicCommentLoadButton'), button => {
+        this._cleanup.push(shadowDOMHelper.observeInsertion(elementSelectors.value('dynamicCommentLoadButton'), button => {
             if (!handledButtons.has(button)) {
-                addEventListenerToElement(button, 'click', () => {
+                this._cleanup.push(addEventListenerToElement(button, 'click', () => {
                     // logger.debug('点击评论按钮', button)
                     this.doSomethingToCommentElements(button)
                     handledButtons.set(button, true)
-                })
+                }))
             }
-        })
+        }))
     },
     handleExecuteFunctionsSequentially () {
         const functions = [

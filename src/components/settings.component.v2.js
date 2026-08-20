@@ -3,7 +3,7 @@ import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { detectivePageType, createElementAndInsert, addEventListenerToElement, initializeCheckbox } from '@/utils/common'
+import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml } from '@/utils/common'
 import { SettingsRenderer } from '@/components/settings-renderer'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
@@ -329,13 +329,11 @@ export class SettingsComponentV2 {
 
         // 自动开启字幕同步到播放器开关
         if (configId === 'auto_subtitle') {
-            console.log('[SettingsV2] auto_subtitle 变更:', { configId, value, configId_type: typeof configId, value_type: typeof value })
             const switchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
             if (switchInput) {
                 requestAnimationFrame(() => {
                     switchInput.checked = value
                     switchInput.toggleAttribute('checked', value)
-                    console.log('[SettingsV2] 已同步 AutoEnableSubtitleSwitchInput:', switchInput.checked)
                 })
             }
             const autoSubtitleEl = document.getElementById('AutoSubtitle')
@@ -343,7 +341,6 @@ export class SettingsComponentV2 {
                 requestAnimationFrame(() => {
                     autoSubtitleEl.checked = value
                     autoSubtitleEl.toggleAttribute('checked', value)
-                    console.log('[SettingsV2] 已同步 AutoSubtitle:', autoSubtitleEl.checked)
                 })
             }
         }
@@ -398,7 +395,7 @@ export class SettingsComponentV2 {
             )
             if (models.length > 0) {
                 modelSelect.innerHTML = models.map(model => `
-                    <option value="${model.id}">${model.label}</option>
+                    <option value="${escapeHtml(model.id)}">${escapeHtml(model.label)}</option>
                 `).join('')
                 modelSelect.value = models[0].id
                 await this.saveConfig('ai_model', models[0].id)
@@ -570,7 +567,7 @@ export class SettingsComponentV2 {
      * 保存配置
      */
     async saveConfig (key, value) {
-        await storageService.userSet(key, value)
+        await ConfigService.setValue(key, value)
         this.userConfigs[key] = value
         logger.debug(`配置已更新: ${key} = ${value}`)
     }
@@ -645,7 +642,7 @@ export class SettingsComponentV2 {
         try {
             // 获取所有已存储的配置
             const storedSettings = await storageService.getAll('user')
-            const storedMap = new Map(storedSettings.map(s => [s.key, s.value]))
+            const storedMap = new Map(Object.entries(storedSettings || {}))
 
             // 合并默认值与已存值，确保每项都被导出
             const mergedConfigs = {}

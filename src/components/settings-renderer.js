@@ -114,7 +114,7 @@ export class SettingsRenderer {
      * 渲染复选框 - 新布局
      */
     renderCheckbox(item, userConfigs) {
-        const value = userConfigs[item.id] || false
+        const value = userConfigs[item.id] ?? false
         const children = item.children
             ?.map(child => this.renderItem(child, userConfigs))
             .join('') || ''
@@ -167,9 +167,9 @@ export class SettingsRenderer {
      * 渲染输入框 - 新布局
      */
     renderInput(item, userConfigs) {
-        const value = userConfigs[item.id] || ''
+        const value = userConfigs[item.id] ?? ''
         const inputType = item.inputType || 'text'
-        const placeholder = item.placeholder || ''
+        const placeholder = this.escapeHtml(item.placeholder || '')
         const validateButton = item.hasValidateButton
             ? `<div id="Validate${this.toPascalCase(item.id)}" class="adjustment-button secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;height:32px;" data-validate-for="${item.id}">${item.validateButtonText}</div>`
             : ''
@@ -195,10 +195,10 @@ export class SettingsRenderer {
      * 渲染下拉选择框 - 新布局
      */
     renderSelect(item, userConfigs, dynamicOptions = {}) {
-        const value = userConfigs[item.id] || ''
+        const value = userConfigs[item.id] ?? ''
         const options = dynamicOptions[item.id] || item.options || []
         const optionsHtml = options.map(opt => `
-            <option value="${opt.value}" ${opt.value == value ? 'selected' : ''}>${opt.label}</option>
+            <option value="${this.escapeHtml(opt.value)}" ${String(opt.value) === String(value) ? 'selected' : ''}>${this.escapeHtml(opt.label)}</option>
         `).join('')
 
         const refreshButton = item.hasRefreshButton
@@ -228,11 +228,11 @@ export class SettingsRenderer {
      * 渲染单选框组 - 新布局
      */
     renderRadio(item, userConfigs) {
-        const value = userConfigs[item.id] || ''
+        const value = userConfigs[item.id] ?? ''
         const optionsHtml = item.options?.map(opt => `
             <label class="adjustment-radio-item">
-                <input class="radio" type="radio" name="${item.id}" value="${opt.value}" ${value === opt.value ? 'checked' : ''} data-config-type="radio">
-                <span>${opt.label}</span>
+                <input class="radio" type="radio" name="${item.id}" value="${this.escapeHtml(opt.value)}" ${value === opt.value ? 'checked' : ''} data-config-type="radio">
+                <span>${this.escapeHtml(opt.label)}</span>
             </label>
         `).join('') || ''
         const tipsIcon = this.renderTipsIcon(item, userConfigs)
