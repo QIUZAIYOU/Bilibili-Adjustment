@@ -1,39 +1,48 @@
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { sleep, executeFunctionsSequentially, isTabActive, insertStyleToDocument, createElementAndInsert, addEventListenerToElement } from '@/utils/common'
+import { executeFunctionsSequentially, insertStyleToDocument, createElementAndInsert, addEventListenerToElement, escapeHtml, sanitizeHttpUrl } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
 import { stylesV2 } from '@/shared/styles'
-const logger = new LoggerService('VideoModule')
+const logger = new LoggerService('HomeModule')
 export default {
     name: 'home',
     version: '1.2.3',
     async install () {
-        eventBus.on('app:ready', async () => {
+        this._cleanup = []
+        this._cleanup.push(eventBus.on('app:ready', async () => {
             logger.info('首页模块｜已加载')
             await this.preFunctions()
-        })
+        }))
+    },
+    async uninstall () {
+        this._cleanup?.forEach(cleanup => cleanup())
+        this._cleanup = []
+        document.getElementById('indexRecommendVideoHistoryOpenButton')?.remove()
+        document.getElementById('indexRecommendVideoHistoryPopoverWrapper')?.remove()
+        insertStyleToDocument({ 'IndexAdjustmentStyle': '' })
     },
     async preFunctions () {
         this.userConfigs = await storageService.getAll('user')
-        if (isTabActive()) {
+        if (document.visibilityState === 'visible') {
             logger.info('标签页｜已激活')
             insertStyleToDocument({ 'IndexAdjustmentStyle': stylesV2.IndexAdjustment })
             this.handleExecuteFunctionsSequentially()
-            this.initEventListeners()
+            await this.initEventListeners()
         }
     },
     async initEventListeners () {
         const indexRecommendVideoRollButton = await elementSelectors.indexRecommendVideoRollButton
-        addEventListenerToElement(indexRecommendVideoRollButton, 'click', async () => {
-            executeFunctionsSequentially([
+        const cleanup = addEventListenerToElement(indexRecommendVideoRollButton, 'click', async () => {
+            await executeFunctionsSequentially([
                 () => this.setRecordRecommendVideoHistory(),
                 () => this.markRecommendVideoPaidStatus(),
                 () => this.generatorIndexRecommendVideoHistoryContents()
             ])
         })
+        this._cleanup.push(cleanup)
     },
     async markRecommendVideoPaidStatus () {
         const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
@@ -55,7 +64,7 @@ export default {
                         const titleEl = video.querySelector('h3')
                         if (titleEl) {
                             titleEl.title = `🟡付费视频 丨 ${title}`
-                            titleEl.innerHTML = `<span style="color:#fb7299;font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${title}`
+                            titleEl.innerHTML = `<span style="color:#fb7299;font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${escapeHtml(title)}`
                         }
                     }
                 }
@@ -88,7 +97,8 @@ export default {
                         } catch {}
                         const author = owner?.name || '未知作者'
                         if (title) {
-                            await storageService.set('index', title, { title, tid, tid_v2, tname, tname_v2, category, url, pic, author, order, sessionTimestamp })
+                            const historyKey = `${videoInfo.bvid || aid || url}::${sessionTimestamp}`
+                            await storageService.set('index', historyKey, { title, tid, tid_v2, tname, tname_v2, category, url, pic, author, order, sessionTimestamp })
                         }
                         order++
                     }
@@ -105,7 +115,7 @@ export default {
         createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper)
         const indexRecommendVideoHistoryOpenButton = await elementSelectors.indexRecommendVideoHistoryOpenButton
         // 点击打开按钮时创建并显示弹窗
-        addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
+        const cleanup = addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
             // 检查是否已存在弹窗，避免重复创建
             let wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
             if (!wrapper) {
@@ -134,6 +144,7 @@ export default {
             await new Promise(resolve => requestAnimationFrame(resolve))
             this.generatorIndexRecommendVideoHistoryContents()
         })
+        this._cleanup.push(cleanup)
     },
     async clearRecommendVideoHistory (){
         await storageService.clear('index')
@@ -185,7 +196,7 @@ export default {
             categoryBar.id = 'indexRecommendVideoHistoryCategoryV2'
             historyBody.prepend(categoryBar)
         }
-        categoryBar.innerHTML = '<li class="all_v2 active">全部</li>' + allTags.map(t => `<li>${t}</li>`).join('')
+        categoryBar.innerHTML = '<li class="all_v2 active">全部</li>' + allTags.map(t => `<li>${escapeHtml(t)}</li>`).join('')
         // 分类按钮点击筛选
         categoryBar.querySelectorAll('li').forEach(li => {
             addEventListenerToElement(li, 'click', () => {
@@ -225,12 +236,16 @@ export default {
             const end = start + PAGE_SIZE
             const pageData = filteredList.slice(start, end)
             for (const video of pageData) {
+                const title = escapeHtml(video.title || '未知标题')
+                const author = escapeHtml(video.author || '未知作者')
+                const url = escapeHtml(sanitizeHttpUrl(video.url))
+                const pic = escapeHtml(sanitizeHttpUrl(video.pic))
                 createElementAndInsert(`
                     <li>
-                        <span><img src="${video.pic}" loading="lazy" alt="${video.title || ''}"></span>
+                        <span><img src="${pic}" loading="lazy" alt="${title}"></span>
                         <div class="video-info">
-                            <a href="${video.url}" target="_blank" title="${video.title || ''}">${video.title || '未知标题'}</a>
-                            <div class="video-author">UP: ${video.author || '未知作者'}</div>
+                            <a href="${url}" target="_blank" rel="noopener noreferrer" title="${title}">${title}</a>
+                            <div class="video-author">UP: ${author}</div>
                         </div>
                     </li>
                 `, indexRecommendVideoHistoryList)
@@ -303,13 +318,6 @@ export default {
         })
         // 初始显示第一页视频
         filterAndDisplayVideos()
-    },
-    async clearRecommendVideoHistory (){
-        await storageService.clear('index')
-        const wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
-        if (wrapper) {
-            wrapper.style.display = 'none'
-        }
     },
     handleExecuteFunctionsSequentially () {
         const functions = [

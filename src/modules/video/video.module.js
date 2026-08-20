@@ -4,9 +4,9 @@ import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { SettingsComponentV2 } from '@/components/settings.component.v2'
+import { destroyTooltip } from '@/components/tooltip.component'
 import { shadowDomSelectors, elementSelectors } from '@/shared/element-selectors'
-import { saveElementStyles, restoreElementStyles } from '@/utils/style-saver'
-import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, insertStyleToDocument, getBodyHeight, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
+import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, addEventListenerToElement, executeFunctionsSequentially, isTabActive, monitorHrefChange, createElementAndInsert, insertStyleToDocument, getBodyHeight, showPlayerTooltip, hidePlayerTooltip, initializeCheckbox } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { stylesV2 } from '@/shared/styles'
 import { formatVideoCommentDescription, formatVideoCommentContents } from '@/shared/regexps'
@@ -23,28 +23,58 @@ export default {
     name: 'video',
     version: '3.3.0',
     async install () {
+        this._cleanup = []
+        this._modeObservers = []
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
-        eventBus.on('app:ready', async () => {
+        this._cleanup.push(eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
             await this.preFunctions()
+        }))
+    },
+    async uninstall () {
+        this._cleanup?.forEach(cleanup => cleanup())
+        this._cleanup = []
+        if (videoDescriptionObserver) {
+            videoDescriptionObserver.disconnect()
+            videoDescriptionObserver = null
+        }
+        insertStyleToDocument({
+            'BodyOverflowHiddenStyle': '',
+            'VideoPageAdjustmentStyle': '',
+            'VideoSettingsStyle': '',
+            'UnlockWebPlayerStyle': '',
+            'UnlockEpisodeSelectorStyle': ''
         })
+        document.body.classList.remove('webscreen-fix')
+        destroyTooltip()
+        document.querySelectorAll('[bilibili-adjustment-element]').forEach(element => element.remove())
+        this._modeObservers?.forEach(observer => observer.disconnect())
+        this._modeObservers = []
+        this._fullscreenHandler && document.removeEventListener('fullscreenchange', this._fullscreenHandler)
+        this._videoRotateFullscreenHandler && document.removeEventListener('fullscreenchange', this._videoRotateFullscreenHandler)
+        this._videoRotateVideo?.removeEventListener('contextmenu', this._videoRotateContextHandler)
+        if (this._adVideo && this._adTimeUpdateHandler) {
+            this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
+        }
+        if (this._checkDescriptionInterval) clearInterval(this._checkDescriptionInterval)
+        this._pauseVideoCleanup?.()
     },
     async preFunctions () {
-        await storageService.userSet('page_type', location.pathname.startsWith('/video/') ? 'video' : 'bangumi')
+        await storageService.userSet('page_type', location.pathname.startsWith('/bangumi/') ? 'bangumi' : 'video')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
-        this.registSettings()
-        this.initEventListeners()
+        await this.registSettings()
+        await this.initEventListeners()
         this.initMonitors()
     },
     async initEventListeners () {
-        eventBus.on('logger:show', (_, { type, message }) => {
-            logger[type](message)
-        })
-        eventBus.on('video:canplaythrough', _.debounce(this.autoSelectPlayerMode, { 'leading': true, 'trailing': false }))
-        eventBus.on('video:playerModeSelected', _.debounce(this.autoLocateToPlayer, { 'leading': true, 'trailing': false }))
-        eventBus.once('video:startOtherFunctions', _.debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false }))
-        eventBus.once('video:webfullPlayerModeUnlock', _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false }))
+        this._cleanup.push(eventBus.on('logger:show', (_, { type, message }) => {
+            logger[type]?.(message)
+        }))
+        this._cleanup.push(eventBus.on('video:canplaythrough', _.debounce(this.autoSelectPlayerMode, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.on('video:playerModeSelected', _.debounce(this.autoLocateToPlayer, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.once('video:startOtherFunctions', _.debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.once('video:webfullPlayerModeUnlock', _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false })))
         this.autoReapplyUnlockOnFullscreenExit()
         // 监听播放器模式变化，记录用户手动切换的模式
         this._lastPlayerMode = this.userConfigs?.selected_player_mode || 'normal'
@@ -61,6 +91,7 @@ export default {
                     }
                 }
             })
+            this._modeObservers.push(observer)
             observer.observe(container, { attributeFilter: ['data-screen'] })
         })
     },
@@ -68,11 +99,11 @@ export default {
         await settingsComponent.init(this.userConfigs)
     },
     initMonitors () {
-        monitorHrefChange( async () => {
+        this._cleanup.push(monitorHrefChange(async () => {
             logger.debug('视频资源丨链接已改变')
-            this.handleHrefChangedFunctionsSequentially()
-        })
-        isTabActive({
+            await this.handleHrefChangedFunctionsSequentially()
+        }))
+        this._cleanup.push(isTabActive({
             onActiveChange: async isActive => {
                 if (isActive) {
                     logger.info('标签页｜已激活')
@@ -83,11 +114,15 @@ export default {
             immediate: true,
             checkInterval: 10,
             once: true
-        })
+        }))
     },
     isVideoCanplaythrough (videoElement) {
         return new Promise(resolve => {
-            if (videoElement?.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+            if (!videoElement) {
+                resolve(false)
+                return
+            }
+            if (videoElement.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
                 return resolve(true)
             }
             const ac = new AbortController()
@@ -139,6 +174,10 @@ export default {
         }
         // 先判断当前播放器模式是否已经是用户设置的模式
         const playerContainer = await elementSelectors.playerContainer
+        if (!playerContainer) {
+            eventBus.emit('video:playerModeSelected')
+            return
+        }
         const currentPlayerMode = playerContainer.getAttribute('data-screen')
         if (currentPlayerMode === this.userConfigs.selected_player_mode) {
             logger.debug(`屏幕模式丨当前已是${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : this.userConfigs.selected_player_mode === 'web' ? '网页全屏' : '正常'}模式，跳过切换`)
@@ -150,14 +189,14 @@ export default {
                 type: 'wide',
                 action: async () => {
                     const playerModeWideEnterButton = await elementSelectors.playerModeWideEnterButton
-                    playerModeWideEnterButton.click()
+                    playerModeWideEnterButton?.click()
                 }
             },
             {
                 type: 'web',
                 action: async () => {
                     const playerModeWebEnterButton = await elementSelectors.playerModeWebEnterButton
-                    playerModeWebEnterButton.click()
+                    playerModeWebEnterButton?.click()
                 }
             },
             {
@@ -184,21 +223,26 @@ export default {
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
         const playerContainer = await elementSelectors.playerContainer
+        if (!playerContainer) return false
         await storageService.userSet('player_offset_top', await getElementOffsetToDocument(playerContainer).top)
         const playerMode = playerContainer.getAttribute('data-screen')
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
-        // eslint-disable-next-line no-unused-vars
-        const observer = isElementSizeChange(videoElement, async (changed, _) => {
-            if (changed) {
-                const currentPlayerMode = playerContainer.getAttribute('data-screen')
-                if (currentPlayerMode === selectedPlayerMode) {
-                    observer.disconnect()
-                    return true
-                }
+        return new Promise(resolve => {
+            let settled = false
+            const finish = success => {
+                if (settled) return
+                settled = true
+                observer?.disconnect()
+                clearTimeout(timeoutId)
+                resolve(success)
             }
+            const observer = videoElement ? isElementSizeChange(videoElement, () => {
+                if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
+            }) : null
+            const timeoutId = setTimeout(() => finish(false), 3000)
+            if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
         })
-        this.autoSelectPlayerMode()
     },
     async autoLocateToPlayer () {
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
@@ -213,11 +257,17 @@ export default {
         }
         // 先判断当前页面是否已经定位到了播放器位置
         const playerContainer = await elementSelectors.playerContainer
+        if (!playerContainer) {
+            eventBus.emit('video:startOtherFunctions')
+            return
+        }
         const playerMode = playerContainer.getAttribute('data-screen')
         const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
-        const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
-        const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
-        const targetOffset = playerOffsetTop - this.userConfigs.offset_top
+        const header = await elementSelectors.headerMini
+        const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
+        const headerHeight = parseInt(headerComputedStyle.height, 10) || 0
+        const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
+        const targetOffset = playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)
         const currentScrollTop = window.scrollY
         // 允许一定的误差范围（50px）
         if (Math.abs(currentScrollTop - targetOffset) < 50) {
@@ -232,13 +282,18 @@ export default {
     },
     async locateToPlayer () {
         const playerContainer = await elementSelectors.query('playerContainer')
+        if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式下滚动无效，直接跳过
         if (playerMode === 'full') return
         const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
-        const headerComputedStyle = getElementComputedStyle(await elementSelectors.headerMini, ['position', 'height'])
-        const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - parseInt(headerComputedStyle.height) : playerContainerOffsetTop
-        documentScrollTo(playerOffsetTop - this.userConfigs.offset_top)
+        const header = await elementSelectors.headerMini
+        const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
+        const headerHeight = parseInt(headerComputedStyle.height, 10) || 0
+        const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
+        await documentScrollTo(playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)).catch(error => {
+            logger.warn('自动定位丨滚动失败:', error.message)
+        })
     },
     async clickPlayerAutoLocate () {
         addEventListenerToElement(await elementSelectors.playerContainer, 'click', async e => {
@@ -249,19 +304,26 @@ export default {
         })
     },
     handleJumpToVideoTime (video, target) {
-        const targetTime = target.dataset.videoTime
-        targetTime > video.duration && alert('当前时间点大于视频总时长，将跳到视频结尾！')
-        video.currentTime = targetTime
-        video.play()
+        const targetTime = Number(target.dataset.videoTime)
+        if (!Number.isFinite(targetTime) || targetTime < 0) return
+        if (targetTime > video.duration) {
+            alert('当前时间点大于视频总时长，将跳到视频结尾！')
+            video.currentTime = video.duration
+        } else {
+            video.currentTime = targetTime
+        }
+        video.play().catch(() => {})
     },
     // 显示评论IP属地
     showLocation (host, location) {
         try {
             const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
             if (existingLocation) return
-            const locationWrapperHtml = `<div id="location" style="margin-left:5px">${location}</div>`
+            const locationWrapperHtml = '<div id="location" style="margin-left:5px"></div>'
             const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
-            createElementAndInsert(locationWrapperHtml, pubdate, 'after')
+            if (!pubdate) return
+            const locationElement = createElementAndInsert(locationWrapperHtml, pubdate, 'after')
+            if (locationElement) locationElement.textContent = location || 'IP属地：未知'
         } catch (error) {
             logger.error('插入位置信息失败:', error)
         }
@@ -289,32 +351,33 @@ export default {
     // 格式化评论内容
     formatCommentContents (host) {
         const contents = shadowDOMHelper.queryDescendant(host, '#contents')
+        if (!contents) return
         contents.innerHTML = formatVideoCommentContents(contents)
     },
     // 处理评论元素
     async doSomethingToCommentElements () {
         const video = await elementSelectors.video
-        shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
+        this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
             if (root){
-                shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
+                this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
                     this.formatCommentContents(renderder)
                     this.activeTimeSeek(renderder, video)
                     if (this.userConfigs.show_comment_location){
-                        this.showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                        this.showLocation(renderder, renderder.data?.reply_control?.location ?? 'IP属地：未知')
                     }
                     if (this.userConfigs.remove_comment_tags){
                         this.removeCommentTagElements(renderder)
                     }
-                }, root)
-                shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
+                }, root))
+                this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
                     this.formatCommentContents(renderder)
                     this.activeTimeSeek(renderder, video)
                     if (this.userConfigs.show_comment_location){
-                        this.showLocation(renderder, renderder.data.reply_control.location ?? 'IP属地：未知')
+                        this.showLocation(renderder, renderder.data?.reply_control?.location ?? 'IP属地：未知')
                     }
-                }, root)
+                }, root))
             }
-        })
+        }))
     },
     async autoSelectVideoHighestQuality () {
         const qualityMap = {
@@ -416,7 +479,11 @@ export default {
     },
     async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
-        const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild.attributes[1].name : ''
+        if (!floatNav) {
+            logger.warn('侧边栏工具丨未找到浮动导航栏，跳过插入')
+            return
+        }
+        const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild?.attributes?.[1]?.name || '' : ''
         // 检查是否已经存在定位按钮和设置按钮
         const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
         const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
@@ -522,7 +589,8 @@ export default {
     async insertVideoDescriptionToComment () {
         // const perfStart = performance.now()
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
-        const videoDescription = videoInfo.desc
+        if (!videoInfo) return
+        const videoDescription = videoInfo.desc || ''
         // 插入前检查：移除所有已存在的视频简介元素
         const existingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.value('adjustmentCommentDescription'))
         for (const el of existingDescriptions) {
@@ -536,6 +604,7 @@ export default {
         }
         const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
         const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
+        if (!videoDescriptionElement || !videoDescriptionInfoElement) return
         const checkAndTrigger = setInterval(async () => {
             const baseURI = videoDescriptionInfoElement.baseURI
             if (baseURI === location.href){
@@ -573,6 +642,7 @@ export default {
                 }
             }
         }, 300)
+        this._checkDescriptionInterval = checkAndTrigger
         // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
     /**
@@ -642,23 +712,23 @@ export default {
             'playerModeWideEnterButton', 'playerModeWideLeaveButton',
             'playerModeWebLeaveButton'
         ])
-        addEventListenerToElement([wideEnterButton, wideLeaveButton, webLeaveButton], 'click', async () => {
+        this._cleanup.push(addEventListenerToElement([wideEnterButton, wideLeaveButton, webLeaveButton], 'click', async () => {
             await sleep(100)
             await this.resetPlayerLayout()
-        })
+        }))
         // 监听网页全屏进入按钮
         const webEnterBtn = await elementSelectors.playerModeWebEnterButton
         if (webEnterBtn) {
-            addEventListenerToElement(webEnterBtn, 'click', async () => {
+            this._cleanup.push(addEventListenerToElement(webEnterBtn, 'click', async () => {
                 await this.webfullPlayerModeUnlock()
-            })
+            }))
         }
         logger.info('网页全屏丨已解锁')
         eventBus.emit('video:webfullPlayerModeUnlock')
     },
     // 从全屏退出时强制恢复解锁状态
     async autoReapplyUnlockOnFullscreenExit () {
-        document.addEventListener('fullscreenchange', async () => {
+        this._fullscreenHandler = async () => {
             if (!document.fullscreenElement && this.userConfigs?.webfull_unlock && this.userConfigs?.selected_player_mode === 'web') {
                 // 先立即补上样式 class，防止过渡期间播放器错位闪烁
                 const player = document.getElementById('bilibili-player')
@@ -671,7 +741,8 @@ export default {
                     logger.debug('网页全屏丨退出全屏后重新进入网页全屏')
                 }
             }
-        })
+        }
+        document.addEventListener('fullscreenchange', this._fullscreenHandler)
     },
     // 重置播放器布局（移除解锁样式，由 B 站原生 CSS 接管）
     async resetPlayerLayout () {
@@ -692,6 +763,7 @@ export default {
         if (document.getElementById('goToComments')) return
         const batchSelectors = ['playerControllerBottomRight', 'videoComment']
         const [playerControllerBottomRight, videoComment] = await elementSelectors.batch(batchSelectors)
+        if (!playerControllerBottomRight || !videoComment) return
         const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight)
         addEventListenerToElement(locateToCommentButton, 'click', async event => {
             event.stopPropagation()
@@ -739,8 +811,9 @@ export default {
     async initVideoRotate () {
         const video = await elementSelectors.video
         if (!video) return
+        this._videoRotateVideo = video
         // 监听右键菜单事件，注入旋转选项
-        video.addEventListener('contextmenu', () => {
+        this._videoRotateContextHandler = () => {
             let attempts = 0
             const tryInject = () => {
                 const menu = document.querySelector('.bpx-player-contextmenu')
@@ -776,11 +849,13 @@ export default {
                 })
             }
             setTimeout(tryInject, 20)
-        })
+        }
+        video.addEventListener('contextmenu', this._videoRotateContextHandler)
         // 全屏切换时重新应用旋转
-        document.addEventListener('fullscreenchange', () => {
+        this._videoRotateFullscreenHandler = () => {
             this.applyVideoRotation(this.videoRotateState)
-        })
+        }
+        document.addEventListener('fullscreenchange', this._videoRotateFullscreenHandler)
     },
     applyVideoRotation (degrees) {
         const video = document.querySelector('#bilibili-player video')
@@ -799,6 +874,7 @@ export default {
     },
     async handleVideoPauseOnTabSwitch () {
         const video = await elementSelectors.video
+        if (!video) return
         let playFlag = false
         const tabState = isTabActive({
             onActiveChange: async isActive => {
@@ -812,8 +888,9 @@ export default {
             },
             checkInterval: 100
         })
+        this._pauseVideoCleanup = tabState
         return () => {
-            tabState.unsubscribe()
+            tabState()
         }
     },
     async autoEnableHiResMode (){
@@ -845,7 +922,8 @@ export default {
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
         if (!videoInfo) return
         const cid = videoInfo.cid
-        const up_mid = videoInfo.owner.mid
+        const up_mid = videoInfo.owner?.mid
+        if (!cid || !up_mid || !bvid || bvid === 'error') return
         const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
         // logger.info('获取视频字幕', subtitle)
         if (!subtitle || subtitle.length === 0) {
@@ -907,6 +985,8 @@ export default {
             }
         }
         // 添加事件监听器
+        this._adVideo = video
+        this._adTimeUpdateHandler = handleTimeUpdate
         video.addEventListener('timeupdate', handleTimeUpdate)
         logger.info('自动跳过广告丨已启动，共检测到', sortedSegments.length, '个广告时间段', sortedSegments)
         // 初始检查，处理当前时间已经在广告时间段内的情况
@@ -915,6 +995,13 @@ export default {
     async handleHrefChangedFunctionsSequentially (){
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         // 切换视频时重置画面旋转
+        this._playerTitleCache = undefined
+        advertisementIdentified = false
+        if (this._adVideo && this._adTimeUpdateHandler) {
+            this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
+            this._adVideo = null
+            this._adTimeUpdateHandler = null
+        }
         if (this.videoRotateState !== 0) {
             this.videoRotateState = 0
             const video = document.querySelector('#bilibili-player video')
@@ -938,6 +1025,7 @@ export default {
                     }
                 }
             })
+            this._modeObservers.push(observer)
             observer.observe(container, { attributeFilter: ['data-screen'] })
         })
         const hasTitle = await this.hasPlayerTitle()

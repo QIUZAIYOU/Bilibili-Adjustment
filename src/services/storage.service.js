@@ -93,9 +93,9 @@ export class StorageService {
             timestamp: item.timestamp
         }))
     }
-    async getByTimeRange (startTime, endTime, pageSize = 100) {
+    async getByTimeRange (dbName, startTime, endTime, pageSize = 100) {
         const range = IDBKeyRange.bound(startTime, endTime)
-        return this.getAll('by_timestamp', range, pageSize)
+        return this.getAll(dbName, 'by_timestamp', range, pageSize)
     }
     async batchSet (dbName, configsArray) {
         const db = this.#dbs.get(dbName)
@@ -105,8 +105,8 @@ export class StorageService {
         }
     }
     async getCount (dbName, range) {
-        const db = this.#dbs.get(dbName, range)
-        return db.count('keyval')
+        const db = this.#dbs.get(dbName)
+        return db.count('keyval', range)
     }
     async clear (dbName) {
         const db = this.#dbs.get(dbName)

@@ -1,6 +1,6 @@
 import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
-import { createElementAndInsert } from '@/utils/common'
+import { createElementAndInsert, escapeHtml } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('UpdateService')
 export class UpdateService {
@@ -287,7 +287,7 @@ export class UpdateService {
             }
             return `
                 <ul class="adjustment-update-contents">
-                    ${items.map(item => `<li>${item}</li>`).join('')}
+                    ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                 </ul>
             `.replace(/\n\s+/g, '').trim()
         }
@@ -298,7 +298,7 @@ export class UpdateService {
             }
             return `
                 <ul class="adjustment-update-contents">
-                    ${changelog.map(item => `<li>${item}</li>`).join('')}
+                    ${changelog.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                 </ul>
             `.replace(/\n\s+/g, '').trim()
         }

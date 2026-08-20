@@ -64,16 +64,24 @@ class IndexedDBService {
     }
     async _execute (storeName, mode, operation) {
         await this.connect()
+        this._updateLastOperation()
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, mode)
             const store = tx.objectStore(storeName)
             const request = operation(store)
-            request.onsuccess = () => resolve(request.result)
+            let result
+            request.onsuccess = () => {
+                result = request.result
+            }
             request.onerror = event => reject(event.target.error)
+            tx.oncomplete = () => resolve(result)
+            tx.onerror = event => reject(event.target.error)
+            tx.onabort = () => reject(tx.error || new Error('IndexedDB 事务已中止'))
         })
     }
     async _executeCursorQuery (storeName, indexName, range, pageSize = null) {
         await this.connect()
+        this._updateLastOperation()
         return new Promise((resolve, reject) => {
             const tx = this.db.transaction(storeName, 'readonly')
             const store = tx.objectStore(storeName)
@@ -89,7 +97,8 @@ class IndexedDBService {
                     if (pageSize === null || pageSize === undefined || results.length < pageSize) {
                         cursor.continue()
                     } else {
-                        return resolve({ results, continue: () => cursor.continue() })
+                        // 事务完成后 cursor 已失效，不能向调用方暴露 cursor.continue()
+                        return resolve({ results, continue: null })
                     }
                 } else {
                     resolve({ results, continue: null })
@@ -99,6 +108,10 @@ class IndexedDBService {
         })
     }
     close () {
+        if (this._idleTimer) {
+            clearInterval(this._idleTimer)
+            this._idleTimer = null
+        }
         if (this.db) {
             this.db.close()
             this.db = null
@@ -119,6 +132,7 @@ class IndexedDBService {
         })
     }
     _setupConnectionMonitoring () {
+        if (this._idleTimer) clearInterval(this._idleTimer)
         this._idleTimer = setInterval(() => {
             if (Date.now() - this.lastOperationTime > DEFAULT_IDLE_TIMEOUT) {
                 this.close()

@@ -238,7 +238,7 @@ export function syncSelectorInTemplates (oldSelector, newSelector) {
     return updatedCount
 }
 // 开发模式下暴露到全局
-if (process.env.NODE_ENV === 'development') {
+if (import.meta.env.DEV) {
     window.__TemplateRegistry__ = {
         registry: templateRegistry,
         usageStats: templateUsageStats,

@@ -66,18 +66,18 @@ export class ModuleSystem {
         this.register(moduleConfig)
         const moduleMeta = this.#modules.get(moduleName)
         if (moduleMeta && !moduleMeta.instance) {
-            this.#initializeModule(moduleMeta)
+            await this.#initializeModule(moduleMeta)
         }
         return moduleMeta?.instance
     }
     // 卸载模块
-    unloadModule (moduleName) {
+    async unloadModule (moduleName) {
         const moduleMeta = this.#modules.get(moduleName)
         if (moduleMeta) {
             // 调用模块的卸载方法（如果存在）
             if (moduleMeta.instance && typeof moduleMeta.instance.uninstall === 'function') {
                 try {
-                    moduleMeta.instance.uninstall()
+                    await moduleMeta.instance.uninstall()
                 } catch (error) {
                     this.#handleError(`模块 ${moduleName} 卸载失败`, 'warn', { error })
                 }
@@ -89,28 +89,28 @@ export class ModuleSystem {
         }
     }
     // 清空所有模块
-    clearModules () {
+    async clearModules () {
         const moduleNames = Array.from(this.#modules.keys())
-        moduleNames.forEach(name => this.unloadModule(name))
+        await Promise.all(moduleNames.map(name => this.unloadModule(name)))
         this.#logger.debug('所有模块已清空')
     }
-    #initializeModule (moduleMeta) {
+    async #initializeModule (moduleMeta) {
         try {
             moduleMeta.instance = this.#createModuleInstance(moduleMeta.definition)
             if (typeof moduleMeta.instance.install === 'function') {
-                moduleMeta.instance.install()
+                await moduleMeta.instance.install()
             }
             moduleMeta.status = 'active'
             this.#logger.debug(`模块初始化成功: ${moduleMeta.definition.name}`)
         } catch (error) {
             moduleMeta.status = 'error'
-            this.#handleError(error, 'critical', { module: moduleMeta.definition.name })
+            this.#handleError(error, 'critical', { module: moduleMeta.definition.name, error })
         }
     }
     async #initializeModules (moduleNames) {
         await Promise.all(moduleNames.map(name => {
             const moduleMeta = this.#modules.get(name)
-            this.#initializeModule(moduleMeta)
+            return this.#initializeModule(moduleMeta)
         }))
     }
     #validateModule (module) {
@@ -133,7 +133,7 @@ export class ModuleSystem {
         eventBus.on('network:offline', () => {
             this.#handleOfflineMode()
         })
-        eventBus.on('module:error', ({ module, error }) => {
+        eventBus.on('module:error', (_, { module, error }) => {
             this.#tryFallback(module, error)
         })
     }
@@ -147,7 +147,7 @@ export class ModuleSystem {
     #handleOfflineMode () {
         this.#modules.forEach(module => {
             if (module.definition.offline) {
-                module.instance.enableOfflineMode()
+                module.instance?.enableOfflineMode?.()
             }
         })
     }

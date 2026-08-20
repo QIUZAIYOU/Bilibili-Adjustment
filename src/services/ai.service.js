@@ -23,6 +23,7 @@ const PROVIDER_CONFIGS = {
 
 // 本地缓存的模型列表
 let cachedModels = null
+let cachedModelsKey = ''
 let lastFetchTime = 0
 const CACHE_DURATION = 5 * 60 * 1000
 
@@ -35,9 +36,8 @@ const CACHE_DURATION = 5 * 60 * 1000
  * @returns {Promise<{valid: boolean, message: string}>}
  */
 export async function validateApiKey (apiKey, provider = 'siliconflow', baseURL = '') {
-    const logger = new LoggerService('AIService')
     const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.siliconflow
-    const effectiveBaseURL = provider === 'custom' && baseURL ? baseURL : config.baseURL
+    const effectiveBaseURL = (provider === 'custom' && baseURL ? baseURL : config.baseURL).replace(/\/$/, '')
 
     if (!apiKey) {
         return { valid: false, message: 'API Key 未配置' }
@@ -79,10 +79,11 @@ export async function validateApiKey (apiKey, provider = 'siliconflow', baseURL 
 export async function fetchModels (apiKey, provider = 'siliconflow', baseURL = '') {
     const logger = new LoggerService('AIService')
     const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.siliconflow
-    const effectiveBaseURL = provider === 'custom' && baseURL ? baseURL : config.baseURL
+    const effectiveBaseURL = (provider === 'custom' && baseURL ? baseURL : config.baseURL).replace(/\/$/, '')
+    const cacheKey = `${provider}|${effectiveBaseURL}`
 
     try {
-        if (cachedModels && Date.now() - lastFetchTime < CACHE_DURATION) {
+        if (cachedModels && cachedModelsKey === cacheKey && Date.now() - lastFetchTime < CACHE_DURATION) {
             logger.debug('使用缓存的模型列表')
             return cachedModels
         }
@@ -115,6 +116,7 @@ export async function fetchModels (apiKey, provider = 'siliconflow', baseURL = '
                 object: model.object,
                 ownedBy: model.owned_by || ''
             }))
+            cachedModelsKey = cacheKey
             lastFetchTime = Date.now()
             logger.info(`成功获取 ${cachedModels.length} 个模型`)
             return cachedModels
@@ -187,6 +189,7 @@ function getFallbackModels (provider = 'siliconflow') {
 
 export function clearModelCache () {
     cachedModels = null
+    cachedModelsKey = ''
     lastFetchTime = 0
 }
 
@@ -225,7 +228,7 @@ export class AIService {
                 return customModelId
             }
         }
-        return ConfigService.getValue('ai_model') || PROVIDER_CONFIGS.siliconflow.defaultModel
+        return (await ConfigService.getValue('ai_model')) || PROVIDER_CONFIGS.siliconflow.defaultModel
     }
     async getApiKey () {
         await this.initialize()
@@ -267,10 +270,9 @@ export class AIService {
 
 // ========== OpenAI 格式适配器 ==========
 class OpenAIAdapter {
-    #logger = new LoggerService('OpenAIAdapter')
     #baseURL = ''
     constructor (baseURL) {
-        this.#baseURL = baseURL
+        this.#baseURL = baseURL.replace(/\/$/, '')
     }
     async chat (apiKey, model, messages, useCustomModel = false) {
         const requestBody = {
@@ -316,14 +318,18 @@ class OpenAIAdapter {
 export class UnifiedAIService extends AIService {
     #logger = new LoggerService('UnifiedAIService')
     #adapter = null
+    #adapterKey = ''
     async #getAdapter () {
-        if (this.#adapter) return this.#adapter
         const provider = await this.getProvider()
         const customBaseURL = await this.getCustomBaseURL()
         const baseURL = provider === 'custom' && customBaseURL
             ? customBaseURL
             : PROVIDER_CONFIGS[provider]?.baseURL || PROVIDER_CONFIGS.siliconflow.baseURL
-        this.#adapter = new OpenAIAdapter(baseURL)
+        const adapterKey = `${provider}|${baseURL}`
+        if (!this.#adapter || this.#adapterKey !== adapterKey) {
+            this.#adapter = new OpenAIAdapter(baseURL)
+            this.#adapterKey = adapterKey
+        }
         return this.#adapter
     }
     async identifyAdvertisementTimestamps (subtitlesJsonString) {
@@ -346,9 +352,13 @@ export class UnifiedAIService extends AIService {
                 { role: 'user', content: subtitlesJsonString }
             ]
             const content = await adapter.chat(apiKey, model, messages, useCustomModel)
-            // 提取 AI 返回内容中的 JSON 数组：从首个 [ 到最后一个 ]
-            const match = content.match(/\[\s*\{[\s\S]*\}\]/)
-            const jsonStr = match ? match[0] : content.trim()
+            // 兼容 Markdown 代码块和空数组响应，再提取 JSON 数组。
+            const normalizedContent = String(content || '')
+                .replace(/^```(?:json)?\s*/i, '')
+                .replace(/\s*```$/i, '')
+                .trim()
+            const match = normalizedContent.match(/\[[\s\S]*\]/)
+            const jsonStr = match ? match[0] : normalizedContent
             try {
                 const result = JSON.parse(jsonStr)
                 if (!Array.isArray(result)) {

@@ -81,7 +81,7 @@ export const documentScrollTo = (offset, options = {}) => {
         maxRetries = 3,
         retryDelay = 300,
         tolerance = 2,
-        behavior = 'instant'
+        behavior = 'auto'
     } = options
     return new Promise((resolve, reject) => {
         let attempts = 0
@@ -192,9 +192,7 @@ export const executeFunctionsSequentially = async (
                 const [func, execute = true] = Array.isArray(item) ? item : [item, true]
                 if (!execute) return null // 跳过不执行的函数
                 try {
-                    const result = isAsyncFunction(func)
-                        ? await func()
-                        : func()
+                    const result = await func()
                     if (result?.callback) {
                         await executeFunctionsSequentially(result.callback, options)
                     }
@@ -231,8 +229,11 @@ export const isTabActive = (options = {}) => {
             onActiveChange?.(false)
         }
     }
-    immediate && checkVisibility()
-    let intervalId = setInterval(checkVisibility, checkInterval)
+    let intervalId = null
+    if (immediate) checkVisibility()
+    if (!once || document.visibilityState !== 'visible') {
+        intervalId = setInterval(checkVisibility, checkInterval)
+    }
     return () => {
         if (intervalId) {
             clearInterval(intervalId)
@@ -240,49 +241,79 @@ export const isTabActive = (options = {}) => {
         }
     }
 }
-export const monitorHrefChange = callback => {
-    let lastHref = location.href
-    const listenerOptions = { passive: true, capture: true }
-    const getFinalHref = url => {
-        const pParam = url.searchParams.get('p')
-        return `${url.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`.replace(/\/+$/, '')
-    }
-    // 更精确的URL比较
-    const shouldTrigger = newHref => {
-        const u1 = new URL(lastHref)
-        const u2 = new URL(newHref)
-        return getFinalHref(u1) !== getFinalHref(u2)
-    }
-    const handler = () => {
-        const currentHref = location.href
-        if (shouldTrigger(currentHref)) {
-            lastHref = currentHref
-            try {
-                callback()
-            } catch (e) {
-                logger.error('URL变更回调错误:', e)
-            }
+const hrefChangeListeners = new Set()
+let hrefMonitorInitialized = false
+let hrefMonitorLastHref = location.href
+let originalPushState
+let originalReplaceState
+const hrefListenerOptions = { passive: true, capture: true }
+const getFinalHref = url => {
+    const pParam = url.searchParams.get('p')
+    return `${url.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`.replace(/\/+$/, '')
+}
+const notifyHrefChange = () => {
+    const currentHref = location.href
+    const previousUrl = new URL(hrefMonitorLastHref)
+    const currentUrl = new URL(currentHref)
+    if (getFinalHref(previousUrl) === getFinalHref(currentUrl)) return
+    hrefMonitorLastHref = currentHref
+    hrefChangeListeners.forEach(callback => {
+        try {
+            Promise.resolve(callback()).catch(error => logger.error('URL变更回调错误:', error))
+        } catch (error) {
+            logger.error('URL变更回调错误:', error)
         }
-    }
-    // 使用单一事件处理器
-    const events = ['hashchange', 'popstate']
-    events.forEach(e => window.addEventListener(e, handler, listenerOptions))
-    // 更安全的history方法重写
-    const { pushState, replaceState } = history
+    })
+}
+const initializeHrefMonitor = () => {
+    if (hrefMonitorInitialized) return
+    hrefMonitorInitialized = true
+    originalPushState = history.pushState
+    originalReplaceState = history.replaceState
     history.pushState = function (...args) {
-        const result = pushState.apply(this, args)
-        handler()
+        const result = originalPushState.apply(this, args)
+        notifyHrefChange()
         return result
     }
     history.replaceState = function (...args) {
-        const result = replaceState.apply(this, args)
-        handler()
+        const result = originalReplaceState.apply(this, args)
+        notifyHrefChange()
         return result
     }
+    window.addEventListener('hashchange', notifyHrefChange, hrefListenerOptions)
+    window.addEventListener('popstate', notifyHrefChange, hrefListenerOptions)
+}
+export const monitorHrefChange = callback => {
+    if (typeof callback !== 'function') {
+        throw new TypeError('URL变更回调必须是函数')
+    }
+    initializeHrefMonitor()
+    hrefChangeListeners.add(callback)
     return () => {
-        events.forEach(e => window.removeEventListener(e, handler, listenerOptions))
-        history.pushState = pushState
-        history.replaceState = replaceState
+        hrefChangeListeners.delete(callback)
+        if (hrefChangeListeners.size > 0) return
+        window.removeEventListener('hashchange', notifyHrefChange, hrefListenerOptions)
+        window.removeEventListener('popstate', notifyHrefChange, hrefListenerOptions)
+        history.pushState = originalPushState
+        history.replaceState = originalReplaceState
+        hrefMonitorInitialized = false
+        hrefMonitorLastHref = location.href
+    }
+}
+export const escapeHtml = value => String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+export const sanitizeHttpUrl = value => {
+    const rawValue = String(value ?? '').trim()
+    if (!rawValue) return ''
+    try {
+        const url = new URL(rawValue, location.origin)
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : ''
+    } catch {
+        return ''
     }
 }
 export const createElementAndInsert = (HtmlString, target, method = 'append') => {
@@ -346,9 +377,9 @@ export const insertStyleToDocument = styles => {
     }
 }
 export const getBodyHeight = () => {
-    const bodyHeight = document.body.clientHeight || 0
-    const docHeight = document.documentElement.clientHeight || 0
-    return bodyHeight < docHeight ? bodyHeight : docHeight
+    const bodyHeight = document.body?.scrollHeight || 0
+    const docHeight = document.documentElement?.scrollHeight || 0
+    return Math.max(bodyHeight, docHeight)
 }
 export const updateVideoSizeStyle = (mode = 'normal') => {
     const baseWidth = 1920

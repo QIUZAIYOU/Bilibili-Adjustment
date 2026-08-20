@@ -3,88 +3,63 @@ import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
 import { LoggerService } from '@/services/logger.service'
-const logger = new LoggerService('Main')
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
 import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
 import pkg from '../package.json' with { type: 'json' }
+const logger = new LoggerService('Main')
 window._ = _
-// 模块缓存，避免重复加载
 const moduleCache = new Map()
-// 跟踪当前页面类型
 let currentModuleType = null
-// 防抖函数，避免频繁的页面类型检测
-const debouncedDetectPageType = _.debounce(async () => {
-    try {
-        const newModuleType = await detectivePageType()
-        logger.debug(`页面类型: ${newModuleType}`)
-        // 只有当页面类型发生变化时才重新加载模块
-        if (newModuleType === currentModuleType) {
-            logger.debug(`页面类型未变化，跳过模块加载: ${newModuleType}`)
-            return
-        }
-        currentModuleType = newModuleType
-        const moduleMap = {
-            'video': () => import('@/modules/video/video.module.js'),
-            'home': () => import('@/modules/home/home.module.js'),
-            'dynamic': () => import('@/modules/dynamic/dynamic.module.js'),
-            // 预留新页面类型的模块加载路径
-            'space': () => import('@/modules/space/space.module.js'),
-            'search': () => import('@/modules/search/search.module.js'),
-            'anime': () => import('@/modules/anime/anime.module.js'),
-            'gamecenter': () => import('@/modules/gamecenter/gamecenter.module.js')
-        }
-        if (moduleMap[newModuleType]) {
-            // 检查缓存中是否已有该模块
-            if (moduleCache.has(newModuleType)) {
-                logger.debug(`从缓存加载模块: ${newModuleType}`)
-                const moduleConfig = moduleCache.get(newModuleType)
-                moduleSystem.register(moduleConfig)
-            } else {
-                // 加载新模块并缓存
-                return moduleMap[newModuleType]().then(module => {
-                    const moduleConfig = module.default
-                    logger.debug(`注册模块: ${moduleConfig.name}`)
-                    moduleSystem.register(moduleConfig)
-                    // 缓存模块
-                    moduleCache.set(newModuleType, moduleConfig)
-                    logger.debug(`缓存模块: ${newModuleType}`)
-                })
-            }
-        } else if (newModuleType === 'other') {
-            // 当页面类型为other时不做任何动作
-            logger.debug(`当前页面类型 ${newModuleType}，不做任何动作`)
-        } else {
-            logger.debug(`当前页面类型 ${newModuleType} 不支持，跳过模块注册`)
-        }
-    } catch (error) {
-        logger.error('页面类型检测失败', error)
+const moduleMap = {
+    'video': () => import('@/modules/video/video.module.js'),
+    'home': () => import('@/modules/home/home.module.js'),
+    'dynamic': () => import('@/modules/dynamic/dynamic.module.js'),
+    'space': () => import('@/modules/space/space.module.js'),
+    'search': () => import('@/modules/search/search.module.js'),
+    'anime': () => import('@/modules/anime/anime.module.js'),
+    'gamecenter': () => import('@/modules/gamecenter/gamecenter.module.js')
+}
+const detectAndLoadModule = async () => {
+    const newModuleType = await detectivePageType()
+    logger.debug(`页面类型: ${newModuleType}`)
+    // 同类 SPA 路由由当前模块处理，不重复销毁和初始化模块
+    if (newModuleType === currentModuleType && moduleSystem.getModule(newModuleType)) {
+        logger.debug(`页面类型未变化，跳过模块加载: ${newModuleType}`)
+        return newModuleType
     }
-}, 300, { 'leading': true, 'trailing': false })
+    currentModuleType = newModuleType
+    if (!moduleMap[newModuleType]) {
+        logger.debug(`当前页面类型 ${newModuleType} 不支持模块加载`)
+        return newModuleType
+    }
+    if (moduleCache.has(newModuleType)) {
+        moduleSystem.register(moduleCache.get(newModuleType))
+        return newModuleType
+    }
+    const module = await moduleMap[newModuleType]()
+    const moduleConfig = module.default
+    logger.debug(`注册模块: ${moduleConfig.name}`)
+    moduleSystem.register(moduleConfig)
+    moduleCache.set(newModuleType, moduleConfig)
+    logger.debug(`缓存模块: ${newModuleType}`)
+    return newModuleType
+}
 const initializeApp = async () => {
     try {
-        // 1. 初始化配置服务
         await ConfigService.initialize()
         logger.debug('ConfigService 初始化完成')
-        // 2. 根据用户配置更新日志级别
         await LoggerService.updateLogLevelsFromConfig({
             log_level_info: await ConfigService.getValue('log_level_info'),
             log_level_error: await ConfigService.getValue('log_level_error'),
             log_level_warn: await ConfigService.getValue('log_level_warn'),
             log_level_debug: await ConfigService.getValue('log_level_debug')
         })
-        // 3. 检测页面类型
-        await debouncedDetectPageType()
-        // 4. 如果页面类型为 other，直接返回，不执行后续操作
-        if (currentModuleType === 'other') {
-            // logger.info('当前页面类型为 other，跳过模块初始化和更新检查')
-            return
-        }
-        // 5. 初始化模块系统
+        await detectAndLoadModule()
+        if (currentModuleType === 'other') return
         await moduleSystem.init()
         logger.info('应用初始化完成')
-        eventBus.emit('app:ready')
-        // 6. 监听URL变化
+        await eventBus.emit('app:ready')
         let isProcessingUrlChange = false
         let lastUrl = location.href
         const handleUrlChange = _.debounce(async () => {
@@ -92,28 +67,27 @@ const initializeApp = async () => {
                 logger.debug('URL变化处理中，跳过重复触发')
                 return
             }
+            const currentUrl = location.href
+            if (currentUrl === lastUrl) {
+                logger.debug('URL未变化，跳过处理')
+                return
+            }
+            lastUrl = currentUrl
+            isProcessingUrlChange = true
             try {
-                const currentUrl = location.href
-                if (currentUrl === lastUrl) {
-                    logger.debug('URL未变化，跳过处理')
+                const nextModuleType = await detectivePageType()
+                if (nextModuleType === currentModuleType) {
+                    logger.debug(`同类页面路由变化，由当前模块处理: ${nextModuleType}`)
                     return
                 }
-                lastUrl = currentUrl
-                isProcessingUrlChange = true
-                logger.debug('URL发生变化，重新检测页面类型并加载对应模块')
-                // 清空旧模块
-                moduleSystem.clearModules()
-                // 重新检测页面类型并加载新模块
-                await debouncedDetectPageType()
-                // 当页面类型为 other 时，跳过模块重新初始化
-                if (currentModuleType === 'other') {
-                    logger.debug('URL变化后页面类型为 other，跳过模块重新初始化')
-                    return
-                }
-                // 重新初始化模块系统
+                logger.debug('页面类型发生变化，重新加载模块')
+                await moduleSystem.clearModules()
+                currentModuleType = null
+                await detectAndLoadModule()
+                if (currentModuleType === 'other') return
                 await moduleSystem.init()
                 logger.info('模块系统重新初始化完成')
-                eventBus.emit('app:ready')
+                await eventBus.emit('app:ready')
             } catch (error) {
                 logger.error('URL变化处理失败', error)
             } finally {
@@ -121,7 +95,6 @@ const initializeApp = async () => {
             }
         }, 500, { 'leading': true, 'trailing': false })
         monitorHrefChange(handleUrlChange)
-        // 7. 检查更新（仅在非 other 页面执行）
         try {
             const autoCheckUpdate = await ConfigService.getValue('auto_check_update')
             if (autoCheckUpdate) {
@@ -137,5 +110,4 @@ const initializeApp = async () => {
     }
 }
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
-// 启动应用
 initializeApp()

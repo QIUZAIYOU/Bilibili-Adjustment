@@ -48,10 +48,16 @@ export const biliApis = {
     },
     getCurrentVideoID (url = location.href) {
         if (!url) return
-        const { pathname } = new URL(url)
-        if (pathname.startsWith('/video/')) {
+        let parsedUrl
+        try {
+            parsedUrl = new URL(url, location.origin)
+        } catch {
+            return 'error'
+        }
+        const { pathname } = parsedUrl
+        if (pathname.startsWith('/video/') || pathname.startsWith('/list/')) {
             const match = pathname.match(/\/video\/(BV\w+)/)
-            return match?.[1] || 'error'
+            return match?.[1] || parsedUrl.searchParams.get('bvid') || 'error'
         } else if (pathname.startsWith('/bangumi/')) {
             const match = pathname.match(/\/bangumi\/play\/ep(\d+)/)
             return match?.[1] || 'error'
@@ -109,11 +115,25 @@ export const biliApis = {
         logger.warn('获取视频付费状态丨请求失败')
         return false
     },
+    getCookieByName (name) {
+        const cookie = document.cookie.split('; ').find(item => item.startsWith(`${name}=`))
+        if (!cookie) return ''
+        try {
+            return decodeURIComponent(cookie.slice(name.length + 1))
+        } catch {
+            return cookie.slice(name.length + 1)
+        }
+    },
     async isVip () {
         const userId = this.getCookieByName('DedeUserID')
-        const { data: { card: { vip: { status }}}} = await biliApis.getUserInformation(userId)
-        if (status) storageService.userSet('is_vip', true)
-        else storageService.userSet('is_vip', false)
+        if (!userId) {
+            await storageService.userSet('is_vip', false)
+            return false
+        }
+        const userInfo = await biliApis.getUserInformation(userId)
+        const status = Boolean(userInfo?.card?.vip?.status)
+        await storageService.userSet('is_vip', status)
+        return status
     },
     async getUserVideoList (userId) {
         const wib = await biliApis.getQueryWithWbi({ mid: userId })
