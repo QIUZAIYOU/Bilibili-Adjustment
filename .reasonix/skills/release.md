@@ -33,15 +33,35 @@ npm run build
 上传 `dist/` 下的两个文件到阿里云虚拟主机（自动加载 `.env` 中的凭证）：
 ```bash
 set -a && source .env 2>/dev/null && set +a
-curl -T dist/bilibili-adjustment.user.js ftp://$FTP_HOST/htdocs/UserScripts/bilibili/ --user $FTP_USER:$FTP_PASSWORD --ssl
-curl -T dist/bilibili-adjustment.meta.js ftp://$FTP_HOST/htdocs/UserScripts/bilibili/ --user $FTP_USER:$FTP_PASSWORD --ssl
+python3 - <<'EOF'
+from ftplib import FTP
+import os
+ftp = FTP(os.environ['FTP_HOST'], timeout=30)
+ftp.login(os.environ['FTP_USER'], os.environ['FTP_PASSWORD'])
+ftp.cwd('/htdocs/UserScripts/bilibili/')
+for f in ['bilibili-adjustment.user.js', 'bilibili-adjustment.meta.js']:
+    with open(f'dist/{f}', 'rb') as fh:
+        ftp.storbinary(f'STOR {f}', fh)
+    print(f'UPLOAD {f} OK')
+print(ftp.nlst())
+ftp.quit()
+EOF
 ```
 
 ## 验证
 列出 FTP 目录确认文件存在：
 ```bash
 set -a && source .env 2>/dev/null && set +a
-curl ftp://$FTP_HOST/htdocs/UserScripts/bilibili/ --user $FTP_USER:$FTP_PASSWORD --ssl -l
+python3 - <<'EOF'
+from ftplib import FTP
+import os
+ftp = FTP(os.environ['FTP_HOST'], timeout=30)
+ftp.login(os.environ['FTP_USER'], os.environ['FTP_PASSWORD'])
+ftp.cwd('/htdocs/UserScripts/bilibili/')
+print(ftp.nlst())
+ftp.quit()
+EOF
 ```
 
 > ⚠️ **安全提醒**：FTP 凭证通过环境变量 `$FTP_HOST`、`$FTP_USER`、`$FTP_PASSWORD` 传入，请勿硬编码到文件中。
+> ⚠️ **为何用 Python ftplib 而非 curl**：本机网络代理/防火墙会拦截 curl 的 FTP 数据连接（被动模式解析到代理保留地址 `198.18.0.x` 超时，主动模式 `Failed to do PORT`）。Python `ftplib` 走独立网络栈可正常上传。若 curl 可用则仍可用 curl。
