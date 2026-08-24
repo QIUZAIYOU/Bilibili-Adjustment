@@ -21,7 +21,7 @@ let advertisementIdentified = false
 let videoDescriptionObserver = null
 export default {
     name: 'video',
-    version: '3.17.2',
+    version: '3.17.3',
     async install () {
         this._cleanup = []
         this._modeObservers = []

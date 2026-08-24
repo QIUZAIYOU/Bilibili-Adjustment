@@ -1,9 +1,13 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
+import { eventBus } from '@/core/event-bus'
 export class ConfigService {
     static #logger = new LoggerService('ConfigService')
     static #initialized = false
     static #cache = new Map()
+    // 跨标签页配置同步（IndexedDB 不触发跨标签 storage 事件，需 BroadcastChannel）
+    static #syncChannelName = 'bili-adjustment-config-sync'
+    static #syncChannel = null
     static DEFAULT_VALUES = new Map([
         ['is_vip', true],
         ['page_type', 'video'],
@@ -62,9 +66,30 @@ export class ConfigService {
         try {
             await storageService.init()
             this.#initialized = true
+            this.#ensureSyncChannel()
         } catch (error) {
             this.#logger.error('配置服务初始化失败', error)
             throw error
+        }
+    }
+    /**
+     * 建立跨标签页同步通道
+     * 收到其他标签页写入的配置时更新本地缓存，并广播事件供设置 UI 刷新
+     */
+    static #ensureSyncChannel () {
+        if (this.#syncChannel || typeof BroadcastChannel === 'undefined') return
+        try {
+            this.#syncChannel = new BroadcastChannel(this.#syncChannelName)
+            this.#syncChannel.onmessage = event => {
+                const { key, value } = event.data || {}
+                if (!key) return
+                // 与本地缓存相同则跳过，避免同标签页自身的写入触发重复刷新
+                if (this.#cache.get(key) === value) return
+                this.#cache.set(key, value)
+                eventBus.emit('config:changed', { key, value })
+            }
+        } catch (error) {
+            this.#logger.warn('跨标签页同步通道初始化失败', error)
         }
     }
     static async initializeDefaults () {
@@ -180,6 +205,8 @@ export class ConfigService {
         try {
             await storageService.userSet(name, value)
             this.#cache.set(name, value)
+            this.#ensureSyncChannel()
+            this.#syncChannel?.postMessage({ key: name, value })
         } catch (error) {
             this.#logger.error('配置写入失败', error)
             throw error

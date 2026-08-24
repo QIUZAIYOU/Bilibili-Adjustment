@@ -50,6 +50,7 @@ export default [
                 Document: true,
                 DocumentFragment: true,
                 ShadowRoot: true,
+                BroadcastChannel: true,
                 HTMLInputElement: true,
                 Event: true,
                 KeyboardEvent: true,

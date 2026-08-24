@@ -1,4 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
+import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
@@ -23,6 +24,24 @@ export class SettingsComponentV2 {
     async init (userConfigs) {
         this.userConfigs = userConfigs
         this.pageType = await detectivePageType()
+        // 订阅其他标签页的配置变更，实时同步设置弹窗状态（只订阅一次，SPA 导航重复 init 不重复订阅）
+        if (!this._configSyncUnsubscribe) {
+            this._configSyncUnsubscribe = eventBus.on('config:changed', async (_, { key, value }) => {
+                this.userConfigs[key] = value
+                this.syncConfigControl(key, value)
+                // 日志级别跨标签同步
+                if (key.startsWith('log_level_')) {
+                    await LoggerService.updateLogLevelsFromConfig(this.userConfigs)
+                }
+                // AI 凭证类配置变更时重新拉取模型列表，保持各标签页下拉选项一致
+                if (key === 'ai_apikey' || key === 'ai_provider' || key === 'custom_base_url') {
+                    const popover = document.getElementById('VideoSettingsPopover')
+                    if (popover) {
+                        await this.refreshModelList(popover)
+                    }
+                }
+            })
+        }
         await this.render(this.pageType)
     }
     async render (pageType) {
@@ -494,6 +513,57 @@ export class SettingsComponentV2 {
         await ConfigService.setValue(key, value)
         this.userConfigs[key] = value
         logger.debug(`配置已更新: ${key} = ${value}`)
+    }
+    /**
+     * 同步其他标签页写入的配置到本地设置弹窗控件
+     */
+    syncConfigControl (key, value) {
+        const popover = document.getElementById('VideoSettingsPopover') || document.getElementById('DynamicSettingsPopover')
+        if (!popover) return
+        let found = false
+        // 复选框
+        const checkbox = popover.querySelector(`input[data-config-type="checkbox"]#${key}`)
+        if (checkbox) {
+            const boolValue = Boolean(value)
+            checkbox.checked = boolValue
+            checkbox.toggleAttribute('checked', boolValue)
+            const switchBtn = checkbox.closest('.adjustment-switch')
+            if (switchBtn) switchBtn.classList.toggle('on', boolValue)
+            found = true
+        }
+        // 单选框组（radio 无 id，按 name 匹配）
+        const radios = popover.querySelectorAll(`input[data-config-type="radio"][name="${key}"]`)
+        if (radios.length > 0) {
+            radios.forEach(radio => {
+                const isChecked = radio.value === value
+                radio.checked = isChecked
+                radio.toggleAttribute('checked', isChecked)
+            })
+            found = true
+        }
+        // 下拉框
+        const select = popover.querySelector(`select[data-config-type="select"]#${key}`)
+        if (select) {
+            const optionExists = Array.from(select.options).some(option => option.value === value)
+            if (!optionExists && value !== null && value !== undefined && value !== '') {
+                const option = document.createElement('option')
+                option.value = value
+                option.textContent = value
+                select.appendChild(option)
+            }
+            select.value = value
+            found = true
+        }
+        // 输入框
+        const input = popover.querySelector(`input[data-config-type="input"]#${key}`)
+        if (input) {
+            input.value = value ?? ''
+            found = true
+        }
+        if (found) {
+            // 刷新依赖该配置项的可见性（如 is_vip、use_custom_model 等）
+            this.refreshVisibility(popover)
+        }
     }
     /**
      * 显示输入框验证状态
