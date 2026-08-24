@@ -1,4 +1,3 @@
-/* global _ */
 import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
@@ -10,7 +9,6 @@ import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.serv
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip.component'
 import pkg from '../../package.json'
 const logger = new LoggerService('SettingsV2')
-
 /**
  * 新设置组件（基于配置驱动）
  * 与旧版 SettingsComponent 独立，后续可替换旧版
@@ -22,13 +20,11 @@ export class SettingsComponentV2 {
         this.pageType = null
         this.tooltip = null
     }
-
     async init (userConfigs) {
         this.userConfigs = userConfigs
         this.pageType = await detectivePageType()
         await this.render(this.pageType)
     }
-
     async render (pageType) {
         try {
             switch (pageType) {
@@ -48,52 +44,41 @@ export class SettingsComponentV2 {
             logger.error('设置面板渲染失败', error)
         }
     }
-
     // ==================== 视频页设置 ====================
-
     async renderVideoSettings () {
         // 先检查是否已经存在设置面板，如果存在，就先移除它
         const existingSettings = document.getElementById('VideoSettingsPopover')
         if (existingSettings) {
             existingSettings.remove()
         }
-
         // 销毁旧的 tooltip
         destroyTooltip()
-
         // 获取动态选项（模型列表等）
         const dynamicOptions = await this.fetchDynamicOptions()
-
         // 创建渲染器并渲染
         this.renderer = new SettingsRenderer(videoSettingsConfig)
         const formContent = this.renderer.render(this.userConfigs, dynamicOptions)
-
         // 生成完整弹窗
         const popoverHtml = this.renderer.renderPopover(
             '哔哩哔哩播放页设置',
             pkg.version,
             formContent
         )
-
         createElementAndInsert(popoverHtml, document.body)
-
         // 获取 popover DOM 元素（需要等 DOM 插入后才能获取）
         const popover = document.getElementById('VideoSettingsPopover')
-
         // 初始化 tooltip 并将 tooltip 元素插入 popover 内，避免被 popover 的顶层(top layer)遮挡
         this.tooltip = initTooltip({ delay: 300, hideDelay: 100, container: popover })
         requestAnimationFrame(() => {
             bindTooltipIcons()
         })
     }
-
     /**
      * 获取动态选项（如模型列表）
      */
     async fetchDynamicOptions () {
         const options = {}
         const useCustomModel = this.userConfigs.use_custom_model || false
-
         if (!useCustomModel) {
             try {
                 const models = await fetchModels(
@@ -114,34 +99,27 @@ export class SettingsComponentV2 {
                 }]
             }
         }
-
         return options
     }
-
     async initVideoSettingsEventListeners () {
         const popover = document.getElementById('VideoSettingsPopover')
         if (!popover) {
             logger.warn('设置弹窗未找到')
             return
         }
-
         // 绑定弹窗开关事件
         const app = await elementSelectors.app
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-
         // 绑定所有设置项的 change 事件
         this.bindConfigChangeEvents(popover)
-
         // 绑定特殊按钮事件（验证、刷新等）
         this.bindSpecialButtonEvents(popover)
-
         // 绑定导入导出事件
         this.bindImportExportEvents(popover)
     }
-
     /**
      * 绑定配置项变更事件
      */
@@ -154,20 +132,17 @@ export class SettingsComponentV2 {
                 const configId = e.target.id
                 const value = Boolean(e.target.checked)
                 await this.saveConfig(configId, value)
-                
                 // 更新开关样式
                 const switchBtn = e.target.closest('.adjustment-switch')
                 if (switchBtn) {
                     switchBtn.classList.toggle('on', value)
                 }
-
                 // 处理特殊逻辑
                 await this.handleSpecialCheckboxChange(configId, value, popover)
                 // 刷新可见性
                 this.refreshVisibility(popover)
             })
         })
-
         // 输入框
         const inputs = popover.querySelectorAll('input[data-config-type="input"]')
         inputs.forEach(input => {
@@ -176,12 +151,10 @@ export class SettingsComponentV2 {
                 const configId = e.target.id
                 const value = e.target.value.trim()
                 await this.saveConfig(configId, value)
-
                 // 处理特殊输入框变更
                 await this.handleSpecialInputChange(configId, value, popover)
             })
         })
-
         // 下拉框
         const selects = popover.querySelectorAll('select[data-config-type="select"]')
         selects.forEach(select => {
@@ -190,12 +163,10 @@ export class SettingsComponentV2 {
                 const configId = e.target.id
                 const value = e.target.value
                 await this.saveConfig(configId, value)
-
                 // 处理特殊下拉框变更
                 await this.handleSpecialSelectChange(configId, value, popover)
             })
         })
-
         // 单选框
         const radios = popover.querySelectorAll('input[data-config-type="radio"]')
         radios.forEach(radio => {
@@ -203,7 +174,6 @@ export class SettingsComponentV2 {
                 if (!e.target) return
                 const name = e.target.name
                 const value = e.target.value
-
                 // 更新同组其他单选框状态
                 requestAnimationFrame(() => {
                     const group = popover.querySelectorAll(`input[name="${name}"]`)
@@ -216,12 +186,10 @@ export class SettingsComponentV2 {
                         e.target.setAttribute('checked', 'true')
                     }
                 })
-
                 await this.saveConfig(name, value)
             })
         })
     }
-
     /**
      * 绑定特殊按钮事件（验证、刷新等）
      */
@@ -233,16 +201,13 @@ export class SettingsComponentV2 {
                 const targetId = button.dataset.validateFor
                 const input = popover.querySelector(`#${targetId}`)
                 const apiKey = input?.value?.trim()
-
                 if (!apiKey) {
                     this.showInputValidationStatus(input, '请先输入 API Key', false)
                     return
                 }
-
                 const originalText = button.textContent
                 button.textContent = '验证中...'
                 button.style.opacity = '0.7'
-
                 try {
                     let result
                     if (targetId === 'ai_apikey') {
@@ -255,7 +220,6 @@ export class SettingsComponentV2 {
                         }
                         result = await validateApiKey(apiKey, 'custom', apiUrl)
                     }
-
                     if (result?.valid) {
                         this.showInputValidationStatus(input, 'API Key 验证成功 ✓', true)
                     } else {
@@ -270,7 +234,6 @@ export class SettingsComponentV2 {
                 }
             })
         })
-
         // 刷新按钮
         const refreshButtons = popover.querySelectorAll('[data-refresh-for]')
         refreshButtons.forEach(button => {
@@ -282,7 +245,6 @@ export class SettingsComponentV2 {
             })
         })
     }
-
     /**
      * 绑定导入导出事件
      */
@@ -290,7 +252,6 @@ export class SettingsComponentV2 {
         const exportBtn = popover.querySelector('#ExportUserConfigs')
         const importBtn = popover.querySelector('#ImportUserConfigs')
         const fileInput = popover.querySelector('#ImportUserConfigsFileInput')
-
         if (exportBtn) {
             addEventListenerToElement(exportBtn, 'click', () => this.exportUserConfigs())
         }
@@ -299,9 +260,7 @@ export class SettingsComponentV2 {
             addEventListenerToElement(fileInput, 'change', e => this.importUserConfigs(e))
         }
     }
-
     // ==================== 特殊处理逻辑 ====================
-
     /**
      * 处理特殊复选框变更
      */
@@ -321,12 +280,10 @@ export class SettingsComponentV2 {
             // 刷新可见性以显示/隐藏相关配置项
             this.refreshVisibility(popover)
         }
-
         // 日志级别变更
         if (configId.startsWith('log_level_')) {
             await LoggerService.updateLogLevelsFromConfig(this.userConfigs)
         }
-
         // 自动开启字幕同步到播放器开关
         if (configId === 'auto_subtitle') {
             const switchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
@@ -345,7 +302,6 @@ export class SettingsComponentV2 {
             }
         }
     }
-
     /**
      * 处理特殊输入框变更
      */
@@ -355,19 +311,16 @@ export class SettingsComponentV2 {
             clearModelCache()
             await this.refreshModelList(popover)
         }
-
         // 自定义 API 地址变更时刷新模型列表
         if (configId === 'custom_base_url') {
             clearModelCache()
             await this.refreshModelList(popover)
         }
-
         // 自定义模型 ID 变更时同步 ai_model
         if (configId === 'custom_model_id' && this.userConfigs.use_custom_model) {
             await this.saveConfig('ai_model', value)
         }
     }
-
     /**
      * 处理特殊下拉框变更
      */
@@ -378,14 +331,12 @@ export class SettingsComponentV2 {
             await this.refreshModelList(popover)
         }
     }
-
     /**
      * 刷新模型列表
      */
     async refreshModelList (popover) {
         const modelSelect = popover.querySelector('#ai_model')
         if (!modelSelect) return
-
         clearModelCache()
         try {
             const models = await fetchModels(
@@ -405,36 +356,28 @@ export class SettingsComponentV2 {
             logger.error('刷新模型列表失败', error)
         }
     }
-
     /**
      * 刷新设置项可见性 —— 遍历所有配置项，重新评估 visible 条件
      */
     refreshVisibility (popover) {
         const allItems = this.getAllConfigItems()
-
         allItems.forEach(item => {
             if (!item.visible) return // 没有 visible 条件的项不处理
-
             const isVisible = typeof item.visible === 'function'
                 ? item.visible(this.userConfigs)
                 : Boolean(item.visible)
-
             // 查找 DOM：先找 wrapper，再找 item 本身
             let domItem = popover.querySelector(`.adjustment-setting-item-wrapper[data-config-id="${item.id}"]`)
             if (!domItem) {
                 domItem = popover.querySelector(`[data-config-id="${item.id}"]`)
             }
             if (!domItem) return
-
             domItem.style.display = isVisible ? 'block' : 'none'
-
             logger.debug(`刷新可见性: ${item.id} = ${isVisible}`)
         })
-
         // 处理设置有子项的可见性（父开关关闭时隐藏子项）
         this.handleChildrenVisibility(popover)
     }
-
     /**
      * 处理父子设置项的可见性
      * 容器可见条件：父 checkbox 开启 且 至少有一个子项满足自身 visible 条件
@@ -443,41 +386,34 @@ export class SettingsComponentV2 {
     handleChildrenVisibility (popover) {
         // 所有包含 children 的父项 id 列表
         const parentIds = ['auto_locate', 'auto_select_video_highest_quality', 'pause_video', 'preserve_player_mode']
-
         parentIds.forEach(parentId => {
             const parentCheckbox = popover.querySelector(`#${parentId}`)
             if (!parentCheckbox) return
-
             const parentEnabled = parentCheckbox.checked
             const parentConfig = this.findConfigItem(parentId)
             if (!parentConfig?.children) return
-
             // 检查是否有子项在当前配置下可见
             const anyChildVisible = parentConfig.children.some(child => {
                 if (!child.visible) return true
                 if (typeof child.visible === 'function') return child.visible(this.userConfigs)
                 return Boolean(child.visible)
             })
-
             const containerVisible = parentEnabled && anyChildVisible
-
             // 查找父项下的 .adjustment-setting-children 容器
             const childrenContainer = popover.querySelector(
                 `.adjustment-setting-item[data-config-id="${parentId}"] > .adjustment-setting-children`
             )
-
             if (childrenContainer) {
                 childrenContainer.style.display = containerVisible ? 'flex' : 'none'
                 logger.debug(`刷新子项容器可见性: ${parentId} 容器 = ${containerVisible} (父=${parentEnabled}, 有子项可见=${anyChildVisible})`)
             }
         })
     }
-
     /**
      * 在配置中查找设置项
      */
     findConfigItem (id) {
-        const findInItems = (items) => {
+        const findInItems = items => {
             for (const item of items) {
                 if (item.id === id) return item
                 if (item.children) {
@@ -493,13 +429,12 @@ export class SettingsComponentV2 {
         }
         return findInItems(videoSettingsConfig)
     }
-
     /**
      * 获取所有配置项（扁平化）
      */
     getAllConfigItems () {
         const items = []
-        const collectItems = (configItems) => {
+        const collectItems = configItems => {
             for (const item of configItems) {
                 items.push(item)
                 if (item.children) {
@@ -513,37 +448,29 @@ export class SettingsComponentV2 {
         collectItems(videoSettingsConfig)
         return items
     }
-
     // ==================== 动态页设置 ====================
-
     renderDynamicSettings () {
         const existingSettings = document.getElementById('DynamicSettingsPopover')
         if (existingSettings) {
             existingSettings.remove()
         }
-
         this.renderer = new SettingsRenderer(dynamicSettingsConfig)
         const formContent = this.renderer.render(this.userConfigs)
-
         const popoverHtml = this.renderer.renderDynamicPopover(
             '哔哩哔哩动态页设置',
             pkg.version,
             formContent
         )
-
         createElementAndInsert(popoverHtml, document.body)
     }
-
     async initDynamicSettingsEventListeners () {
         const popover = document.getElementById('DynamicSettingsPopover')
         if (!popover) return
-
         const app = await elementSelectors.app
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
-
         // 绑定动态页输入框事件
         const inputs = popover.querySelectorAll('input[data-config-type="input"]')
         inputs.forEach(input => {
@@ -551,7 +478,6 @@ export class SettingsComponentV2 {
                 await this.saveConfig(e.target.id, e.target.value.trim())
             })
         })
-
         // 绑定保存按钮点击事件 — 配置已即时保存，点击仅关闭弹窗
         const saveBtn = document.getElementById('DynamicSettingsSaveButton')
         if (saveBtn) {
@@ -560,9 +486,7 @@ export class SettingsComponentV2 {
             })
         }
     }
-
     // ==================== 通用方法 ====================
-
     /**
      * 保存配置
      */
@@ -571,7 +495,6 @@ export class SettingsComponentV2 {
         this.userConfigs[key] = value
         logger.debug(`配置已更新: ${key} = ${value}`)
     }
-
     /**
      * 显示输入框验证状态
      * @param {HTMLElement} input - 输入框元素
@@ -580,13 +503,11 @@ export class SettingsComponentV2 {
      */
     showInputValidationStatus (input, message, isSuccess) {
         if (!input) return
-
         // 设置边框颜色
         input.style.borderColor = isSuccess ? '#2ed573' : '#ff4757'
-        input.style.boxShadow = isSuccess 
-            ? '0 0 0 3px rgba(46, 213, 115, 0.15)' 
+        input.style.boxShadow = isSuccess
+            ? '0 0 0 3px rgba(46, 213, 115, 0.15)'
             : '0 0 0 3px rgba(255, 71, 87, 0.15)'
-
         // 创建或更新提示消息元素
         let statusElement = input.parentElement.querySelector('.validation-status-message')
         if (!statusElement) {
@@ -604,11 +525,9 @@ export class SettingsComponentV2 {
             input.parentElement.style.position = 'relative'
             input.parentElement.appendChild(statusElement)
         }
-
         statusElement.textContent = message
         statusElement.style.color = isSuccess ? '#2ed573' : '#ff4757'
         statusElement.style.display = 'block'
-
         // 3秒后恢复默认状态
         setTimeout(() => {
             if (input) {
@@ -620,7 +539,6 @@ export class SettingsComponentV2 {
             }
         }, 3000)
     }
-
     /**
      * 显示 API 状态消息（兼容旧版）
      */
@@ -633,7 +551,6 @@ export class SettingsComponentV2 {
             this.showInputValidationStatus(input, message, isSuccess)
         }
     }
-
     /**
      * 导出用户配置
      * 合并已存储的配置与默认值，确保所有已知配置项都被导出
@@ -643,13 +560,11 @@ export class SettingsComponentV2 {
             // 获取所有已存储的配置
             const storedSettings = await storageService.getAll('user')
             const storedMap = new Map(Object.entries(storedSettings || {}))
-
             // 合并默认值与已存值，确保每项都被导出
             const mergedConfigs = {}
             for (const [key, defaultValue] of ConfigService.DEFAULT_VALUES.entries()) {
                 mergedConfigs[key] = storedMap.has(key) ? storedMap.get(key) : defaultValue
             }
-
             const configCount = Object.keys(mergedConfigs).length
             const blob = new Blob([JSON.stringify(mergedConfigs, null, 2)], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
@@ -663,7 +578,6 @@ export class SettingsComponentV2 {
             logger.error('导出设置失败:', error)
         }
     }
-
     /**
      * 导入用户配置
      * 兼容新版 {key: value} 和旧版 [{key, value, timestamp}] 两种格式
@@ -678,7 +592,6 @@ export class SettingsComponentV2 {
                 try {
                     const data = JSON.parse(e.target.result)
                     let configEntries = []
-
                     if (Array.isArray(data)) {
                         // 兼容旧版导出格式: [{key, value, timestamp}]
                         configEntries = data
@@ -691,19 +604,15 @@ export class SettingsComponentV2 {
                         alert('导入失败：文件格式不正确')
                         return
                     }
-
                     // 只导入已知的配置项，过滤掉未知的键
                     const validKeys = new Set(ConfigService.DEFAULT_VALUES.keys())
                     const validEntries = configEntries.filter(entry => validKeys.has(entry.key))
                     const skippedCount = configEntries.length - validEntries.length
-
                     if (validEntries.length === 0) {
                         alert('导入失败：文件中没有有效的配置项')
                         return
                     }
-
                     await storageService.batchSet('user', validEntries)
-
                     let message = `成功导入 ${validEntries.length} 项配置`
                     if (skippedCount > 0) {
                         message += `，已忽略 ${skippedCount} 项未知配置`

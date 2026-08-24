@@ -1,5 +1,4 @@
 import { theme } from '../theme'
-
 export const videoPageStyles = {
     playerControl: `
         .bpx-player-container[data-screen=full] #goToComments {
@@ -17,7 +16,6 @@ export const videoPageStyles = {
             overflow: visible !important;
         }
     `,
-
     commentDescription: `
         #comment-description .user-name {
             display: flex;
@@ -29,14 +27,12 @@ export const videoPageStyles = {
             justify-content: center;
         }
     `,
-
     skipButton: `
         .bpx-player-ctrl-skip {
             border: none !important;
             background: none !important;
         }
     `,
-
     episodeSelector: `
         .bpx-player-control-bottom-right .bpx-player-ctrl-btn.bpx-player-ctrl-eplist {
             visibility: visible !important;
@@ -49,7 +45,6 @@ export const videoPageStyles = {
             overscroll-behavior: contain;
         }
     `,
-
     popoverOverrides: `
         #VideoSettingsPopover {
             width: 550px;

@@ -16,7 +16,6 @@ export const saveElementStyles = (key, items) => {
     })
     sessionStorage.setItem(`bili_saved_styles_${key}`, JSON.stringify(store))
 }
-
 /**
  * 恢复之前保存的样式到元素上
  * @param {string} key - 标识名

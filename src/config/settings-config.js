@@ -2,12 +2,10 @@
  * 设置项配置定义
  * 所有设置项在此集中定义，渲染器根据此配置动态生成 UI
  */
-
 // 基础设置项类型定义
 // type: 'checkbox' | 'input' | 'select' | 'radio' | 'section' | 'custom'
 // dependsOn: { field: string, value: any } - 当指定字段等于指定值时显示
 // visible: boolean | (configs) => boolean - 控制显示条件
-
 export const videoSettingsConfig = [
     {
         id: 'is_vip',
@@ -25,23 +23,22 @@ export const videoSettingsConfig = [
             {
                 id: 'auto_locate_video',
                 type: 'checkbox',
-                label: '普通视频',
+                label: '普通视频'
             },
             {
                 id: 'auto_locate_bangumi',
                 type: 'checkbox',
-                label: '番剧视频',
+                label: '番剧视频'
             }
         ],
         tips: '勾选自动定位至播放器后，video 和 bangumi 两者全选或全不选，默认在这两种类型视频播放页都执行；否则勾选哪种类型，就只在这种类型的播放页才执行'
-
     },
     {
         id: 'offset_top',
         type: 'input',
         label: '播放器顶部偏移(px)',
         inputType: 'number',
-        tips: (configs) => `播放器距离浏览器窗口默认距离为 ${configs.player_offset_top}；请填写小于 ${configs.player_offset_top} 的正整数或 0；当值为 0 时，播放器上沿将紧贴浏览器窗口上沿;值为 ${configs.player_offset_top} 时，将保持B站默认`,
+        tips: configs => `播放器距离浏览器窗口默认距离为 ${configs.player_offset_top}；请填写小于 ${configs.player_offset_top} 的正整数或 0；当值为 0 时，播放器上沿将紧贴浏览器窗口上沿;值为 ${configs.player_offset_top} 时，将保持B站默认`,
         category: 'basic'
     },
     {
@@ -104,13 +101,13 @@ export const videoSettingsConfig = [
                 id: 'contain_quality4k',
                 type: 'checkbox',
                 label: '包含4K画质',
-                visible: (configs) => configs.is_vip
+                visible: configs => configs.is_vip
             },
             {
                 id: 'contain_quality8k',
                 type: 'checkbox',
                 label: '包含8K画质',
-                visible: (configs) => configs.is_vip
+                visible: configs => configs.is_vip
             }
         ]
     },
@@ -118,7 +115,7 @@ export const videoSettingsConfig = [
         id: 'auto_hi_res',
         type: 'checkbox',
         label: '自动开启「Hi-Res 无损音质」',
-        visible: (configs) => configs.is_vip,
+        visible: configs => configs.is_vip,
         category: 'basic'
     },
     {
@@ -190,7 +187,7 @@ export const videoSettingsConfig = [
                     { value: 'siliconflow', label: '硅基流动' },
                     { value: 'custom', label: '自定义 OpenAI 格式' }
                 ],
-                visible: (configs) => !configs.use_custom_model,
+                visible: configs => !configs.use_custom_model,
                 tips: '选择 AI 服务提供商'
             },
             {
@@ -199,7 +196,7 @@ export const videoSettingsConfig = [
                 label: 'AI API Key',
                 inputType: 'password',
                 placeholder: '请输入 API Key',
-                visible: (configs) => !configs.use_custom_model,
+                visible: configs => !configs.use_custom_model,
                 hasValidateButton: true,
                 validateButtonText: '验证 Key'
             },
@@ -208,7 +205,7 @@ export const videoSettingsConfig = [
                 type: 'select',
                 label: 'AI 模型',
                 options: [], // 动态加载
-                visible: (configs) => !configs.use_custom_model,
+                visible: configs => !configs.use_custom_model,
                 hasRefreshButton: true,
                 refreshButtonText: '刷新列表'
             },
@@ -222,14 +219,14 @@ export const videoSettingsConfig = [
                 type: 'input',
                 label: '自定义 API 地址',
                 placeholder: 'https://api.example.com/v1',
-                visible: (configs) => !configs.use_custom_model && configs.ai_provider === 'custom'
+                visible: configs => !configs.use_custom_model && configs.ai_provider === 'custom'
             },
             {
                 id: 'custom_model_api_url',
                 type: 'input',
                 label: '自定义 API 地址',
                 placeholder: 'https://api.example.com/v1',
-                visible: (configs) => configs.use_custom_model
+                visible: configs => configs.use_custom_model
             },
             {
                 id: 'custom_model_api_key',
@@ -237,7 +234,7 @@ export const videoSettingsConfig = [
                 label: '自定义 API Key',
                 inputType: 'password',
                 placeholder: '请输入自定义 API Key',
-                visible: (configs) => configs.use_custom_model,
+                visible: configs => configs.use_custom_model,
                 hasValidateButton: true,
                 validateButtonText: '验证 Key'
             },
@@ -246,7 +243,7 @@ export const videoSettingsConfig = [
                 type: 'input',
                 label: '自定义模型ID',
                 placeholder: '输入模型ID，如 deepseek-ai/DeepSeek-V3',
-                visible: (configs) => configs.use_custom_model
+                visible: configs => configs.use_custom_model
             }
         ]
     },
@@ -331,7 +328,6 @@ export const videoSettingsConfig = [
         category: 'basic'
     }
 ]
-
 // 动态页设置配置
 export const dynamicSettingsConfig = [
     {
@@ -341,7 +337,6 @@ export const dynamicSettingsConfig = [
         tips: '点击「投稿视频」选项后，填入当前浏览器地址栏链接，即可自动跳转至该链接'
     }
 ]
-
 // 配置项分组定义
 export const videoSettingsGroups = [
     { id: 'basic', label: '基础设置' },

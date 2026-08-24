@@ -1,3 +1,5 @@
+import { LoggerService } from '@/services/logger.service'
+const logger = new LoggerService('ShadowDOMHelper')
 /* global */
 export class ShadowDOMHelper {
     constructor () {
@@ -31,19 +33,21 @@ export class ShadowDOMHelper {
             const node = stack.pop()
             if (processed.has(node)) continue
             processed.add(node)
-            try {
-                if (isAll) {
-                    const matches = node.querySelectorAll(selector)
-                    for (const el of matches) results.add(el)
-                } else {
-                    const found = node.querySelector(selector)
-                    if (found) return found
+            // 仅在根节点与 ShadowRoot 边界执行原生查询，避免对每个子节点重复 querySelector
+            if (node === root || node instanceof ShadowRoot) {
+                try {
+                    if (isAll) {
+                        for (const el of node.querySelectorAll(selector)) results.add(el)
+                    } else {
+                        const found = node.querySelector(selector)
+                        if (found) return found
+                    }
+                } catch (e) {
+                    if (e instanceof DOMException && e.name === 'SyntaxError') {
+                        throw new TypeError(`Invalid CSS selector: "${selector}"`)
+                    }
+                    continue
                 }
-            } catch (e) {
-                if (e instanceof DOMException && e.name === 'SyntaxError') {
-                    throw new TypeError(`Invalid CSS selector: "${selector}"`)
-                }
-                continue
             }
             if (node.shadowRoot && !processed.has(node.shadowRoot)) {
                 stack.push(node.shadowRoot)
@@ -98,9 +102,15 @@ export class ShadowDOMHelper {
         if (!this._isValidRoot(root)) {
             throw new TypeError(`Invalid root: ${root}`)
         }
+        try {
+            document.createElement('div').matches(selector)
+        } catch {
+            throw new TypeError(`Invalid CSS selector: "${selector}"`)
+        }
         const processed = new WeakSet()
         let pendingMutations = []
         let timeoutId = null
+        let cancelled = false
         const processQueue = []
         let isDraining = false
         const scheduleIdle = (typeof requestIdleCallback === 'function')
@@ -113,7 +123,7 @@ export class ShadowDOMHelper {
                     try {
                         callback(el)
                     } catch (e) {
-                        console.error('Insertion callback error:', e)
+                        logger.error('插入回调执行失败:', e)
                     }
                 }
             }
@@ -121,42 +131,27 @@ export class ShadowDOMHelper {
         const drainQueue = async () => {
             if (isDraining) return
             isDraining = true
-            while (processQueue.length) {
+            while (processQueue.length && !cancelled) {
                 const node = processQueue.shift()
                 const batch = []
-                const stack = [node]
-                const localProcessed = new WeakSet()
-                while (stack.length) {
-                    const current = stack.pop()
-                    if (localProcessed.has(current)) continue
-                    localProcessed.add(current)
-                    try {
-                        if (current.nodeType === Node.ELEMENT_NODE && current.matches(selector)) {
-                            batch.push(current)
-                        }
-                        const matches = current.querySelectorAll(selector)
-                        for (const el of matches) batch.push(el)
-                    } catch {
-                        // 忽略跨域 ShadowRoot 等错误
-                    }
-                    if (current.shadowRoot) stack.push(current.shadowRoot)
-                    if (current.children) {
-                        for (let i = current.children.length - 1; i >= 0; i--) {
-                            stack.push(current.children[i])
-                        }
-                    }
-                    if (batch.length > 100) {
-                        processBatch(batch.splice(0, 100))
-                        await new Promise(r => setTimeout(r, 0))
-                    }
+                // 复用 _traverse 的边界查询，避免逐节点重复 querySelector
+                if (node.nodeType === Node.ELEMENT_NODE && node.matches(selector)) {
+                    batch.push(node)
                 }
-                if (batch.length) processBatch(batch)
+                for (const el of this._traverse(node, selector, 'all')) {
+                    batch.push(el)
+                }
+                while (batch.length) {
+                    if (cancelled) break
+                    processBatch(batch.splice(0, 100))
+                    if (batch.length) await new Promise(r => setTimeout(r, 0))
+                }
             }
             isDraining = false
         }
         const initProcess = () => {
             processQueue.push(root)
-            drainQueue().catch(console.error)
+            drainQueue().catch(error => logger.error('插入队列处理失败:', error))
         }
         scheduleIdle(initProcess)
         const observer = new MutationObserver(mutations => {
@@ -178,8 +173,10 @@ export class ShadowDOMHelper {
                                     for (const el of matches) batch.add(el)
                                 } catch { /* ignore */ }
                                 if (node.shadowRoot) {
+                                    // 新挂载的 shadow root 必须纳入观察，否则其内部后续插入无法触发回调
+                                    observeShadowRoots(node)
                                     processQueue.push(node.shadowRoot)
-                                    drainQueue().catch(console.error)
+                                    drainQueue().catch(error => logger.error('插入队列处理失败:', error))
                                 }
                             }
                         }
@@ -208,11 +205,11 @@ export class ShadowDOMHelper {
         }
         observeShadowRoots(root)
         return () => {
+            cancelled = true
             observer.disconnect()
             this.observers.delete(observer)
             clearTimeout(timeoutId)
             pendingMutations = []
-            // WeakSet 无 clear 方法，丢弃引用由 GC 回收
         }
     }
 }

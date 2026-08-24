@@ -1,5 +1,4 @@
 import { theme } from './theme'
-
 export const generateCssVariables = () => {
     let css = ':root {'
     Object.entries(theme.colors).forEach(([key, value]) => {
@@ -14,17 +13,13 @@ export const generateCssVariables = () => {
     css += '}'
     return css
 }
-
 export const ifTrue = (condition, styles) => condition ? styles : ''
-
 export const cx = (...styles) => styles.filter(Boolean).join(' ')
-
 export const breakpoint = {
     sm: '@media (max-width: 576px)',
     md: '@media (max-width: 768px)',
     lg: '@media (max-width: 992px)'
 }
-
 export const scrollbarStyle = (color = theme.colors.primary) => `
     ::-webkit-scrollbar {
         width: 6px;
@@ -44,7 +39,6 @@ export const scrollbarStyle = (color = theme.colors.primary) => `
         background-color: ${theme.colors.backgroundLight};
     }
 `
-
 export const popoverBaseStyle = (width = '520px') => `
     position: fixed;
     inset: 0;
@@ -63,7 +57,6 @@ export const popoverBaseStyle = (width = '520px') => `
     border: 1px solid ${theme.colors.border};
     box-shadow: ${theme.shadows.lg}, 0 0 0 1px rgba(0,161,214,0.1);
 `
-
 export const buttonStyle = (variant = 'primary') => {
     const variants = {
         primary: `
@@ -94,7 +87,6 @@ export const buttonStyle = (variant = 'primary') => {
             }
         `
     }
-
     return `
         display: inline-flex;
         align-items: center;

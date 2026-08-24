@@ -3,7 +3,7 @@
  * 直接绑定到每个图标元素
  */
 export class TooltipComponent {
-    constructor(options = {}) {
+    constructor (options = {}) {
         this.delay = options.delay || 300
         this.container = options.container || document.body
         this.tooltip = null
@@ -12,8 +12,7 @@ export class TooltipComponent {
         this.boundIcons = new WeakSet()
         this.init()
     }
-
-    init() {
+    init () {
         // 创建 tooltip 元素
         this.tooltip = document.createElement('div')
         this.tooltip.className = 'adjustment-tooltip'
@@ -39,17 +38,15 @@ export class TooltipComponent {
         `
         this.container.appendChild(this.tooltip)
     }
-
     /**
      * 绑定事件到 tooltip 图标
      */
-    bindToIcons() {
+    bindToIcons () {
         const icons = document.querySelectorAll('.adjustment-tips-icon[data-tooltip]')
         icons.forEach(icon => {
             // 避免重复绑定
             if (this.boundIcons.has(icon)) return
             this.boundIcons.add(icon)
-            
             icon.style.cursor = 'help'
             icon.addEventListener('mouseenter', () => {
                 this.clearTimeout()
@@ -64,7 +61,6 @@ export class TooltipComponent {
                 }, 100)
             })
         })
-
         // 绑定 tooltip 本身的鼠标事件，防止鼠标移入 tooltip 时被隐藏
         this.tooltip.addEventListener('mouseenter', () => {
             this.clearHideTimeout()
@@ -79,26 +75,19 @@ export class TooltipComponent {
             }, 100)
         })
     }
-
-    show(content, target) {
+    show (content, target) {
         if (!this.tooltip) return
-
         // 设置内容（直接使用 data-tooltip 的值）
         this.tooltip.innerHTML = content
-        
         // 先显示并设置 opacity 0 来获取尺寸
         this.tooltip.style.display = 'block'
         this.tooltip.style.opacity = '0'
-        
         const rect = target.getBoundingClientRect()
         const tooltipRect = this.tooltip.getBoundingClientRect()
-        
         let left = rect.left + rect.width / 2 - tooltipRect.width / 2
         let top = rect.bottom + 8
-
         const viewportWidth = window.innerWidth
         const viewportHeight = window.innerHeight
-
         if (left < 8) left = 8
         if (left + tooltipRect.width > viewportWidth - 8) {
             left = viewportWidth - tooltipRect.width - 8
@@ -106,18 +95,15 @@ export class TooltipComponent {
         if (top + tooltipRect.height > viewportHeight - 8) {
             top = rect.top - tooltipRect.height - 8
         }
-
         this.tooltip.style.left = `${left}px`
         this.tooltip.style.top = `${top}px`
-        
         // 真正显示
         requestAnimationFrame(() => {
             this.tooltip.style.opacity = '1'
             this.tooltip.style.transform = 'translateY(0)'
         })
     }
-
-    hide() {
+    hide () {
         if (!this.tooltip) return
         this.tooltip.style.opacity = '0'
         this.tooltip.style.transform = 'translateY(4px)'
@@ -127,22 +113,19 @@ export class TooltipComponent {
             }
         }, 200)
     }
-
-    clearTimeout() {
+    clearTimeout () {
         if (this.showTimeout) {
             clearTimeout(this.showTimeout)
             this.showTimeout = null
         }
     }
-
-    clearHideTimeout() {
+    clearHideTimeout () {
         if (this.hideTimeout) {
             clearTimeout(this.hideTimeout)
             this.hideTimeout = null
         }
     }
-
-    destroy() {
+    destroy () {
         this.clearTimeout()
         this.clearHideTimeout()
         if (this.tooltip && this.tooltip.parentNode) {
@@ -150,23 +133,20 @@ export class TooltipComponent {
         }
     }
 }
-
 // 单例模式
 let tooltipInstance = null
-export function initTooltip(options) {
+export function initTooltip (options) {
     if (!tooltipInstance) {
         tooltipInstance = new TooltipComponent(options)
     }
     return tooltipInstance
 }
-
-export function bindTooltipIcons() {
+export function bindTooltipIcons () {
     if (tooltipInstance) {
         tooltipInstance.bindToIcons()
     }
 }
-
-export function destroyTooltip() {
+export function destroyTooltip () {
     if (tooltipInstance) {
         tooltipInstance.destroy()
         tooltipInstance = null

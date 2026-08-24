@@ -1,12 +1,10 @@
 import { theme } from '../theme'
-
 export const commonStyles = {
     bodyOverflowHidden: `
         body {
             overflow: hidden !important;
         }
     `,
-
     resetPlayerLayout: `
         body {
             padding-top: 0 !important;
@@ -27,7 +25,6 @@ export const commonStyles = {
             display: none;
         }
     `,
-
     unlockWebPlayer: `
         body.webscreen-fix {
             padding-top: BODYHEIGHT;
@@ -44,7 +41,6 @@ export const commonStyles = {
             margin-top: 0;
         }
     `,
-
     freezeHeaderAndVideoTitle: `
         #biliMainHeader {
             height: 64px !important;
@@ -62,7 +58,6 @@ export const commonStyles = {
             display: none !important;
         }
     `,
-
     videoCommentDescription: `
         #bili-adjustment-body {
             position: relative;
@@ -131,7 +126,6 @@ export const commonStyles = {
             border-bottom: 1px solid var(--graph_bg_thick);
         }
     `,
-
     videoSettingsOpenButton: `
         border: 1px solid var(--line_light);
         font-size: 12px;
