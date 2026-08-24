@@ -364,11 +364,18 @@ export class SettingsComponentV2 {
                 this.userConfigs.custom_base_url
             )
             if (models.length > 0) {
+                // 保留当前选中模型（若仍在新列表中），避免刷新后跳回第一个模型
+                const currentModel = modelSelect.value
                 modelSelect.innerHTML = models.map(model => `
                     <option value="${escapeHtml(model.id)}">${escapeHtml(model.label)}</option>
                 `).join('')
-                modelSelect.value = models[0].id
-                await this.saveConfig('ai_model', models[0].id)
+                const keepCurrent = currentModel && Array.from(modelSelect.options).some(option => option.value === currentModel)
+                if (keepCurrent) {
+                    modelSelect.value = currentModel
+                } else {
+                    modelSelect.value = models[0].id
+                    await this.saveConfig('ai_model', models[0].id)
+                }
             }
             logger.info('模型列表已刷新')
         } catch (error) {

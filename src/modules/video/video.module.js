@@ -35,6 +35,8 @@ export default {
     async uninstall () {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
+        this._remoteConfigSyncUnsubscribe?.()
+        this._remoteConfigSyncUnsubscribe = null
         if (videoDescriptionObserver) {
             videoDescriptionObserver.disconnect()
             videoDescriptionObserver = null
@@ -67,6 +69,45 @@ export default {
         await this.registSettings()
         await this.initEventListeners()
         this.initMonitors()
+        this.initRemoteConfigSync()
+    },
+    // 跨标签页配置同步：其他标签页修改设置后，当前页立即应用可即时生效的行为
+    initRemoteConfigSync () {
+        if (this._remoteConfigSyncUnsubscribe) return
+        this._remoteConfigSyncUnsubscribe = eventBus.on('config:changed', async (_, { key, value }) => {
+            this.userConfigs[key] = value
+            switch (key) {
+                case 'auto_skip':
+                    if (value) {
+                        await this.identifyAdvertisementTimestamps()
+                    } else if (this._adVideo && this._adTimeUpdateHandler) {
+                        this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
+                        this._adVideo = null
+                        this._adTimeUpdateHandler = null
+                        logger.info('自动跳过广告丨已关闭')
+                    }
+                    break
+                case 'webfull_unlock':
+                    if (value) {
+                        await this.webfullPlayerModeUnlock()
+                    } else {
+                        const player = document.getElementById('bilibili-player')
+                        if (player?.classList.contains('mode-webscreen') || document.body.classList.contains('webscreen-fix')) {
+                            await this.resetPlayerLayout()
+                        }
+                    }
+                    break
+                case 'auto_subtitle':
+                    if (value) await this.autoEnableSubtitle()
+                    break
+                case 'auto_cancel_mute':
+                    if (value) await this.autoCancelMute()
+                    break
+                case 'auto_hi_res':
+                    if (value) await this.autoEnableHiResMode()
+                    break
+            }
+        })
     },
     async initEventListeners () {
         this._cleanup.push(eventBus.on('logger:show', (_, { type, message }) => {
