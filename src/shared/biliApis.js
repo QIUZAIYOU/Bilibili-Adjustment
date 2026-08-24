@@ -157,7 +157,7 @@ export const biliApis = {
         try {
             const { data: { code, data }} = await axios.get(`https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`)
             if (code === 0 && Array.isArray(data)) return data.map(t => t.tag_name)
-        } catch {}
+        } catch { /* 忽略标签获取失败 */ }
     },
     async getVideoDetail (aid, tid_v2) {
         try {
@@ -174,6 +174,6 @@ export const biliApis = {
                 }
                 return data
             }
-        } catch {}
+        } catch { /* 忽略详情获取失败 */ }
     }
 }

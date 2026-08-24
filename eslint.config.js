@@ -49,6 +49,7 @@ export default [
                 DOMException: true,
                 Document: true,
                 DocumentFragment: true,
+                ShadowRoot: true,
                 HTMLInputElement: true,
                 Event: true,
                 KeyboardEvent: true,

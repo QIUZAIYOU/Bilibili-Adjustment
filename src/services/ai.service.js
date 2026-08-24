@@ -2,7 +2,6 @@ import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import axios from 'axios'
 import AD_DETECTION_PROMPT from '../shared/adDetectionPrompt.js'
-
 // ========== 提供商配置 ==========
 const PROVIDER_CONFIGS = {
     siliconflow: {
@@ -20,13 +19,11 @@ const PROVIDER_CONFIGS = {
         pricingUrl: ''
     }
 }
-
 // 本地缓存的模型列表
 let cachedModels = null
 let cachedModelsKey = ''
 let lastFetchTime = 0
 const CACHE_DURATION = 5 * 60 * 1000
-
 // ========== API Key 验证 ==========
 /**
  * 验证 API Key 是否有效
@@ -38,11 +35,9 @@ const CACHE_DURATION = 5 * 60 * 1000
 export async function validateApiKey (apiKey, provider = 'siliconflow', baseURL = '') {
     const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.siliconflow
     const effectiveBaseURL = (provider === 'custom' && baseURL ? baseURL : config.baseURL).replace(/\/$/, '')
-
     if (!apiKey) {
         return { valid: false, message: 'API Key 未配置' }
     }
-
     try {
         await axios.get(
             `${effectiveBaseURL}/models`,
@@ -67,7 +62,6 @@ export async function validateApiKey (apiKey, provider = 'siliconflow', baseURL 
         return { valid: false, message: `验证失败: ${error.message}` }
     }
 }
-
 // ========== 模型列表获取 ==========
 /**
  * 从 API 获取可用模型列表
@@ -81,7 +75,6 @@ export async function fetchModels (apiKey, provider = 'siliconflow', baseURL = '
     const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.siliconflow
     const effectiveBaseURL = (provider === 'custom' && baseURL ? baseURL : config.baseURL).replace(/\/$/, '')
     const cacheKey = `${provider}|${effectiveBaseURL}`
-
     try {
         if (cachedModels && cachedModelsKey === cacheKey && Date.now() - lastFetchTime < CACHE_DURATION) {
             logger.debug('使用缓存的模型列表')
@@ -147,7 +140,6 @@ export async function fetchModels (apiKey, provider = 'siliconflow', baseURL = '
         return getFallbackModels(provider)
     }
 }
-
 function formatModelLabel (modelId) {
     const parts = modelId.split('/')
     const name = parts[parts.length - 1]
@@ -171,7 +163,6 @@ function formatModelLabel (modelId) {
     }
     return labelMap[name] || name
 }
-
 function getFallbackModels (provider = 'siliconflow') {
     if (provider === 'custom') {
         return []
@@ -186,13 +177,11 @@ function getFallbackModels (provider = 'siliconflow') {
         { id: 'THUDM/GLM-5.1', label: 'GLM 5.1' }
     ]
 }
-
 export function clearModelCache () {
     cachedModels = null
     cachedModelsKey = ''
     lastFetchTime = 0
 }
-
 // ========== AI 服务基类 ==========
 export class AIService {
     static #instance = null
@@ -254,7 +243,7 @@ export class AIService {
         }
         return ConfigService.getValue('custom_base_url') || ''
     }
-    async identifyAdvertisementTimestamps (_subtitlesJsonString) {
+    async identifyAdvertisementTimestamps () {
         throw new Error('子类必须实现identifyAdvertisementTimestamps方法')
     }
     async identifyAdvertisementSegments (subtitlesJsonString) {
@@ -267,7 +256,6 @@ export class AIService {
         }
     }
 }
-
 // ========== OpenAI 格式适配器 ==========
 class OpenAIAdapter {
     #baseURL = ''
@@ -313,7 +301,6 @@ class OpenAIAdapter {
         return messages[status] || `API请求失败，状态码：${status}`
     }
 }
-
 // ========== 统一的 AI 服务实现 ==========
 export class UnifiedAIService extends AIService {
     #logger = new LoggerService('UnifiedAIService')
@@ -383,13 +370,11 @@ export class UnifiedAIService extends AIService {
         }
     }
 }
-
 // ========== 工厂方法 ==========
 export const createAIService = async () => {
     await ConfigService.initialize()
     return new UnifiedAIService()
 }
-
 // ========== 导出默认实例 ==========
 export let aiService
 export let aiServicePromise = null

@@ -5,7 +5,6 @@ import { videoPageStyles } from './video-page'
 import { dynamicPageStyles } from './dynamic-page'
 import { commonStyles } from './common'
 import { homePageStyles } from './home-page'
-
 export {
     theme,
     styleUtils,
@@ -15,7 +14,6 @@ export {
     commonStyles,
     homePageStyles
 }
-
 export const stylesV2 = {
     BilibiliAdjustment: generateBilibiliAdjustmentStyle(),
     VideoPageAdjustment: Object.values(videoPageStyles).join(''),
@@ -30,8 +28,7 @@ export const stylesV2 = {
     VideoSettings: videoPageStyles.popoverOverrides,
     UnlockEpisodeSelector: videoPageStyles.episodeSelector
 }
-
-function generateBilibiliAdjustmentStyle() {
+function generateBilibiliAdjustmentStyle () {
     return `
         /* ========== 滚动条 ========== */
         ::-webkit-scrollbar {
@@ -693,10 +690,7 @@ function generateBilibiliAdjustmentStyle() {
         }
     `.replace(/\s+/g, ' ').trim()
 }
-
-export const generateAllStyles = () => {
-    return {
-        ...stylesV2,
-        cssVariables: styleUtils.generateCssVariables()
-    }
-}
+export const generateAllStyles = () => ({
+    ...stylesV2,
+    cssVariables: styleUtils.generateCssVariables()
+})

@@ -9,7 +9,7 @@ import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('HomeModule')
 export default {
     name: 'home',
-    version: '1.2.3',
+    version: '3.17.1',
     async install () {
         this._cleanup = []
         this._cleanup.push(eventBus.on('app:ready', async () => {
@@ -54,12 +54,12 @@ export default {
                 let videoInfo
                 try {
                     videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
-                } catch {}
+                } catch { /* 忽略视频信息获取失败 */ }
                 if (videoInfo) {
                     let isPaid = false
                     try {
                         isPaid = await biliApis.checkVideoPaid(videoInfo.aid, videoInfo.cid)
-                    } catch {}
+                    } catch { /* 忽略付费状态查询失败 */ }
                     if (isPaid) {
                         const titleEl = video.querySelector('h3')
                         if (titleEl) {
@@ -87,14 +87,14 @@ export default {
                     let videoInfo
                     try {
                         videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
-                    } catch {}
+                    } catch { /* 忽略视频信息获取失败 */ }
                     if (videoInfo) {
                         const { tid, tid_v2, tname, tname_v2, pic, owner, aid } = videoInfo
                         let category = ''
                         try {
                             const detail = await biliApis.getVideoDetail(aid, videoInfo.tid_v2)
                             category = detail?.pid_name_v2 || ''
-                        } catch {}
+                        } catch { /* 忽略详情获取失败 */ }
                         const author = owner?.name || '未知作者'
                         if (title) {
                             const historyKey = `${videoInfo.bvid || aid || url}::${sessionTimestamp}`
@@ -122,7 +122,7 @@ export default {
                 const template = getTemplates.indexRecommendVideoHistoryPopover
                 wrapper = createElementAndInsert(template, document.body)
                 // 点击遮罩层关闭弹窗
-                addEventListenerToElement(wrapper, 'click', (event) => {
+                addEventListenerToElement(wrapper, 'click', event => {
                     if (event.target === wrapper) {
                         wrapper.style.display = 'none'
                         const searchInput = document.getElementById('indexRecommendVideoHistorySearchInput')
@@ -283,7 +283,7 @@ export default {
                 sentinel.id = 'indexHistorySentinel'
                 sentinel.className = 'sentinel'
                 indexRecommendVideoHistoryList.appendChild(sentinel)
-                observer = new IntersectionObserver((entries) => {
+                observer = new IntersectionObserver(entries => {
                     if (entries[0].isIntersecting && !isLoading) {
                         isLoading = true
                         if (showLoadingIndicator()) {

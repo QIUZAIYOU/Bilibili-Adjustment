@@ -1,5 +1,4 @@
 import { theme } from '../theme'
-
 export const homePageStyles = {
     indexAdjustment: `
         #indexRecommendVideoHistoryOpenButton {

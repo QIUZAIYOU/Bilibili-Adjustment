@@ -1,16 +1,13 @@
 import { theme } from '../theme'
 import { popoverBaseStyle, buttonStyle, scrollbarStyle } from '../style-utils'
-
 export const popoverStyles = {
     base: popoverBaseStyle(),
-
     backdrop: `
         &::backdrop {
             backdrop-filter: blur(12px);
             background: rgba(0,0,0,0.7);
         }
     `,
-
     title: `
         margin-bottom: ${theme.spacing.lg};
         text-align: center;
@@ -24,7 +21,6 @@ export const popoverStyles = {
             color: ${theme.colors.textSecondary};
         }
     `,
-
     version: `
         position: absolute;
         top: ${theme.spacing.sm};
@@ -32,7 +28,6 @@ export const popoverStyles = {
         font-size: ${theme.fontSize.xs};
         color: ${theme.colors.textDisabled};
     `,
-
     recommend: `
         padding: ${theme.spacing.md};
         border: 1px solid ${theme.colors.border};
@@ -49,7 +44,6 @@ export const popoverStyles = {
             font-weight: 500;
         }
     `,
-
     buttonGroup: `
         display: flex;
         margin-top: ${theme.spacing.xl};
@@ -59,15 +53,12 @@ export const popoverStyles = {
         padding-top: ${theme.spacing.lg};
         border-top: 1px solid ${theme.colors.border};
     `,
-
     button: buttonStyle(),
-
     form: `
         display: flex;
         flex-direction: column;
         gap: ${theme.spacing.lg};
     `,
-
     sectionTitle: `
         font-size: ${theme.fontSize.lg};
         font-weight: 600;
@@ -76,7 +67,6 @@ export const popoverStyles = {
         padding-bottom: ${theme.spacing.sm};
         border-bottom: 1px solid ${theme.colors.border};
     `,
-
     formItem: `
         display: flex;
         flex-direction: column;
@@ -92,7 +82,6 @@ export const popoverStyles = {
             border-color: rgba(0,161,214,0.2);
         }
     `,
-
     formItemContent: `
         display: flex;
         align-items: center;
@@ -105,7 +94,6 @@ export const popoverStyles = {
             color: ${theme.colors.textPrimary};
         }
     `,
-
     input: `
         flex: 1;
         min-width: 0;
@@ -129,7 +117,6 @@ export const popoverStyles = {
             color: ${theme.colors.textDisabled};
         }
     `,
-
     checkboxBtn: `
         position: relative;
         width: 44px;
@@ -173,7 +160,6 @@ export const popoverStyles = {
             opacity: 1;
         }
     `,
-
     select: `
         position: relative;
 
@@ -218,7 +204,6 @@ export const popoverStyles = {
             pointer-events: none;
         }
     `,
-
     tips: `
         font-size: ${theme.fontSize.sm};
         color: ${theme.colors.textDisabled};
@@ -245,6 +230,5 @@ export const popoverStyles = {
             text-decoration: none;
         }
     `,
-
     scrollbar: scrollbarStyle()
 }

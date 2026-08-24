@@ -21,7 +21,7 @@ let advertisementIdentified = false
 let videoDescriptionObserver = null
 export default {
     name: 'video',
-    version: '3.3.0',
+    version: '3.17.1',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -92,7 +92,7 @@ export default {
                 }
             })
             this._modeObservers.push(observer)
-            observer.observe(container, { attributeFilter: ['data-screen'] })
+            observer.observe(container, { attributeFilter: ['data-screen']})
         })
     },
     async registSettings (){
@@ -286,14 +286,33 @@ export default {
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式下滚动无效，直接跳过
         if (playerMode === 'full') return
-        const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
         const header = await elementSelectors.headerMini
         const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
         const headerHeight = parseInt(headerComputedStyle.height, 10) || 0
-        const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
-        await documentScrollTo(playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)).catch(error => {
+        const headerFixed = headerComputedStyle.position === 'fixed'
+        const offsetTop = Number(this.userConfigs.offset_top) || 0
+        const computeTarget = container => {
+            const playerContainerOffsetTop = container.getAttribute('data-screen') !== 'mini' ? getElementOffsetToDocument(container).top : this.userConfigs.player_offset_top
+            return headerFixed ? playerContainerOffsetTop - headerHeight - offsetTop : playerContainerOffsetTop - offsetTop
+        }
+        let targetOffset = computeTarget(playerContainer)
+        await documentScrollTo(targetOffset).catch(error => {
             logger.warn('自动定位丨滚动失败:', error.message)
         })
+        // SPA 切换视频时页面布局可能尚未稳定，滚动后校验播放器实际位置，偏差过大时重新定位
+        for (let attempt = 0; attempt < 2; attempt++) {
+            await sleep(300)
+            const freshContainer = await elementSelectors.query('playerContainer')
+            if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full') return
+            const freshTarget = computeTarget(freshContainer)
+            // 播放器位置未变且已滚动到位，无需处理
+            if (Math.abs(freshTarget - targetOffset) <= 5 && Math.abs(window.scrollY - targetOffset) <= 5) return
+            targetOffset = freshTarget
+            logger.debug(`自动定位丨重新定位: ${targetOffset}（当前位置 ${window.scrollY}）`)
+            await documentScrollTo(targetOffset).catch(error => {
+                logger.warn('自动定位丨重新定位失败:', error.message)
+            })
+        }
     },
     async clickPlayerAutoLocate () {
         addEventListenerToElement(await elementSelectors.playerContainer, 'click', async e => {
@@ -539,7 +558,7 @@ export default {
                         try {
                             const info = JSON.parse(sessionStorage.getItem('bilibili_video_info') || '{}')
                             return info.owner?.mid
-                        } catch {}
+                        } catch { /* 忽略解析失败 */ }
                     })()
                     if (mid) window.open(`https://space.bilibili.com/${mid}`, '_blank')
                 })
@@ -587,7 +606,11 @@ export default {
         logger.debug('侧边栏工具丨插入成功')
     },
     async insertVideoDescriptionToComment () {
-        // const perfStart = performance.now()
+        // 清理上一次的轮询：旧闭包持有上一个视频的简介数据，不清理会在切换视频后把旧简介重新插入
+        if (this._checkDescriptionInterval) {
+            clearInterval(this._checkDescriptionInterval)
+            this._checkDescriptionInterval = null
+        }
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
         if (!videoInfo) return
         const videoDescription = videoInfo.desc || ''
@@ -602,48 +625,60 @@ export default {
             videoDescriptionObserver.disconnect()
             videoDescriptionObserver = null
         }
-        const batchSelectors = ['videoDescription', 'videoDescriptionInfo', 'videoCommentRoot']
-        const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(batchSelectors)
-        if (!videoDescriptionElement || !videoDescriptionInfoElement) return
+        const descriptionHtml = formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
+        const insertToCommentArea = () => {
+            const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
+            if (!videoCommentReplyListShadowRoot) return false
+            const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
+            const template = document.createElement('template')
+            template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
+                videoCommentDescription: stylesV2.videoCommentDescription,
+                upAvatarFaceLink: upAvatarFaceLink,
+                processVideoCommentDescription: descriptionHtml
+            })
+            const clone = template.content.cloneNode(true)
+            videoCommentReplyListShadowRoot.prepend(clone)
+            // 启动 MutationObserver 监控插入后的重复情况
+            this._observeVideoDescriptionDuplicates(videoCommentReplyListShadowRoot)
+            return true
+        }
+        // 轮询等待新页面渲染完成：简介信息区出现新视频内容后才插入，
+        // 避免过早插入到 B站 重渲染前的旧评论区导致简介丢失或残留
+        const MAX_ATTEMPTS = 30 // 约 9 秒
+        let attempts = 0
         const checkAndTrigger = setInterval(async () => {
-            const baseURI = videoDescriptionInfoElement.baseURI
-            if (baseURI === location.href){
+            attempts++
+            const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(['videoDescription', 'videoDescriptionInfo'])
+            // 信息区已渲染出新视频内容（含标题与简介正文）视为页面就绪
+            const infoReady = videoDescriptionElement?.childElementCount > 1 && videoDescriptionInfoElement?.childElementCount > 0
+            // 已插入且校验通过，结束轮询
+            if (infoReady && shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
                 clearInterval(checkAndTrigger)
-                // 再次执行插入前检查
-                const preExistingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.value('adjustmentCommentDescription'))
-                for (const el of preExistingDescriptions) {
-                    el.remove()
-                    logger.debug('视频简介丨插入前再次检查发现已存在，已移除')
-                }
-                const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
-                if (videoDescriptionElement.childElementCount > 1 && videoDescriptionInfoElement.childElementCount > 0) {
-                    const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
-                    const template = document.createElement('template')
-                    template.innerHTML = getTemplates.replace('shadowRootVideoDescriptionReply', {
-                        videoCommentDescription: stylesV2.videoCommentDescription,
-                        upAvatarFaceLink: upAvatarFaceLink,
-                        processVideoCommentDescription: formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
-                    })
-                    const clone = template.content.cloneNode(true)
-                    videoCommentReplyListShadowRoot?.prepend(clone)
-                    // 启动 MutationObserver 监控插入后的重复情况
-                    if (videoCommentReplyListShadowRoot) {
-                        this._observeVideoDescriptionDuplicates(videoCommentReplyListShadowRoot)
-                    }
-                    if (shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
-                        logger.debug('视频简介丨已插入')
-                    } else {
-                        this.insertVideoDescriptionToComment()
-                    }
-                } else {
-                    const videoDescriptionElement = await elementSelectors.videoDescriptionInfo
-                    videoDescriptionElement.innerHTML = formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
+                this._checkDescriptionInterval = null
+                return
+            }
+            if (infoReady && insertToCommentArea() && shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
+                clearInterval(checkAndTrigger)
+                this._checkDescriptionInterval = null
+                logger.debug('视频简介丨已插入')
+                return
+            }
+            // 页面未就绪或评论区插入未生效（B站可能正在重渲染评论区），继续轮询等待
+            if (attempts < MAX_ATTEMPTS) return
+            clearInterval(checkAndTrigger)
+            this._checkDescriptionInterval = null
+            if (infoReady) {
+                // 评论区始终不可用时退化为替换简介区
+                const videoDescriptionInfoElement = await elementSelectors.query('videoDescriptionInfo')
+                if (videoDescriptionInfoElement) {
+                    videoDescriptionInfoElement.innerHTML = descriptionHtml
                     logger.debug('视频简介丨已替换')
                 }
+            } else {
+                logger.warn('视频简介丨等待页面渲染超时，跳过插入')
             }
         }, 300)
         this._checkDescriptionInterval = checkAndTrigger
-        // logger.debug(`描述插入耗时：${(performance.now() - perfStart).toFixed(1)}ms`)
     },
     /**
      * 使用 MutationObserver 监控视频简介元素的重复情况
@@ -709,7 +744,8 @@ export default {
         document.querySelectorAll('.mini-player-window[title*="迷你播放器"]').forEach(el => el.remove())
         // 监听模式切换按钮（排除全屏按钮，避免干扰 B 站全屏操作）
         const [wideEnterButton, wideLeaveButton, webLeaveButton] = await elementSelectors.batch([
-            'playerModeWideEnterButton', 'playerModeWideLeaveButton',
+            'playerModeWideEnterButton',
+            'playerModeWideLeaveButton',
             'playerModeWebLeaveButton'
         ])
         this._cleanup.push(addEventListenerToElement([wideEnterButton, wideLeaveButton, webLeaveButton], 'click', async () => {
@@ -1026,7 +1062,7 @@ export default {
                 }
             })
             this._modeObservers.push(observer)
-            observer.observe(container, { attributeFilter: ['data-screen'] })
+            observer.observe(container, { attributeFilter: ['data-screen']})
         })
         const hasTitle = await this.hasPlayerTitle()
         const hrefChangeFunctions = [
@@ -1036,8 +1072,15 @@ export default {
             [this.unlockEpisodeSelector, !hasTitle],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')]
         ]
-        const videoCanplaythrough = await this.checkVideoCanplaythrough(await elementSelectors.video, false)
-        videoCanplaythrough && executeFunctionsSequentially(hrefChangeFunctions)
+        // 等待新视频可播放，最长 5 秒；超时也继续执行，避免视频加载异常时其余功能挂起
+        const videoReady = await Promise.race([
+            this.checkVideoCanplaythrough(await elementSelectors.video, false),
+            sleep(5000).then(() => false)
+        ])
+        if (!videoReady) logger.warn('视频资源丨等待可播放超时（5s），继续执行其余功能')
+        executeFunctionsSequentially(hrefChangeFunctions)
+        // SPA 切换时首次定位可能在布局稳定前执行，视频可播放后重新校验并纠正定位
+        await this.autoLocateToPlayer()
         this.autoEnableSubtitle(Boolean(this.userConfigs.auto_subtitle))
     },
     async handleExecuteFunctionsSequentially () {
