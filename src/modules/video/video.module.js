@@ -21,10 +21,11 @@ let advertisementIdentified = false
 let videoDescriptionObserver = null
 export default {
     name: 'video',
-    version: '3.17.1',
+    version: '3.17.2',
     async install () {
         this._cleanup = []
         this._modeObservers = []
+        this.initSubtitleStateMemory()
         insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
         this._cleanup.push(eventBus.on('app:ready', async () => {
             logger.info('视频模块｜已加载')
@@ -444,6 +445,24 @@ export default {
             logger.info('静音丨已关闭')
         }
     },
+    initSubtitleStateMemory () {
+        // tab 会话级记忆：用户手动操作字幕菜单时记录开关状态，切换选集/视频时据此决定是否跳过自动开启
+        this._lastSubtitleState = sessionStorage.getItem('bili_last_subtitle_state') || null
+        this._subtitleUserClickHandler = event => {
+            if (!event.target?.closest?.('[data-lan], [data-action="close"], [aria-label="字幕"]')) return
+            setTimeout(() => {
+                elementSelectors.subtitleLanguageChineseAI.then(el => {
+                    if (!el) return
+                    this._lastSubtitleState = el.classList.contains('bpx-state-active') ? 'on' : 'off'
+                    sessionStorage.setItem('bili_last_subtitle_state', this._lastSubtitleState)
+                    logger.debug(`视频字幕丨已记忆字幕开关状态: ${this._lastSubtitleState === 'on' ? '开启' : '关闭'}`)
+                })
+            }, 250)
+        }
+        // 捕获阶段监听：B站 字幕菜单项可能在播放器内部多层嵌套，捕获阶段确保命中任意字幕语言项
+        document.addEventListener('click', this._subtitleUserClickHandler, true)
+        this._cleanup.push(() => document.removeEventListener('click', this._subtitleUserClickHandler, true))
+    },
     async autoEnableSubtitle () {
         if (this.userConfigs.auto_subtitle) {
             const switchSubtitleButton = await elementSelectors.switchSubtitleButton
@@ -451,6 +470,11 @@ export default {
             const subtitleLanguageChineseAI = await elementSelectors.subtitleLanguageChineseAI
             if (!subtitleLanguageChineseAI) {
                 logger.warn('视频字幕（中文AI）丨未找到字幕按钮，可能页面结构已变更')
+                return
+            }
+            // 记忆保持：用户手动关闭过字幕时，切换选集/视频不再自动重新开启
+            if (this.userConfigs.preserve_subtitle_state && this._lastSubtitleState === 'off') {
+                logger.debug('视频字幕（中文AI）丨用户已手动关闭，保持关闭状态，跳过自动开启')
                 return
             }
             subtitleLanguageChineseAI.click()

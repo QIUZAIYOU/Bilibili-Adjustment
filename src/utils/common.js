@@ -377,9 +377,9 @@ export const insertStyleToDocument = styles => {
     }
 }
 export const getBodyHeight = () => {
-    const bodyHeight = document.body?.scrollHeight || 0
-    const docHeight = document.documentElement?.scrollHeight || 0
-    return Math.max(bodyHeight, docHeight)
+    const bodyHeight = document.body?.clientHeight || 0
+    const docHeight = document.documentElement?.clientHeight || 0
+    return bodyHeight < docHeight ? bodyHeight : docHeight
 }
 export const updateVideoSizeStyle = (mode = 'normal') => {
     const baseWidth = 1920

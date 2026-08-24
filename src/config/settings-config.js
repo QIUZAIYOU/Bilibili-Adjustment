@@ -143,7 +143,15 @@ export const videoSettingsConfig = [
         type: 'checkbox',
         label: '自动开启字幕',
         tips: '注意：此选项并非控制字幕的开关，而是控制是否自动开启字幕，开启此选项后每个视频都会尝试自动开启字幕<br>此选项的开启与关闭不会对「视频本身（UP主）」设置的字幕开关状态产生影响',
-        category: 'basic'
+        category: 'basic',
+        children: [
+            {
+                id: 'preserve_subtitle_state',
+                type: 'checkbox',
+                label: '切换选集时保持字幕开关状态',
+                tips: '开启后手动关闭字幕时，切换选集/视频不会自动重新开启字幕'
+            }
+        ]
     },
     {
         id: 'remove_comment_tags',

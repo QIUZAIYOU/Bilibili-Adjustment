@@ -9,7 +9,7 @@ import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('HomeModule')
 export default {
     name: 'home',
-    version: '3.17.1',
+    version: '3.17.2',
     async install () {
         this._cleanup = []
         this._cleanup.push(eventBus.on('app:ready', async () => {

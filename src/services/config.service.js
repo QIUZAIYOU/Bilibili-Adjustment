@@ -34,6 +34,7 @@ export class ConfigService {
         ['pause_video', false],
         ['continue_play', false],
         ['auto_subtitle', false],
+        ['preserve_subtitle_state', false],
         ['show_comment_location', true], // 显示评论IP属地
         ['remove_comment_tags', true],
         ['auto_hi_res', true],
