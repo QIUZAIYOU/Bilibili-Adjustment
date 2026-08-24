@@ -176,6 +176,7 @@ export default [
             'build/*.js',
             'src/assets',
             'public',
+            'legacy/',
             '*.user.js',
             '*.meta.js',
             'everythingIsBasedOnThisFile.js'

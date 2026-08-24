@@ -2,11 +2,6 @@
 import { LoggerService } from '@/services/logger.service'
 const logger = new LoggerService('Common')
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
-export const delay = (func, timeout, ...args) => new Promise(resolve => {
-    setTimeout(() => {
-        resolve(func(...args))
-    }, timeout)
-})
 export const detectivePageType = () => {
     const { host, pathname, origin } = window.location
     // 过滤临时URL路径
@@ -177,7 +172,6 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
         })
     }
 }
-export const isAsyncFunction = targetFunction => _.isFunction(targetFunction) && targetFunction[Symbol.toStringTag] === 'AsyncFunction'
 export const executeFunctionsSequentially = async (
     functionsArray,
     options = { concurrency: 1, continueOnError: false }
@@ -380,67 +374,6 @@ export const getBodyHeight = () => {
     const bodyHeight = document.body?.clientHeight || 0
     const docHeight = document.documentElement?.clientHeight || 0
     return bodyHeight < docHeight ? bodyHeight : docHeight
-}
-export const updateVideoSizeStyle = (mode = 'normal') => {
-    const baseWidth = 1920
-    const baseHeight = 1080
-    const currentWidth = window.screen.width
-    const currentHeight = window.screen.height
-    const scaleX = currentWidth / baseWidth
-    const scaleY = currentHeight / baseHeight
-    const scale = Math.min(scaleX, scaleY)
-    const sizeRules = {
-        normal: {
-            containerWidth: 1063 * scale,
-            playerWidth: 1063 * scale,
-            playerHeight: 654 * scale,
-            discoverMargin: 531.5 * scale
-        },
-        wide: {
-            containerWidth: 938 * scale,
-            playerWidth: 1379 * scale,
-            playerHeight: 829 * scale,
-            discoverMargin: 469 * scale,
-            followTop: 839 * scale,
-            danmukuMargin: 857 * scale
-        },
-        webfull: {
-            containerWidth: 751 * scale,
-            playerWidth: 1192 * scale,
-            playerHeight: 724 * scale,
-            discoverMargin: 375.5 * scale,
-            followTop: 734 * scale,
-            danmukuMargin: 752 * scale
-        }
-    }
-    const {
-        containerWidth,
-        playerWidth,
-        playerHeight,
-        discoverMargin,
-        followTop = playerHeight + 10,
-        danmukuMargin = playerHeight + 20
-    } = sizeRules[mode]
-    const css = `
-        .video-container-v1 { width: auto; padding: 0 ${10 * scale}px; }
-        .left-container { width: ${containerWidth}px; }
-        #bilibili-player {
-            width: ${playerWidth}px;
-            height: ${playerHeight}px;
-            position: ${mode === 'normal' ? 'static' : 'relative'};
-        }
-        #oldfanfollowEntry { position: relative; top: ${followTop}px; }
-        #danmukuBox { margin-top: ${danmukuMargin}px; }
-        #playerWrap { height: ${playerHeight}px; }
-        .video-discover { margin-left: ${discoverMargin}px; }
-    `
-    let styleElement = document.getElementById('setSizeStyle')
-    if (!styleElement) {
-        styleElement = document.createElement('style')
-        styleElement.id = 'setSizeStyle'
-        document.head.append(styleElement)
-    }
-    styleElement.textContent = css
 }
 // 更新相关功能已移至 update.service.js
 export const initializeCheckbox = (elements, userConfigs, configKey) => {
