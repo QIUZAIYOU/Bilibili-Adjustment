@@ -24,7 +24,7 @@ const PLAYBACK_STORE_KEY = 'bili_adjustment_playback_progress'
 const PLAYBACK_STORE_LIMIT = 50
 export default {
     name: 'video',
-    version: '3.17.5',
+    version: '3.17.6',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -69,6 +69,7 @@ export default {
         await storageService.userSet('page_type', location.pathname.startsWith('/bangumi/') ? 'bangumi' : 'video')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
+        logger.debug('播放进度诊断丨userConfigs 已加载, playback_memory=' + this.userConfigs?.playback_memory)
         await this.registSettings()
         await this.initEventListeners()
         this.initMonitors()
@@ -1016,8 +1017,9 @@ export default {
     // ========== 播放进度记忆（官方进度记忆失效时的兜底） ==========
     initPlaybackMemory () {
         if (this._playbackBound) return
-        this._playbackBound = true
+        // 先算 key 再置 bound：若 key 计算失败，不会留下 bound=true 的"半初始化"状态卡死后续重试
         this._playbackKey = this._getPlaybackKey()
+        this._playbackBound = true
         this._playbackLastVideo = null
         this._playbackUserInteracted = false
         this._playbackRestoredKey = null
@@ -1025,14 +1027,24 @@ export default {
         this._playbackSaveThrottled = _.throttle(this.savePlaybackPosition.bind(this), 10000)
         const isMainVideo = event => event.target instanceof HTMLVideoElement &&
                                      event.target.matches('#bilibili-player video')
+        const diagLog = (type, event) => {
+            if (this._playbackDiagFlags?.[type]) return
+            this._playbackDiagFlags = this._playbackDiagFlags || {}
+            this._playbackDiagFlags[type] = true
+            logger.debug('播放进度诊断丨' + type + ' 事件 target=' + event.target?.tagName +
+                ' matches=' + Boolean(event.target?.matches?.('#bilibili-player video')) +
+                ' instanceof=' + (event.target instanceof HTMLVideoElement))
+        }
         this._playbackTimeUpdateHandler = event => {
+            diagLog('timeupdate', event)
             if (!isMainVideo(event)) return
-            this._playbackLastVideo = event.target
+            this._playbackLastVideo = { video: event.target, key: this._playbackKey }
             this._playbackSaveThrottled()
         }
         this._playbackPlayHandler = event => {
+            diagLog('play', event)
             if (!isMainVideo(event)) return
-            this._playbackLastVideo = event.target
+            this._playbackLastVideo = { video: event.target, key: this._playbackKey }
             // 播放即视为用户主动控制，直到点击播放器内任意位置前豁免恢复
             this._playbackUserInteracted = false
             clearTimeout(this._playbackRestoreTimer)
@@ -1040,8 +1052,12 @@ export default {
             this._playbackRestoreTimer = setTimeout(() => this.restorePlaybackPosition(event.target), 800)
         }
         this._playbackPauseHandler = event => {
+            diagLog('pause', event)
             if (!isMainVideo(event)) return
-            this._playbackLastVideo = event.target
+            // 切换选集后旧视频仍可能触发暂停：保留带旧 key 的条目，防止写入新视频 key
+            if (this._playbackLastVideo?.video !== event.target) {
+                this._playbackLastVideo = { video: event.target, key: this._playbackKey }
+            }
             this.savePlaybackPosition()
         }
         this._playbackClickHandler = event => {
@@ -1060,10 +1076,12 @@ export default {
         document.addEventListener('click', this._playbackClickHandler, true)
         window.addEventListener('pagehide', this._playbackPageHideHandler)
         document.addEventListener('visibilitychange', this._playbackVisibilityHandler)
+        logger.debug('播放进度诊断丨初始化完成 key=' + this._playbackKey)
         this._cleanup.push(() => this.destroyPlaybackMemory())
     },
     destroyPlaybackMemory () {
         if (!this._playbackBound) return
+        logger.debug('播放进度诊断丨已销毁')
         this._playbackBound = false
         document.removeEventListener('timeupdate', this._playbackTimeUpdateHandler, true)
         document.removeEventListener('play', this._playbackPlayHandler, true)
@@ -1076,8 +1094,12 @@ export default {
         this._playbackRestoreTimer = null
     },
     _getPlaybackKey () {
-        const { pathname, searchParams } = window.location
-        return `${pathname}?p=${searchParams.get('p') || '1'}`
+        // 不能直接读 window.location.searchParams：Tampermonkey 沙箱（Chrome 隔离世界）中
+        // Location 对象不暴露 searchParams，会抛 TypeError；new URL() 在沙箱中可用
+        const url = new URL(window.location.href)
+        // 归一化尾部斜杠：B站会通过 replaceState 在 /video/BV1xxx 与 /video/BV1xxx/ 之间切换，
+        // 而 getFinalHref 判定 URL 变化时同样剥离尾部斜杠，两者不一致会导致 key 永远停留在旧形态
+        return `${url.pathname.replace(/\/+$/, '')}?p=${url.searchParams.get('p') || '1'}`
     },
     _getPlaybackStore () {
         try {
@@ -1095,12 +1117,21 @@ export default {
         }
     },
     async savePlaybackPosition () {
-        if (!this.userConfigs?.playback_memory || !this._playbackBound) return
+        if (!this.userConfigs?.playback_memory || !this._playbackBound) {
+            logger.debug('播放进度诊断丨守卫拦截 playback_memory=' + this.userConfigs?.playback_memory + ' bound=' + this._playbackBound)
+            return
+        }
         // URL 已变化时跳过，等待 handleHrefChanged 用缓存的旧 key 写入
-        if (this._getPlaybackKey() !== this._playbackKey) return
+        if (this._getPlaybackKey() !== this._playbackKey) {
+            logger.debug('播放进度诊断丨守卫拦截 key runtime=' + this._getPlaybackKey() + ' cached=' + this._playbackKey)
+            return
+        }
         this._writePlaybackPosition(this._playbackLastVideo, this._playbackKey)
     },
-    _writePlaybackPosition (video, key) {
+    _writePlaybackPosition (entry, key) {
+        // 仅当条目与 key 同源时才写入，避免旧视频事件把进度写到新视频 key 下
+        const video = entry?.key === key ? entry.video : null
+        logger.debug('播放进度诊断丨写入检查 entryKey=' + entry?.key + ' key=' + key + ' readyState=' + video?.readyState + ' currentTime=' + video?.currentTime)
         if (!video || !key || !this.userConfigs?.playback_memory) return
         if (video.readyState < HTMLMediaElement.HAVE_METADATA) return
         const { currentTime, duration } = video
@@ -1122,6 +1153,7 @@ export default {
             entries.slice(PLAYBACK_STORE_LIMIT).forEach(([k]) => delete store[k])
         }
         this._setPlaybackStore(store)
+        logger.debug('播放进度诊断丨已保存 ' + key + ' position=' + store[key]?.position)
     },
     async restorePlaybackPosition (video) {
         if (!video || !this.userConfigs?.playback_memory) return
@@ -1245,8 +1277,11 @@ export default {
     },
     async handleHrefChangedFunctionsSequentially (){
         // 切换视频前保存旧视频的播放进度（URL 已变化，用缓存的旧 key 写入）
-        const oldVideo = this._playbackLastVideo || document.querySelector('#bilibili-player video')
-        this._writePlaybackPosition(oldVideo, this._playbackKey)
+        const entry = this._playbackLastVideo || {
+            video: document.querySelector('#bilibili-player video'),
+            key: this._playbackKey
+        }
+        this._writePlaybackPosition(entry, this._playbackKey)
         this._playbackKey = this._getPlaybackKey()
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         // 切换视频时重置画面旋转

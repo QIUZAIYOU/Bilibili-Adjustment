@@ -668,6 +668,25 @@ function generateBilibiliAdjustmentStyle () {
             color: #00a1d6;
         }
 
+        #UpdatePopover .adjustment-update-more {
+            text-align: center;
+            padding-top: 12px;
+            margin-top: 12px;
+            border-top: 1px solid #333;
+        }
+
+        #UpdatePopover .adjustment-update-more a {
+            color: #00a1d6;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        #UpdatePopover .adjustment-update-more a:hover {
+            color: #00b8e6;
+            text-decoration: underline;
+        }
+
         #UpdatePopover .adjustment-button-group {
             display: flex;
             align-items: center;

@@ -321,6 +321,9 @@ export class UpdateService {
                 <ul class="adjustment-update-contents">
                     ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                 </ul>
+                <div class="adjustment-update-more">
+                    <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank" rel="noopener noreferrer">查看全部更新</a>
+                </div>
             `.replace(/\n\s+/g, '').trim()
         }
         // 如果是数组，直接生成列表
@@ -332,6 +335,9 @@ export class UpdateService {
                 <ul class="adjustment-update-contents">
                     ${changelog.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
                 </ul>
+                <div class="adjustment-update-more">
+                    <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank" rel="noopener noreferrer">查看全部更新</a>
+                </div>
             `.replace(/\n\s+/g, '').trim()
         }
         return '<div class="adjustment-update-contents">暂无更新说明</div>'
