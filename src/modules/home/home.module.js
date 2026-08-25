@@ -1,3 +1,4 @@
+/* global _ */
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
@@ -9,7 +10,7 @@ import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('HomeModule')
 export default {
     name: 'home',
-    version: '3.17.3',
+    version: '3.17.4',
     async install () {
         this._cleanup = []
         this._cleanup.push(eventBus.on('app:ready', async () => {
@@ -20,6 +21,8 @@ export default {
     async uninstall () {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
+        this._historyListClickBound = false
+        this._historySearchCleanup?.()
         document.getElementById('indexRecommendVideoHistoryOpenButton')?.remove()
         document.getElementById('indexRecommendVideoHistoryPopoverWrapper')?.remove()
         insertStyleToDocument({ 'IndexAdjustmentStyle': '' })
@@ -47,67 +50,95 @@ export default {
     async markRecommendVideoPaidStatus () {
         const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
         const cards = [...allCards].filter(card => !card.querySelector('[class*="-ad"]'))
-        for (const video of cards) {
-            const url = video.querySelector('a')?.href
-            const title = video.querySelector('h3')?.title
-            if (location.host.includes('bilibili.com') && url && !url.includes('cm.bilibili.com') && title) {
-                let videoInfo
+        // 分批并发查询，避免串行请求拖慢整批标记
+        for (const batch of _.chunk(cards, 4)) {
+            await Promise.allSettled(batch.map(async video => {
+                const url = video.querySelector('a')?.href
+                const title = video.querySelector('h3')?.title
+                if (!location.host.includes('bilibili.com') || !url || url.includes('cm.bilibili.com') || !title) return
+                let isPaid = false
                 try {
-                    videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
-                } catch { /* 忽略视频信息获取失败 */ }
-                if (videoInfo) {
-                    let isPaid = false
-                    try {
+                    const videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+                    if (videoInfo) {
                         isPaid = await biliApis.checkVideoPaid(videoInfo.aid, videoInfo.cid)
-                    } catch { /* 忽略付费状态查询失败 */ }
-                    if (isPaid) {
-                        const titleEl = video.querySelector('h3')
-                        if (titleEl) {
-                            titleEl.title = `🟡付费视频 丨 ${title}`
-                            titleEl.innerHTML = `<span style="color:#fb7299;font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${escapeHtml(title)}`
-                        }
+                    }
+                } catch { /* 忽略视频信息/付费状态获取失败 */ }
+                if (isPaid) {
+                    const titleEl = video.querySelector('h3')
+                    if (titleEl) {
+                        titleEl.title = `🟡付费视频 丨 ${title}`
+                        titleEl.innerHTML = `<span style="color:#fb7299;font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${escapeHtml(title)}`
                     }
                 }
-            }
+            }))
         }
         logger.info('首页视频付费标记｜已完成')
     },
     async setRecordRecommendVideoHistory () {
-        if (this._isRecording) return
-        this._isRecording = true
+        // 正在记录时排队，记录完成后自动补记最新推荐，避免连续点击「换一换」丢记录
+        if (this._recordingPromise) {
+            this._pendingRecord = true
+            return
+        }
         const sessionTimestamp = Date.now()
-        try {
-            const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
-            const recordRecommendVideos = [...allCards].filter(card => !card.querySelector('[class*="-ad"]'))
-            let order = 0
-            for (const video of recordRecommendVideos) {
-                const url = video.querySelector('a')?.href
-                const title = video.querySelector('h3')?.title
-                if (location.host.includes('bilibili.com') && url && !url.includes('cm.bilibili.com')) {
-                    let videoInfo
-                    try {
-                        videoInfo = await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
-                    } catch { /* 忽略视频信息获取失败 */ }
-                    if (videoInfo) {
-                        const { tid, tid_v2, tname, tname_v2, pic, owner, aid } = videoInfo
-                        let category = ''
+        const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
+        const recordRecommendVideos = [...allCards]
+            .filter(card => !card.querySelector('[class*="-ad"]'))
+            .map((video, index) => ({ video, order: index }))
+        const fetchVideoInfo = async url => {
+            try {
+                return await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+            } catch (error) {
+                // 偶发网络失败重试一次，避免单次失败丢记录
+                logger.debug('首页记录｜获取视频信息失败，重试一次', error)
+                return biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url))
+            }
+        }
+        this._recordingPromise = (async () => {
+            try {
+                // 分批并发获取视频信息，替代串行请求解决记录滞后
+                for (const batch of _.chunk(recordRecommendVideos, 4)) {
+                    await Promise.allSettled(batch.map(async ({ video, order }) => {
+                        const url = video.querySelector('a')?.href
+                        const title = video.querySelector('h3')?.title
+                        if (!location.host.includes('bilibili.com') || !url || url.includes('cm.bilibili.com') || !title) return
+                        let videoInfo
                         try {
-                            const detail = await biliApis.getVideoDetail(aid, videoInfo.tid_v2)
-                            category = detail?.pid_name_v2 || ''
-                        } catch { /* 忽略详情获取失败 */ }
-                        const author = owner?.name || '未知作者'
-                        if (title) {
-                            const historyKey = `${videoInfo.bvid || aid || url}::${sessionTimestamp}`
-                            await storageService.set('index', historyKey, { title, tid, tid_v2, tname, tname_v2, category, url, pic, author, order, sessionTimestamp })
+                            videoInfo = await fetchVideoInfo(url)
+                        } catch { /* 获取失败则仅记录 DOM 基础信息，保证不丢记录 */ }
+                        let category = ''
+                        if (videoInfo) {
+                            try {
+                                const detail = await biliApis.getVideoDetail(videoInfo.aid, videoInfo.tid_v2)
+                                category = detail?.pid_name_v2 || ''
+                            } catch { /* 忽略分类获取失败 */ }
                         }
-                        order++
-                    }
+                        const historyKey = `${videoInfo?.bvid || videoInfo?.aid || url}::${sessionTimestamp}`
+                        await storageService.set('index', historyKey, {
+                            title,
+                            tid: videoInfo?.tid || '',
+                            tid_v2: videoInfo?.tid_v2 || '',
+                            tname: videoInfo?.tname || '',
+                            tname_v2: videoInfo?.tname_v2 || '',
+                            category,
+                            url,
+                            pic: videoInfo?.pic || '',
+                            author: videoInfo?.owner?.name || '未知作者',
+                            order,
+                            sessionTimestamp
+                        })
+                    }))
+                }
+                logger.info('首页视频推荐历史｜已记录')
+            } finally {
+                this._recordingPromise = null
+                if (this._pendingRecord) {
+                    this._pendingRecord = false
+                    this.setRecordRecommendVideoHistory()
                 }
             }
-            logger.info('首页视频推荐历史｜已记录')
-        } finally {
-            this._isRecording = false
-        }
+        })()
+        await this._recordingPromise
     },
     async insertIndexRecommendVideoHistoryPopover () {
         const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
@@ -164,10 +195,20 @@ export default {
                 timestamp: item.timestamp
             }
         }
-        const totalCount = await storageService.getCount('index')
+        const totalCount = indexRecommendVideoHistoriesRaw.length
         const batchSelectors = ['indexRecommendVideoHistoryPopoverTitle', 'indexRecommendVideoHistoryList', 'indexRecommendVideoHistorySearchInput']
         const [indexRecommendVideoHistoryPopoverTitle, indexRecommendVideoHistoryList, indexRecommendVideoHistorySearchInput] = await elementSelectors.batch(batchSelectors)
         indexRecommendVideoHistoryList.innerHTML = ''
+        // 列表点击事件委托：点击任意列表项打开视频（仅绑定一次，链接目标存于 li data-url）
+        if (!this._historyListClickBound) {
+            this._historyListClickBound = true
+            addEventListenerToElement(indexRecommendVideoHistoryList, 'click', event => {
+                const li = event.target.closest('li')
+                if (!li || event.target.closest('a')) return
+                const url = li.dataset.url
+                if (url) window.open(url, '_blank', 'noopener')
+            })
+        }
         // 更新标题中的数量
         const titleSpan = indexRecommendVideoHistoryPopoverTitle.querySelector('span')
         if (titleSpan) {
@@ -230,26 +271,28 @@ export default {
             }
             return false
         }
-        // 加载一页数据
+        // 加载一页数据（批量拼接 HTML 一次插入，减少重排）
         const loadPage = () => {
             const start = currentPage * PAGE_SIZE
             const end = start + PAGE_SIZE
             const pageData = filteredList.slice(start, end)
-            for (const video of pageData) {
+            const html = pageData.map(video => {
                 const title = escapeHtml(video.title || '未知标题')
                 const author = escapeHtml(video.author || '未知作者')
-                const url = escapeHtml(sanitizeHttpUrl(video.url))
+                const rawUrl = sanitizeHttpUrl(video.url)
+                const url = escapeHtml(rawUrl)
                 const pic = escapeHtml(sanitizeHttpUrl(video.pic))
-                createElementAndInsert(`
-                    <li>
+                return `
+                    <li data-url="${url}">
                         <span><img src="${pic}" loading="lazy" alt="${title}"></span>
                         <div class="video-info">
                             <a href="${url}" target="_blank" rel="noopener noreferrer" title="${title}">${title}</a>
                             <div class="video-author">UP: ${author}</div>
                         </div>
                     </li>
-                `, indexRecommendVideoHistoryList)
-            }
+                `
+            }).join('')
+            indexRecommendVideoHistoryList.insertAdjacentHTML('beforeend', html)
             currentPage++
         }
         // 搜索并显示视频
@@ -308,9 +351,10 @@ export default {
                 observer.observe(sentinel)
             }
         }
-        // 监听搜索输入
+        // 监听搜索输入（每次渲染重新绑定，跟随最新状态闭包；旧监听先移除避免叠加）
+        this._historySearchCleanup?.()
         let searchTimeout
-        addEventListenerToElement(indexRecommendVideoHistorySearchInput, 'input', event => {
+        this._historySearchCleanup = addEventListenerToElement(indexRecommendVideoHistorySearchInput, 'input', event => {
             clearTimeout(searchTimeout)
             searchTimeout = setTimeout(() => {
                 filterAndDisplayVideos(event.target.value)
@@ -321,10 +365,11 @@ export default {
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
+            // 按钮插入提前并与其他功能并行，避免等记录完成才出现
+            () => this.insertIndexRecommendVideoHistoryPopover(),
             () => this.setRecordRecommendVideoHistory(),
-            () => this.markRecommendVideoPaidStatus(),
-            () => this.insertIndexRecommendVideoHistoryPopover()
+            () => this.markRecommendVideoPaidStatus()
         ]
-        executeFunctionsSequentially(functions)
+        executeFunctionsSequentially(functions, { concurrency: 3 })
     }
 }

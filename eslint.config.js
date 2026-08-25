@@ -19,6 +19,7 @@ export default [
                 Node: true,
                 Element: true,
                 HTMLMediaElement: true,
+                HTMLVideoElement: true,
                 MutationObserver: true,
                 NodeList: true,
                 NodeFilter: true,

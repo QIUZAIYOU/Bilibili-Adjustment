@@ -548,17 +548,6 @@ function generateBilibiliAdjustmentStyle () {
             color: #00b8e6;
         }
 
-        /* 验证状态消息 */
-        .validation-status-message {
-            position: absolute;
-            top: 100%;
-            left: 0;
-            margin-top: 4px;
-            font-size: 12px;
-            white-space: nowrap;
-            z-index: 10;
-        }
-
         /* ========== 按钮组 ========== */
         .adjustment-buttonGroup {
             display: flex;

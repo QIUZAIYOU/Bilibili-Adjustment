@@ -181,9 +181,10 @@ export class SettingsComponentV2 {
                 if (!e.target) return
                 const configId = e.target.id
                 const value = e.target.value
+                const oldValue = this.userConfigs[configId]
                 await this.saveConfig(configId, value)
                 // 处理特殊下拉框变更
-                await this.handleSpecialSelectChange(configId, value, popover)
+                await this.handleSpecialSelectChange(configId, value, oldValue, popover)
             })
         })
         // 单选框
@@ -220,13 +221,18 @@ export class SettingsComponentV2 {
                 const targetId = button.dataset.validateFor
                 const input = popover.querySelector(`#${targetId}`)
                 const apiKey = input?.value?.trim()
+                // 反馈期内重复点击时保留更早记录的原始文字
+                if (button._feedbackOriginalText === undefined) {
+                    button._feedbackOriginalText = button.textContent
+                }
                 if (!apiKey) {
-                    this.showInputValidationStatus(input, '请先输入 API Key', false)
+                    this.setButtonFeedback(button, false, '', '验证失败')
                     return
                 }
-                const originalText = button.textContent
                 button.textContent = '验证中...'
                 button.style.opacity = '0.7'
+                button.style.borderColor = ''
+                button.style.color = ''
                 try {
                     let result
                     if (targetId === 'ai_apikey') {
@@ -234,21 +240,16 @@ export class SettingsComponentV2 {
                     } else if (targetId === 'custom_model_api_key') {
                         const apiUrl = popover.querySelector('#custom_model_api_url')?.value?.trim()
                         if (!apiUrl) {
-                            this.showInputValidationStatus(input, '请先输入自定义 API 地址', false)
+                            this.setButtonFeedback(button, false, '', '验证失败')
                             return
                         }
                         result = await validateApiKey(apiKey, 'custom', apiUrl)
                     }
-                    if (result?.valid) {
-                        this.showInputValidationStatus(input, 'API Key 验证成功 ✓', true)
-                    } else {
-                        this.showInputValidationStatus(input, `验证失败: ${result?.message}`, false)
-                    }
+                    this.setButtonFeedback(button, result?.valid, '验证成功', '验证失败')
                 } catch (error) {
-                    this.showInputValidationStatus(input, `验证失败: ${error.message}`, false)
                     logger.error('API Key 验证失败', error)
+                    this.setButtonFeedback(button, false, '', '验证失败')
                 } finally {
-                    button.textContent = originalText
                     button.style.opacity = '1'
                 }
             })
@@ -258,11 +259,50 @@ export class SettingsComponentV2 {
         refreshButtons.forEach(button => {
             addEventListenerToElement(button, 'click', async () => {
                 const targetId = button.dataset.refreshFor
-                if (targetId === 'ai_model') {
-                    await this.refreshModelList(popover)
+                if (targetId !== 'ai_model') return
+                if (button._feedbackOriginalText === undefined) {
+                    button._feedbackOriginalText = button.textContent
+                }
+                button.textContent = '刷新中...'
+                button.style.opacity = '0.7'
+                button.style.borderColor = ''
+                button.style.color = ''
+                try {
+                    const success = await this.refreshModelList(popover)
+                    this.setButtonFeedback(button, success, '刷新成功', '刷新失败')
+                } catch (error) {
+                    logger.error('刷新模型列表失败', error)
+                    this.setButtonFeedback(button, false, '', '刷新失败')
+                } finally {
+                    button.style.opacity = '1'
                 }
             })
         })
+    }
+    /**
+     * 设置按钮结果反馈：成功绿色/失败红色边框与文字，3 秒后恢复默认样式
+     * @param {HTMLElement} button - 按钮元素
+     * @param {boolean} success - 是否成功
+     * @param {string} successText - 成功时按钮文字（空则不改变文字）
+     * @param {string} failureText - 失败时按钮文字（空则不改变文字）
+     */
+    setButtonFeedback (button, success, successText = '', failureText = '') {
+        if (!button) return
+        const isSuccess = Boolean(success)
+        button.style.borderColor = isSuccess ? '#2ed573' : '#ff4757'
+        if (successText || failureText) {
+            button.textContent = isSuccess ? successText : failureText
+            button.style.color = isSuccess ? '#2ed573' : '#ff4757'
+        }
+        clearTimeout(button._feedbackResetTimer)
+        button._feedbackResetTimer = setTimeout(() => {
+            button.style.borderColor = ''
+            button.style.color = ''
+            if (button._feedbackOriginalText !== undefined) {
+                button.textContent = button._feedbackOriginalText
+                button._feedbackOriginalText = undefined
+            }
+        }, 3000)
     }
     /**
      * 绑定导入导出事件
@@ -343,19 +383,39 @@ export class SettingsComponentV2 {
     /**
      * 处理特殊下拉框变更
      */
-    async handleSpecialSelectChange (configId, value, popover) {
+    async handleSpecialSelectChange (configId, value, oldValue, popover) {
         // AI 提供商切换时刷新模型列表
         if (configId === 'ai_provider') {
-            clearModelCache()
-            await this.refreshModelList(popover)
+            await this.switchAIProvider(value, oldValue, popover)
         }
     }
     /**
-     * 刷新模型列表
+     * 切换 AI 提供商：按供应商隔离保存/恢复 API Key 与模型
      */
-    async refreshModelList (popover) {
+    async switchAIProvider (newProvider, oldProvider, popover) {
+        // 将当前供应商的 API Key 与模型存入对应槽位
+        if (oldProvider && oldProvider !== newProvider) {
+            await this.saveConfig(`ai_apikey_${oldProvider}`, this.userConfigs.ai_apikey || '')
+            await this.saveConfig(`ai_model_${oldProvider}`, this.userConfigs.ai_model || '')
+        }
+        // 恢复目标供应商的历史记录（未填过则为空）
+        const savedKey = await ConfigService.getValue(`ai_apikey_${newProvider}`)
+        const savedModel = await ConfigService.getValue(`ai_model_${newProvider}`)
+        await this.saveConfig('ai_apikey', savedKey || '')
+        // 同步设置弹窗中 API Key 输入框显示
+        const keyInput = popover?.querySelector('#ai_apikey')
+        if (keyInput) keyInput.value = savedKey || ''
+        clearModelCache()
+        await this.refreshModelList(popover, savedModel || '')
+    }
+    /**
+     * 刷新模型列表
+     * @param {HTMLElement} popover - 设置弹窗
+     * @param {string} preferredModel - 优先选中的模型（供应商切换时传入，空则保留当前选中）
+     */
+    async refreshModelList (popover, preferredModel = '') {
         const modelSelect = popover.querySelector('#ai_model')
-        if (!modelSelect) return
+        if (!modelSelect) return false
         clearModelCache()
         try {
             const models = await fetchModels(
@@ -364,22 +424,31 @@ export class SettingsComponentV2 {
                 this.userConfigs.custom_base_url
             )
             if (models.length > 0) {
-                // 保留当前选中模型（若仍在新列表中），避免刷新后跳回第一个模型
-                const currentModel = modelSelect.value
+                // 优先保留指定模型（供应商切换时），否则保留当前选中模型，避免刷新后跳回第一个模型
+                const currentModel = preferredModel || modelSelect.value
                 modelSelect.innerHTML = models.map(model => `
                     <option value="${escapeHtml(model.id)}">${escapeHtml(model.label)}</option>
                 `).join('')
+                modelSelect.disabled = false
                 const keepCurrent = currentModel && Array.from(modelSelect.options).some(option => option.value === currentModel)
                 if (keepCurrent) {
                     modelSelect.value = currentModel
+                    if (preferredModel) await this.saveConfig('ai_model', currentModel)
                 } else {
                     modelSelect.value = models[0].id
                     await this.saveConfig('ai_model', models[0].id)
                 }
+            } else {
+                // 无可用模型：显示占位符并禁用下拉，刷新出可选项后恢复
+                modelSelect.innerHTML = '<option value="" selected disabled>暂无可用选项</option>'
+                modelSelect.value = ''
+                modelSelect.disabled = true
             }
             logger.info('模型列表已刷新')
+            return true
         } catch (error) {
             logger.error('刷新模型列表失败', error)
+            return false
         }
     }
     /**
@@ -557,6 +626,8 @@ export class SettingsComponentV2 {
                 option.value = value
                 option.textContent = value
                 select.appendChild(option)
+                // 占位禁用状态下收到有效值，恢复下拉可用
+                select.disabled = false
             }
             select.value = value
             found = true
@@ -573,60 +644,20 @@ export class SettingsComponentV2 {
         }
     }
     /**
-     * 显示输入框验证状态
-     * @param {HTMLElement} input - 输入框元素
-     * @param {string} message - 提示消息
-     * @param {boolean} isSuccess - 是否成功
+     * 显示输入框验证状态（边框颜色反馈，3 秒后恢复默认）
      */
-    showInputValidationStatus (input, message, isSuccess) {
+    showInputValidationStatus (input, isSuccess) {
         if (!input) return
-        // 设置边框颜色
         input.style.borderColor = isSuccess ? '#2ed573' : '#ff4757'
         input.style.boxShadow = isSuccess
             ? '0 0 0 3px rgba(46, 213, 115, 0.15)'
             : '0 0 0 3px rgba(255, 71, 87, 0.15)'
-        // 创建或更新提示消息元素
-        let statusElement = input.parentElement.querySelector('.validation-status-message')
-        if (!statusElement) {
-            statusElement = document.createElement('div')
-            statusElement.className = 'validation-status-message'
-            statusElement.style.cssText = `
-                position: absolute;
-                top: 100%;
-                left: 0;
-                margin-top: 4px;
-                font-size: 12px;
-                white-space: nowrap;
-                z-index: 10;
-            `
-            input.parentElement.style.position = 'relative'
-            input.parentElement.appendChild(statusElement)
-        }
-        statusElement.textContent = message
-        statusElement.style.color = isSuccess ? '#2ed573' : '#ff4757'
-        statusElement.style.display = 'block'
-        // 3秒后恢复默认状态
         setTimeout(() => {
             if (input) {
                 input.style.borderColor = ''
                 input.style.boxShadow = ''
             }
-            if (statusElement) {
-                statusElement.style.display = 'none'
-            }
         }, 3000)
-    }
-    /**
-     * 显示 API 状态消息（兼容旧版）
-     */
-    showApiStatusMessage (message, type = 'info') {
-        // 使用新的输入框验证状态显示
-        const popover = document.getElementById('VideoSettingsPopover')
-        if (popover) {
-            const input = popover.querySelector('#ai_apikey') || popover.querySelector('#custom_model_api_key')
-            const isSuccess = type === 'success'
-            this.showInputValidationStatus(input, message, isSuccess)
-        }
     }
     /**
      * 导出用户配置

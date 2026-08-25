@@ -37,6 +37,7 @@ export class ConfigService {
         ['dynamic_video_link', 'https://t.bilibili.com/?tab=video'],
         ['pause_video', false],
         ['continue_play', false],
+        ['playback_memory', true],
         ['auto_subtitle', false],
         ['preserve_subtitle_state', false],
         ['show_comment_location', true], // 显示评论IP属地
@@ -67,9 +68,26 @@ export class ConfigService {
             await storageService.init()
             this.#initialized = true
             this.#ensureSyncChannel()
+            await this.#migrateLegacyConfigs()
         } catch (error) {
             this.#logger.error('配置服务初始化失败', error)
             throw error
+        }
+    }
+    /**
+     * 迁移已移除的配置项
+     * v3.18: 移除「自定义 OpenAI 格式」提供商选项（与「使用自定义模型」功能重复），存量用户迁移到硅基流动
+     */
+    static async #migrateLegacyConfigs () {
+        try {
+            const provider = await this.getValue('ai_provider')
+            const useCustomModel = await this.getValue('use_custom_model')
+            if (provider === 'custom' && !useCustomModel) {
+                await this.setValue('ai_provider', 'siliconflow')
+                this.#logger.info('配置迁移丨已移除「自定义 OpenAI 格式」提供商，ai_provider 迁移为 siliconflow')
+            }
+        } catch (error) {
+            this.#logger.warn('配置迁移失败', error)
         }
     }
     /**

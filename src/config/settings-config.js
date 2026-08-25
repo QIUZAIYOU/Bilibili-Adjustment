@@ -154,6 +154,13 @@ export const videoSettingsConfig = [
         ]
     },
     {
+        id: 'playback_memory',
+        type: 'checkbox',
+        label: '记忆播放进度',
+        tips: '切换选集或关闭页面时记住播放位置，回到页面或选集时自动恢复。仅作为 B站 官方进度记忆失效时的兜底保障，不与官方功能冲突',
+        category: 'basic'
+    },
+    {
         id: 'remove_comment_tags',
         type: 'checkbox',
         label: '移除评论标签',
@@ -193,7 +200,10 @@ export const videoSettingsConfig = [
                 label: 'AI 提供商',
                 options: [
                     { value: 'siliconflow', label: '硅基流动' },
-                    { value: 'custom', label: '自定义 OpenAI 格式' }
+                    { value: 'deepseek', label: 'DeepSeek 官方' },
+                    { value: 'kimi', label: 'Kimi（月之暗面）' },
+                    { value: 'zhipu', label: '智谱 AI' },
+                    { value: 'openai', label: 'OpenAI' }
                 ],
                 visible: configs => !configs.use_custom_model,
                 tips: '选择 AI 服务提供商'

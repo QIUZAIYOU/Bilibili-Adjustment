@@ -179,9 +179,13 @@ export class SettingsRenderer {
     renderSelect (item, userConfigs, dynamicOptions = {}) {
         const value = userConfigs[item.id] ?? ''
         const options = dynamicOptions[item.id] || item.options || []
-        const optionsHtml = options.map(opt => `
-            <option value="${this.escapeHtml(opt.value)}" ${String(opt.value) === String(value) ? 'selected' : ''}>${this.escapeHtml(opt.label)}</option>
-        `).join('')
+        // 无可用选项时显示占位符并禁用下拉，刷新出可选项后恢复
+        const hasOptions = options.length > 0
+        const optionsHtml = hasOptions
+            ? options.map(opt => `
+                <option value="${this.escapeHtml(opt.value)}" ${String(opt.value) === String(value) ? 'selected' : ''}>${this.escapeHtml(opt.label)}</option>
+            `).join('')
+            : '<option value="" selected disabled>暂无可用选项</option>'
         const refreshButton = item.hasRefreshButton
             ? `<div id="Refresh${this.toPascalCase(item.id)}" class="adjustment-button secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;height:32px;" data-refresh-for="${item.id}">${item.refreshButtonText}</div>`
             : ''
@@ -195,7 +199,7 @@ export class SettingsRenderer {
                     </div>
                     <div class="adjustment-setting-control">
                         <div class="adjustment-select">
-                            <select id="${item.id}" data-config-type="select">${optionsHtml}</select>
+                            <select id="${item.id}" data-config-type="select" ${hasOptions ? '' : 'disabled'}>${optionsHtml}</select>
                         </div>
                         ${refreshButton}
                     </div>

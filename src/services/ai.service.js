@@ -2,7 +2,7 @@ import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import axios from 'axios'
 import AD_DETECTION_PROMPT from '../shared/adDetectionPrompt.js'
-// ========== 提供商配置 ==========
+// ========== 提供商配置（均为 OpenAI 兼容协议） ==========
 const PROVIDER_CONFIGS = {
     siliconflow: {
         name: '硅基流动',
@@ -10,6 +10,34 @@ const PROVIDER_CONFIGS = {
         defaultModel: 'deepseek-ai/DeepSeek-V3',
         docsUrl: 'https://siliconflow.cn',
         pricingUrl: 'https://siliconflow.cn/pricing'
+    },
+    deepseek: {
+        name: 'DeepSeek 官方',
+        baseURL: 'https://api.deepseek.com/v1',
+        defaultModel: 'deepseek-chat',
+        docsUrl: 'https://platform.deepseek.com',
+        pricingUrl: 'https://platform.deepseek.com/api-docs/pricing'
+    },
+    kimi: {
+        name: 'Kimi（月之暗面）',
+        baseURL: 'https://api.moonshot.cn/v1',
+        defaultModel: 'moonshot-v1-8k',
+        docsUrl: 'https://platform.moonshot.cn',
+        pricingUrl: 'https://platform.moonshot.cn/docs/pricing'
+    },
+    zhipu: {
+        name: '智谱 AI',
+        baseURL: 'https://open.bigmodel.cn/api/paas/v4',
+        defaultModel: 'glm-4-flash',
+        docsUrl: 'https://open.bigmodel.cn',
+        pricingUrl: 'https://open.bigmodel.cn/pricing'
+    },
+    openai: {
+        name: 'OpenAI',
+        baseURL: 'https://api.openai.com/v1',
+        defaultModel: 'gpt-4o-mini',
+        docsUrl: 'https://platform.openai.com',
+        pricingUrl: 'https://openai.com/api/pricing'
     },
     custom: {
         name: '自定义',
@@ -158,16 +186,27 @@ function formatModelLabel (modelId) {
         'Kimi-K2.5': 'Kimi K2.5',
         'Kimi-K2.6': 'Kimi K2.6',
         'GLM-5.1': 'GLM 5.1',
+        'deepseek-chat': 'DeepSeek Chat',
+        'deepseek-reasoner': 'DeepSeek Reasoner',
+        'moonshot-v1-8k': 'Moonshot v1 8K',
+        'moonshot-v1-32k': 'Moonshot v1 32K',
+        'moonshot-v1-128k': 'Moonshot v1 128K',
+        'glm-4-flash': 'GLM-4 Flash',
+        'glm-4-air': 'GLM-4 Air',
+        'glm-4-plus': 'GLM-4 Plus',
+        'glm-4.5': 'GLM 4.5',
+        'gpt-4o-mini': 'GPT-4o mini',
+        'gpt-4o': 'GPT-4o',
+        'gpt-4.1': 'GPT-4.1',
+        'gpt-4.1-mini': 'GPT-4.1 mini',
+        'gpt-4.1-nano': 'GPT-4.1 nano',
         'Llama-3.3-70B-Instruct': 'Llama 3.3 70B',
         'Llama-3.2-3B-Instruct': 'Llama 3.2 3B'
     }
     return labelMap[name] || name
 }
-function getFallbackModels (provider = 'siliconflow') {
-    if (provider === 'custom') {
-        return []
-    }
-    return [
+const FALLBACK_MODELS = {
+    siliconflow: [
         { id: 'deepseek-ai/DeepSeek-V3', label: 'DeepSeek V3' },
         { id: 'deepseek-ai/DeepSeek-R1', label: 'DeepSeek R1' },
         { id: 'Qwen/Qwen2.5-72B-Instruct', label: 'Qwen 2.5 72B' },
@@ -175,7 +214,15 @@ function getFallbackModels (provider = 'siliconflow') {
         { id: 'Qwen/Qwen2.5-14B-Instruct', label: 'Qwen 2.5 14B' },
         { id: 'Qwen/Qwen2.5-7B-Instruct', label: 'Qwen 2.5 7B' },
         { id: 'THUDM/GLM-5.1', label: 'GLM 5.1' }
-    ]
+    ],
+    custom: []
+}
+function getFallbackModels (provider = 'siliconflow') {
+    if (provider in FALLBACK_MODELS) return FALLBACK_MODELS[provider]
+    // 预设提供商：返回各自默认模型
+    const config = PROVIDER_CONFIGS[provider]
+    if (!config) return FALLBACK_MODELS.siliconflow
+    return [{ id: config.defaultModel, label: formatModelLabel(config.defaultModel) }]
 }
 export function clearModelCache () {
     cachedModels = null
@@ -217,7 +264,10 @@ export class AIService {
                 return customModelId
             }
         }
-        return (await ConfigService.getValue('ai_model')) || PROVIDER_CONFIGS.siliconflow.defaultModel
+        const provider = await this.getProvider()
+        return (await ConfigService.getValue('ai_model')) ||
+               PROVIDER_CONFIGS[provider]?.defaultModel ||
+               PROVIDER_CONFIGS.siliconflow.defaultModel
     }
     async getApiKey () {
         await this.initialize()
