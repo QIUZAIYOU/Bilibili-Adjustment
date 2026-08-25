@@ -1,6 +1,6 @@
 import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
-import { createElementAndInsert, escapeHtml } from '@/utils/common'
+import { createElementAndInsert, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('UpdateService')
 export class UpdateService {
@@ -347,6 +347,7 @@ export class UpdateService {
         // 检查是否已有更新弹窗，避免重复显示
         const existingPopover = document.getElementById('UpdatePopover')
         if (existingPopover) {
+            existingPopover.__popoverDismissCleanup?.()
             existingPopover.remove()
         }
         const updatePopover = createElementAndInsert(getTemplates.replace('update', {
@@ -354,6 +355,8 @@ export class UpdateService {
             latest: latestVersion,
             contents: updateContentsHtml
         }), document.body, 'append')
+        // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
+        updatePopover.__popoverDismissCleanup = enablePopoverLightDismiss(updatePopover)
         updatePopover.showPopover()
         const updateButton = updatePopover.querySelector('.adjustment-button-update')
         const closeButton = updatePopover.querySelector('.adjustment-button-close')

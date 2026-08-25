@@ -4,18 +4,6 @@ export const homePageStyles = {
         #indexRecommendVideoHistoryOpenButton {
             margin-top: 10px;
         }
-        .adjustment-history-popover-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 999999;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(0, 0, 0, 0.6);
-        }
         .adjustment-history-popover {
             width: 820px;
             border: 1px solid ${theme.colors.border};
@@ -26,8 +14,15 @@ export const homePageStyles = {
             padding: ${theme.spacing.lg};
             max-height: 80vh;
             overflow: hidden;
+        }
+        /* display 只在打开时生效：若全局 flex，会覆盖 UA 的 [popover]{display:none}，
+           关闭后弹窗将残留显示在文档流中 */
+        .adjustment-history-popover:popover-open {
             display: flex;
             flex-direction: column;
+        }
+        .adjustment-history-popover::backdrop {
+            background: rgba(0, 0, 0, 0.6);
         }
         #indexRecommendVideoHistoryPopover #indexRecommendVideoHistoryPopoverTitle {
             display: flex;

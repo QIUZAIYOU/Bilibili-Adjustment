@@ -3,7 +3,7 @@ import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml } from '@/utils/common'
+import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
 import { SettingsRenderer } from '@/components/settings-renderer'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
@@ -68,6 +68,7 @@ export class SettingsComponentV2 {
         // 先检查是否已经存在设置面板，如果存在，就先移除它
         const existingSettings = document.getElementById('VideoSettingsPopover')
         if (existingSettings) {
+            existingSettings.__popoverDismissCleanup?.()
             existingSettings.remove()
         }
         // 销毁旧的 tooltip
@@ -132,6 +133,9 @@ export class SettingsComponentV2 {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
+        // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
+        popover.__popoverDismissCleanup?.()
+        popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
         // 绑定所有设置项的 change 事件
         this.bindConfigChangeEvents(popover)
         // 绑定特殊按钮事件（验证、刷新等）
@@ -547,6 +551,7 @@ export class SettingsComponentV2 {
     renderDynamicSettings () {
         const existingSettings = document.getElementById('DynamicSettingsPopover')
         if (existingSettings) {
+            existingSettings.__popoverDismissCleanup?.()
             existingSettings.remove()
         }
         this.renderer = new SettingsRenderer(dynamicSettingsConfig)
@@ -566,6 +571,9 @@ export class SettingsComponentV2 {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') app.style.pointerEvents = 'auto'
         })
+        // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
+        popover.__popoverDismissCleanup?.()
+        popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
         // 绑定动态页输入框事件
         const inputs = popover.querySelectorAll('input[data-config-type="input"]')
         inputs.forEach(input => {

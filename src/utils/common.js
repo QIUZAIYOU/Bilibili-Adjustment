@@ -294,6 +294,62 @@ export const monitorHrefChange = callback => {
         hrefMonitorLastHref = location.href
     }
 }
+// 自定义"点击外部关闭"：原生 popover 的 light dismiss 在"弹窗内按下、弹窗外松开"
+// （如拖选文字）时也会关闭弹窗（Chromium 行为），改为仅当按下与松开都在弹窗外才关闭
+export const enablePopoverLightDismiss = popover => {
+    let pending = false
+    let dismissing = false
+    const isInside = target => target instanceof Node && popover.contains(target)
+    // 遮罩拦截：popover 的 ::backdrop 不接收指针事件，点击会穿透到背后页面元素，
+    // 这里在捕获阶段拦截弹窗外的交互（点击、拖选、hover），使遮罩区域不可操作
+    const blocked = e => popover.matches(':popover-open') && !isInside(e.target)
+    const onPointerDown = e => {
+        if (!blocked(e)) return
+        e.preventDefault()
+        e.stopPropagation()
+        pending = true
+    }
+    const onPointerMove = e => {
+        if (blocked(e)) {
+            e.stopPropagation()
+        }
+    }
+    const onPointerUp = e => {
+        if (!pending) return
+        pending = false
+        if (!isInside(e.target)) {
+            // click 在 pointerup 之后同步派发：弹窗关闭后 click 的目标是背后元素，
+            // 标记本次序列的 click 一并拦截，防止穿透误触
+            dismissing = true
+            popover.hidePopover()
+        }
+    }
+    const onClick = e => {
+        // click 由浏览器独立合成，pointerdown 拦截无法阻止其派发，需单独拦截
+        if (dismissing || blocked(e)) {
+            e.preventDefault()
+            e.stopPropagation()
+            dismissing = false
+        }
+    }
+    const onKeyDown = e => {
+        if (e.key === 'Escape' && popover.matches(':popover-open')) {
+            popover.hidePopover()
+        }
+    }
+    document.addEventListener('pointerdown', onPointerDown, true)
+    document.addEventListener('pointermove', onPointerMove, true)
+    document.addEventListener('pointerup', onPointerUp, true)
+    document.addEventListener('click', onClick, true)
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
+        document.removeEventListener('pointerdown', onPointerDown, true)
+        document.removeEventListener('pointermove', onPointerMove, true)
+        document.removeEventListener('pointerup', onPointerUp, true)
+        document.removeEventListener('click', onClick, true)
+        document.removeEventListener('keydown', onKeyDown, true)
+    }
+}
 export const escapeHtml = value => String(value ?? '')
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')

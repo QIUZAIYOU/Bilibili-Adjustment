@@ -2,7 +2,7 @@
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { executeFunctionsSequentially, insertStyleToDocument, createElementAndInsert, addEventListenerToElement, escapeHtml, sanitizeHttpUrl } from '@/utils/common'
+import { executeFunctionsSequentially, insertStyleToDocument, createElementAndInsert, addEventListenerToElement, escapeHtml, sanitizeHttpUrl, enablePopoverLightDismiss } from '@/utils/common'
 import { biliApis } from '@/shared/biliApis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
@@ -10,7 +10,7 @@ import { stylesV2 } from '@/shared/styles'
 const logger = new LoggerService('HomeModule')
 export default {
     name: 'home',
-    version: '3.17.5',
+    version: '3.17.7',
     async install () {
         this._cleanup = []
         this._cleanup.push(eventBus.on('app:ready', async () => {
@@ -24,7 +24,9 @@ export default {
         this._historyListClickBound = false
         this._historySearchCleanup?.()
         document.getElementById('indexRecommendVideoHistoryOpenButton')?.remove()
-        document.getElementById('indexRecommendVideoHistoryPopoverWrapper')?.remove()
+        const historyPopover = document.getElementById('indexRecommendVideoHistoryPopover')
+        historyPopover?.__popoverDismissCleanup?.()
+        historyPopover?.remove()
         insertStyleToDocument({ 'IndexAdjustmentStyle': '' })
     },
     async preFunctions () {
@@ -148,14 +150,15 @@ export default {
         // 点击打开按钮时创建并显示弹窗
         const cleanup = addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
             // 检查是否已存在弹窗，避免重复创建
-            let wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
-            if (!wrapper) {
-                const template = getTemplates.indexRecommendVideoHistoryPopover
-                wrapper = createElementAndInsert(template, document.body)
-                // 点击遮罩层关闭弹窗
-                addEventListenerToElement(wrapper, 'click', event => {
-                    if (event.target === wrapper) {
-                        wrapper.style.display = 'none'
+            let popover = document.getElementById('indexRecommendVideoHistoryPopover')
+            if (!popover) {
+                popover = createElementAndInsert(getTemplates.indexRecommendVideoHistoryPopover, document.body)
+                // 统一的外部点击/Escape 关闭（原生 popover 的 light dismiss 在弹窗内按下、
+                // 弹窗外松开拖选文字时会误关，故用手动模式 + 自定义判定）
+                popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
+                // 弹窗关闭时清空搜索框
+                addEventListenerToElement(popover, 'toggle', e => {
+                    if (e.newState === 'closed') {
                         const searchInput = document.getElementById('indexRecommendVideoHistorySearchInput')
                         if (searchInput) {
                             searchInput.value = ''
@@ -170,7 +173,7 @@ export default {
                     })
                 }
             }
-            wrapper.style.display = 'flex'
+            popover.showPopover()
             // 等待 DOM 更新后再渲染内容
             await new Promise(resolve => requestAnimationFrame(resolve))
             this.generatorIndexRecommendVideoHistoryContents()
@@ -179,9 +182,9 @@ export default {
     },
     async clearRecommendVideoHistory (){
         await storageService.clear('index')
-        const wrapper = document.getElementById('indexRecommendVideoHistoryPopoverWrapper')
-        if (wrapper) {
-            wrapper.style.display = 'none'
+        const popover = document.getElementById('indexRecommendVideoHistoryPopover')
+        if (popover) {
+            popover.hidePopover()
         }
     },
     async generatorIndexRecommendVideoHistoryContents () {

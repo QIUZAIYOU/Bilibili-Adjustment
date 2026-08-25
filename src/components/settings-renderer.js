@@ -272,7 +272,7 @@ export class SettingsRenderer {
      */
     renderPopover (title, version, formContent, extraButtons = '') {
         return `
-            <bilibili-adjustment-video-setting id="VideoSettingsPopover" class="adjustment-popover" popover bilibili-adjustment-element>
+            <bilibili-adjustment-video-setting id="VideoSettingsPopover" class="adjustment-popover" popover="manual" bilibili-adjustment-element>
                 <div class="adjustment-popover-header">
                     <div class="adjustment-popover-header-top">
                         <div class="adjustment-popover-title">${title}</div>
@@ -298,7 +298,7 @@ export class SettingsRenderer {
      */
     renderDynamicPopover (title, version, formContent) {
         return `
-            <bilibili-adjustment-dynamic-setting id="DynamicSettingsPopover" class="adjustment-popover" popover bilibili-adjustment-element>
+            <bilibili-adjustment-dynamic-setting id="DynamicSettingsPopover" class="adjustment-popover" popover="manual" bilibili-adjustment-element>
                 <div class="adjustment-popover-header">
                     <div class="adjustment-popover-header-top">
                         <div class="adjustment-popover-title">${title}</div>
