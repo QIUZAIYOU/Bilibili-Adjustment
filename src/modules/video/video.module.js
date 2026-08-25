@@ -24,7 +24,7 @@ const PLAYBACK_STORE_KEY = 'bili_adjustment_playback_progress'
 const PLAYBACK_STORE_LIMIT = 50
 export default {
     name: 'video',
-    version: '3.17.4',
+    version: '3.17.5',
     async install () {
         this._cleanup = []
         this._modeObservers = []

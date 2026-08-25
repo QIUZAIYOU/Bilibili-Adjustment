@@ -136,6 +136,38 @@ export class UpdateService {
             return null
         }
     }
+    // 直连源列表（服务器配置 CORS 头后无需代理即可访问）
+    #getDirectSources () {
+        return [
+            'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
+        ]
+    }
+    // 并行请求多个 URL，返回第一个有效数据
+    async #fetchFirstAvailable (urls, timeout = 10000) {
+        const results = await Promise.allSettled(urls.map(url => this.#fetchWithTimeout(url, {}, timeout)))
+        for (const result of results) {
+            if (result.status === 'fulfilled' && result.value && typeof result.value === 'string' && result.value.trim()) {
+                return result.value
+            }
+        }
+        throw new Error('所有直连源均不可用')
+    }
+    // 从 GitHub API 获取最新版本信息（api.github.com 自带 CORS 且实时无 CDN 缓存延迟）
+    async #fetchGitHubPackageInfo () {
+        const url = 'https://api.github.com/repos/QIUZAIYOU/Bilibili-Adjustment/contents/package.json'
+        const data = await this.#fetchWithTimeout(url, {}, 10000)
+        if (!data) throw new Error('GitHub API 返回空数据')
+        const json = JSON.parse(data)
+        if (!json?.content) throw new Error('GitHub API 响应格式异常')
+        const bytes = Uint8Array.from(atob(json.content.replace(/\n/g, '')), char => char.charCodeAt(0))
+        const pkg = JSON.parse(new TextDecoder().decode(bytes))
+        if (!pkg.version) throw new Error('package.json 缺少版本号')
+        return { version: pkg.version, updates: pkg.updates || '' }
+    }
+    // 保存脚本缓存
+    #saveScriptCache (data) {
+        localStorage.setItem(UpdateService.#cacheKey, JSON.stringify({ data, time: Date.now() }))
+    }
     // 获取最新脚本内容
     async fetchLatestScript () {
         // 获取用户配置的更新检查频率
@@ -153,40 +185,40 @@ export class UpdateService {
         if (cachedData) {
             return cachedData
         }
+        // 1. 直连自有域名（若服务器已配置 CORS 头则直接成功）
+        try {
+            const directData = await this.#fetchFirstAvailable(this.#getDirectSources())
+            this.#saveScriptCache(directData)
+            logger.info('直连获取最新脚本成功')
+            return directData
+        } catch (error) {
+            logger.warn('直连获取最新脚本失败，改用 CORS 代理:', error.message)
+        }
+        // 2. 公共 CORS 代理并行兜底（任一成功即返回，替代串行等待）
         const CORSProxyList = this.#getProxyList()
         const targetURL = encodeURIComponent('https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js')
-        // 尝试通过代理获取脚本
-        for (const proxy of CORSProxyList) {
-            try {
-                const data = await this.#tryFetch(proxy, targetURL)
-                // 验证获取的数据是否有效
-                if (data && typeof data === 'string' && data.trim()) {
-                    // 保存到缓存
-                    localStorage.setItem(UpdateService.#cacheKey, JSON.stringify({
-                        data,
-                        time: Date.now()
-                    }))
-                    return data
-                }
-            } catch (error) {
-                logger.warn(`代理 ${proxy}${targetURL} 处理失败 丨`, error.message)
-                // 继续尝试下一个代理
+        const proxyResults = await Promise.allSettled(CORSProxyList.map(proxy => this.#tryFetch(proxy, targetURL, 1)))
+        for (const result of proxyResults) {
+            if (result.status === 'fulfilled' && result.value && typeof result.value === 'string' && result.value.trim()) {
+                this.#saveScriptCache(result.value)
+                logger.info('通过 CORS 代理获取最新脚本成功')
+                return result.value
             }
         }
-        // 如果所有代理都失败，尝试使用缓存（即使过期）作为后备
+        // 3. 所有源失败，尝试使用缓存（即使过期）作为后备
         const expiredCache = localStorage.getItem(UpdateService.#cacheKey)
         if (expiredCache) {
             try {
                 const parsed = JSON.parse(expiredCache)
                 if (parsed && parsed.data) {
-                    logger.warn('所有代理请求失败，使用过期缓存数据')
+                    logger.warn('所有更新源请求失败，使用过期缓存数据')
                     return parsed.data
                 }
             } catch {
                 // 忽略过期缓存解析错误
             }
         }
-        throw new Error('所有CORS代理均不可用，且无可用缓存')
+        throw new Error('所有更新源均不可用，且无可用缓存')
     }
     // 从脚本内容中提取版本号
     extractVersionFromScript (scriptContent) {
@@ -355,15 +387,30 @@ export class UpdateService {
         }
         logger.info('检查更新')
         try {
-            const scriptContent = await this.fetchLatestScript()
-            if (!scriptContent) {
-                logger.warn('未获取到最新脚本内容')
-                return
+            // 优先通过 GitHub API 获取版本信息（自带 CORS、实时无缓存延迟）
+            let latestVersion = null
+            let latestUpdates = ''
+            try {
+                const pkgInfo = await this.#fetchGitHubPackageInfo()
+                latestVersion = pkgInfo.version
+                latestUpdates = pkgInfo.updates
+                logger.info('通过 GitHub API 获取最新版本信息:', latestVersion)
+            } catch (error) {
+                logger.warn('GitHub API 获取最新版本信息失败，改用脚本内容提取:', error.message)
             }
-            const latestVersion = this.extractVersionFromScript(scriptContent)
+            // GitHub API 失败时回退到脚本内容（自有域名直连 + CORS 代理）提取
             if (!latestVersion) {
-                logger.error('从最新脚本中提取版本号失败')
-                return
+                const scriptContent = await this.fetchLatestScript()
+                if (!scriptContent) {
+                    logger.warn('未获取到最新脚本内容')
+                    return
+                }
+                latestVersion = this.extractVersionFromScript(scriptContent)
+                if (!latestVersion) {
+                    logger.error('从最新脚本中提取版本号失败')
+                    return
+                }
+                latestUpdates = this.extractChangelogFromScript(scriptContent)
             }
             logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
             // 如果最新版本 <= 当前版本，不显示更新弹窗
@@ -371,9 +418,7 @@ export class UpdateService {
                 logger.info('当前已是最新版本，无需更新')
                 return
             }
-            // 提取最新脚本中的更新内容
-            const latestUpdates = this.extractChangelogFromScript(scriptContent)
-            // 优先使用远程脚本的更新内容，其次使用本地 package.json 的 updates
+            // 优先使用远程的更新内容，其次使用本地 package.json 的 updates
             const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
             // 检查是否启用自动更新
             let autoUpdateEnabled = false
@@ -407,8 +452,19 @@ export class UpdateService {
             }
         } catch (error) {
             logger.error('检查更新失败:', error.message)
-            // 检查更新失败时，不显示错误信息，避免打扰用户
+            this.#showUpdateFailedHint()
         }
+    }
+    // 显示检查更新失败的轻量提示
+    #showUpdateFailedHint () {
+        const existing = document.getElementById('updateCheckFailedHint')
+        existing?.remove()
+        const hint = document.createElement('div')
+        hint.id = 'updateCheckFailedHint'
+        hint.textContent = '检查更新失败，请稍后重试'
+        hint.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:999999;padding:10px 14px;border-radius:8px;background:#1a1a1a;color:#f0f0f0;font-size:13px;border:1px solid #333;box-shadow:0 8px 24px rgba(0,0,0,0.6);'
+        document.body.appendChild(hint)
+        setTimeout(() => hint.remove(), 5000)
     }
 }
 export const updateService = new UpdateService()

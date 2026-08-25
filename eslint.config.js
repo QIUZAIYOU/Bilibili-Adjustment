@@ -66,6 +66,7 @@ export default [
                 Request: true,
                 btoa: true,
                 atob: true,
+                TextDecoder: true,
                 crypto: true,
                 JSON: true,
                 Math: true,
