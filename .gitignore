@@ -27,6 +27,9 @@ Thumbs.db
 # Environment variables (local credentials)
 .env
 
+# Agent guidance (local notes, not for the repo)
+AGENTS.md
+
 # Logs
 *.log
 npm-debug.log*
