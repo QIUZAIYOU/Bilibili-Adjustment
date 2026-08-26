@@ -21,8 +21,7 @@ export class UpdateService {
             'https://qian.npkn.net/cors/?url=',
             'https://cors.aiideai-hq.workers.dev/?destination=',
             'https://api.allorigins.win/raw?url=',
-            'https://api.codetabs.com/v1/proxy?quest=',
-            'https://thingproxy.freeboard.io/fetch/',
+            'https://cors.eu.org/',
             'https://cros2.aiideai-hq.workers.dev/?'
         ]
         // 尝试获取代理状态
@@ -152,15 +151,12 @@ export class UpdateService {
         }
         throw new Error('所有直连源均不可用')
     }
-    // 从 GitHub API 获取最新版本信息（api.github.com 自带 CORS 且实时无 CDN 缓存延迟）
+    // 从 GitHub 获取最新版本信息（raw.githubusercontent.com 无 API 匿名限流且自带 CORS，替代易 403 的 api.github.com）
     async #fetchGitHubPackageInfo () {
-        const url = 'https://api.github.com/repos/QIUZAIYOU/Bilibili-Adjustment/contents/package.json'
+        const url = 'https://raw.githubusercontent.com/QIUZAIYOU/Bilibili-Adjustment/main/package.json'
         const data = await this.#fetchWithTimeout(url, {}, 10000)
-        if (!data) throw new Error('GitHub API 返回空数据')
-        const json = JSON.parse(data)
-        if (!json?.content) throw new Error('GitHub API 响应格式异常')
-        const bytes = Uint8Array.from(atob(json.content.replace(/\n/g, '')), char => char.charCodeAt(0))
-        const pkg = JSON.parse(new TextDecoder().decode(bytes))
+        if (!data) throw new Error('GitHub 获取 package.json 返回空数据')
+        const pkg = JSON.parse(data)
         if (!pkg.version) throw new Error('package.json 缺少版本号')
         return { version: pkg.version, updates: pkg.updates || '' }
     }
@@ -396,7 +392,7 @@ export class UpdateService {
         }
         logger.info('检查更新')
         try {
-            // 优先通过 GitHub API 获取版本信息（自带 CORS、实时无缓存延迟）
+            // 优先从 GitHub 直接获取版本信息（raw 源无 API 限流、自带 CORS）
             let latestVersion = null
             let latestUpdates = ''
             try {
@@ -405,9 +401,9 @@ export class UpdateService {
                 latestUpdates = pkgInfo.updates
                 logger.info('通过 GitHub API 获取最新版本信息:', latestVersion)
             } catch (error) {
-                logger.warn('GitHub API 获取最新版本信息失败，改用脚本内容提取:', error.message)
+                logger.warn('GitHub 获取最新版本信息失败，改用脚本内容提取:', error.message)
             }
-            // GitHub API 失败时回退到脚本内容（自有域名直连 + CORS 代理）提取
+            // GitHub 获取失败时回退到脚本内容（自有域名直连 + CORS 代理）提取
             if (!latestVersion) {
                 const scriptContent = await this.fetchLatestScript()
                 if (!scriptContent) {

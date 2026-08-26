@@ -1,5 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
-import { initTooltip } from '@/components/tooltip.component'
+import { initTooltip } from '@/components/tooltip-component'
 const logger = new LoggerService('SettingsRenderer')
 /**
  * 设置项渲染器

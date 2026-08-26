@@ -1,7 +1,7 @@
 import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import axios from 'axios'
-import AD_DETECTION_PROMPT from '../shared/adDetectionPrompt.js'
+import { AD_DETECTION_PROMPT } from '@/shared/ad-detection-prompt'
 // ========== 提供商配置（均为 OpenAI 兼容协议） ==========
 const PROVIDER_CONFIGS = {
     siliconflow: {

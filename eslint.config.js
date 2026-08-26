@@ -35,6 +35,7 @@ export default [
                 __dirname: true,
                 import: true,
                 process: true,
+                globalThis: true,
                 // 浏览器全局变量
                 localStorage: true,
                 sessionStorage: true,

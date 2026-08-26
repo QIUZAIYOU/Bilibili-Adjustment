@@ -1,5 +1,5 @@
-import { theme } from '../theme'
-import * as styleUtils from '../style-utils'
+import { theme } from '@/shared/theme'
+import * as styleUtils from '@/shared/style-utils'
 import { popoverStyles } from './popover'
 import { videoPageStyles } from './video-page'
 import { dynamicPageStyles } from './dynamic-page'

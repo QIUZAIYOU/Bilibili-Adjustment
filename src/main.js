@@ -6,6 +6,7 @@ import { LoggerService } from '@/services/logger.service'
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
 import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
+import { EVENT_NAMES } from '@/shared/constants'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
 window._ = _
@@ -14,11 +15,7 @@ let currentModuleType = null
 const moduleMap = {
     'video': () => import('@/modules/video/video.module.js'),
     'home': () => import('@/modules/home/home.module.js'),
-    'dynamic': () => import('@/modules/dynamic/dynamic.module.js'),
-    'space': () => import('@/modules/space/space.module.js'),
-    'search': () => import('@/modules/search/search.module.js'),
-    'anime': () => import('@/modules/anime/anime.module.js'),
-    'gamecenter': () => import('@/modules/gamecenter/gamecenter.module.js')
+    'dynamic': () => import('@/modules/dynamic/dynamic.module.js')
 }
 const detectAndLoadModule = async () => {
     const newModuleType = await detectivePageType()
@@ -59,7 +56,7 @@ const initializeApp = async () => {
         if (currentModuleType === 'other') return
         await moduleSystem.init()
         logger.info('应用初始化完成')
-        await eventBus.emit('app:ready')
+        await eventBus.emit(EVENT_NAMES.APP_READY)
         let isProcessingUrlChange = false
         let lastUrl = location.href
         const handleUrlChange = _.debounce(async () => {
@@ -87,7 +84,7 @@ const initializeApp = async () => {
                 if (currentModuleType === 'other') return
                 await moduleSystem.init()
                 logger.info('模块系统重新初始化完成')
-                await eventBus.emit('app:ready')
+                await eventBus.emit(EVENT_NAMES.APP_READY)
             } catch (error) {
                 logger.error('URL变化处理失败', error)
             } finally {

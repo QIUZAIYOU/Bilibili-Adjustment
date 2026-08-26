@@ -1,6 +1,7 @@
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
+import { EVENT_NAMES } from '@/shared/constants'
 export class ModuleSystem {
     static #instance
     #logger = new LoggerService('ModuleSystem')
@@ -32,24 +33,24 @@ export class ModuleSystem {
             version: module?.version || '1.0.0',
             timestamp: Date.now()
         })
-        eventBus.emit('module:registered', { name })
+        eventBus.emit(EVENT_NAMES.MODULE_REGISTERED, { name })
         this.#logger.debug(`模块已注册: ${name}`)
     }
     async init () {
         await ConfigService.initializeDefaults()
         const startTime = Date.now()
-        eventBus.emit('system:init-start', { timestamp: startTime })
+        eventBus.emit(EVENT_NAMES.SYSTEM_INIT_START, { timestamp: startTime })
         try {
             const moduleNames = Array.from(this.#modules.keys())
             this.#logger.debug(`正在初始化模块: ${moduleNames.join(', ')}`)
             await this.#initializeModules(moduleNames)
-            eventBus.emit('system:init-success', {
+            eventBus.emit(EVENT_NAMES.SYSTEM_INIT_SUCCESS, {
                 duration: Date.now() - startTime,
                 moduleCount: this.#modules.size
             })
             this.#logger.debug(`模块初始化完成，耗时: ${Date.now() - startTime} 毫秒`)
         } catch (error) {
-            eventBus.emit('system:init-fail', { error })
+            eventBus.emit(EVENT_NAMES.SYSTEM_INIT_FAIL, { error })
             throw this.#enhanceError(error, '系统初始化失败')
         }
     }
@@ -84,7 +85,7 @@ export class ModuleSystem {
             }
             // 从模块列表中移除
             this.#modules.delete(moduleName)
-            eventBus.emit('module:unloaded', { name: moduleName })
+            eventBus.emit(EVENT_NAMES.MODULE_UNLOADED, { name: moduleName })
             this.#logger.debug(`模块已卸载: ${moduleName}`)
         }
     }
@@ -130,10 +131,10 @@ export class ModuleSystem {
         return instance
     }
     #initEventListeners () {
-        eventBus.on('network:offline', () => {
+        eventBus.on(EVENT_NAMES.NETWORK_OFFLINE, () => {
             this.#handleOfflineMode()
         })
-        eventBus.on('module:error', (_, { module, error }) => {
+        eventBus.on(EVENT_NAMES.MODULE_ERROR, (_, { module, error }) => {
             this.#tryFallback(module, error)
         })
     }
@@ -141,7 +142,7 @@ export class ModuleSystem {
         const fallbackModule = this.#modules.get(`${moduleName}-fallback`)
         if (fallbackModule) {
             this.register(fallbackModule)
-            eventBus.emit('module:fallback', { original: moduleName })
+            eventBus.emit(EVENT_NAMES.MODULE_FALLBACK, { original: moduleName })
         }
     }
     #handleOfflineMode () {
@@ -159,7 +160,7 @@ export class ModuleSystem {
     #handleError (message, level = 'error', metadata = {}) {
         const error = new Error(message)
         const enhancedError = this.#enhanceError(error, 'operation')
-        eventBus.emit('module:error', {
+        eventBus.emit(EVENT_NAMES.MODULE_ERROR, {
             error: enhancedError,
             level,
             ...metadata

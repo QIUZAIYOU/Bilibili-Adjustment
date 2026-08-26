@@ -20,7 +20,7 @@ export class LoggerService {
         info: true,
         error: true,
         warn: true,
-        debug: import.meta.env.DEV
+        debug: import.meta.env?.DEV
     }
     // 根据用户配置更新日志级别
     static async updateLogLevelsFromConfig (configValues) {
@@ -29,7 +29,7 @@ export class LoggerService {
                 info: configValues?.log_level_info ?? true,
                 error: configValues?.log_level_error ?? true,
                 warn: configValues?.log_level_warn ?? true,
-                debug: configValues?.log_level_debug ?? (import.meta.env.DEV)
+                debug: configValues?.log_level_debug ?? (import.meta.env?.DEV)
             }
             this.updateLogLevels(logLevels)
         } catch (error) {
@@ -45,7 +45,7 @@ export class LoggerService {
     log (level, ...args) {
         if (LoggerService.ENABLED_LEVELS[level]) {
             const timestamp = new Date().toLocaleTimeString()
-            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX} ${timestamp}${level === 'debug' ? `(调试)丨${this.module}` : import.meta.env.DEV ? ` ${this.module}` : ''}`, LoggerService.LEVELS[level], ...args)
+            console.log(`%c${LoggerService.PAGE_TYPE_PREFIX} ${timestamp}${level === 'debug' ? `(调试)丨${this.module}` : import.meta.env?.DEV ? ` ${this.module}` : ''}`, LoggerService.LEVELS[level], ...args)
         }
     }
     info (...args) {

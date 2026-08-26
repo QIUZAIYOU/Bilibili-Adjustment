@@ -181,7 +181,7 @@ export function clearStats () {
     perfStats.clear()
 }
 // 开发模式下暴露到全局以便调试
-if (import.meta.env.DEV) {
+if (import.meta.env?.DEV) {
     window.__SelectorRegistry__ = {
         registry: selectorRegistry,
         usageStats,

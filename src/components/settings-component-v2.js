@@ -3,11 +3,12 @@ import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
+import { EVENT_NAMES } from '@/shared/constants'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
 import { SettingsRenderer } from '@/components/settings-renderer'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
-import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip.component'
+import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
 import pkg from '../../package.json'
 const logger = new LoggerService('SettingsV2')
 /**
@@ -26,7 +27,7 @@ export class SettingsComponentV2 {
         this.pageType = await detectivePageType()
         // 订阅其他标签页的配置变更，实时同步设置弹窗状态（只订阅一次，SPA 导航重复 init 不重复订阅）
         if (!this._configSyncUnsubscribe) {
-            this._configSyncUnsubscribe = eventBus.on('config:changed', async (_, { key, value }) => {
+            this._configSyncUnsubscribe = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, async (_, { key, value }) => {
                 this.userConfigs[key] = value
                 this.syncConfigControl(key, value)
                 // 日志级别跨标签同步
@@ -483,8 +484,8 @@ export class SettingsComponentV2 {
      * 子项自身的 visible 条件（如 is_vip）作用于容器层而非单个子项 wrapper
      */
     handleChildrenVisibility (popover) {
-        // 所有包含 children 的父项 id 列表
-        const parentIds = ['auto_locate', 'auto_select_video_highest_quality', 'pause_video', 'preserve_player_mode', 'auto_subtitle']
+        // 从配置 schema 派生所有含 children 的父项 id，新增子项无需手动维护列表
+        const parentIds = this.getAllConfigItems().filter(item => item.children?.length).map(item => item.id)
         parentIds.forEach(parentId => {
             const parentCheckbox = popover.querySelector(`#${parentId}`)
             if (!parentCheckbox) return

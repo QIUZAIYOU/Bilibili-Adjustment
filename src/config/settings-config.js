@@ -12,23 +12,27 @@ export const videoSettingsConfig = [
         type: 'checkbox',
         label: '是否为大会员',
         tips: '请如实勾选，否则影响部分设置项',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'auto_locate',
         type: 'checkbox',
         label: '自动定位至播放器',
         category: 'basic',
+        defaultValue: true,
         children: [
             {
                 id: 'auto_locate_video',
                 type: 'checkbox',
-                label: '普通视频'
+                label: '普通视频',
+                defaultValue: true
             },
             {
                 id: 'auto_locate_bangumi',
                 type: 'checkbox',
-                label: '番剧视频'
+                label: '番剧视频',
+                defaultValue: true
             }
         ],
         tips: '勾选自动定位至播放器后，video 和 bangumi 两者全选或全不选，默认在这两种类型视频播放页都执行；否则勾选哪种类型，就只在这种类型的播放页才执行'
@@ -38,6 +42,7 @@ export const videoSettingsConfig = [
         type: 'input',
         label: '播放器顶部偏移(px)',
         inputType: 'number',
+        defaultValue: 5,
         tips: configs => `播放器距离浏览器窗口默认距离为 ${configs.player_offset_top}；请填写小于 ${configs.player_offset_top} 的正整数或 0；当值为 0 时，播放器上沿将紧贴浏览器窗口上沿;值为 ${configs.player_offset_top} 时，将保持B站默认`,
         category: 'basic'
     },
@@ -45,7 +50,8 @@ export const videoSettingsConfig = [
         id: 'click_player_auto_locate',
         type: 'checkbox',
         label: '点击播放器时定位',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'selected_player_mode',
@@ -56,6 +62,7 @@ export const videoSettingsConfig = [
             { value: 'wide', label: '宽屏' },
             { value: 'web', label: '网页全屏' }
         ],
+        defaultValue: 'wide',
         tips: '若遇到不能自动选择播放器模式可尝试刷新页面',
         category: 'basic'
     },
@@ -65,21 +72,25 @@ export const videoSettingsConfig = [
         label: '上下集切换时保持当前屏幕模式',
         tips: '切换上下集时不切换回默认模式，保持当前选择的屏幕模式',
         category: 'basic',
+        defaultValue: true,
         children: [
             {
                 id: 'preserve_mode_wide',
                 type: 'checkbox',
-                label: '宽屏'
+                label: '宽屏',
+                defaultValue: true
             },
             {
                 id: 'preserve_mode_web',
                 type: 'checkbox',
-                label: '网页全屏'
+                label: '网页全屏',
+                defaultValue: true
             },
             {
                 id: 'preserve_mode_full',
                 type: 'checkbox',
-                label: '全屏'
+                label: '全屏',
+                defaultValue: true
             }
         ]
     },
@@ -88,7 +99,8 @@ export const videoSettingsConfig = [
         type: 'checkbox',
         label: '网页全屏模式解锁',
         tips: '勾选后网页全屏模式下可以滑动滚动条查看下方评论等内容（番剧播放页不支持）',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: false
     },
     {
         id: 'auto_select_video_highest_quality',
@@ -96,17 +108,20 @@ export const videoSettingsConfig = [
         label: '自动选择最高画质',
         tips: '网络条件好时可以启用此项，勾哪项选哪项，都勾选8k，否则选择4k及8k外最高画质',
         category: 'basic',
+        defaultValue: true,
         children: [
             {
                 id: 'contain_quality4k',
                 type: 'checkbox',
                 label: '包含4K画质',
+                defaultValue: false,
                 visible: configs => configs.is_vip
             },
             {
                 id: 'contain_quality8k',
                 type: 'checkbox',
                 label: '包含8K画质',
+                defaultValue: false,
                 visible: configs => configs.is_vip
             }
         ]
@@ -116,25 +131,29 @@ export const videoSettingsConfig = [
         type: 'checkbox',
         label: '自动开启「Hi-Res 无损音质」',
         visible: configs => configs.is_vip,
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'insert_video_description_to_comment',
         type: 'checkbox',
         label: '优化视频简介并插入评论区',
         tips: '将视频简介内容优化后插入评论区或直接替换原简介区内容(替换原简介中固定格式的静态内容为跳转链接)',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'pause_video',
         type: 'checkbox',
         label: '离开页面自动暂停视频',
         category: 'basic',
+        defaultValue: false,
         children: [
             {
                 id: 'continue_play',
                 type: 'checkbox',
-                label: '返回页面恢复播放'
+                label: '返回页面恢复播放',
+                defaultValue: false
             }
         ]
     },
@@ -144,12 +163,14 @@ export const videoSettingsConfig = [
         label: '自动开启字幕',
         tips: '注意：此选项并非控制字幕的开关，而是控制是否自动开启字幕，开启此选项后每个视频都会尝试自动开启字幕<br>此选项的开启与关闭不会对「视频本身（UP主）」设置的字幕开关状态产生影响',
         category: 'basic',
+        defaultValue: false,
         children: [
             {
                 id: 'preserve_subtitle_state',
                 type: 'checkbox',
                 label: '切换选集时保持字幕开关状态',
-                tips: '开启后手动关闭字幕时，切换选集/视频不会自动重新开启字幕'
+                tips: '开启后手动关闭字幕时，切换选集/视频不会自动重新开启字幕',
+                defaultValue: false
             }
         ]
     },
@@ -158,28 +179,32 @@ export const videoSettingsConfig = [
         type: 'checkbox',
         label: '记忆播放进度',
         tips: '切换选集或关闭页面时记住播放位置，回到页面或选集时自动恢复。仅作为 B站 官方进度记忆失效时的兜底保障，不与官方功能冲突',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'remove_comment_tags',
         type: 'checkbox',
         label: '移除评论标签',
         tips: '移除评论中「UP主觉得很赞」这类标签',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'show_comment_location',
         type: 'checkbox',
         label: '显示评论IP属地',
         tips: '显示评论用户的IP属地信息',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     {
         id: 'auto_cancel_mute',
         type: 'checkbox',
         label: '自动取消静音',
         tips: '进入视频页面时如果处于静音状态则自动取消静音',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: true
     },
     // AI 服务配置区域
     {
@@ -192,7 +217,8 @@ export const videoSettingsConfig = [
                 id: 'auto_skip',
                 type: 'checkbox',
                 label: '自动跳过广告',
-                tips: '通过 AI 识别视频中的广告片段并自动跳过。需要视频带有 AI 字幕 才能工作，无字幕时自动关闭。识别精度取决于所选 AI 模型，<a href="https://siliconflow.cn/pricing" target="_blank">查看计费</a>。API Key 请妥善保管，不要在公共设备上保存。'
+                tips: '通过 AI 识别视频中的广告片段并自动跳过。需要视频带有 AI 字幕 才能工作，无字幕时自动关闭。识别精度取决于所选 AI 模型，<a href="https://siliconflow.cn/pricing" target="_blank">查看计费</a>。API Key 请妥善保管，不要在公共设备上保存。',
+                defaultValue: false
             },
             {
                 id: 'ai_provider',
@@ -205,6 +231,7 @@ export const videoSettingsConfig = [
                     { value: 'zhipu', label: '智谱 AI' },
                     { value: 'openai', label: 'OpenAI' }
                 ],
+                defaultValue: 'siliconflow',
                 visible: configs => !configs.use_custom_model,
                 tips: '选择 AI 服务提供商'
             },
@@ -214,6 +241,7 @@ export const videoSettingsConfig = [
                 label: 'AI API Key',
                 inputType: 'password',
                 placeholder: '请输入 API Key',
+                defaultValue: '',
                 visible: configs => !configs.use_custom_model,
                 hasValidateButton: true,
                 validateButtonText: '验证 Key'
@@ -223,6 +251,7 @@ export const videoSettingsConfig = [
                 type: 'select',
                 label: 'AI 模型',
                 options: [], // 动态加载
+                defaultValue: 'deepseek-ai/DeepSeek-V3',
                 visible: configs => !configs.use_custom_model,
                 hasRefreshButton: true,
                 refreshButtonText: '刷新列表'
@@ -230,13 +259,15 @@ export const videoSettingsConfig = [
             {
                 id: 'use_custom_model',
                 type: 'checkbox',
-                label: '使用自定义模型'
+                label: '使用自定义模型',
+                defaultValue: false
             },
             {
                 id: 'custom_base_url',
                 type: 'input',
                 label: '自定义 API 地址',
                 placeholder: 'https://api.example.com/v1',
+                defaultValue: '',
                 visible: configs => !configs.use_custom_model && configs.ai_provider === 'custom'
             },
             {
@@ -244,6 +275,7 @@ export const videoSettingsConfig = [
                 type: 'input',
                 label: '自定义 API 地址',
                 placeholder: 'https://api.example.com/v1',
+                defaultValue: '',
                 visible: configs => configs.use_custom_model
             },
             {
@@ -252,6 +284,7 @@ export const videoSettingsConfig = [
                 label: '自定义 API Key',
                 inputType: 'password',
                 placeholder: '请输入自定义 API Key',
+                defaultValue: '',
                 visible: configs => configs.use_custom_model,
                 hasValidateButton: true,
                 validateButtonText: '验证 Key'
@@ -261,6 +294,7 @@ export const videoSettingsConfig = [
                 type: 'input',
                 label: '自定义模型ID',
                 placeholder: '输入模型ID，如 deepseek-ai/DeepSeek-V3',
+                defaultValue: '',
                 visible: configs => configs.use_custom_model
             }
         ]
@@ -276,7 +310,8 @@ export const videoSettingsConfig = [
                 id: 'auto_check_update',
                 type: 'checkbox',
                 label: '自动检查更新',
-                tips: '开启后，脚本会自动检查更新并在有新版本时提示'
+                tips: '开启后，脚本会自动检查更新并在有新版本时提示',
+                defaultValue: true
             },
             {
                 id: 'update_check_frequency',
@@ -289,19 +324,22 @@ export const videoSettingsConfig = [
                     { value: 48, label: '48小时' },
                     { value: 72, label: '72小时' }
                 ],
+                defaultValue: 24,
                 tips: '设置脚本检查更新的频率'
             },
             {
                 id: 'auto_update',
                 type: 'checkbox',
                 label: '自动更新',
-                tips: '开启后，脚本会在有新版本时自动更新'
+                tips: '开启后，脚本会在有新版本时自动更新',
+                defaultValue: false
             },
             {
                 id: 'skip_update_check',
                 type: 'checkbox',
                 label: '跳过更新检查',
-                tips: '开启后，脚本将跳过更新检查，适合稳定版本用户'
+                tips: '开启后，脚本将跳过更新检查，适合稳定版本用户',
+                defaultValue: false
             }
         ]
     },
@@ -316,25 +354,30 @@ export const videoSettingsConfig = [
                 id: 'log_level_info',
                 type: 'checkbox',
                 label: '信息',
-                inline: true
+                inline: true,
+                defaultValue: true
             },
             {
                 id: 'log_level_error',
                 type: 'checkbox',
                 label: '错误',
-                inline: true
+                inline: true,
+                defaultValue: true
             },
             {
                 id: 'log_level_warn',
                 type: 'checkbox',
                 label: '警告',
-                inline: true
+                inline: true,
+                defaultValue: true
             },
             {
                 id: 'log_level_debug',
                 type: 'checkbox',
                 label: '调试',
-                inline: true
+                inline: true,
+                // 开发模式默认开启调试日志，生产默认关闭
+                defaultValue: () => import.meta.env.DEV
             }
         ]
     },
@@ -343,7 +386,8 @@ export const videoSettingsConfig = [
         type: 'checkbox',
         label: '自动刷新',
         tips: '（不建议开启）若脚本执行失败是否自动刷新页面重试，开启后可能会对使用体验起到一定改善作用，但若是因为B站页面改版导致脚本失效，则会陷入页面无限刷新的情况，此时则必须在页面加载时看准时机关闭此项才能恢复正常，请自行选择是否开启',
-        category: 'basic'
+        category: 'basic',
+        defaultValue: false
     }
 ]
 // 动态页设置配置
@@ -352,7 +396,8 @@ export const dynamicSettingsConfig = [
         id: 'dynamic_video_link',
         type: 'input',
         label: '「投稿视频」链接',
-        tips: '点击「投稿视频」选项后，填入当前浏览器地址栏链接，即可自动跳转至该链接'
+        tips: '点击「投稿视频」选项后，填入当前浏览器地址栏链接，即可自动跳转至该链接',
+        defaultValue: 'https://t.bilibili.com/?tab=video'
     }
 ]
 // 配置项分组定义

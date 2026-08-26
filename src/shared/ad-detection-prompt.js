@@ -1,14 +1,5 @@
-/**
- * 视频广告识别专家提示词（工具/数码评测类适配版）
- * 用于分析 YouTube、抖音、B站、TikTok 等平台视频字幕，识别广告段落
- *
- * 使用方式：
- *   import { getAdDetectionPrompt } from './adDetectionPrompt.js';
- *   const prompt = getAdDetectionPrompt(subtitleData);
- *
- * @module adDetectionPrompt
- */
-const AD_DETECTION_PROMPT = `# 视频广告识别专家提示词（工具/数码评测类适配版）
+// 视频广告识别专家提示词（工具/数码评测类适配版）：分析 YouTube、抖音、B站、TikTok 等平台视频字幕，识别广告段落
+export const AD_DETECTION_PROMPT = `# 视频广告识别专家提示词（工具/数码评测类适配版）
 
 你是一个极其专业的视频广告识别专家，专门分析 YouTube、抖音、B站、TikTok 等平台视频的字幕内容，以最高精度识别其中的广告段落（包括硬广、软广、口播植入、赞助披露、中插广告、片尾推广等）。
 
@@ -137,56 +128,27 @@ const AD_DETECTION_PROMPT = `# 视频广告识别专家提示词（工具/数码
 ## 输出示例
 
 **示例1 - 无广告（纯评测视频）**：
-'''json
+\`\`\`json
 []
-'''
+\`\`\`
 
 **示例2 - 单段广告**：
-'''json
+\`\`\`json
 [{"start": 125.4, "end": 189.6}]
-'''
+\`\`\`
 
 **示例3 - 多段独立广告（同一品牌）**：
-'''json
+\`\`\`json
 [{"start": 19.0, "end": 40.0}, {"start": 108.0, "end": 124.0}, {"start": 320.0, "end": 331.0}]
-'''
+\`\`\`
 
 **示例4 - 全视频带货（需排除纯内容间隙）**：
-'''json
+\`\`\`json
 [{"start": 15.2, "end": 45.5}, {"start": 120.0, "end": 135.0}, {"start": 300.0, "end": 331.0}]
-'''
+\`\`\`
 
 **示例5 - 评测类视频，无广告**：
-'''json
+\`\`\`json
 []
-'''
+\`\`\`
 `
-/**
- * 获取广告识别提示词
- * @returns {string} 完整的提示词文本
- */
-export function getAdDetectionPrompt () {
-    return AD_DETECTION_PROMPT
-}
-/**
- * 将字幕数据与提示词组合，生成可直接发送给 LLM 的完整 prompt
- * @param {Object} subtitleData - 字幕 JSON 数据（包含 subtitle 数组）
- * @returns {string} 完整的 LLM 请求文本
- */
-export function buildLLMRequest (subtitleData) {
-    const subtitleJson = JSON.stringify(subtitleData, null, 2)
-    return `${AD_DETECTION_PROMPT}\n\n---\n\n请分析以下字幕数据：\n\n\`\`\`json\n${subtitleJson}\n\`\`\``
-}
-/**
- * 默认导出：提示词文本
- */
-export default AD_DETECTION_PROMPT
-// CommonJS 兼容
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = {
-        AD_DETECTION_PROMPT,
-        getAdDetectionPrompt,
-        buildLLMRequest,
-        default: AD_DETECTION_PROMPT
-    }
-}

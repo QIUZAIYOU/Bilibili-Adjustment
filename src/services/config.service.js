@@ -1,6 +1,17 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { eventBus } from '@/core/event-bus'
+import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
+import { EVENT_NAMES } from '@/shared/constants'
+// 不渲染为 UI 设置项的运行时配置默认值（页面类型、播放器布局偏移等）
+const RUNTIME_DEFAULTS = {
+    page_type: 'video',
+    player_offset_top: 168,
+    video_player_offset_top: 168,
+    bangumi_player_offset_top: 104,
+    get_offset_method: 'function',
+    current_player_mode: 'normal'
+}
 export class ConfigService {
     static #logger = new LoggerService('ConfigService')
     static #initialized = false
@@ -8,60 +19,28 @@ export class ConfigService {
     // 跨标签页配置同步（IndexedDB 不触发跨标签 storage 事件，需 BroadcastChannel）
     static #syncChannelName = 'bili-adjustment-config-sync'
     static #syncChannel = null
-    static DEFAULT_VALUES = new Map([
-        ['is_vip', true],
-        ['page_type', 'video'],
-        ['offset_top', 5],
-        ['player_offset_top', 168],
-        ['video_player_offset_top', 168],
-        ['bangumi_player_offset_top', 104],
-        ['auto_locate', true],
-        ['get_offset_method', 'function'],
-        ['auto_locate_video', true],
-        ['auto_locate_bangumi', true],
-        ['click_player_auto_locate', true],
-        ['current_player_mode', 'normal'],
-        ['selected_player_mode', 'wide'],
-        ['auto_select_video_highest_quality', true],
-        ['auto_cancel_mute', true],
-        ['preserve_player_mode', true],
-        ['preserve_mode_wide', true],
-        ['preserve_mode_web', true],
-        ['preserve_mode_full', true],
-        ['contain_quality4k', false],
-        ['contain_quality8k', false],
-        ['webfull_unlock', false],
-        ['auto_reload', false],
-        ['auto_skip', false],
-        ['insert_video_description_to_comment', true],
-        ['dynamic_video_link', 'https://t.bilibili.com/?tab=video'],
-        ['pause_video', false],
-        ['continue_play', false],
-        ['playback_memory', true],
-        ['auto_subtitle', false],
-        ['preserve_subtitle_state', false],
-        ['show_comment_location', true], // 显示评论IP属地
-        ['remove_comment_tags', true],
-        ['auto_hi_res', true],
-        ['auto_check_update', true],
-        ['ai_apikey', ''],
-        ['ai_provider', 'siliconflow'], // AI 提供商
-        ['ai_model', 'deepseek-ai/DeepSeek-V3'], // AI 模型 (硅基流动默认模型)
-        ['custom_base_url', ''], // 自定义 API 地址
-        ['use_custom_model', false], // 是否使用自定义模型
-        ['custom_model_id', ''], // 自定义模型ID
-        ['custom_model_api_url', ''], // 自定义模型 API 地址
-        ['custom_model_api_key', ''], // 自定义模型 API Key
-        // 日志级别配置
-        ['log_level_info', true],
-        ['log_level_error', true],
-        ['log_level_warn', true],
-        ['log_level_debug', import.meta.env.DEV],
-        // 更新配置
-        ['update_check_frequency', 24], // 更新检查频率（小时）
-        ['auto_update', false], // 自动更新
-        ['skip_update_check', false] // 跳过更新检查
-    ])
+    // 从设置 schema 派生默认值：新增设置项只需在 settings-config.js 定义 defaultValue，
+    // 这里无需再手动维护；defaultValue 为函数时惰性求值（如 log_level_debug 依赖构建环境）
+    static DEFAULT_VALUES = ConfigService.#buildDefaultValues()
+    static #buildDefaultValues () {
+        const map = new Map()
+        const collect = items => {
+            for (const item of items) {
+                if (item.id && 'defaultValue' in item) {
+                    const value = item.defaultValue
+                    map.set(item.id, typeof value === 'function' ? value() : value)
+                }
+                if (item.children?.length) collect(item.children)
+                if (item.items?.length) collect(item.items)
+            }
+        }
+        collect(videoSettingsConfig)
+        collect(dynamicSettingsConfig)
+        for (const [key, value] of Object.entries(RUNTIME_DEFAULTS)) {
+            map.set(key, value)
+        }
+        return map
+    }
     static async initialize () {
         if (this.#initialized) return
         try {
@@ -104,7 +83,7 @@ export class ConfigService {
                 // 与本地缓存相同则跳过，避免同标签页自身的写入触发重复刷新
                 if (this.#cache.get(key) === value) return
                 this.#cache.set(key, value)
-                eventBus.emit('config:changed', { key, value })
+                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value })
             }
         } catch (error) {
             this.#logger.warn('跨标签页同步通道初始化失败', error)

@@ -15,6 +15,7 @@ const selectors = {
     playerWebscreen: '#bilibili-player.mode-webscreen',
     playerContainer: '#bilibili-player .bpx-player-container',
     playerController: '#bilibili-player .bpx-player-ctrl-btn',
+    playerProgress: '.bpx-player-progress-area .bpx-player-progress',
     playerControllerBottomRight: '.bpx-player-control-bottom-right',
     playerTooltipArea: '.bpx-player-tooltip-area',
     playerTooltipTitle: '.bpx-player-tooltip-title',

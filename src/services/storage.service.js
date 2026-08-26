@@ -1,4 +1,4 @@
-import { createIndexedDBService } from '@/services/indexdb.service'
+import { createIndexedDBService } from '@/services/index-db.service'
 import { LoggerService } from '@/services/logger.service'
 export class StorageService {
     static #instance
