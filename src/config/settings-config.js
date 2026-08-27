@@ -67,6 +67,16 @@ export const videoSettingsConfig = [
         category: 'basic'
     },
     {
+        id: 'webfull_unlock',
+        type: 'checkbox',
+        label: '网页全屏模式解锁',
+        tips: '勾选后网页全屏模式下可以滑动滚动条查看下方评论等内容（番剧播放页不支持）',
+        category: 'basic',
+        defaultValue: false,
+        // 仅在默认播放器模式为网页全屏时显示
+        visible: configs => configs.selected_player_mode === 'web'
+    },
+    {
         id: 'preserve_player_mode',
         type: 'checkbox',
         label: '上下集切换时保持当前屏幕模式',
@@ -93,14 +103,6 @@ export const videoSettingsConfig = [
                 defaultValue: true
             }
         ]
-    },
-    {
-        id: 'webfull_unlock',
-        type: 'checkbox',
-        label: '网页全屏模式解锁',
-        tips: '勾选后网页全屏模式下可以滑动滚动条查看下方评论等内容（番剧播放页不支持）',
-        category: 'basic',
-        defaultValue: false
     },
     {
         id: 'auto_select_video_highest_quality',

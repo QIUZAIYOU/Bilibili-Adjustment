@@ -77,8 +77,11 @@ export const playerModeFeatures = {
                 sessionStorage.setItem(STORAGE_KEYS.SESSION_MODE_COOLDOWN, String(this._modeSwitchCooldown))
                 sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, this.userConfigs.selected_player_mode)
                 logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
-                eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
+            } else {
+                logger.warn('屏幕模式丨切换失败，继续执行其余功能')
             }
+            // 无论切换成败都继续后续流程：页面初始滚动锁定依赖该事件解除，失败时不发会导致页面永远无法滚动
+            eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
         }
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
@@ -126,6 +129,11 @@ export const playerModeFeatures = {
                 return
             }
             const playerMode = playerContainer.getAttribute('data-screen')
+            // 网页全屏模式不执行定位锁定：播放器占满视口，定位无意义，且锁定会阻止解锁功能所需的页面滚动
+            if (playerMode === 'web') {
+                eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                return
+            }
             const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
             const header = await elementSelectors.headerMini
             const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
@@ -170,7 +178,7 @@ export const playerModeFeatures = {
             return headerFixed ? playerContainerOffsetTop - headerHeight - offsetTop : playerContainerOffsetTop - offsetTop
         }
         let targetOffset = computeTarget(playerContainer)
-        await documentScrollTo(targetOffset).catch(error => {
+        await documentScrollTo(targetOffset, { duration: 300 }).catch(error => {
             logger.warn('自动定位丨滚动失败:', error.message)
         })
         // SPA 切换视频时页面布局可能尚未稳定，滚动后校验播放器实际位置，偏差过大时重新定位
@@ -183,7 +191,7 @@ export const playerModeFeatures = {
             if (Math.abs(freshTarget - targetOffset) <= 5 && Math.abs(window.scrollY - targetOffset) <= 5) return
             targetOffset = freshTarget
             logger.debug(`自动定位丨重新定位: ${targetOffset}（当前位置 ${window.scrollY}）`)
-            await documentScrollTo(targetOffset).catch(error => {
+            await documentScrollTo(targetOffset, { duration: 300 }).catch(error => {
                 logger.warn('自动定位丨重新定位失败:', error.message)
             })
         }

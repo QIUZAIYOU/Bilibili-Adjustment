@@ -56,7 +56,8 @@ export const documentScrollTo = (offset, options = {}) => {
         maxRetries = 3,
         retryDelay = 300,
         tolerance = 2,
-        behavior = 'auto'
+        behavior = 'auto',
+        duration = 0
     } = options
     return new Promise((resolve, reject) => {
         let attempts = 0
@@ -66,12 +67,34 @@ export const documentScrollTo = (offset, options = {}) => {
                    Math.abs(currentY - offset) <= tolerance ||
                    offset === -5
         }
+        // duration > 0 时用 rAF 逐帧驱动滚动以精确控制时长；每帧强制 instant，
+        // 避免页面 CSS 的 scroll-behavior:smooth 叠加出缓慢的浏览器平滑滚动
+        const animateScroll = (targetY, durationMs) => {
+            if (durationMs <= 0) {
+                window.scrollTo({ top: targetY, behavior })
+                return Promise.resolve()
+            }
+            const startY = window.scrollY
+            const distance = targetY - startY
+            if (Math.abs(distance) <= tolerance) return Promise.resolve()
+            const startTime = performance.now()
+            return new Promise(resolveAnimation => {
+                const ease = progress => 1 - Math.pow(1 - progress, 3)
+                const step = now => {
+                    const progress = Math.min(1, (now - startTime) / durationMs)
+                    window.scrollTo({ top: startY + distance * ease(progress), behavior: 'instant' })
+                    if (progress < 1) {
+                        requestAnimationFrame(step)
+                    } else {
+                        resolveAnimation()
+                    }
+                }
+                requestAnimationFrame(step)
+            })
+        }
         const attemptScroll = async () => {
             try {
-                window.scrollTo({
-                    top: offset,
-                    behavior
-                })
+                await animateScroll(offset, duration)
                 await new Promise(r => requestAnimationFrame(r))
                 if (checkPosition()) {
                     resolve()
@@ -127,7 +150,13 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
             ? targets.filter(el => el instanceof Element)
             : [targets].filter(el => el instanceof Element)
     if (elements.length === 0) {
-        logger.warn('未找到有效的元素用于添加事件监听器')
+        const describeTarget = target => {
+            if (typeof target === 'string') return `选择器 "${target}"`
+            if (target instanceof Element) return `<${target.tagName.toLowerCase()}>#${target.id}`
+            return '空值'
+        }
+        const targetInfo = Array.isArray(targets) ? targets.map(describeTarget).join(' | ') : describeTarget(targets)
+        logger.debug(`未找到有效的元素用于添加事件监听器（目标: ${targetInfo}）`)
         return () => {}
     }
     const finalOptions = {

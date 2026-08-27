@@ -30,6 +30,7 @@ const selectors = {
     videoWrap: '#bilibili-player .bpx-player-video-wrap',
     videoBwp: 'bwp-video',
     videoTitleArea: '#viewbox_report',
+    videoTitle: '#viewbox_report h1',
     playerTitle: '#player-title',
     videoFloatNav: '.fixed-sidenav-storage',
     videoFloatNavBackToTopButton: '.back-to-top-wrap',
@@ -215,6 +216,7 @@ const selectorMeta = {
     // 视频相关
     video: { category: 'video', description: '视频元素' },
     videoTitleArea: { category: 'video', description: '视频标题区域' },
+    videoTitle: { category: 'video', description: '视频标题' },
     videoDescription: { category: 'video', description: '视频简介' },
     videoDescriptionInfo: { category: 'video', description: '视频简介信息' },
     // 评论相关

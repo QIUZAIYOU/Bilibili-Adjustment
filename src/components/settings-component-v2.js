@@ -212,6 +212,8 @@ export class SettingsComponentV2 {
                     }
                 })
                 await this.saveConfig(name, value)
+                // 刷新可见性（如 网页全屏模式解锁 仅在选择网页全屏时显示）
+                this.refreshVisibility(popover)
             })
         })
     }

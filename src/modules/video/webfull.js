@@ -47,8 +47,25 @@ export const webfullFeatures = {
                 await this.webfullPlayerModeUnlock()
             }))
         }
+        this.enableWheelScrollInWebfull()
         logger.info('网页全屏丨已解锁')
         eventBus.emit(EVENT_NAMES.VIDEO_WEBFULL_PLAYER_MODE_UNLOCK)
+    },
+    // 网页全屏解锁后播放器占满页面顶部，滚轮在播放器上滚动会被 B站 拦截为音量调节，
+    // 改为捕获阶段拦截滚轮事件（不 preventDefault），保留默认的页面滚动
+    enableWheelScrollInWebfull () {
+        if (this._webfullWheelAttached) return
+        this._webfullWheelAttached = true
+        const onWheel = e => {
+            if (!this.userConfigs?.webfull_unlock || this.userConfigs?.selected_player_mode !== 'web') return
+            const playerContainer = elementSelectors.query('playerContainer')
+            if (playerContainer?.getAttribute('data-screen') !== 'web') return
+            if (!(e.target instanceof Node) || !playerContainer.contains(e.target)) return
+            e.stopPropagation()
+        }
+        document.addEventListener('wheel', onWheel, { capture: true, passive: true })
+        this._cleanup.push(() => document.removeEventListener('wheel', onWheel, { capture: true, passive: true }))
+        logger.debug('网页全屏丨播放器滚轮已改为页面滚动')
     },
     // 从全屏退出时强制恢复解锁状态
     async autoReapplyUnlockOnFullscreenExit () {

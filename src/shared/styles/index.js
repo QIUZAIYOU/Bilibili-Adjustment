@@ -31,6 +31,7 @@ export const stylesV2 = {
 function generateBilibiliAdjustmentStyle () {
     return `
         /* ========== 滚动条 ========== */
+        /* 悬停加宽由 JS 驱动（scrollbar-hover.js）：目标元素打 data 属性后逐帧重写宽度规则（伪元素不支持自定义属性与 transition） */
         ::-webkit-scrollbar {
             width: 8px !important;
             height: 8px !important;

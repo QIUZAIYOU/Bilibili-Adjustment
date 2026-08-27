@@ -1,7 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { ShadowDOMHelper } from '@/utils/shadow-dom-helper'
 import { elementSelectors, shadowDomSelectors } from '@/shared/element-selectors'
-import { createElementAndInsert, addEventListenerToElement } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, sleep } from '@/utils/common'
 import { biliApis } from '@/shared/bili-apis'
 import { stylesV2 } from '@/shared/styles'
 import { getTemplates } from '@/shared/templates'
@@ -75,11 +75,23 @@ export const commentFeatures = {
         }))
     },
     async insertVideoDescriptionToComment () {
-        // 清理上一次的轮询：旧闭包持有上一个视频的简介数据，不清理会在切换视频后把旧简介重新插入
-        if (this._checkDescriptionInterval) {
-            clearInterval(this._checkDescriptionInterval)
-            this._checkDescriptionInterval = null
+        // 清理上一次的执行：旧闭包持有上一个视频的简介数据，不清理会在切换视频后把旧简介重新插入
+        if (this._descriptionFeedWaitStop) {
+            this._descriptionFeedWaitStop()
+            this._descriptionFeedWaitStop = null
         }
+        if (this._descriptionFallbackTimer) {
+            clearTimeout(this._descriptionFallbackTimer)
+            this._descriptionFallbackTimer = null
+        }
+        if (this._descriptionWatchdog) {
+            clearTimeout(this._descriptionWatchdog)
+            this._descriptionWatchdog = null
+        }
+        // 运行令牌：SPA 切换触发的下一次调用会让旧调用在等待中途主动放弃，避免并发插入
+        this._descriptionRunToken = (this._descriptionRunToken || 0) + 1
+        const runToken = this._descriptionRunToken
+        const isCancelled = () => runToken !== this._descriptionRunToken
         let videoInfo
         try {
             videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, biliApis.getCurrentVideoID(window.location.href))
@@ -92,6 +104,11 @@ export const commentFeatures = {
             return
         }
         const videoDescription = videoInfo.desc || ''
+        // 没有简介内容的视频无需插入
+        if (!videoDescription.trim()) {
+            logger.debug('视频简介丨简介为空，跳过插入')
+            return
+        }
         // 插入前检查：移除所有已存在的视频简介元素
         const existingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.value('adjustmentCommentDescription'))
         for (const el of existingDescriptions) {
@@ -104,8 +121,8 @@ export const commentFeatures = {
             this.videoDescriptionObserver = null
         }
         const descriptionHtml = formatVideoCommentDescription(videoDescription, videoInfo.desc_v2)
-        const insertToCommentArea = () => {
-            const videoCommentReplyListShadowRoot = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
+        const insertToCommentArea = feedElement => {
+            const videoCommentReplyListShadowRoot = feedElement || shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
             if (!videoCommentReplyListShadowRoot) return false
             const upAvatarFaceLink = '//www.asifadeaway.com/Stylish/bilibili/avatar-description.png'
             const template = document.createElement('template')
@@ -120,43 +137,101 @@ export const commentFeatures = {
             this._observeVideoDescriptionDuplicates(videoCommentReplyListShadowRoot)
             return true
         }
-        // 轮询等待新页面渲染完成：简介信息区出现新视频内容后才插入，
-        // 避免过早插入到 B站 重渲染前的旧评论区导致简介丢失或残留
-        const MAX_ATTEMPTS = 30 // 约 9 秒
-        let attempts = 0
-        const checkAndTrigger = setInterval(async () => {
-            attempts++
-            const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(['videoDescription', 'videoDescriptionInfo'])
-            // 信息区已渲染出新视频内容（含标题与简介正文）视为页面就绪
-            const infoReady = videoDescriptionElement?.childElementCount > 1 && videoDescriptionInfoElement?.childElementCount > 0
-            // 已插入且校验通过，结束轮询
-            if (infoReady && shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
-                clearInterval(checkAndTrigger)
-                this._checkDescriptionInterval = null
-                return
+        // 页面已渲染出当前视频内容的判断（SPA 切换视频时旧内容会短暂残留，
+        // 过早插入会进到重渲染前的旧评论区）：
+        // 1) 页面标题与当前视频一致；2) 简介区文本与当前视频简介开头一致（简介较长时 DOM 中可能只保留开头）
+        const normalize = text => String(text || '').replace(/\s+/g, ' ').trim()
+        const pageRenderedForCurrentVideo = () => {
+            const titleElement = elementSelectors.query('videoTitle')
+            const currentTitle = normalize(videoInfo.title)
+            if (currentTitle !== '' && normalize(titleElement?.textContent) === currentTitle) return true
+            const descriptionTextElement = elementSelectors.query('videoDescriptionText')
+            const descPrefix = normalize(videoDescription).slice(0, 20)
+            return descPrefix !== '' && normalize(descriptionTextElement?.textContent).startsWith(descPrefix)
+        }
+        // 截断判断：只有简介被截断（需点击"展开"才能查看完整内容）的简介才插入评论区，
+        // 短简介无需重复展示，直接跳过（这是本功能的设计初衷）
+        const isDescriptionTruncated = (videoDescriptionElement, videoDescriptionInfoElement) =>
+            videoDescriptionElement?.childElementCount > 1 && videoDescriptionInfoElement?.childElementCount > 0
+        // 阶段一：等待页面为当前视频渲染完成（标题匹配），最长约 10 秒。
+        // 标题匹配后简介区随新视频一并渲染，其截断状态即已确定；
+        // 连续两次读取结果一致才下结论，避免 SPA 渲染过渡期读到旧简介区的状态
+        let pageReady = false
+        let descBlockExists = false
+        let truncated = false
+        let prevTruncated = null
+        for (let attempt = 0; attempt < 40; attempt++) {
+            if (isCancelled()) return
+            pageReady = pageRenderedForCurrentVideo()
+            if (pageReady) {
+                const [videoDescriptionElement, videoDescriptionInfoElement] = await elementSelectors.batch(['videoDescription', 'videoDescriptionInfo'])
+                descBlockExists = Boolean(videoDescriptionElement && videoDescriptionInfoElement)
+                truncated = isDescriptionTruncated(videoDescriptionElement, videoDescriptionInfoElement)
+                if (descBlockExists && truncated === prevTruncated && prevTruncated !== null) break
+                prevTruncated = truncated
             }
-            if (infoReady && insertToCommentArea() && shadowDOMHelper.querySelector(shadowDomSelectors.descriptionRenderer)) {
-                clearInterval(checkAndTrigger)
-                this._checkDescriptionInterval = null
-                logger.info('视频简介丨已插入评论区')
-                return
-            }
-            // 页面未就绪或评论区插入未生效（B站可能正在重渲染评论区），继续轮询等待
-            if (attempts < MAX_ATTEMPTS) return
-            clearInterval(checkAndTrigger)
-            this._checkDescriptionInterval = null
-            if (infoReady) {
-                // 评论区始终不可用时退化为替换简介区
-                const videoDescriptionInfoElement = await elementSelectors.query('videoDescriptionInfo')
-                if (videoDescriptionInfoElement) {
-                    videoDescriptionInfoElement.innerHTML = descriptionHtml
-                    logger.debug('视频简介丨已替换')
+            await sleep(250)
+        }
+        if (isCancelled()) return
+        if (!pageReady) {
+            logger.info('视频简介丨页面未完成渲染，跳过插入')
+            return
+        }
+        if (!descBlockExists) {
+            logger.info('视频简介丨未找到简介信息区，跳过插入')
+            return
+        }
+        if (!truncated) {
+            logger.debug('视频简介丨简介未截断，无需插入评论区')
+            return
+        }
+        // 校验插入结果是否仍存在：B站 重渲染评论区可能清除插入内容，被清除则重新插入（最多 3 轮）
+        const verifyAndRepairInsert = rounds => {
+            if (rounds <= 0) return
+            this._descriptionWatchdog = setTimeout(async () => {
+                this._descriptionWatchdog = null
+                if (isCancelled()) return
+                if (shadowDOMHelper.querySelector(elementSelectors.value('adjustmentCommentDescription'))) return
+                if (insertToCommentArea()) {
+                    logger.debug('视频简介丨插入内容被清除，已重新插入')
+                    verifyAndRepairInsert(rounds - 1)
                 }
-            } else {
-                logger.info('视频简介丨等待页面渲染超时，跳过插入')
+            }, 1500)
+        }
+        // 阶段二：评论区为懒加载。若 #feed 已存在则立即插入；
+        // 否则用 observeInsertion 监听，出现即插入。监听不设放弃时限，
+        // 持续到插入成功或被取消（SPA 切换 / 卸载），且不阻塞顺序执行器
+        const insertIntoFeed = feedElement => {
+            if (isCancelled()) return
+            if (!insertToCommentArea(feedElement)) return
+            if (this._descriptionFeedWaitStop) {
+                this._descriptionFeedWaitStop()
+                this._descriptionFeedWaitStop = null
             }
-        }, 300)
-        this._checkDescriptionInterval = checkAndTrigger
+            if (this._descriptionFallbackTimer) {
+                clearTimeout(this._descriptionFallbackTimer)
+                this._descriptionFallbackTimer = null
+            }
+            logger.info('视频简介丨已插入评论区')
+            verifyAndRepairInsert(3)
+        }
+        const existingFeed = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
+        if (existingFeed) {
+            insertIntoFeed(existingFeed)
+            return
+        }
+        this._descriptionFeedWaitStop = shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, insertIntoFeed)
+        // 评论区始终不可用（如关闭评论区）时退化为替换简介区，让用户无需点击"展开"即可阅读完整简介；
+        // 监听不取消，之后评论区出现仍会正常插入
+        this._descriptionFallbackTimer = setTimeout(() => {
+            this._descriptionFallbackTimer = null
+            if (isCancelled()) return
+            const videoDescriptionInfoElement = elementSelectors.query('videoDescriptionInfo')
+            if (videoDescriptionInfoElement) {
+                videoDescriptionInfoElement.innerHTML = descriptionHtml
+                logger.debug('视频简介丨评论区不可用，已替换简介区内容')
+            }
+        }, 15000)
     },
     /**
      * 使用 MutationObserver 监控视频简介元素的重复情况

@@ -30,7 +30,6 @@ export default {
         this.advertisementIdentified = false
         this.videoDescriptionObserver = null
         this.initSubtitleStateMemory()
-        insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
         this._cleanup.push(eventBus.on(EVENT_NAMES.APP_READY, async () => {
             logger.info('视频模块｜已加载')
             await this.preFunctions()
@@ -63,7 +62,10 @@ export default {
         if (this._adVideo && this._adTimeUpdateHandler) {
             this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
         }
-        if (this._checkDescriptionInterval) clearInterval(this._checkDescriptionInterval)
+        if (this._descriptionWatchdog) clearTimeout(this._descriptionWatchdog)
+        if (this._descriptionFallbackTimer) clearTimeout(this._descriptionFallbackTimer)
+        this._descriptionFeedWaitStop?.()
+        this._descriptionRunToken = (this._descriptionRunToken || 0) + 1
         this._pauseVideoCleanup?.()
     },
     async preFunctions () {
@@ -71,6 +73,11 @@ export default {
         await sleep(300)
         this.userConfigs = await storageService.getAll('user')
         logger.debug('播放进度诊断丨userConfigs 已加载, playback_memory=' + this.userConfigs?.playback_memory)
+        // 定位前锁定页面滚动，避免用户滚动干扰自动定位；网页全屏解锁场景不执行定位（见 autoLocateToPlayer），
+        // 锁定会在定位被跳过时永远无法解除，导致页面卡死无法滚动，故跳过
+        if (!this.userConfigs.webfull_unlock) {
+            insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
+        }
         await this.registSettings()
         await this.initEventListeners()
         this.initMonitors()

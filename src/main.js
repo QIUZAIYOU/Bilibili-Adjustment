@@ -4,6 +4,7 @@ import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
 import { LoggerService } from '@/services/logger.service'
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
+import { initScrollbarHoverWidening } from '@/utils/scrollbar-hover'
 import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
 import { EVENT_NAMES } from '@/shared/constants'
@@ -107,4 +108,5 @@ const initializeApp = async () => {
     }
 }
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
+initScrollbarHoverWidening()
 initializeApp()
