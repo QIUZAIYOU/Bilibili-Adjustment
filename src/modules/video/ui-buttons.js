@@ -7,6 +7,25 @@ import { getTemplates } from '@/shared/templates'
 import { sleep, createElementAndInsert, addEventListenerToElement, insertStyleToDocument, documentScrollTo, getElementOffsetToDocument } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
 export const uiButtonsFeatures = {
+    /**
+     * 定位按钮点击：新页面迷你播放器按钮隐藏不可用，开启小窗会触发 B站 滚动推荐列表并搅动布局，
+     * 干扰定位执行；仅旧页面（按钮可见）保留"临时开窗定位后再关闭"逻辑
+     */
+    async locateButtonClick () {
+        const miniOpenBtn = document.querySelector('.mini-player-window[title="点击打开迷你播放器"]')
+        const miniCloseBtn = document.querySelector('.mini-player-window[title="点击关闭迷你播放器"]')
+        if (!miniOpenBtn || miniCloseBtn || getComputedStyle(miniOpenBtn).display === 'none') {
+            await this.locateToPlayer()
+            return
+        }
+        // 小窗关闭时临时开启，定位后再关闭
+        miniOpenBtn.click()
+        await sleep(50)
+        await this.locateToPlayer()
+        await sleep(50)
+        // 使用固定选择器关闭小窗（不依赖 B 站的 title 状态切换）
+        document.querySelector('#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item')?.click()
+    },
     async insertSideFloatNavToolsButtons () {
         const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
         if (!floatNav) {
@@ -31,21 +50,7 @@ export const uiButtonsFeatures = {
                     dataV: dataV,
                     text: '定位'
                 }), floatNav.lastElementChild, 'prepend')
-                addEventListenerToElement(locateButton, 'click', async () => {
-                    // 小窗关闭时临时开启，定位后再关闭
-                    const miniOpenBtn = document.querySelector('.mini-player-window[title="点击打开迷你播放器"]')
-                    const miniCloseBtn = document.querySelector('.mini-player-window[title="点击关闭迷你播放器"]')
-                    if (miniOpenBtn && !miniCloseBtn) {
-                        miniOpenBtn.click()
-                        await sleep(50)
-                        await this.locateToPlayer()
-                        await sleep(50)
-                        // 使用固定选择器关闭小窗（不依赖 B 站的 title 状态切换）
-                        document.querySelector('#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item')?.click()
-                    } else {
-                        await this.locateToPlayer()
-                    }
-                })
+                addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {
@@ -87,19 +92,7 @@ export const uiButtonsFeatures = {
                     dataV: dataV,
                     text: ''
                 }), floatNav, 'append')
-                addEventListenerToElement(locateButton, 'click', async () => {
-                    const miniOpenBtn = document.querySelector('.mini-player-window[title="点击打开迷你播放器"]')
-                    const miniCloseBtn = document.querySelector('.mini-player-window[title="点击关闭迷你播放器"]')
-                    if (miniOpenBtn && !miniCloseBtn) {
-                        miniOpenBtn.click()
-                        await sleep(50)
-                        await this.locateToPlayer()
-                        await sleep(50)
-                        document.querySelector('#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item')?.click()
-                    } else {
-                        await this.locateToPlayer()
-                    }
-                })
+                addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {

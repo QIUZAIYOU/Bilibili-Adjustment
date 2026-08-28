@@ -166,35 +166,63 @@ export const playerModeFeatures = {
         const playerContainer = await elementSelectors.query('playerContainer')
         if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')
-        // 全屏模式下滚动无效，直接跳过
-        if (playerMode === 'full') return
+        // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
+        if (playerMode === 'full' || playerMode === 'web') return
         const header = await elementSelectors.headerMini
         const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
         const headerHeight = parseInt(headerComputedStyle.height, 10) || 0
         const headerFixed = headerComputedStyle.position === 'fixed'
         const offsetTop = Number(this.userConfigs.offset_top) || 0
+        // mini 模式播放器 transform 悬浮，无文档流位置可用，滚动到记忆位置即可
+        if (playerMode === 'mini') {
+            await documentScrollTo(this.userConfigs.player_offset_top, { duration: 300 }).catch(error => {
+                logger.warn('自动定位丨滚动失败:', error.message)
+            })
+            return
+        }
+        // 播放器容器顶部在视口中的期望位置（滚动到位后播放器顶部应对齐到此）
+        const targetViewportTop = headerFixed ? headerHeight + offsetTop : offsetTop
+        const getMaxScroll = () => {
+            const scroller = document.scrollingElement || document.documentElement
+            return Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+        }
+        // 文档流位置（getElementOffsetToDocument 已排除吸顶干扰）减去期望视口位置；
+        // 无评论等文档高度不足时目标超出可滚动范围，clamp 到最大滚动位置
         const computeTarget = container => {
-            const playerContainerOffsetTop = container.getAttribute('data-screen') !== 'mini' ? getElementOffsetToDocument(container).top : this.userConfigs.player_offset_top
-            return headerFixed ? playerContainerOffsetTop - headerHeight - offsetTop : playerContainerOffsetTop - offsetTop
+            const target = getElementOffsetToDocument(container).top - targetViewportTop
+            return Math.max(0, Math.min(target, getMaxScroll()))
+        }
+        const isPositioned = container => {
+            const rect = container.getBoundingClientRect()
+            // 吸顶（scroll-sticky）时播放器固定在视口目标位置同样视为定位成功
+            if (Math.abs(rect.top - targetViewportTop) <= 8) return true
+            // 文档高度不足（如无评论的视频页）：滚动到底部即为当前最优位置
+            const scroller = document.scrollingElement || document.documentElement
+            return window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
         }
         let targetOffset = computeTarget(playerContainer)
         await documentScrollTo(targetOffset, { duration: 300 }).catch(error => {
             logger.warn('自动定位丨滚动失败:', error.message)
         })
-        // SPA 切换视频时页面布局可能尚未稳定，滚动后校验播放器实际位置，偏差过大时重新定位
-        for (let attempt = 0; attempt < 2; attempt++) {
+        // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 5 次
+        for (let attempt = 0; attempt < 5; attempt++) {
             await sleep(300)
             const freshContainer = await elementSelectors.query('playerContainer')
-            if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full') return
+            if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full' || freshContainer.getAttribute('data-screen') === 'web') return
+            if (isPositioned(freshContainer)) return
             const freshTarget = computeTarget(freshContainer)
-            // 播放器位置未变且已滚动到位，无需处理
-            if (Math.abs(freshTarget - targetOffset) <= 5 && Math.abs(window.scrollY - targetOffset) <= 5) return
+            if (Math.abs(freshTarget - targetOffset) <= 5) {
+                // 目标未变化但仍未到位：B站 吸顶状态未解除，重复滚动触发其监听器后继续等待
+                logger.debug('自动定位丨目标未变化，等待播放器吸顶状态解除')
+            } else {
+                logger.debug(`自动定位丨重新定位: ${freshTarget}（当前位置 ${window.scrollY}）`)
+            }
             targetOffset = freshTarget
-            logger.debug(`自动定位丨重新定位: ${targetOffset}（当前位置 ${window.scrollY}）`)
             await documentScrollTo(targetOffset, { duration: 300 }).catch(error => {
                 logger.warn('自动定位丨重新定位失败:', error.message)
             })
         }
+        logger.debug('自动定位丨多次尝试后仍未到位')
     },
     async clickPlayerAutoLocate () {
         addEventListenerToElement(await elementSelectors.playerContainer, 'click', async e => {

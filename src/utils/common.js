@@ -112,10 +112,51 @@ export const documentScrollTo = (offset, options = {}) => {
     })
 }
 export const getElementOffsetToDocument = element => {
-    const rect = element.getBoundingClientRect()
-    return {
-        top: rect.top + window.scrollY - parseFloat(getComputedStyle(element).marginTop),
-        left: rect.left + window.scrollX - parseFloat(getComputedStyle(element).marginLeft)
+    // B站 新版视频页滚动时会给播放器容器吸顶（.left-container.scroll-sticky），吸顶锁定时
+    // getBoundingClientRect 与 offsetTop 链都会返回"吸住后"的位移坐标，而非真实文档流位置，
+    // 原"差异过大时改用链式结果"的兜底因此失效；这里把路径上的 sticky 祖先临时强制为 static，
+    // 同步读取真实文档流坐标后立即恢复，不触发重绘、不影响页面状态
+    const pinned = []
+    let current = element
+    while (current) {
+        if (getComputedStyle(current).position === 'sticky') {
+            pinned.push({
+                element: current,
+                position: current.style.position,
+                top: current.style.top,
+                left: current.style.left
+            })
+            current.style.position = 'static'
+            current.style.top = ''
+            current.style.left = ''
+        }
+        current = current.parentElement
+    }
+    try {
+        let chainTop = 0
+        let chainLeft = 0
+        current = element
+        while (current) {
+            chainTop += current.offsetTop
+            chainLeft += current.offsetLeft
+            current = current.offsetParent
+        }
+        const computed = getComputedStyle(element)
+        const rect = element.getBoundingClientRect()
+        const rectTop = rect.top + window.scrollY - parseFloat(computed.marginTop)
+        const rectLeft = rect.left + window.scrollX - parseFloat(computed.marginLeft)
+        return {
+            // 存在 transform 祖先时 rect 坐标会被平移而链式结果不受影响，差异过大时取链式结果
+            top: Math.abs(rectTop - chainTop) > 10 ? chainTop : rectTop,
+            left: Math.abs(rectLeft - chainLeft) > 10 ? chainLeft : rectLeft
+        }
+    } finally {
+        for (let i = pinned.length - 1; i >= 0; i--) {
+            const { element: sticky, position, top, left } = pinned[i]
+            sticky.style.position = position
+            sticky.style.top = top
+            sticky.style.left = left
+        }
     }
 }
 export const getElementComputedStyle = (element, propertyName) => {
