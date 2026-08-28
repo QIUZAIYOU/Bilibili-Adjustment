@@ -17,6 +17,7 @@ import { commentFeatures } from './comment'
 import { qualityFeatures } from './quality'
 import { webfullFeatures } from './webfull'
 import { uiButtonsFeatures } from './ui-buttons'
+import { upSpacePopupFeatures } from './up-space-popup'
 import { videoRotateFeatures } from './video-rotate'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
@@ -38,6 +39,8 @@ export default {
     async uninstall () {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
+        this._upSpacePopupDismissCleanup?.()
+        this._upSpacePopupDismissCleanup = null
         this._remoteConfigSyncUnsubscribe?.()
         this._remoteConfigSyncUnsubscribe = null
         if (this.videoDescriptionObserver) {
@@ -158,6 +161,7 @@ export default {
         })
     },
     async registSettings (){
+        this.settingsComponent = settingsComponent
         await settingsComponent.init(this.userConfigs)
     },
     initMonitors () {
@@ -357,5 +361,6 @@ export default {
     ...qualityFeatures,
     ...webfullFeatures,
     ...uiButtonsFeatures,
+    ...upSpacePopupFeatures,
     ...videoRotateFeatures
 }

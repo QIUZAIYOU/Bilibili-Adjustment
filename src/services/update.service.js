@@ -353,6 +353,14 @@ export class UpdateService {
         }), document.body, 'append')
         // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
         updatePopover.__popoverDismissCleanup = enablePopoverLightDismiss(updatePopover)
+        // 关闭后移除容器（统一关闭逻辑），下次检查更新时重新创建
+        updatePopover.addEventListener('toggle', e => {
+            if (e.newState === 'closed') {
+                updatePopover.__popoverDismissCleanup?.()
+                updatePopover.__popoverDismissCleanup = null
+                updatePopover.remove()
+            }
+        })
         updatePopover.showPopover()
         const updateButton = updatePopover.querySelector('.adjustment-button-update')
         const closeButton = updatePopover.querySelector('.adjustment-button-close')

@@ -86,5 +86,41 @@ export const videoPageStyles = {
             display: flex;
             justify-content: space-between;
         }
+
+        #UpSpacePopover {
+            width: min(1080px, 94vw);
+            height: min(880px, 90vh);
+            max-height: 90vh;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        #UpSpacePopover .adjustment-popover-header {
+            flex-shrink: 0;
+            padding: 14px 20px;
+        }
+
+        #UpSpacePopover .up-space-popover-frame {
+            flex: 1;
+            width: 100%;
+            border: none;
+        }
+
+        #UpSpacePopoverCloseButton {
+            cursor: pointer;
+            font-size: 16px;
+            color: #888;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            user-select: none;
+        }
+
+        #UpSpacePopoverCloseButton:hover {
+            color: #fff;
+            background: #333;
+        }
     `
 }

@@ -87,13 +87,12 @@ export const homeHistoryFeatures = {
                 // 统一的外部点击/Escape 关闭（原生 popover 的 light dismiss 在弹窗内按下、
                 // 弹窗外松开拖选文字时会误关，故用手动模式 + 自定义判定）
                 popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
-                // 弹窗关闭时清空搜索框
+                // 弹窗关闭后移除容器（统一关闭逻辑），重开时整体重建，搜索框随之重置
                 addEventListenerToElement(popover, 'toggle', e => {
                     if (e.newState === 'closed') {
-                        const searchInput = document.getElementById('indexRecommendVideoHistorySearchInput')
-                        if (searchInput) {
-                            searchInput.value = ''
-                        }
+                        popover.__popoverDismissCleanup?.()
+                        popover.__popoverDismissCleanup = null
+                        popover.remove()
                     }
                 })
                 // 绑定清空按钮事件（弹窗创建后只绑定一次）

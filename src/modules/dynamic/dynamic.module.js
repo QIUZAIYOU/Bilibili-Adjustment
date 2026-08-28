@@ -76,11 +76,8 @@ export default {
             return
         }
         const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
-        const cleanup = addEventListenerToElement(dynamicSettingsOpenButton, 'click', () => {
-            const DynamicSettingsPopover = document.getElementById('DynamicSettingsPopover')
-            if (DynamicSettingsPopover) {
-                DynamicSettingsPopover.showPopover()
-            }
+        const cleanup = addEventListenerToElement(dynamicSettingsOpenButton, 'click', async () => {
+            await settingsComponent.openSettings()
         })
         this._cleanup.push(cleanup)
         logger.debug('侧边栏工具丨插入成功')

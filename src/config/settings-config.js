@@ -77,6 +77,18 @@ export const videoSettingsConfig = [
         visible: configs => configs.selected_player_mode === 'web'
     },
     {
+        id: 'open_author_space_mode',
+        type: 'radio',
+        label: '打开UP主主页方式',
+        options: [
+            { value: 'tab', label: '新标签页' },
+            { value: 'popup', label: '弹窗' }
+        ],
+        defaultValue: 'tab',
+        tips: '点击「UP主空间」或「主页」按钮时打开UP主主页的方式；弹窗方式在当前页面内展示主页，不打断浏览',
+        category: 'basic'
+    },
+    {
         id: 'preserve_player_mode',
         type: 'checkbox',
         label: '上下集切换时保持当前屏幕模式',

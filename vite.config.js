@@ -59,7 +59,8 @@ export default defineConfig(({ mode }) => ({
                     '*://www.bilibili.com/video/*',
                     '*://www.bilibili.com/bangumi/play/*',
                     '*://www.bilibili.com/list/*',
-                    '*://t.bilibili.com/*'
+                    '*://t.bilibili.com/*',
+                    '*://space.bilibili.com/*'
                 ],
                 supportURL: 'https://github.com/QIUZAIYOU/Bilibili-Adjustment',
                 homepageURL: 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js',

@@ -107,6 +107,15 @@ const initializeApp = async () => {
         logger.error('应用初始化失败', error)
     }
 }
+// 弹窗内嵌空间主页（跨域 iframe）：检测到脚本标记参数时隐藏站点头部，只保留内容区
+if (window.self !== window.top && location.search.includes('bili-adjustment-popup')) {
+    insertStyleToDocument({
+        'UpSpacePopupHeaderHiddenStyle': `
+            #biliMainHeader { display: none !important; }
+            html, body { overflow-x: hidden !important; }
+        `
+    })
+}
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
 initScrollbarHoverWidening()
 initializeApp()

@@ -59,8 +59,7 @@ export const uiButtonsFeatures = {
                     text: '设置'
                 }), floatNav.lastElementChild, 'prepend')
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
-                    const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
-                    VideoSettingsPopover.showPopover()
+                    await this.settingsComponent.openSettings()
                 })
             }
             if (!existingUpButton && this.userConfigs.page_type === 'video') {
@@ -76,7 +75,7 @@ export const uiButtonsFeatures = {
                             return info.owner?.mid
                         } catch { /* 忽略解析失败 */ }
                     })()
-                    if (mid) window.open(`https://space.bilibili.com/${mid}`, '_blank')
+                    if (mid) this.openUpSpace(mid)
                 })
                 // 异步获取 mid 缓存
                 biliApis.getVideoInformation('video', biliApis.getCurrentVideoID()).then(info => {
@@ -102,8 +101,7 @@ export const uiButtonsFeatures = {
                     text: ''
                 }), floatNav, 'append')
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
-                    const VideoSettingsPopover = await elementSelectors.VideoSettingsPopover
-                    VideoSettingsPopover.showPopover()
+                    await this.settingsComponent.openSettings()
                 })
             }
         }
@@ -141,7 +139,7 @@ export const uiButtonsFeatures = {
             const upBtn = createElementAndInsert(upHtml, playerControllerBottomRight)
             addEventListenerToElement(upBtn, 'click', e => {
                 e.stopPropagation()
-                window.open(`https://space.bilibili.com/${mid}`, '_blank')
+                this.openUpSpace(mid)
             })
         }
     }

@@ -45,6 +45,18 @@ export class SettingsComponentV2 {
         }
         await this.render(this.pageType)
     }
+    /**
+     * 打开设置弹窗：容器已在关闭时销毁，不存在则重新渲染再打开
+     */
+    async openSettings () {
+        const popoverId = this.pageType === 'dynamic' ? 'DynamicSettingsPopover' : 'VideoSettingsPopover'
+        let popover = document.getElementById(popoverId)
+        if (!popover) {
+            await this.init(this.userConfigs)
+            popover = document.getElementById(popoverId)
+        }
+        if (popover) popover.showPopover()
+    }
     async render (pageType) {
         try {
             switch (pageType) {
@@ -128,11 +140,17 @@ export class SettingsComponentV2 {
             logger.warn('设置弹窗未找到')
             return
         }
-        // 绑定弹窗开关事件
+        // 绑定弹窗开关事件；关闭后移除容器（统一关闭逻辑），重开时经 openSettings 重建
         const app = await elementSelectors.app
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
-            if (e.newState === 'closed') app.style.pointerEvents = 'auto'
+            if (e.newState === 'closed') {
+                app.style.pointerEvents = 'auto'
+                popover.__popoverDismissCleanup?.()
+                popover.__popoverDismissCleanup = null
+                destroyTooltip()
+                popover.remove()
+            }
         })
         // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
         popover.__popoverDismissCleanup?.()
@@ -572,7 +590,12 @@ export class SettingsComponentV2 {
         const app = await elementSelectors.app
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
-            if (e.newState === 'closed') app.style.pointerEvents = 'auto'
+            if (e.newState === 'closed') {
+                app.style.pointerEvents = 'auto'
+                popover.__popoverDismissCleanup?.()
+                popover.__popoverDismissCleanup = null
+                popover.remove()
+            }
         })
         // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
         popover.__popoverDismissCleanup?.()
