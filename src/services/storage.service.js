@@ -38,6 +38,16 @@ export class StorageService {
                     ]
                 }
             ]
+        },
+        adCache: {
+            dbName: 'BilibiliAdjustmentAdCache',
+            version: 1,
+            storeConfig: [
+                {
+                    name: 'keyval',
+                    keyPath: 'key'
+                }
+            ]
         }
     }
     constructor () {
@@ -79,6 +89,8 @@ export class StorageService {
     userSet (key, value) { return this.set('user', key, value) }
     userGet (key) { return this.get('user', key) }
     userRemove (key) { return this.remove('user', key) }
+    adCacheGet (key) { return this.get('adCache', key) }
+    adCacheSet (key, value) { return this.set('adCache', key, value) }
     async getAll (dbName, indexName, queryRange, pageSize) {
         const db = this.#dbs.get(dbName)
         const result = await db.getAll('keyval', indexName, queryRange, pageSize)

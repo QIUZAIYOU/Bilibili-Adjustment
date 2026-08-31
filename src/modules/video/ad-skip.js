@@ -2,6 +2,7 @@ import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
+import { storageService } from '@/services/storage.service'
 const logger = new LoggerService('VideoModule')
 export const adSkipFeatures = {
     async identifyAdvertisementTimestamps () {
@@ -22,11 +23,23 @@ export const adSkipFeatures = {
             this.advertisementIdentified = false
         }, 30000)
         const bvid = biliApis.getCurrentVideoID(window.location.href)
+        if (!bvid || bvid === 'error') return
+        // 检查 IndexedDB 缓存，命中则直接使用，跳过 AI 调用
+        try {
+            const cached = await storageService.adCacheGet(bvid)
+            if (cached) {
+                logger.info('自动跳过广告丨命中缓存，跳过 AI 识别')
+                this.autoSkipAdvertisementSegments(cached)
+                return cached
+            }
+        } catch (error) {
+            logger.debug('自动跳过广告丨缓存读取失败，继续识别', error)
+        }
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
         if (!videoInfo) return
         const cid = videoInfo.cid
         const up_mid = videoInfo.owner?.mid
-        if (!cid || !up_mid || !bvid || bvid === 'error') return
+        if (!cid || !up_mid) return
         const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
         // logger.info('获取视频字幕', subtitle)
         if (!subtitle || subtitle.length === 0) {
@@ -38,6 +51,15 @@ export const adSkipFeatures = {
             await initializeAIService()
             const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
             // logger.info('广告时间戳识别结果:', timestamps)
+            // 识别结果存入 IndexedDB 缓存
+            if (timestamps && timestamps.length > 0) {
+                try {
+                    await storageService.adCacheSet(bvid, timestamps)
+                    logger.info('自动跳过广告丨识别结果已缓存')
+                } catch (error) {
+                    logger.debug('自动跳过广告丨缓存写入失败', error)
+                }
+            }
             // 调用自动跳过广告函数
             this.autoSkipAdvertisementSegments(timestamps)
             return timestamps
