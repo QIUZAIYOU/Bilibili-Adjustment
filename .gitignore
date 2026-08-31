@@ -34,3 +34,9 @@ AGENTS.md
 *.log
 npm-debug.log*
 pnpm-debug.log*
+# Dot directories
+.codegraph/
+.freebuff/
+.history/
+.reasonix/
+.trae/
