@@ -4,6 +4,7 @@ import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
 const logger = new LoggerService('VideoModule')
+const AD_CACHE_API = 'https://www.asifadeaway.com/api/ad-cache.php'
 export const adSkipFeatures = {
     async identifyAdvertisementTimestamps () {
         // 检查自动跳广告开关是否开启
@@ -24,16 +25,35 @@ export const adSkipFeatures = {
         }, 30000)
         const bvid = biliApis.getCurrentVideoID(window.location.href)
         if (!bvid || bvid === 'error') return
-        // 检查 IndexedDB 缓存，命中则直接使用，跳过 AI 调用
+        // 检查 IndexedDB 本地缓存，命中则直接使用，跳过 AI 调用
         try {
             const cached = await storageService.adCacheGet(bvid)
             if (cached) {
-                logger.info('自动跳过广告丨命中缓存，跳过 AI 识别')
+                logger.info('自动跳过广告丨命中本地缓存，跳过 AI 识别')
                 this.autoSkipAdvertisementSegments(cached)
                 return cached
             }
         } catch (error) {
-            logger.debug('自动跳过广告丨缓存读取失败，继续识别', error)
+            logger.debug('自动跳过广告丨本地缓存读取失败，继续识别', error)
+        }
+        // 本地缓存未命中，查询远程共享缓存
+        try {
+            const resp = await fetch(`${AD_CACHE_API}?bvid=${bvid}`)
+            if (resp.ok) {
+                const result = await resp.json()
+                if (result.ok && result.data?.segments?.length > 0) {
+                    const segments = result.data.segments
+                    logger.info('自动跳过广告丨命中远程缓存，跳过 AI 识别')
+                    // 写入本地缓存以便后续快速访问
+                    try {
+                        await storageService.adCacheSet(bvid, segments)
+                    } catch (_) {}
+                    this.autoSkipAdvertisementSegments(segments)
+                    return segments
+                }
+            }
+        } catch (error) {
+            logger.debug('自动跳过广告丨远程缓存查询失败，继续识别', error)
         }
         const videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
         if (!videoInfo) return
@@ -51,13 +71,23 @@ export const adSkipFeatures = {
             await initializeAIService()
             const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
             // logger.info('广告时间戳识别结果:', timestamps)
-            // 识别结果存入 IndexedDB 缓存
+            // 识别结果存入本地缓存 + 远程共享缓存
             if (timestamps && timestamps.length > 0) {
                 try {
                     await storageService.adCacheSet(bvid, timestamps)
-                    logger.info('自动跳过广告丨识别结果已缓存')
+                    logger.info('自动跳过广告丨识别结果已缓存到本地')
                 } catch (error) {
-                    logger.debug('自动跳过广告丨缓存写入失败', error)
+                    logger.debug('自动跳过广告丨本地缓存写入失败', error)
+                }
+                try {
+                    fetch(AD_CACHE_API, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bvid, segments: timestamps })
+                    })
+                    logger.info('自动跳过广告丨识别结果已上传到远程缓存')
+                } catch (error) {
+                    logger.debug('自动跳过广告丨远程缓存上传失败', error)
                 }
             }
             // 调用自动跳过广告函数
