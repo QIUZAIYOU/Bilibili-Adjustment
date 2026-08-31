@@ -97,11 +97,16 @@ test('restorePlaybackPosition 跳过无效记录', async () => {
     const video4 = makeVideo({ currentTime: 0 })
     await progressMemoryFeatures.restorePlaybackPosition.call(ctx4, video4)
     assert.equal(video4.currentTime, 0)
-    // 同 key 已恢复过
+    // 同 key 已恢复过但进度被外部覆盖（官方恢复把进度拉回浅位置）：重新恢复
     const ctx5 = { ...makeCtx({ store: { '/v?p=1': { position: 60, timestamp: Date.now() }}}), _playbackKey: '/v?p=1', _playbackRestoredKey: '/v?p=1', _playbackUserInteracted: false }
     const video5 = makeVideo({ currentTime: 0 })
     await progressMemoryFeatures.restorePlaybackPosition.call(ctx5, video5)
-    assert.equal(video5.currentTime, 0)
+    assert.equal(video5.currentTime, 60)
+    // 同 key 已恢复过且进度未被覆盖：跳过重复恢复
+    const ctx6 = { ...makeCtx({ store: { '/v?p=1': { position: 60, timestamp: Date.now() }}}), _playbackKey: '/v?p=1', _playbackRestoredKey: '/v?p=1', _playbackUserInteracted: false }
+    const video6 = makeVideo({ currentTime: 58 })
+    await progressMemoryFeatures.restorePlaybackPosition.call(ctx6, video6)
+    assert.equal(video6.currentTime, 58)
 })
 test('restorePlaybackPosition 恢复有效记录', async () => {
     const ctx = { ...makeCtx({ store: { '/v?p=1': { position: 65, timestamp: Date.now() }}}), _playbackKey: '/v?p=1', _playbackRestoredKey: null, _playbackUserInteracted: false }

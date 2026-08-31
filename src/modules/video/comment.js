@@ -49,6 +49,19 @@ export const commentFeatures = {
         if (!contents) return
         contents.innerHTML = formatVideoCommentContents(contents)
     },
+    // 绑定简介区替换内容中的时间锚点点击跳转（替换简介区后调用）
+    async activeDescriptionTimeSeek () {
+        const video = await elementSelectors.video
+        if (!video) return
+        const seekElements = document.querySelectorAll(`${elementSelectors.value('videoDescriptionText')} a[data-type="seek"]`)
+        seekElements.forEach(element => {
+            addEventListenerToElement(element, 'click', async event => {
+                event.stopPropagation()
+                await this.locateToPlayer()
+                this.handleJumpToVideoTime(video, element)
+            })
+        })
+    },
     // 处理评论元素
     async doSomethingToCommentElements () {
         const video = await elementSelectors.video
@@ -181,6 +194,16 @@ export const commentFeatures = {
             logger.info('视频简介丨未找到简介信息区，跳过插入')
             return
         }
+        // 替换原简介区内容为链接化版本（时间锚点/URL/BV号/cv号/@用户），不论简介长短都要执行，
+        // 与插入评论区解耦；仅替换 .desc-info-text 内部内容，保留 B 站原始 DOM 结构
+        const videoDescriptionInfoElement = elementSelectors.query('videoDescriptionInfo')
+        const descriptionTextElement = videoDescriptionInfoElement?.querySelector('.desc-info-text')
+        if (descriptionTextElement) {
+            // 简介区无 pre-line 样式保证时换行会被 HTML 折叠，显式转为 <br>
+            descriptionTextElement.innerHTML = descriptionHtml.replace(/\n/g, '<br>')
+            await this.activeDescriptionTimeSeek()
+            logger.info('视频简介丨已替换简介区内容')
+        }
         if (!truncated) {
             logger.debug('视频简介丨简介未截断，无需插入评论区')
             return
@@ -229,7 +252,7 @@ export const commentFeatures = {
             const videoDescriptionInfoElement = elementSelectors.query('videoDescriptionInfo')
             if (videoDescriptionInfoElement) {
                 videoDescriptionInfoElement.innerHTML = descriptionHtml
-                logger.debug('视频简介丨评论区不可用，已替换简介区内容')
+                logger.info('视频简介丨评论区不可用，已替换简介区内容')
             }
         }, 15000)
     },

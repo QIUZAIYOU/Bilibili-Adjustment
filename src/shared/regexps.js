@@ -330,8 +330,8 @@ const fileExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'mp4', 'mp3'
 export const regexps = {
     video: {
         nbspToBlank: /&nbsp;/gi,
-        timeString: /\b(?:[0-5]?\d|60):[0-5]\d\b/g,
-        url: /(?<!(href|url)=")(?:(?:https?|ftp):\/\/)?(?:[a-zA-Z0-9][\w-]*\.)+[a-zA-Z]{2,}(?:\/[\w\-.,@?^=%&:/~+#]*)?/gi,
+        timeString: /\b(?:\d{1,2}:)?(?:[0-5]?\d|60):[0-5]\d\b/g, // 匹配 MM:SS 或 HH:MM:SS
+        url: /(?<!(href|url)=")(?:(?:https?|ftp):\/\/)?(?:[a-zA-Z0-9][\w-]*\.)+[a-zA-Z]{2,}(?::\d{1,5})?(?:\/[\w\-.,@?^=%&:/~+#;\u4e00-\u9fff]*)?/gi, // 端口/分号/中文参数
         videoId: /(?<!(>|\/))\bBV(?:1[1-9a-km-zA-Z]|2[0-9a-zA-Z])[0-9a-zA-Z]{8}\b(?!<)/g,
         readId: /\bcv\d{7}\b/g,
         blankLine: /^\s*$(?:\r?\n?)/gm,

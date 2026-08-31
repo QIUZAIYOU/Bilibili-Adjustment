@@ -522,8 +522,9 @@ export const hidePlayerTooltip = tooltipElement => {
     })
 }
 export const generateMentionUserLinks = (username, desc_v2) => {
-    const matchedItem = desc_v2.find(item => item.raw_text === username)
+    // desc_v2 的 raw_text 自带 @ 前缀（如 '@量子位'），且旧接口可能不下发 desc_v2
+    const matchedItem = desc_v2?.find(item => item.raw_text === `@${username}`)
     return matchedItem
-        ? `<a target="_blank" href="//space.bilibili.com/${matchedItem.biz_id}" class="mention-user" data-v-8ced1e78="">@${matchedItem.raw_text} </a>`
+        ? `<a target="_blank" href="//space.bilibili.com/${matchedItem.biz_id}" class="mention-user" data-v-8ced1e78="">@${username} </a>`
         : `@${username}`
 }
