@@ -276,7 +276,10 @@ export class SettingsRenderer {
                 <div class="adjustment-popover-header">
                     <div class="adjustment-popover-header-top">
                         <div class="adjustment-popover-title">${title}</div>
-                        <div class="adjustment-popover-version">v${version}</div>
+                        <div class="adjustment-popover-version-wrap">
+                            <div class="adjustment-popover-version" title="点击检查更新">v${version}</div>
+                            <div class="adjustment-popover-version-status"></div>
+                        </div>
                     </div>
                     <div class="adjustment-popover-subtitle">以下设置更改即生效，刷新页面即可应用</div>
                 </div>
@@ -302,7 +305,10 @@ export class SettingsRenderer {
                 <div class="adjustment-popover-header">
                     <div class="adjustment-popover-header-top">
                         <div class="adjustment-popover-title">${title}</div>
-                        <div class="adjustment-popover-version">v${version}</div>
+                        <div class="adjustment-popover-version-wrap">
+                            <div class="adjustment-popover-version" title="点击检查更新">v${version}</div>
+                            <div class="adjustment-popover-version-status"></div>
+                        </div>
                     </div>
                     <div class="adjustment-popover-subtitle">以下设置更改即生效，刷新页面即可应用</div>
                 </div>

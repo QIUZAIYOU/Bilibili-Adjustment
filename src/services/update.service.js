@@ -380,6 +380,37 @@ export class UpdateService {
             }
         }, 30000)
     }
+    // 获取最新版本信息：GitHub 优先，失败回退脚本内容提取
+    async #fetchLatestVersionInfo () {
+        try {
+            const pkgInfo = await this.#fetchGitHubPackageInfo()
+            logger.info('通过 GitHub API 获取最新版本信息:', pkgInfo.version)
+            return { latestVersion: pkgInfo.version, latestUpdates: pkgInfo.updates }
+        } catch (error) {
+            logger.warn('GitHub 获取最新版本信息失败，改用脚本内容提取:', error.message)
+        }
+        const scriptContent = await this.fetchLatestScript()
+        if (!scriptContent) throw new Error('未获取到最新脚本内容')
+        const latestVersion = this.extractVersionFromScript(scriptContent)
+        if (!latestVersion) throw new Error('从最新脚本中提取版本号失败')
+        return { latestVersion, latestUpdates: this.extractChangelogFromScript(scriptContent) }
+    }
+    // 手动检查更新（点击设置弹窗版本号触发）：绕过防重复标记与跳过更新设置，结果由返回值提供
+    async checkForUpdatesManually (currentVersion, localUpdates) {
+        try {
+            const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
+            logger.info(`手动检查更新，当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
+            if (!this.compareVersions(currentVersion, latestVersion)) {
+                return { type: 'latest', latestVersion }
+            }
+            const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
+            this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
+            return { type: 'update', latestVersion }
+        } catch (error) {
+            logger.error('手动检查更新失败:', error.message)
+            return { type: 'error' }
+        }
+    }
     // 检查更新
     async checkForUpdates (currentVersion, localUpdates) {
         // 防止重复检查
@@ -400,31 +431,7 @@ export class UpdateService {
         }
         logger.info('检查更新')
         try {
-            // 优先从 GitHub 直接获取版本信息（raw 源无 API 限流、自带 CORS）
-            let latestVersion = null
-            let latestUpdates = ''
-            try {
-                const pkgInfo = await this.#fetchGitHubPackageInfo()
-                latestVersion = pkgInfo.version
-                latestUpdates = pkgInfo.updates
-                logger.info('通过 GitHub API 获取最新版本信息:', latestVersion)
-            } catch (error) {
-                logger.warn('GitHub 获取最新版本信息失败，改用脚本内容提取:', error.message)
-            }
-            // GitHub 获取失败时回退到脚本内容（自有域名直连 + CORS 代理）提取
-            if (!latestVersion) {
-                const scriptContent = await this.fetchLatestScript()
-                if (!scriptContent) {
-                    logger.warn('未获取到最新脚本内容')
-                    return
-                }
-                latestVersion = this.extractVersionFromScript(scriptContent)
-                if (!latestVersion) {
-                    logger.error('从最新脚本中提取版本号失败')
-                    return
-                }
-                latestUpdates = this.extractChangelogFromScript(scriptContent)
-            }
+            const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
             logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
             // 如果最新版本 <= 当前版本，不显示更新弹窗
             if (!this.compareVersions(currentVersion, latestVersion)) {

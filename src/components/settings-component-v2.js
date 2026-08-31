@@ -6,6 +6,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
 import { SettingsRenderer } from '@/components/settings-renderer'
+import { updateService } from '@/services/update.service'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
@@ -161,6 +162,46 @@ export class SettingsComponentV2 {
         this.bindSpecialButtonEvents(popover)
         // 绑定导入导出事件
         this.bindImportExportEvents(popover)
+        this.bindVersionUpdateCheck(popover)
+    }
+    /**
+     * 绑定版本号点击检查更新：结果小字展示在版本号下方
+     */
+    bindVersionUpdateCheck (popover) {
+        const versionEl = popover.querySelector('.adjustment-popover-version')
+        const statusEl = popover.querySelector('.adjustment-popover-version-status')
+        if (!versionEl || !statusEl) return
+        let checking = false
+        let hideTimer = null
+        const showStatus = (text, className = '') => {
+            clearTimeout(hideTimer)
+            statusEl.className = 'adjustment-popover-version-status'
+            if (className) statusEl.classList.add(className)
+            statusEl.textContent = text
+            hideTimer = setTimeout(() => {
+                statusEl.classList.add('hidden')
+            }, 3000)
+        }
+        addEventListenerToElement(versionEl, 'click', async () => {
+            if (checking) return
+            checking = true
+            statusEl.classList.remove('hidden')
+            statusEl.className = 'adjustment-popover-version-status'
+            statusEl.textContent = '检查更新中…'
+            clearTimeout(hideTimer)
+            try {
+                const result = await updateService.checkForUpdatesManually(pkg.version, pkg.updates)
+                if (result.type === 'latest') {
+                    showStatus(`已是最新版本 v${pkg.version}`)
+                } else if (result.type === 'update') {
+                    showStatus(`发现新版本 v${result.latestVersion}`, 'update')
+                } else {
+                    showStatus('检查更新失败，请稍后重试', 'error')
+                }
+            } finally {
+                checking = false
+            }
+        })
     }
     /**
      * 绑定配置项变更事件
@@ -587,6 +628,7 @@ export class SettingsComponentV2 {
     async initDynamicSettingsEventListeners () {
         const popover = document.getElementById('DynamicSettingsPopover')
         if (!popover) return
+        this.bindVersionUpdateCheck(popover)
         const app = await elementSelectors.app
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'

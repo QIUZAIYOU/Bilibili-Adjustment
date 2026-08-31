@@ -123,6 +123,14 @@ function generateBilibiliAdjustmentStyle () {
             gap: 16px;
         }
 
+        .adjustment-popover-version-wrap {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
         .adjustment-popover-version {
             font-size: 11px;
             color: #666;
@@ -132,7 +140,40 @@ function generateBilibiliAdjustmentStyle () {
             font-weight: 500;
             letter-spacing: 0.3px;
             border: 1px solid #333;
-            flex-shrink: 0;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .adjustment-popover-version:hover {
+            color: #999;
+            border-color: #444;
+        }
+
+        .adjustment-popover-version-status {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            margin-top: 4px;
+            white-space: nowrap;
+            font-size: 11px;
+            color: #999;
+            line-height: 1.4;
+            text-align: right;
+            opacity: 1;
+            transition: opacity 0.3s ease;
+        }
+
+        .adjustment-popover-version-status.hidden {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .adjustment-popover-version-status.update {
+            color: #ff9c46;
+        }
+
+        .adjustment-popover-version-status.error {
+            color: #e56b6b;
         }
 
         .adjustment-popover-title {
