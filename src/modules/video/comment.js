@@ -47,6 +47,8 @@ export const commentFeatures = {
     formatCommentContents (host) {
         const contents = shadowDOMHelper.queryDescendant(host, '#contents')
         if (!contents) return
+        // 已链接化过则跳过，防止多轮处理叠加产生嵌套链接
+        if (contents.querySelector('bilibili-adjustment-element')) return
         contents.innerHTML = formatVideoCommentContents(contents)
     },
     // 绑定简介区替换内容中的时间锚点点击跳转（替换简介区后调用）
@@ -65,9 +67,15 @@ export const commentFeatures = {
     // 处理评论元素
     async doSomethingToCommentElements () {
         const video = await elementSelectors.video
-        this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
+        // 链接变化时重建观察器：先释放上一轮的外层与内层观察器，
+        // 避免多套观察器叠加导致同一评论元素被重复处理（重复链接化会产生嵌套链接）
+        this._commentObservationCleanups?.forEach(cleanup => cleanup())
+        this._commentObservationCleanups = []
+        const track = cleanup => this._commentObservationCleanups.push(cleanup)
+        this._cleanup.push(() => this._commentObservationCleanups?.forEach(cleanup => cleanup()))
+        track(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderderContainer, root => {
             if (root){
-                this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
+                track(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
                     this.formatCommentContents(renderder)
                     this.activeTimeSeek(renderder, video)
                     if (this.userConfigs.show_comment_location){
@@ -77,7 +85,7 @@ export const commentFeatures = {
                         this.removeCommentTagElements(renderder)
                     }
                 }, root))
-                this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
+                track(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
                     this.formatCommentContents(renderder)
                     this.activeTimeSeek(renderder, video)
                     if (this.userConfigs.show_comment_location){

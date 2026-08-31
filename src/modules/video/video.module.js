@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.20.0',
+    version: '3.20.1',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -315,12 +315,13 @@ export default {
             observer.observe(container, { attributeFilter: ['data-screen']})
         })
         const hasTitle = await this.hasPlayerTitle()
+        // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行，避免延误简介/评论等即时功能
         const hrefChangeFunctions = [
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
             [this.unlockEpisodeSelector, !hasTitle],
-            [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')]
+            [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')]
         ]
         // 等待新视频可播放，最长 5 秒；超时也继续执行，避免视频加载异常时其余功能挂起
         const videoReady = await Promise.race([
@@ -347,8 +348,9 @@ export default {
             this.insertAutoEnableSubtitleSwitchButton,
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
-            this.doSomethingToCommentElements
+            this.doSomethingToCommentElements,
+            // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')]
         ]
         executeFunctionsSequentially(functions)
         this.autoEnableSubtitle()
