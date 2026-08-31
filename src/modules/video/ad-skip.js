@@ -4,7 +4,7 @@ import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
 const logger = new LoggerService('VideoModule')
-const AD_CACHE_API = 'https://www.asifadeaway.com/api/ad-cache.php'
+const AD_CACHE_API = 'https://www.asifadeaway.com/UserScripts/bilibili/api/ad-cache.php'
 export const adSkipFeatures = {
     async identifyAdvertisementTimestamps () {
         // 检查自动跳广告开关是否开启
