@@ -350,9 +350,15 @@ export const enablePopoverLightDismiss = popover => {
     let pending = false
     let dismissing = false
     const isInside = target => target instanceof Node && popover.contains(target)
+    // 点击目标是否在其他 popover 内（如更新弹窗），若是则不关闭当前弹窗
+    const isInsideOtherPopover = target => {
+        if (!(target instanceof Node)) return false
+        const other = target.closest('[popover]:not(:scope)')
+        return other && other.matches(':popover-open')
+    }
     // 遮罩拦截：popover 的 ::backdrop 不接收指针事件，点击会穿透到背后页面元素，
     // 这里在捕获阶段拦截弹窗外的交互（点击、拖选、hover），使遮罩区域不可操作
-    const blocked = e => popover.matches(':popover-open') && !isInside(e.target)
+    const blocked = e => popover.matches(':popover-open') && !isInside(e.target) && !isInsideOtherPopover(e.target)
     const onPointerDown = e => {
         if (!blocked(e)) return
         e.preventDefault()

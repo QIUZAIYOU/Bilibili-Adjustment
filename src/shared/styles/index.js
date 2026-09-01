@@ -698,13 +698,17 @@ function generateBilibiliAdjustmentStyle () {
             font-weight: 500;
         }
 
+        #UpdatePopover {
+            overflow: hidden;
+        }
+
         #UpdatePopover .adjustment-update-contents {
             margin: 0;
             padding: 4px 16px 4px 24px;
             color: #ccc;
             font-size: 13px;
             line-height: 1.8;
-            max-height: 500px;
+            height: 465px;
             overflow-y: auto;
         }
 

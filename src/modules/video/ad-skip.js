@@ -41,8 +41,8 @@ export const adSkipFeatures = {
             const resp = await fetch(`${AD_CACHE_API}?bvid=${bvid}`)
             if (resp.ok) {
                 const result = await resp.json()
-                if (result.ok && result.data?.segments?.length > 0) {
-                    const segments = result.data.segments
+                if (result.ok && result.data) {
+                    const segments = result.data.segments || []
                     logger.info('自动跳过广告丨命中远程缓存，跳过 AI 识别')
                     // 写入本地缓存以便后续快速访问
                     try {
@@ -71,24 +71,23 @@ export const adSkipFeatures = {
             await initializeAIService()
             const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
             // logger.info('广告时间戳识别结果:', timestamps)
-            // 识别结果存入本地缓存 + 远程共享缓存
-            if (timestamps && timestamps.length > 0) {
-                try {
-                    await storageService.adCacheSet(bvid, timestamps)
-                    logger.info('自动跳过广告丨识别结果已缓存到本地')
-                } catch (error) {
-                    logger.debug('自动跳过广告丨本地缓存写入失败', error)
-                }
-                try {
-                    fetch(AD_CACHE_API, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bvid, segments: timestamps })
-                    })
-                    logger.info('自动跳过广告丨识别结果已上传到远程缓存')
-                } catch (error) {
-                    logger.debug('自动跳过广告丨远程缓存上传失败', error)
-                }
+            // 识别结果存入本地缓存 + 远程共享缓存（包括无广告的情况，避免重复识别浪费 token）
+            const adSegments = timestamps || []
+            try {
+                await storageService.adCacheSet(bvid, adSegments)
+                logger.info('自动跳过广告丨识别结果已缓存到本地')
+            } catch (error) {
+                logger.debug('自动跳过广告丨本地缓存写入失败', error)
+            }
+            try {
+                fetch(AD_CACHE_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bvid, segments: adSegments })
+                })
+                logger.info('自动跳过广告丨识别结果已上传到远程缓存')
+            } catch (error) {
+                logger.debug('自动跳过广告丨远程缓存上传失败', error)
             }
             // 调用自动跳过广告函数
             this.autoSkipAdvertisementSegments(timestamps)

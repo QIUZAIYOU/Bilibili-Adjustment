@@ -3,9 +3,40 @@ import { storageService } from '@/services/storage.service'
 import axios from 'axios'
 import MD5 from 'md5'
 const logger = new LoggerService('BiliApis')
-// 请求去重缓存：同一 videoId 并发调用只发一次请求
-const _videoInfoCache = new Map()
-// 带重试的请求：429 自动退避重试
+
+// ========== 全局请求队列 ==========
+// 所有 bilibili API 请求排队执行，避免并发触发 429
+const _requestQueue = []
+let _queueProcessing = false
+const QUEUE_DELAY = 300 // 每次请求间隔 300ms
+
+function _enqueueRequest (fn) {
+    return new Promise((resolve, reject) => {
+        _requestQueue.push({ fn, resolve, reject })
+        _processQueue()
+    })
+}
+
+async function _processQueue () {
+    if (_queueProcessing) return
+    _queueProcessing = true
+    while (_requestQueue.length > 0) {
+        const { fn, resolve, reject } = _requestQueue.shift()
+        try {
+            const result = await fn()
+            resolve(result)
+        } catch (err) {
+            reject(err)
+        }
+        // 请求间隔，避免触发频率限制
+        if (_requestQueue.length > 0) {
+            await new Promise(r => setTimeout(r, QUEUE_DELAY))
+        }
+    }
+    _queueProcessing = false
+}
+
+// ========== 带重试的请求 ==========
 const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => {
     for (let i = 0; i <= retries; i++) {
         try {
@@ -22,6 +53,17 @@ const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => 
         }
     }
 }
+
+// ========== 统一的 API 请求入口 ==========
+// 所有 bilibili API 调用通过此函数，自动排队 + 重试
+async function _apiRequest (url, options = {}) {
+    return _enqueueRequest(() => _fetchWithRetry(url, options))
+}
+
+// ========== 视频信息缓存（5 分钟） ==========
+const _videoInfoCache = new Map()
+const VIDEO_INFO_CACHE_TTL = 5 * 60 * 1000 // 5 分钟
+
 export const biliApis = {
     async getQueryWithWbi (originalParams) {
         const mixinKeyEncTab = [
@@ -42,7 +84,7 @@ export const biliApis = {
         }
         const getWbiKeys = async () => {
             const url = 'https://api.bilibili.com/x/web-interface/nav'
-            const res = await axios.get(url, { withCredentials: true })
+            const res = await _apiRequest(url)
             const { data: { wbi_img: { img_url, sub_url }}} = res.data
             return {
                 img_key: img_url.slice(
@@ -76,18 +118,18 @@ export const biliApis = {
     },
     async getVideoInformation (pageType, videoId) {
         if (!videoId) return
-        // 请求去重：同一 videoId 30s 内并发调用共享同一次请求
+        // 请求去重：同一 videoId 5 分钟内并发调用共享同一次请求
         const cacheKey = `${pageType}:${videoId}`
         if (_videoInfoCache.has(cacheKey)) return _videoInfoCache.get(cacheKey)
         const promise = this._fetchVideoInformation(pageType, videoId)
         _videoInfoCache.set(cacheKey, promise)
-        setTimeout(() => _videoInfoCache.delete(cacheKey), 30000)
+        setTimeout(() => _videoInfoCache.delete(cacheKey), VIDEO_INFO_CACHE_TTL)
         return promise
     },
     async _fetchVideoInformation (pageType, videoId) {
         const url = pageType === 'video' ? `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}` : `https://api.bilibili.com/pgc/view/web/season?ep_id=${videoId}`
         if (pageType === 'video') {
-            const { data: { code, data }} = await _fetchWithRetry(url)
+            const { data: { code, data }} = await _apiRequest(url)
             // logger.debug(pageType, videoId, data)
             if (code === 0) return data
             else if (code === -400) logger.info('获取视频基本信息丨请求错误')
@@ -98,14 +140,14 @@ export const biliApis = {
             else if (code === 'ERR_BAD_REQUEST') logger.info('获取视频基本信息丨请求失败')
             else logger.warn('获取视频基本信息丨请求错误')
         } else {
-            const { data: { code, result }} = await _fetchWithRetry(url)
+            const { data: { code, result }} = await _apiRequest(url)
             // logger.debug(pageType, videoId, result)
             if (code === 0) return result
         }
     },
     async getUserInformation (userId) {
         const url = `https://api.bilibili.com/x/web-interface/card?mid=${userId}`
-        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+        const { data: { code, data }} = await _apiRequest(url)
         if (code === 0) return data
         else if (code === -400) logger.info('获取用户基本信息丨请求错误')
         else if (code === -403) logger.info('获取用户基本信息丨权限不足')
@@ -115,20 +157,20 @@ export const biliApis = {
     },
     async getVideoSubtitles (bvid, cid) {
         const url = `https://api.bilibili.com/x/player/v2?bvid=${bvid}&cid=${cid}`
-        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+        const { data: { code, data }} = await _apiRequest(url)
         if (code === 0) return data?.subtitle?.subtitles
         else return null
     },
     async getVideoTags (bvid) {
         const url = `https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`
-        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+        const { data: { code, data }} = await _apiRequest(url)
         if (code === 0) return data
         else return null
     },
     async getUnreadCount () {
         try {
             const url = 'https://message.bilibili.com/x/msg/unread/count'
-            const { data: { code, data: { all_count }}} = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { all_count }}} = await _apiRequest(url)
             if (code === 0) return all_count
             else return 0
         } catch {
@@ -138,7 +180,7 @@ export const biliApis = {
     async getLiveRoomStatus (roomid) {
         const url = `https://api.live.bilibili.com/room/v1/Room/get_info?room_id=${roomid}`
         try {
-            const { data: { code, data: { live_status }}} = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { live_status }}} = await _apiRequest(url)
             if (code === 0) return live_status === 1
             else return false
         } catch {
@@ -148,7 +190,7 @@ export const biliApis = {
     async getWebCreaterStatus (mid) {
         const url = `https://api.bilibili.com/x/web-interface/nav?mid=${mid}`
         try {
-            const { data: { code, data: { isLogin, uname, official, vip }} } = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { isLogin, uname, official, vip }} } = await _apiRequest(url)
             if (code === 0) return { isLogin, uname, official, vip }
             else return null
         } catch {
@@ -158,7 +200,7 @@ export const biliApis = {
     async getWebCreaterPinInfo (mid) {
         const url = `https://api.bilibili.com/x/space/acc/info?mid=${mid}`
         try {
-            const { data: { code, data: { sign, birthday, sex, face }} } = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { sign, birthday, sex, face }} } = await _apiRequest(url)
             if (code === 0) return { sign, birthday, sex, face }
             else return null
         } catch {
@@ -168,7 +210,7 @@ export const biliApis = {
     async getWebCreaterRelationInfo (mid) {
         const url = `https://api.bilibili.com/x/relation/stat?vmid=${mid}`
         try {
-            const { data: { code, data: { follower, following }}} = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { follower, following }}} = await _apiRequest(url)
             if (code === 0) return { follower, following }
             else return null
         } catch {
@@ -178,7 +220,7 @@ export const biliApis = {
     async getWebCreaterUpstatInfo (mid) {
         const url = `https://api.bilibili.com/x/space/upstat?mid=${mid}`
         try {
-            const { data: { code, data: { archive: { view }, article: { view: articleView }, likes }}} = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { archive: { view }, article: { view: articleView }, likes }}} = await _apiRequest(url)
             if (code === 0) return { view, articleView, likes }
             else return null
         } catch {
@@ -188,7 +230,7 @@ export const biliApis = {
     async getDynamicItems (offset) {
         const url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?offset=${offset}`
         try {
-            const { data: { code, data: { items }}} = await axios.get(url, { withCredentials: true })
+            const { data: { code, data: { items }}} = await _apiRequest(url)
             if (code === 0) return items
             else return null
         } catch {
@@ -199,7 +241,7 @@ export const biliApis = {
         const url = `https://api.bilibili.com/x/space/wbi/arc/search?mid=${mid}&ps=10&pn=1`
         try {
             const wbiUrl = `https://api.bilibili.com/x/space/arc/search?${await this.getQueryWithWbi({ mid, ps: 10, pn: 1 })}`
-            const { data: { code, data: { list: { vlist }}} = { data: {} } } = await axios.get(wbiUrl, { withCredentials: true })
+            const { data: { code, data: { list: { vlist }}} = { data: {} } } = await _apiRequest(wbiUrl)
             if (code === 0) return vlist
             else return null
         } catch {
@@ -209,7 +251,7 @@ export const biliApis = {
     async getSearchResult (keyword, page = 1) {
         const wbiUrl = `https://api.bilibili.com/x/web-interface/wbi/search/type?${await this.getQueryWithWbi({ keyword, page, search_type: 'video' })}`
         try {
-            const { data: { code, data: { result }}} = await axios.get(wbiUrl, { withCredentials: true })
+            const { data: { code, data: { result }}} = await _apiRequest(wbiUrl)
             if (code === 0) return result
             else return null
         } catch {
