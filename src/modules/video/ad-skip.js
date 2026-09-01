@@ -60,7 +60,7 @@ export const adSkipFeatures = {
         const cid = videoInfo.cid
         const up_mid = videoInfo.owner?.mid
         if (!cid || !up_mid) return
-        const subtitle = await biliApis.getVideoSubtitle(bvid, cid, up_mid)
+        const subtitle = await biliApis.getVideoSubtitles(bvid, cid)
         // logger.info('获取视频字幕', subtitle)
         if (!subtitle || subtitle.length === 0) {
             return
