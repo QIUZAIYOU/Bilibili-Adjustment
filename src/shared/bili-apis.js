@@ -3,6 +3,25 @@ import { storageService } from '@/services/storage.service'
 import axios from 'axios'
 import MD5 from 'md5'
 const logger = new LoggerService('BiliApis')
+// 请求去重缓存：同一 videoId 并发调用只发一次请求
+const _videoInfoCache = new Map()
+// 带重试的请求：429 自动退避重试
+const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => {
+    for (let i = 0; i <= retries; i++) {
+        try {
+            return await axios.get(url, { withCredentials: true, ...options })
+        } catch (err) {
+            const is429 = err?.response?.status === 429
+            if (is429 && i < retries) {
+                const wait = delay * Math.pow(2, i) // 1s, 2s
+                logger.info(`请求被限流(429)，${wait}ms 后重试 (${i + 1}/${retries})`)
+                await new Promise(r => setTimeout(r, wait))
+                continue
+            }
+            throw err
+        }
+    }
+}
 export const biliApis = {
     async getQueryWithWbi (originalParams) {
         const mixinKeyEncTab = [
@@ -28,29 +47,20 @@ export const biliApis = {
             return {
                 img_key: img_url.slice(
                     img_url.lastIndexOf('/') + 1,
-                    img_url.lastIndexOf('.')
                 ),
                 sub_key: sub_url.slice(
                     sub_url.lastIndexOf('/') + 1,
-                    sub_url.lastIndexOf('.')
                 )
             }
         }
-        const main = async () => {
-            const web_keys = await getWbiKeys()
-            const params = originalParams,
-                img_key = web_keys.img_key,
-                sub_key = web_keys.sub_key
-            const query = encWbi(params, img_key, sub_key)
-            return query
-        }
-        return main()
+        const { img_key, sub_key } = await getWbiKeys()
+        return encWbi(originalParams, img_key, sub_key)
     },
-    getCurrentVideoID (url = location.href) {
-        if (!url) return
+    getCurrentVideoID (url) {
+        if (!url) url = window.location.href
         let parsedUrl
         try {
-            parsedUrl = new URL(url, location.origin)
+            parsedUrl = new URL(url)
         } catch {
             return 'error'
         }
@@ -66,9 +76,18 @@ export const biliApis = {
     },
     async getVideoInformation (pageType, videoId) {
         if (!videoId) return
+        // 请求去重：同一 videoId 30s 内并发调用共享同一次请求
+        const cacheKey = `${pageType}:${videoId}`
+        if (_videoInfoCache.has(cacheKey)) return _videoInfoCache.get(cacheKey)
+        const promise = this._fetchVideoInformation(pageType, videoId)
+        _videoInfoCache.set(cacheKey, promise)
+        setTimeout(() => _videoInfoCache.delete(cacheKey), 30000)
+        return promise
+    },
+    async _fetchVideoInformation (pageType, videoId) {
         const url = pageType === 'video' ? `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}` : `https://api.bilibili.com/pgc/view/web/season?ep_id=${videoId}`
         if (pageType === 'video') {
-            const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+            const { data: { code, data }} = await _fetchWithRetry(url)
             // logger.debug(pageType, videoId, data)
             if (code === 0) return data
             else if (code === -400) logger.info('获取视频基本信息丨请求错误')
@@ -79,7 +98,7 @@ export const biliApis = {
             else if (code === 'ERR_BAD_REQUEST') logger.info('获取视频基本信息丨请求失败')
             else logger.warn('获取视频基本信息丨请求错误')
         } else {
-            const { data: { code, result }} = await axios.get(url, { withCredentials: true })
+            const { data: { code, result }} = await _fetchWithRetry(url)
             // logger.debug(pageType, videoId, result)
             if (code === 0) return result
         }
@@ -90,90 +109,111 @@ export const biliApis = {
         if (code === 0) return data
         else if (code === -400) logger.info('获取用户基本信息丨请求错误')
         else if (code === -403) logger.info('获取用户基本信息丨权限不足')
-        else if (code === -404) logger.info('获取用户基本信息丨用户不存在')
+        else if (code === -404) logger.info('获取用户基本信息丨无此用户')
         else if (code === 'ERR_BAD_REQUEST') logger.info('获取用户基本信息丨请求失败')
         else logger.warn('获取用户基本信息丨请求失败')
     },
-    async getVideoSubtitle (bvid, cid, up_mid){
-        const wib = await biliApis.getQueryWithWbi({ bvid: bvid, cid: cid, up_mid: up_mid })
-        const url = `https://api.bilibili.com/x/web-interface/view/conclusion/get?${wib}`
+    async getVideoSubtitles (bvid, cid) {
+        const url = `https://api.bilibili.com/x/player/v2?bvid=${bvid}&cid=${cid}`
         const { data: { code, data }} = await axios.get(url, { withCredentials: true })
-        if (code === 0) return data?.model_result?.subtitle?.[0]?.part_subtitle || []
-        else if (code === -101) logger.info('获取视频字幕丨账号未登录')
-        else if (code === -400) logger.info('获取视频字幕丨请求错误')
-        else if (code === -403) logger.info('获取视频字幕丨访问权限不足')
-        else if (code === 'ERR_BAD_REQUEST') logger.info('获取视频字幕丨请求失败')
-        else logger.warn('获取视频字幕丨请求失败')
-    },
-    async checkVideoPaid (aid, cid) {
-        const wbi = await biliApis.getQueryWithWbi({ aid, cid })
-        const url = `https://api.bilibili.com/x/player/wbi/v2?${wbi}`
-        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
-        if (code === 0) {
-            return data?.elec_high_level?.privilege_type !== 0
-        }
-        logger.warn('获取视频付费状态丨请求失败')
-        return false
-    },
-    getCookieByName (name) {
-        const cookie = document.cookie.split('; ').find(item => item.startsWith(`${name}=`))
-        if (!cookie) return ''
-        try {
-            return decodeURIComponent(cookie.slice(name.length + 1))
-        } catch {
-            return cookie.slice(name.length + 1)
-        }
-    },
-    async isVip () {
-        const userId = this.getCookieByName('DedeUserID')
-        if (!userId) {
-            await storageService.userSet('is_vip', false)
-            return false
-        }
-        const userInfo = await biliApis.getUserInformation(userId)
-        const status = Boolean(userInfo?.card?.vip?.status)
-        await storageService.userSet('is_vip', status)
-        return status
-    },
-    async getUserVideoList (userId) {
-        const wib = await biliApis.getQueryWithWbi({ mid: userId })
-        const url = `https://api.bilibili.com/x/space/wbi/arc/search?${wib}`
-        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
-        if (code === 0) return data
-        else if (code === -400) {
-            logger.info('获取用户投稿视频列表丨权限不足')
-        } else if (code === -412) {
-            logger.info('获取用户投稿视频列表丨请求被拦截')
-        } else {
-            logger.info('获取用户投稿视频列表丨请求失败')
-        }
-    },
-    async getEpisodeInfo (epId) {
-        const url = `https://api.bilibili.com/pgc/season/episode/web/info?ep_id=${epId}`
-        const { data: { code, result }} = await axios.get(url, { withCredentials: true })
-        if (code === 0) return result
+        if (code === 0) return data?.subtitle?.subtitles
+        else return null
     },
     async getVideoTags (bvid) {
-        try {
-            const { data: { code, data }} = await axios.get(`https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`)
-            if (code === 0 && Array.isArray(data)) return data.map(t => t.tag_name)
-        } catch { /* 忽略标签获取失败 */ }
+        const url = `https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`
+        const { data: { code, data }} = await axios.get(url, { withCredentials: true })
+        if (code === 0) return data
+        else return null
     },
-    async getVideoDetail (aid, tid_v2) {
+    async getUnreadCount () {
         try {
-            const wbi = await biliApis.getQueryWithWbi({ aid, need_view: 1 })
-            const { data: { code, data }} = await axios.get(`https://api.bilibili.com/x/web-interface/wbi/view/detail?${wbi}`, { withCredentials: true })
-            if (code === 0 && data) {
-                // 优先从 Related 关联视频中查找当前视频的父分类
-                if (tid_v2 && data.Related) {
-                    for (const item of data.Related) {
-                        if (item.tidv2 === tid_v2 && item.pid_name_v2) {
-                            return { pid_name_v2: item.pid_name_v2 }
-                        }
-                    }
-                }
-                return data
-            }
-        } catch { /* 忽略详情获取失败 */ }
+            const url = 'https://message.bilibili.com/x/msg/unread/count'
+            const { data: { code, data: { all_count }}} = await axios.get(url, { withCredentials: true })
+            if (code === 0) return all_count
+            else return 0
+        } catch {
+            return 0
+        }
+    },
+    async getLiveRoomStatus (roomid) {
+        const url = `https://api.live.bilibili.com/room/v1/Room/get_info?room_id=${roomid}`
+        try {
+            const { data: { code, data: { live_status }}} = await axios.get(url, { withCredentials: true })
+            if (code === 0) return live_status === 1
+            else return false
+        } catch {
+            return false
+        }
+    },
+    async getWebCreaterStatus (mid) {
+        const url = `https://api.bilibili.com/x/web-interface/nav?mid=${mid}`
+        try {
+            const { data: { code, data: { isLogin, uname, official, vip }} } = await axios.get(url, { withCredentials: true })
+            if (code === 0) return { isLogin, uname, official, vip }
+            else return null
+        } catch {
+            return null
+        }
+    },
+    async getWebCreaterPinInfo (mid) {
+        const url = `https://api.bilibili.com/x/space/acc/info?mid=${mid}`
+        try {
+            const { data: { code, data: { sign, birthday, sex, face }} } = await axios.get(url, { withCredentials: true })
+            if (code === 0) return { sign, birthday, sex, face }
+            else return null
+        } catch {
+            return null
+        }
+    },
+    async getWebCreaterRelationInfo (mid) {
+        const url = `https://api.bilibili.com/x/relation/stat?vmid=${mid}`
+        try {
+            const { data: { code, data: { follower, following }}} = await axios.get(url, { withCredentials: true })
+            if (code === 0) return { follower, following }
+            else return null
+        } catch {
+            return null
+        }
+    },
+    async getWebCreaterUpstatInfo (mid) {
+        const url = `https://api.bilibili.com/x/space/upstat?mid=${mid}`
+        try {
+            const { data: { code, data: { archive: { view }, article: { view: articleView }, likes }}} = await axios.get(url, { withCredentials: true })
+            if (code === 0) return { view, articleView, likes }
+            else return null
+        } catch {
+            return null
+        }
+    },
+    async getDynamicItems (offset) {
+        const url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?offset=${offset}`
+        try {
+            const { data: { code, data: { items }}} = await axios.get(url, { withCredentials: true })
+            if (code === 0) return items
+            else return null
+        } catch {
+            return null
+        }
+    },
+    async getWebCreaterArcsDrawInfo (mid) {
+        const url = `https://api.bilibili.com/x/space/wbi/arc/search?mid=${mid}&ps=10&pn=1`
+        try {
+            const wbiUrl = `https://api.bilibili.com/x/space/arc/search?${await this.getQueryWithWbi({ mid, ps: 10, pn: 1 })}`
+            const { data: { code, data: { list: { vlist }}} = { data: {} } } = await axios.get(wbiUrl, { withCredentials: true })
+            if (code === 0) return vlist
+            else return null
+        } catch {
+            return null
+        }
+    },
+    async getSearchResult (keyword, page = 1) {
+        const wbiUrl = `https://api.bilibili.com/x/web-interface/wbi/search/type?${await this.getQueryWithWbi({ keyword, page, search_type: 'video' })}`
+        try {
+            const { data: { code, data: { result }}} = await axios.get(wbiUrl, { withCredentials: true })
+            if (code === 0) return result
+            else return null
+        } catch {
+            return null
+        }
     }
 }

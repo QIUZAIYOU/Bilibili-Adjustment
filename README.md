@@ -256,13 +256,3 @@ GitHub：
 ## 📞 反馈与支持
 
 - 提交 Issue：[GitHub Issues](https://github.com/QIUZAIYOU/Bilibili-Adjustment/issues)
-
----
-
-## ☕ 赞助
-
-如果这个脚本对你的日常使用有所帮助，让你刷 B 站的时候省心了一些，不妨请我喝杯咖啡 ☕
-
-![收款码](PayQrcode.png)
-
-感谢您的支持与使用！🌟

@@ -63,7 +63,7 @@ export default defineConfig(({ mode }) => ({
                     '*://space.bilibili.com/*'
                 ],
                 supportURL: 'https://github.com/QIUZAIYOU/Bilibili-Adjustment',
-                homepageURL: 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js',
+                homepageURL: 'https://www.asifadeaway.com/bilibili/',
                 grant: [
                     'unsafeWindow'
                 ]
