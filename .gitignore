@@ -41,6 +41,4 @@ pnpm-debug.log*
 .reasonix/
 .trae/
 
-# Bilibili Adjustment 官网文件
-UserScripts/bilibili/www/
 website/
