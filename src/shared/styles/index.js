@@ -95,6 +95,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-popover::backdrop {
+            pointer-events: none;
             backdrop-filter: blur(8px);
             -webkit-backdrop-filter: blur(8px);
             background: rgba(0, 0, 0, 0.65);

@@ -365,8 +365,8 @@ export class UpdateService {
         const updateButton = updatePopover.querySelector('.adjustment-button-update')
         const closeButton = updatePopover.querySelector('.adjustment-button-close')
         updateButton.addEventListener('click', () => {
-            updatePopover.hidePopover()
             window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+            updatePopover.hidePopover()
         })
         if (closeButton) {
             closeButton.addEventListener('click', () => {
