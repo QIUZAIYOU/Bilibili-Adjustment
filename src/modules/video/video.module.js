@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.23.1',
+    version: '3.23.2',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -315,10 +315,14 @@ export default {
             observer.observe(container, { attributeFilter: ['data-screen']})
         })
         const hasTitle = await this.hasPlayerTitle()
-        // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行，避免延误简介/评论等即时功能
-        const hrefChangeFunctions = [
+        // 简介/评论等即时功能不等待视频可播放，立即执行，避免切换选集时延迟
+        const immediateFunctions = [
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
-            this.doSomethingToCommentElements,
+            this.doSomethingToCommentElements
+        ]
+        executeFunctionsSequentially(immediateFunctions)
+        // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行，避免延误简介/评论等即时功能
+        const deferredFunctions = [
             [this.unlockEpisodeSelector, !hasTitle],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
             [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')]
@@ -329,7 +333,7 @@ export default {
             sleep(5000).then(() => false)
         ])
         if (!videoReady) logger.warn('视频资源丨等待可播放超时（5s），继续执行其余功能')
-        executeFunctionsSequentially(hrefChangeFunctions)
+        executeFunctionsSequentially(deferredFunctions)
         // SPA 切换时首次定位可能在布局稳定前执行，视频可播放后重新校验并纠正定位
         await this.autoLocateToPlayer()
         this.autoEnableSubtitle(Boolean(this.userConfigs.auto_subtitle))
