@@ -122,5 +122,62 @@ export const videoPageStyles = {
             color: #fff;
             background: #333;
         }
+
+        #ManualAdRecognitionPopover {
+            width: 400px;
+            max-height: 70vh;
+        }
+
+        #ManualAdRecognitionPopover .adjustment-popover-content {
+            padding: 16px;
+            min-height: 100px;
+        }
+
+        #ManualAdRecognitionPopover .loading,
+        #ManualAdRecognitionPopover .error,
+        #ManualAdRecognitionPopover .success {
+            text-align: center;
+            padding: 24px;
+            color: #868686;
+        }
+
+        #ManualAdRecognitionPopover .error {
+            color: #f56c6c;
+        }
+
+        #ManualAdRecognitionPopover .success {
+            color: #67c23a;
+        }
+
+        #ManualAdRecognitionPopover .result .no-ad {
+            text-align: center;
+            color: #868686;
+            padding: 24px;
+        }
+
+        #ManualAdRecognitionPopover .result .ad-count {
+            margin-bottom: 12px;
+            color: #fff;
+        }
+
+        #ManualAdRecognitionPopover .result .ad-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.02);
+            margin-bottom: 8px;
+        }
+
+        #ManualAdRecognitionPopover .result .ad-item .ad-index {
+            color: #00a1d6;
+            font-weight: 600;
+        }
+
+        #ManualAdRecognitionPopover .result .ad-item .ad-time {
+            color: #fff;
+            font-family: monospace;
+        }
     `
 }

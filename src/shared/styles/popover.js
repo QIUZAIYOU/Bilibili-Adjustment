@@ -230,5 +230,60 @@ export const popoverStyles = {
             text-decoration: none;
         }
     `,
-    scrollbar: scrollbarStyle()
+    scrollbar: scrollbarStyle(),
+    adRecognitionContent: `
+        padding: ${theme.spacing.md};
+        min-height: 100px;
+
+        .loading {
+            text-align: center;
+            color: ${theme.colors.textSecondary};
+            padding: ${theme.spacing.xl};
+        }
+
+        .error {
+            text-align: center;
+            color: ${theme.colors.error};
+            padding: ${theme.spacing.xl};
+        }
+
+        .success {
+            text-align: center;
+            color: ${theme.colors.success};
+            padding: ${theme.spacing.xl};
+        }
+
+        .result {
+            .no-ad {
+                text-align: center;
+                color: ${theme.colors.textSecondary};
+                padding: ${theme.spacing.xl};
+            }
+
+            .ad-count {
+                margin-bottom: ${theme.spacing.md};
+                color: ${theme.colors.textPrimary};
+            }
+
+            .ad-item {
+                display: flex;
+                align-items: center;
+                gap: ${theme.spacing.sm};
+                padding: ${theme.spacing.sm};
+                border-radius: ${theme.borderRadius.md};
+                background: rgba(255,255,255,0.02);
+                margin-bottom: ${theme.spacing.xs};
+
+                .ad-index {
+                    color: ${theme.colors.primary};
+                    font-weight: 600;
+                }
+
+                .ad-time {
+                    color: ${theme.colors.textPrimary};
+                    font-family: monospace;
+                }
+            }
+        }
+    `
 }
