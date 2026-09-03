@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.25.3',
+    version: '3.25.4',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -229,6 +229,20 @@ export default {
             const events = ['canplaythrough', 'loadeddata']
             events.forEach(event =>
                 videoElement.addEventListener(event, handler, { signal: ac.signal }))
+            // 兜底：事件监听可能因 src 重赋值失效，用轮询补偿
+            const pollInterval = setInterval(() => {
+                if (videoElement.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA) {
+                    ac.abort()
+                    clearInterval(pollInterval)
+                    resolve(true)
+                }
+            }, 200)
+            // 超时兜底：5 秒后仍未就绪则放弃
+            setTimeout(() => {
+                ac.abort()
+                clearInterval(pollInterval)
+                resolve(videoElement.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA)
+            }, 5000)
         })
     },
     async checkVideoCanplaythrough (videoElement, emit = true) {
