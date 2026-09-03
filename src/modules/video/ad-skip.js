@@ -314,7 +314,7 @@ export const adSkipFeatures = {
                 updateBtn.style.display = (state.canUpdate && (state.currentSegments.length > 0 || state.pendingSegments.length > 0)) ? 'flex' : 'none'
             }
 
-            popover._mgr = { content, updateBtn, reIdentifyBtn, manualEntry, manualBtn, manualAddBtn, manualStartTime, manualEndTime, inlineMsg, pendingList, showInlineMsg, renderPendingList }
+            popover._mgr = { content, updateBtn, reIdentifyBtn, manualEntry, manualBtn, manualAddBtn, manualStartTime, manualEndTime, inlineMsg, pendingList, showInlineMsg, renderPendingList, batchSection: document.getElementById('SkipSegmentManagerBatchSection') }
 
             const renderSegments = (segments, cacheInfo) => {
                 segments = mergeSegments(segments)
@@ -472,15 +472,129 @@ export const adSkipFeatures = {
                     content.innerHTML = '<div class="error">更新缓存失败</div>'
                 }
             })
+
+            // 应用到同系列全部视频
+            const batchSection = document.getElementById('SkipSegmentManagerBatchSection')
+            const applyAllBtn = document.getElementById('SkipSegmentManagerApplyAllBtn')
+            const batchMsg = document.getElementById('SkipSegmentManagerBatchMsg')
+
+            applyAllBtn.addEventListener('click', async () => {
+                try {
+                    // 合并待定片段
+                    if (state.pendingSegments.length > 0) {
+                        state.currentSegments.push(...state.pendingSegments)
+                        state.currentSegments = mergeSegments(state.currentSegments)
+                        state.pendingSegments = []
+                        renderPendingList()
+                    }
+                    if (state.currentSegments.length === 0) {
+                        batchMsg.textContent = '请先添加跳过片段'
+                        batchMsg.className = 'inline-msg warn'
+                        return
+                    }
+                    const episodeIds = state.seriesEpisodeIds || []
+                    if (episodeIds.length === 0) {
+                        batchMsg.textContent = '未检测到系列信息'
+                        batchMsg.className = 'inline-msg warn'
+                        return
+                    }
+                    applyAllBtn.disabled = true
+                    applyAllBtn.textContent = '应用中...'
+                    const uid = getCurrentUid()
+                    let successCount = 0
+                    for (const epId of episodeIds) {
+                        const cacheEntry = createCacheEntry(epId, state.currentSegments, uid)
+                        await storageService.adCacheSet(epId, cacheEntry)
+                        try {
+                            await fetch(SKIP_CACHE_API, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(cacheEntry)
+                            })
+                        } catch (_) {}
+                        successCount++
+                    }
+                    applyAllBtn.disabled = false
+                    applyAllBtn.textContent = '应用到同系列全部视频'
+                    batchMsg.textContent = '已应用到 ' + successCount + ' 个视频'
+                    batchMsg.className = 'inline-msg success'
+                    // 重新加载当前视频的片段
+                    state.cached = await storageService.adCacheGet(state.bvid)
+                    self.advertisementIdentified = false
+                    await self.identifyAdvertisementTimestamps()
+                    renderSegments(state.currentSegments, state.cached)
+                } catch (error) {
+                    logger.error('跳过片段管理丨批量应用失败:', error)
+                    batchMsg.textContent = '批量应用失败'
+                    batchMsg.className = 'inline-msg warn'
+                    applyAllBtn.disabled = false
+                    applyAllBtn.textContent = '应用到同系列全部视频'
+                }
+            })
         }
 
         // --- 每次打开时更新状态并渲染 ---
-        const { content, updateBtn, reIdentifyBtn, manualEntry, renderPendingList, renderSegments } = popover._mgr
+        const { content, updateBtn, reIdentifyBtn, manualEntry, renderPendingList, renderSegments, batchSection } = popover._mgr
         state.bvid = bvid
         state.currentSegments = []
         state.pendingSegments = []
+        state.seriesEpisodeIds = []
         renderPendingList()
         const uid = getCurrentUid()
+
+        // 获取视频信息（用于检测字幕和系列信息）
+        let videoInfo = null
+        try {
+            videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
+        } catch (error) {
+            logger.debug('跳过片段管理丨获取视频信息失败', error)
+        }
+
+        // 番剧页直接隐藏「重新识别」按钮（番剧页不支持AI识别）
+        // video页面：检测字幕，无字幕则隐藏
+        if (reIdentifyBtn) {
+            if (this.userConfigs.page_type === 'bangumi') {
+                reIdentifyBtn.style.display = 'none'
+            } else {
+                let hasSubtitles = false
+                try {
+                    const cid = videoInfo?.cid
+                    if (cid) {
+                        const subtitles = await biliApis.getVideoSubtitles(bvid, cid)
+                        hasSubtitles = !!(subtitles && subtitles.length > 0)
+                    }
+                } catch (error) {
+                    logger.debug('跳过片段管理丨检测字幕失败', error)
+                }
+                reIdentifyBtn.style.display = hasSubtitles ? '' : 'none'
+            }
+        }
+
+        // 检测当前视频是否属于系列/番剧，获取同系列所有视频ID
+        const batchSectionEl = document.getElementById('SkipSegmentManagerBatchSection')
+        if (batchSectionEl) {
+            batchSectionEl.style.display = 'none'
+            if (videoInfo) {
+                let episodeIds = []
+                // 番剧页：从 episodes 获取所有集数
+                if (videoInfo.episodes && videoInfo.episodes.length > 0) {
+                    episodeIds = videoInfo.episodes.map(ep => String(ep.id))
+                }
+                // 投稿视频页：从 ugc_season 获取同系列所有视频
+                if (!episodeIds.length && videoInfo.ugc_season) {
+                    const sections = videoInfo.ugc_season.sections || []
+                    for (const section of sections) {
+                        for (const ep of (section.episodes || [])) {
+                            if (ep.bvid) episodeIds.push(ep.bvid)
+                        }
+                    }
+                }
+                if (episodeIds.length > 1) {
+                    state.seriesEpisodeIds = episodeIds
+                    batchSectionEl.style.display = 'block'
+                }
+            }
+        }
 
         // 先检查本地缓存
         let cached = await storageService.adCacheGet(bvid)
@@ -524,6 +638,45 @@ export const adSkipFeatures = {
             updateBtn.style.display = 'none'
             manualEntry.style.display = 'none'
         }
+    },
+    // 番剧页专用：仅从缓存加载跳过片段（片头片尾等），不执行AI识别
+    async loadCachedSkipSegments () {
+        if (!this.userConfigs.auto_skip) return
+        if (this.advertisementIdentified) return
+        this.advertisementIdentified = true
+        setTimeout(() => { this.advertisementIdentified = false }, 30000)
+        const bvid = biliApis.getCurrentVideoID(window.location.href)
+        if (!bvid || bvid === 'error') return
+        // 先查本地缓存
+        try {
+            const cached = await storageService.adCacheGet(bvid)
+            if (cached?.segments?.length > 0) {
+                logger.info('跳过片段丨番剧页命中本地缓存，共', cached.segments.length, '个片段')
+                this.autoSkipAdvertisementSegments(cached.segments)
+                return cached.segments
+            }
+        } catch (error) {
+            logger.debug('跳过片段丨本地缓存读取失败', error)
+        }
+        // 再查远程缓存
+        try {
+            const resp = await fetch(`${SKIP_CACHE_API}?bvid=${bvid}`)
+            if (resp.ok) {
+                const result = await resp.json()
+                if (result.ok && result.data) {
+                    const segments = result.data.segments || []
+                    if (segments.length > 0) {
+                        logger.info('跳过片段丨番剧页命中远程缓存，共', segments.length, '个片段')
+                        try { await storageService.adCacheSet(bvid, result.data) } catch (_) {}
+                        this.autoSkipAdvertisementSegments(segments)
+                        return segments
+                    }
+                }
+            }
+        } catch (error) {
+            logger.debug('跳过片段丨远程缓存查询失败', error)
+        }
+        logger.debug('跳过片段丨番剧页未找到缓存数据')
     },
     async recognizeSkipSegments (bvid) {
         const result = { segments: [], error: null, bvid }

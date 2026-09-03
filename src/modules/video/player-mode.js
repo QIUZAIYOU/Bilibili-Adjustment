@@ -122,6 +122,20 @@ export const playerModeFeatures = {
                 eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
             }
+            // 按页面类型检查子开关：两者全选或全不选时在所有页面执行，否则按勾选类型执行
+            if (this.userConfigs.auto_locate_video !== this.userConfigs.auto_locate_bangumi) {
+                const isBangumi = this.userConfigs.page_type === 'bangumi'
+                if (isBangumi && !this.userConfigs.auto_locate_bangumi) {
+                    logger.info('自动定位丨当前为番剧页且番剧自动定位已关闭，跳过')
+                    eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                    return
+                }
+                if (!isBangumi && !this.userConfigs.auto_locate_video) {
+                    logger.info('自动定位丨当前为普通视频页且普通视频自动定位已关闭，跳过')
+                    eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                    return
+                }
+            }
             // 先判断当前页面是否已经定位到了播放器位置
             const playerContainer = await elementSelectors.playerContainer
             if (!playerContainer) {
@@ -153,6 +167,28 @@ export const playerModeFeatures = {
             try {
                 await sleep(300)
                 await this.locateToPlayer()
+                // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
+                const maxRetry = this.userConfigs.page_type === 'bangumi' ? 3 : 2
+                for (let retry = 0; retry < maxRetry; retry++) {
+                    const freshContainer = await elementSelectors.playerContainer
+                    if (!freshContainer) break
+                    const freshMode = freshContainer.getAttribute('data-screen')
+                    if (freshMode === 'web' || freshMode === 'full') break
+                    const freshOffsetTop = freshMode !== 'mini' ? await getElementOffsetToDocument(freshContainer).top : this.userConfigs.player_offset_top
+                    const freshHeader = await elementSelectors.headerMini
+                    const freshHeaderStyle = freshHeader ? getElementComputedStyle(freshHeader, ['position', 'height']) : {}
+                    const freshHeaderHeight = parseInt(freshHeaderStyle.height, 10) || 0
+                    const freshTargetViewportTop = freshHeaderStyle.position === 'fixed' ? freshHeaderHeight + Number(this.userConfigs.offset_top || 0) : Number(this.userConfigs.offset_top || 0)
+                    const scroller = document.scrollingElement || document.documentElement
+                    const atBottom = window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
+                    if (Math.abs(window.scrollY - (freshOffsetTop - freshTargetViewportTop)) < 50 || atBottom) {
+                        logger.debug(`自动定位丨第 ${retry + 1} 次验证已到位`)  
+                        break
+                    }
+                    logger.debug(`自动定位丨第 ${retry + 1} 次验证未到位（当前 ${window.scrollY}，目标 ${freshOffsetTop - freshTargetViewportTop}），重试`)
+                    await sleep(500 * (retry + 1))
+                    await this.locateToPlayer()
+                }
             } finally {
                 insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
             }
@@ -163,7 +199,7 @@ export const playerModeFeatures = {
         }
     },
     async locateToPlayer () {
-        const playerContainer = await elementSelectors.query('playerContainer')
+        const playerContainer = await elementSelectors.playerContainer
         if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
@@ -207,7 +243,7 @@ export const playerModeFeatures = {
         // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 5 次
         for (let attempt = 0; attempt < 5; attempt++) {
             await sleep(300)
-            const freshContainer = await elementSelectors.query('playerContainer')
+            const freshContainer = await elementSelectors.playerContainer
             if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full' || freshContainer.getAttribute('data-screen') === 'web') return
             if (isPositioned(freshContainer)) return
             const freshTarget = computeTarget(freshContainer)

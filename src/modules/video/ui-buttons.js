@@ -15,6 +15,7 @@ export const uiButtonsFeatures = {
         const miniOpenBtn = document.querySelector('.mini-player-window[title="点击打开迷你播放器"]')
         const miniCloseBtn = document.querySelector('.mini-player-window[title="点击关闭迷你播放器"]')
         if (!miniOpenBtn || miniCloseBtn || getComputedStyle(miniOpenBtn).display === 'none') {
+            await sleep(100)
             await this.locateToPlayer()
             return
         }
@@ -117,6 +118,20 @@ export const uiButtonsFeatures = {
                 }), floatNav, 'append')
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
                     await this.settingsComponent.openSettings()
+                })
+            }
+            // 插入跳过片段管理按钮（番剧页用于配置片头片尾跳过）
+            if (!existingSkipButton) {
+                const skipButton = createElementAndInsert(getTemplates.replace('skipSegmentManagerButton', {
+                    style: `style="height:40px;padding:0;${stylesV2.videoSettingsOpenButton}"`,
+                    dataV: '',
+                    text: ''
+                }), floatNav, 'append')
+                addEventListenerToElement(skipButton, 'click', async () => {
+                    const epId = biliApis.getCurrentVideoID(window.location.href)
+                    if (epId && epId !== 'error') {
+                        await this.showSkipSegmentManager(epId)
+                    }
                 })
             }
         }

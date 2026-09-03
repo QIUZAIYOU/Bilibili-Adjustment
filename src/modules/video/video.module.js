@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.23.4',
+    version: '3.24.0',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -136,8 +136,8 @@ export default {
         this._cleanup.push(eventBus.on(EVENT_NAMES.LOGGER_SHOW, (_, { type, message }) => {
             logger[type]?.(message)
         }))
-        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_CANPLAYTHROUGH, _.debounce(this.autoSelectPlayerMode, { 'leading': true, 'trailing': false })))
-        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, _.debounce(this.autoLocateToPlayer, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_CANPLAYTHROUGH, _.debounce(() => this.autoSelectPlayerMode(), 0, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, _.debounce(() => this.autoLocateToPlayer(), 0, { 'leading': true, 'trailing': false })))
         this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS, _.debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false })))
         this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_WEBFULL_PLAYER_MODE_UNLOCK, _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false })))
         this.autoReapplyUnlockOnFullscreenExit()
@@ -228,27 +228,27 @@ export default {
     _playerTitleCache: undefined,
     async hasPlayerTitle () {
         if (this._playerTitleCache !== undefined) return this._playerTitleCache
-        // 快速路径：DOM 检测
+        // 番剧页：#player-title 也会出现在番剧播放页上，不能仅凭 DOM 判断，必须通过 API 精确识别
+        if (this.userConfigs?.page_type === 'bangumi') {
+            try {
+                const epId = biliApis.getCurrentVideoID(window.location.href)
+                if (!epId || epId === 'error') { this._playerTitleCache = false; return false }
+                const info = await biliApis.getVideoInformation('bangumi', epId)
+                const isMovie = info?.season_type === 2 || info?.type_name === '电影'
+                this._playerTitleCache = isMovie
+                return isMovie
+            } catch {
+                this._playerTitleCache = false
+                return false
+            }
+        }
+        // 普通视频页：DOM 快速路径
         if (document.querySelector('#player-title')) {
             this._playerTitleCache = true
             return true
         }
-        // 番剧/电影页通过 API 进一步检测
-        if (this.userConfigs?.page_type !== 'bangumi') {
-            this._playerTitleCache = false
-            return false
-        }
-        try {
-            const epId = biliApis.getCurrentVideoID(window.location.href)
-            if (!epId || epId === 'error') { this._playerTitleCache = false; return false }
-            const info = await biliApis.getEpisodeInfo(epId)
-            const isMovie = info?.season_type === 2 || info?.type_name === '电影'
-            this._playerTitleCache = isMovie
-            return isMovie
-        } catch {
-            this._playerTitleCache = false
-            return false
-        }
+        this._playerTitleCache = false
+        return false
     },
     async handleVideoPauseOnTabSwitch () {
         const video = await elementSelectors.video
@@ -325,7 +325,9 @@ export default {
         const deferredFunctions = [
             [this.unlockEpisodeSelector, !hasTitle],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')]
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
+            // 番剧页不执行AI广告识别，但加载缓存中的跳过片段（片头片尾等手动配置）
+            [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && this.userConfigs.page_type === 'bangumi')]
         ]
         // 等待新视频可播放，最长 5 秒；超时也继续执行，避免视频加载异常时其余功能挂起
         const videoReady = await Promise.race([
@@ -334,6 +336,8 @@ export default {
         ])
         if (!videoReady) logger.warn('视频资源丨等待可播放超时（5s），继续执行其余功能')
         executeFunctionsSequentially(deferredFunctions)
+        // 选择播放器默认模式（番剧页可能未触发 VIDEO_CANPLAYTHROUGH 事件，需在此补充调用）
+        await this.autoSelectPlayerMode()
         // SPA 切换时首次定位可能在布局稳定前执行，视频可播放后重新校验并纠正定位
         await this.autoLocateToPlayer()
         this.autoEnableSubtitle(Boolean(this.userConfigs.auto_subtitle))
@@ -354,7 +358,9 @@ export default {
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
             // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')]
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
+            // 番剧页不执行AI广告识别，但加载缓存中的跳过片段（片头片尾等手动配置）
+            [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && this.userConfigs.page_type === 'bangumi')]
         ]
         executeFunctionsSequentially(functions)
         this.autoEnableSubtitle()
