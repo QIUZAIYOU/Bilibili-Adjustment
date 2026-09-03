@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.24.0',
+    version: '3.24.1',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -169,18 +169,26 @@ export default {
             logger.debug('视频资源丨链接已改变')
             await this.handleHrefChangedFunctionsSequentially()
         }))
-        this._cleanup.push(isTabActive({
-            onActiveChange: async isActive => {
-                if (isActive) {
-                    logger.info('标签页｜已激活')
-                    insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
-                    this.checkVideoCanplaythrough(await elementSelectors.video)
-                }
-            },
-            immediate: true,
-            checkInterval: 10,
-            once: true
-        }))
+        // 番剧页：跳过标签页可见性检测，视频元素渲染即触发流程
+        // 普通视频页：保留标签页激活检测（防止后台标签页误触发）
+        if (this.userConfigs.page_type === 'bangumi') {
+            logger.debug('番剧页丨跳过标签页检测，直接检测视频元素')
+            insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
+            ;(async () => this.checkVideoCanplaythrough(await elementSelectors.video))()
+        } else {
+            this._cleanup.push(isTabActive({
+                onActiveChange: async isActive => {
+                    if (isActive) {
+                        logger.info('标签页｜已激活')
+                        insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
+                        this.checkVideoCanplaythrough(await elementSelectors.video)
+                    }
+                },
+                immediate: true,
+                checkInterval: 10,
+                once: true
+            }))
+        }
     },
     isVideoCanplaythrough (videoElement) {
         return new Promise(resolve => {
