@@ -65,13 +65,21 @@ function getDB() {
     return $db;
 }
 
-// bvid 格式校验
+// bvid 格式校验：支持 BV 格式（普通视频）和纯数字 ep_id（番剧）
 function validateBvid($bvid) {
     global $MAX_BVID_LENGTH;
-    if (!is_string($bvid) || strlen($bvid) > $MAX_BVID_LENGTH || strlen($bvid) < 10) {
+    if (!is_string($bvid) || strlen($bvid) > $MAX_BVID_LENGTH || strlen($bvid) < 1) {
         return false;
     }
-    return preg_match('/^BV[a-zA-Z0-9]+$/', $bvid) === 1;
+    // BV 格式：BV 开头 + 至少 8 位字母数字（总长 ≥ 10）
+    if (preg_match('/^BV[a-zA-Z0-9]+$/', $bvid) === 1 && strlen($bvid) >= 10) {
+        return true;
+    }
+    // 数字格式：纯数字 ep_id（番剧页使用）
+    if (preg_match('/^\d+$/', $bvid) === 1) {
+        return true;
+    }
+    return false;
 }
 
 // 速率限制
