@@ -156,10 +156,24 @@ export const biliApis = {
         else logger.warn('获取用户基本信息丨请求失败')
     },
     async getVideoSubtitles (bvid, cid) {
-        const url = `https://api.bilibili.com/x/player/v2?bvid=${bvid}&cid=${cid}`
+        const url = `https://api.bilibili.com/x/player/wbi/v2?bvid=${bvid}&cid=${cid}`
         const { data: { code, data }} = await _apiRequest(url)
         if (code === 0) return data?.subtitle?.subtitles
         else return null
+    },
+    async getSubtitleContent (subtitleUrl) {
+        // 补全协议头
+        const fullUrl = subtitleUrl.startsWith('//') ? `https:${subtitleUrl}` : subtitleUrl
+        try {
+            // 使用原生 fetch 而非 _apiRequest，避免 withCredentials 导致 CORS 问题
+            const response = await fetch(fullUrl)
+            if (!response.ok) throw new Error(`HTTP ${response.status}`)
+            const data = await response.json()
+            return data?.body || []
+        } catch (error) {
+            logger.debug('获取字幕内容失败', error)
+            return []
+        }
     },
     async getVideoTags (bvid) {
         const url = `https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`

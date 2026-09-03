@@ -534,3 +534,138 @@ export const generateMentionUserLinks = (username, desc_v2) => {
         ? `<a target="_blank" href="//space.bilibili.com/${matchedItem.biz_id}" class="mention-user" data-v-8ced1e78="">@${username} </a>`
         : `@${username}`
 }
+
+/**
+ * 统一的弹窗管理器
+ * 所有弹窗应使用此函数创建，以确保行为一致：
+ * 1. 打开时禁用后方元素点击
+ * 2. 关闭时恢复后方元素点击
+ * 3. 提供统一的打开/关闭 API
+ */
+export const createPopoverManager = () => {
+    const popoverInstances = new Map()
+    let appElement = null
+
+    const getAppElement = async () => {
+        if (!appElement) {
+            const { elementSelectors } = await import('@/shared/element-selectors')
+            appElement = await elementSelectors.app
+        }
+        return appElement
+    }
+
+    const disableBackgroundInteraction = async () => {
+        const app = await getAppElement()
+        if (app) app.style.pointerEvents = 'none'
+    }
+
+    const enableBackgroundInteraction = async () => {
+        const app = await getAppElement()
+        if (app) app.style.pointerEvents = 'auto'
+    }
+
+    return {
+        /**
+         * 注册并管理一个弹窗
+         * @param {string} id - 弹窗元素 ID
+         * @param {Object} options - 配置项
+         * @param {Function} options.onCreate - 弹窗创建后的回调
+         * @param {Function} options.onClose - 弹窗关闭时的回调
+         * @returns {Object} 弹窗控制对象
+         */
+        register (id, options = {}) {
+            if (popoverInstances.has(id)) {
+                return popoverInstances.get(id)
+            }
+
+            const instance = {
+                id,
+                element: null,
+                showPopover: () => {},
+                hidePopover: () => {},
+                destroy: () => {}
+            }
+
+            popoverInstances.set(id, instance)
+            return instance
+        },
+
+        /**
+         * 初始化弹窗元素并绑定事件
+         * @param {string} id - 弹窗元素 ID
+         * @param {HTMLElement} element - 弹窗 DOM 元素
+         * @param {Object} options - 配置项
+         */
+        init (id, element, options = {}) {
+            const instance = popoverInstances.get(id)
+            if (!instance) return
+
+            instance.element = element
+
+            // 绑定 toggle 事件，控制后方元素交互
+            element.addEventListener('toggle', async e => {
+                if (e.newState === 'open') {
+                    await disableBackgroundInteraction()
+                } else if (e.newState === 'closed') {
+                    await enableBackgroundInteraction()
+                    options.onClose?.()
+                }
+            })
+
+            // 提供统一的打开/关闭方法
+            instance.showPopover = () => element.showPopover()
+            instance.hidePopover = () => element.hidePopover()
+            instance.destroy = async () => {
+                element.hidePopover()
+                await enableBackgroundInteraction()
+                element.remove()
+                popoverInstances.delete(id)
+            }
+        },
+
+        /**
+         * 显示弹窗
+         * @param {string} id - 弹窗元素 ID
+         */
+        async show (id) {
+            const instance = popoverInstances.get(id)
+            if (instance?.element) {
+                instance.element.showPopover()
+            }
+        },
+
+        /**
+         * 隐藏弹窗
+         * @param {string} id - 弹窗元素 ID
+         */
+        async hide (id) {
+            const instance = popoverInstances.get(id)
+            if (instance?.element) {
+                instance.element.hidePopover()
+            }
+        },
+
+        /**
+         * 销毁弹窗
+         * @param {string} id - 弹窗元素 ID
+         */
+        async destroy (id) {
+            const instance = popoverInstances.get(id)
+            if (instance) {
+                await instance.destroy()
+            }
+        },
+
+        /**
+         * 获取弹窗实例
+         * @param {string} id - 弹窗元素 ID
+         * @returns {Object|null} 弹窗实例
+         */
+        get (id) {
+            return popoverInstances.get(id) || null
+        }
+    }
+}
+
+// 导出全局弹窗管理器实例
+export const popoverManager = createPopoverManager()

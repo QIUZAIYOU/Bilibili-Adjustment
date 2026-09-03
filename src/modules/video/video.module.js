@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.23.3',
+    version: '3.23.4',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -354,8 +354,7 @@ export default {
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
             // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
-            this.insertManualAdRecognitionButton
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')]
         ]
         executeFunctionsSequentially(functions)
         this.autoEnableSubtitle()

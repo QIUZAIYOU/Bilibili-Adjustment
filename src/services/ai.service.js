@@ -389,13 +389,28 @@ export class UnifiedAIService extends AIService {
                 { role: 'user', content: subtitlesJsonString }
             ]
             const content = await adapter.chat(apiKey, model, messages, useCustomModel)
+            // 检查响应是否为空
+            if (!content || !content.trim()) {
+                this.#logger.error('AI响应内容为空')
+                return []
+            }
             // 兼容 Markdown 代码块和空数组响应，再提取 JSON 数组。
             const normalizedContent = String(content || '')
                 .replace(/^```(?:json)?\s*/i, '')
                 .replace(/\s*```$/i, '')
                 .trim()
+            // 检查规范化后的内容是否为空
+            if (!normalizedContent) {
+                this.#logger.error('AI响应内容为空')
+                return []
+            }
             const match = normalizedContent.match(/\[[\s\S]*\]/)
             const jsonStr = match ? match[0] : normalizedContent
+            // 检查JSON字符串是否为空
+            if (!jsonStr || !jsonStr.trim()) {
+                this.#logger.error('AI响应中未找到有效JSON')
+                return []
+            }
             try {
                 const result = JSON.parse(jsonStr)
                 if (!Array.isArray(result)) {

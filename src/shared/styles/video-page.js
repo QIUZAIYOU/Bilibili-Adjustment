@@ -123,61 +123,269 @@ export const videoPageStyles = {
             background: #333;
         }
 
-        #ManualAdRecognitionPopover {
-            width: 400px;
+        #SkipSegmentManagerPopover {
+            width: min(500px, 90vw);
             max-height: 70vh;
+            padding: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
         }
 
-        #ManualAdRecognitionPopover .adjustment-popover-content {
-            padding: 16px;
-            min-height: 100px;
+        #SkipSegmentManagerPopover .adjustment-popover-header {
+            flex-shrink: 0;
+            padding: 14px 20px;
         }
 
-        #ManualAdRecognitionPopover .loading,
-        #ManualAdRecognitionPopover .error,
-        #ManualAdRecognitionPopover .success {
-            text-align: center;
-            padding: 24px;
-            color: #868686;
+        #SkipSegmentManagerPopover .adjustment-popover-header-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
         }
 
-        #ManualAdRecognitionPopover .error {
-            color: #f56c6c;
-        }
-
-        #ManualAdRecognitionPopover .success {
-            color: #67c23a;
-        }
-
-        #ManualAdRecognitionPopover .result .no-ad {
-            text-align: center;
-            color: #868686;
-            padding: 24px;
-        }
-
-        #ManualAdRecognitionPopover .result .ad-count {
-            margin-bottom: 12px;
+        #SkipSegmentManagerPopover .adjustment-popover-title {
+            font-size: 18px;
+            font-weight: 600;
             color: #fff;
         }
 
-        #ManualAdRecognitionPopover .result .ad-item {
+        #SkipSegmentManagerCloseButton {
+            cursor: pointer;
+            font-size: 16px;
+            color: #888;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            user-select: none;
+        }
+
+        #SkipSegmentManagerCloseButton:hover {
+            color: #fff;
+            background: #333;
+        }
+
+        #SkipSegmentManagerPopover .adjustment-popover-content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            min-height: 80px;
+        }
+
+        #SkipSegmentManagerPopover .empty-tip {
+            text-align: center;
+            color: #666;
+            font-size: 13px;
+            line-height: 1.6;
+            margin: -12px 0 28px;
+        }
+
+        #SkipSegmentManagerPopover .empty-result,
+        #SkipSegmentManagerPopover .loading,
+        #SkipSegmentManagerPopover .error,
+        #SkipSegmentManagerPopover .success {
+            text-align: center;
+            padding: 40px 0 24px;
+            color: #868686;
+        }
+
+        #SkipSegmentManagerPopover .empty-result { padding: 24px; }
+        #SkipSegmentManagerPopover .error { color: #f56c6c; }
+        #SkipSegmentManagerPopover .success { color: #67c23a; }
+
+        #SkipSegmentManagerPopover .cache-info {
+            padding: 12px;
+            margin-bottom: 16px;
+            background: rgba(0,161,214,0.08);
+            border-radius: 8px;
+            border: 1px solid rgba(0,161,214,0.15);
+        }
+
+        #SkipSegmentManagerPopover .cache-meta {
+            font-size: 13px;
+            color: #868686;
+            line-height: 1.6;
+        }
+
+        #SkipSegmentManagerPopover .segment-count {
+            margin: 16px 0;
+            color: #fff;
+            font-size: 15px;
+        }
+
+        #SkipSegmentManagerPopover .segment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #SkipSegmentManagerPopover .segment-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            transition: background 0.2s;
+        }
+
+        #SkipSegmentManagerPopover .segment-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        #SkipSegmentManagerPopover .segment-index {
+            color: #00a1d6;
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 20px;
+        }
+
+        #SkipSegmentManagerPopover .segment-time {
+            color: #fff;
+            font-family: monospace;
+            font-size: 14px;
+            background: rgba(0,161,214,0.15);
+            padding: 4px 10px;
+            border-radius: 4px;
+        }
+
+        #SkipSegmentManagerPopover .segment-delete {
+            margin-left: auto;
+            cursor: pointer;
+            color: #868686;
+            font-size: 16px;
+            padding: 2px 6px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            opacity: 0;
+        }
+
+        #SkipSegmentManagerPopover .segment-item:hover .segment-delete {
+            opacity: 1;
+        }
+
+        #SkipSegmentManagerPopover .segment-delete:hover {
+            color: #f56c6c;
+            background: rgba(245,108,108,0.15);
+        }
+
+        #SkipSegmentManagerPopover .manual-entry-section {
+            padding: 12px 20px 16px;
+            border-top: 1px solid #424242;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        #SkipSegmentManagerPopover .inline-msg {
+            font-size: 13px;
+            border-radius: 6px;
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        #SkipSegmentManagerPopover .inline-msg.warn {
+            color: #e6a23c;
+            background: rgba(230,162,60,0.1);
+            border: 1px solid rgba(230,162,60,0.2);
+            padding: 8px 12px;
+            max-height: 60px;
+        }
+
+        #SkipSegmentManagerPopover .manual-entry-form {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        #SkipSegmentManagerPopover .time-inputs {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            flex: 1;
+        }
+
+        #SkipSegmentManagerPopover .time-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        #SkipSegmentManagerPopover .time-input-group label {
+            font-size: 12px;
+            color: #868686;
+        }
+
+        #SkipSegmentManagerPopover .time-input {
+            background: #2a2a2a;
+            border: 1px solid #424242;
+            border-radius: 6px;
+            color: #fff;
+            padding: 8px 10px;
+            font-size: 14px;
+            font-family: monospace;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #SkipSegmentManagerPopover .time-input:focus {
+            border-color: #00a1d6;
+            outline: none;
+        }
+
+        #SkipSegmentManagerPopover .time-separator {
+            color: #868686;
+            font-size: 14px;
+            padding-bottom: 8px;
+        }
+
+        #SkipSegmentManagerPopover .manual-add-btn {
+            padding: 8px 16px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        #SkipSegmentManagerPopover .pending-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        #SkipSegmentManagerPopover .pending-item {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 8px;
+            padding: 8px 12px;
             border-radius: 6px;
-            background: rgba(255,255,255,0.02);
-            margin-bottom: 8px;
+            background: rgba(0,161,214,0.06);
+            border: 1px solid rgba(0,161,214,0.12);
+            font-size: 13px;
         }
 
-        #ManualAdRecognitionPopover .result .ad-item .ad-index {
-            color: #00a1d6;
-            font-weight: 600;
-        }
-
-        #ManualAdRecognitionPopover .result .ad-item .ad-time {
-            color: #fff;
+        #SkipSegmentManagerPopover .pending-item .segment-time {
+            background: rgba(0,161,214,0.12);
+            padding: 2px 8px;
+            border-radius: 4px;
             font-family: monospace;
+            font-size: 13px;
+            color: #fff;
+        }
+
+        #SkipSegmentManagerPopover .pending-item .pending-delete {
+            margin-left: auto;
+            cursor: pointer;
+            color: #868686;
+            font-size: 14px;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        #SkipSegmentManagerPopover .pending-item .pending-delete:hover {
+            color: #f56c6c;
+            background: rgba(245,108,108,0.15);
         }
     `
 }

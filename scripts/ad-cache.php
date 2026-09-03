@@ -34,8 +34,28 @@ function getDB() {
     $db->exec('CREATE TABLE IF NOT EXISTS ad_cache (
         bvid TEXT PRIMARY KEY,
         segments TEXT NOT NULL,
-        timestamp INTEGER NOT NULL
+        timestamp INTEGER NOT NULL,
+        uploader_uid INTEGER,
+        verified_by TEXT,
+        version INTEGER DEFAULT 1,
+        last_updated INTEGER,
+        locked INTEGER DEFAULT 0
     )');
+    // 兼容旧表：尝试添加新字段（已存在则忽略）
+    $migrations = [
+        'ALTER TABLE ad_cache ADD COLUMN uploader_uid INTEGER',
+        'ALTER TABLE ad_cache ADD COLUMN verified_by TEXT',
+        'ALTER TABLE ad_cache ADD COLUMN version INTEGER DEFAULT 1',
+        'ALTER TABLE ad_cache ADD COLUMN last_updated INTEGER',
+        'ALTER TABLE ad_cache ADD COLUMN locked INTEGER DEFAULT 0'
+    ];
+    foreach ($migrations as $sql) {
+        try {
+            $db->exec($sql);
+        } catch (Exception $e) {
+            // 字段已存在，忽略错误
+        }
+    }
     // 创建速率限制表
     $db->exec('CREATE TABLE IF NOT EXISTS rate_limit (
         ip_key TEXT PRIMARY KEY,
@@ -113,24 +133,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         exit;
     }
     
-    $stmt = $db->prepare('SELECT segments, timestamp FROM ad_cache WHERE bvid = :bvid');
+    $stmt = $db->prepare('SELECT * FROM ad_cache WHERE bvid = :bvid');
     $stmt->bindValue(':bvid', $bvid, SQLITE3_TEXT);
     $result = $stmt->execute();
     $row = $result->fetchArray(SQLITE3_ASSOC);
     
     if (!$row) {
-        http_response_code(404);
-        echo json_encode(['error' => 'Cache miss']);
+        // 缓存未命中属于正常状态，返回 200 避免浏览器控制台产生 404 网络错误日志
+        http_response_code(200);
+        echo json_encode(['ok' => false, 'error' => 'Cache miss']);
         exit;
     }
     
     $segments = json_decode($row['segments'], true);
+    $verifiedBy = json_decode($row['verified_by'] ?? '[]', true);
     echo json_encode([
         'ok' => true,
         'data' => [
             'bvid' => $bvid,
             'segments' => $segments,
-            'timestamp' => (int)$row['timestamp']
+            'timestamp' => (int)$row['timestamp'],
+            'uploader_uid' => $row['uploader_uid'] ? (int)$row['uploader_uid'] : null,
+            'verified_by' => $verifiedBy,
+            'version' => (int)($row['version'] ?? 1),
+            'last_updated' => $row['last_updated'] ? (int)$row['last_updated'] : (int)$row['timestamp'],
+            'locked' => (int)($row['locked'] ?? 0)
         ]
     ]);
     exit;
@@ -178,12 +205,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     $segmentsJson = json_encode($segments, JSON_UNESCAPED_UNICODE);
     $timestamp = time() * 1000;
+    $uploaderUid = isset($input['uploader_uid']) && is_numeric($input['uploader_uid']) ? (int)$input['uploader_uid'] : null;
+    $verifiedBy = isset($input['verified_by']) && is_array($input['verified_by']) ? json_encode($input['verified_by']) : '[]';
+    $version = isset($input['version']) && is_numeric($input['version']) ? (int)$input['version'] : 1;
+    $lastUpdated = isset($input['last_updated']) && is_numeric($input['last_updated']) ? (int)$input['last_updated'] : $timestamp;
+    $locked = isset($input['locked']) ? (int)$input['locked'] : 0;
     
     // UPSERT：存在则更新，不存在则插入
-    $stmt = $db->prepare('INSERT OR REPLACE INTO ad_cache (bvid, segments, timestamp) VALUES (:bvid, :segments, :timestamp)');
+    $stmt = $db->prepare('INSERT OR REPLACE INTO ad_cache (bvid, segments, timestamp, uploader_uid, verified_by, version, last_updated, locked) VALUES (:bvid, :segments, :timestamp, :uploader_uid, :verified_by, :version, :last_updated, :locked)');
     $stmt->bindValue(':bvid', $bvid, SQLITE3_TEXT);
     $stmt->bindValue(':segments', $segmentsJson, SQLITE3_TEXT);
     $stmt->bindValue(':timestamp', $timestamp, SQLITE3_INTEGER);
+    $stmt->bindValue(':uploader_uid', $uploaderUid, SQLITE3_INTEGER);
+    $stmt->bindValue(':verified_by', $verifiedBy, SQLITE3_TEXT);
+    $stmt->bindValue(':version', $version, SQLITE3_INTEGER);
+    $stmt->bindValue(':last_updated', $lastUpdated, SQLITE3_INTEGER);
+    $stmt->bindValue(':locked', $locked, SQLITE3_INTEGER);
     $stmt->execute();
     
     echo json_encode(['ok' => true]);

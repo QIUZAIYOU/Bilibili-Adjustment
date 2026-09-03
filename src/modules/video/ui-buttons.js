@@ -37,7 +37,8 @@ export const uiButtonsFeatures = {
         const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
         const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
         const existingUpButton = floatNav.querySelector('.bili-adjustment-icon.up')
-        if (existingLocateButton && existingSettingsButton && existingUpButton) {
+        const existingSkipButton = floatNav.querySelector('.bili-adjustment-icon.skip')
+        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
@@ -81,6 +82,20 @@ export const uiButtonsFeatures = {
                 biliApis.getVideoInformation('video', biliApis.getCurrentVideoID()).then(info => {
                     if (info?.owner?.mid) this._cachedMid = info.owner.mid
                 }).catch(() => {})
+            }
+            // 插入跳过片段管理按钮
+            if (!existingSkipButton && this.userConfigs.auto_skip) {
+                const skipButton = createElementAndInsert(getTemplates.replace('skipSegmentManagerButton', {
+                    style: '',
+                    dataV: dataV,
+                    text: ''
+                }), floatNav.lastElementChild, 'prepend')
+                addEventListenerToElement(skipButton, 'click', async () => {
+                    const bvid = biliApis.getCurrentVideoID(window.location.href)
+                    if (bvid && bvid !== 'error') {
+                        await this.showSkipSegmentManager(bvid)
+                    }
+                })
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
