@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.25.2',
+    version: '3.25.3',
     async install () {
         this._cleanup = []
         this._modeObservers = []

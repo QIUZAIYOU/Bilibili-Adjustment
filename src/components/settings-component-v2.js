@@ -87,8 +87,8 @@ export class SettingsComponentV2 {
         }
         // 销毁旧的 tooltip
         destroyTooltip()
-        // 获取动态选项（模型列表等）
-        const dynamicOptions = await this.fetchDynamicOptions()
+        // 不 await fetchDynamicOptions（fetchModels 有 10s 超时），用当前模型作为 fallback 立即渲染
+        const dynamicOptions = this._pendingModelOptions || { ai_model: this.userConfigs.ai_model ? [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }] : [] }
         // 创建渲染器并渲染
         this.renderer = new SettingsRenderer(videoSettingsConfig)
         const formContent = this.renderer.render(this.userConfigs, dynamicOptions)
@@ -106,6 +106,19 @@ export class SettingsComponentV2 {
         requestAnimationFrame(() => {
             bindTooltipIcons()
         })
+        // 异步获取完整模型列表并更新 DOM（不阻塞初始化流程）
+        this.fetchDynamicOptions().then(options => {
+            if (options?.ai_model) {
+                this._pendingModelOptions = options
+                const modelSelect = document.getElementById('AIModel')
+                if (modelSelect) {
+                    const currentValue = modelSelect.value
+                    modelSelect.innerHTML = options.ai_model.map(m =>
+                        '<option value="' + m.value + '"' + (m.value === currentValue ? ' selected' : '') + '>' + m.label + '</option>'
+                    ).join('')
+                }
+            }
+        }).catch(() => {})
     }
     /**
      * 获取动态选项（如模型列表）
