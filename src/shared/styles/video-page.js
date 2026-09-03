@@ -164,6 +164,114 @@ export const videoPageStyles = {
             background: #333;
         }
 
+        .adjustment-popover-back {
+            cursor: pointer;
+            font-size: 22px;
+            color: #888;
+            line-height: 1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            user-select: none;
+            margin-right: 8px;
+            font-weight: 300;
+        }
+
+        .adjustment-popover-back:hover {
+            color: #fff;
+            background: #333;
+        }
+
+        .episode-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            max-height: 420px;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        .episode-list-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            border-radius: 8px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .episode-list-item:hover {
+            background: rgba(255,255,255,0.08);
+            border-color: rgba(0,161,214,0.3);
+        }
+
+        .episode-list-item.current {
+            background: rgba(0,161,214,0.12);
+            border-color: rgba(0,161,214,0.4);
+        }
+
+        .episode-list-item.has-segments .episode-segment-count {
+            color: #00a1d6;
+        }
+
+        .episode-index {
+            color: #00a1d6;
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 24px;
+        }
+
+        .episode-title {
+            color: #ccc;
+            font-size: 13px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .episode-list-item.current .episode-title {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        .episode-segment-count {
+            color: #666;
+            font-size: 12px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .episode-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 14px;
+            margin-bottom: 14px;
+            border-radius: 8px;
+            background: rgba(0,161,214,0.08);
+            border: 1px solid rgba(0,161,214,0.15);
+        }
+
+        .episode-header-index {
+            color: #00a1d6;
+            font-weight: 600;
+            font-size: 15px;
+        }
+
+        .episode-header-title {
+            color: #fff;
+            font-size: 14px;
+        }
+
+        .episode-header-segments {
+            margin-left: auto;
+            color: #868686;
+            font-size: 13px;
+        }
+
         #SkipSegmentManagerPopover .adjustment-popover-content {
             flex: 1;
             overflow-y: auto;

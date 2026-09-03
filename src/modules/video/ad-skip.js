@@ -260,7 +260,11 @@ export const adSkipFeatures = {
                 pendingSegments: [],
                 cached: null,
                 canUpdate: true,
-                bvid: null
+                bvid: null,
+                // 番剧页专用状态
+                episodes: [],
+                currentEpisodeIndex: -1,
+                bangumiView: 'list' // 'list' | 'edit'
             }
         }
         const state = this._skipMgrState
@@ -355,6 +359,173 @@ export const adSkipFeatures = {
             }
 
             popover._mgr.renderSegments = renderSegments
+
+            // ===== 番剧页：剧集列表相关函数 =====
+            const episodeListEl = document.getElementById('SkipSegmentManagerEpisodeList')
+            const backBtn = document.getElementById('SkipSegmentManagerBackBtn')
+
+            const renderEpisodeList = async (episodes) => {
+                if (!episodes || episodes.length === 0) return
+                state.bangumiView = 'list'
+                state.currentEpisodeIndex = -1
+                // 先显示加载占位
+                episodeListEl.innerHTML = episodes.map((ep, i) => {
+                    const epId = String(ep.id)
+                    const isCurrent = epId === state.bvid
+                    const epNum = ep.title ? ep.title.replace(/[^\d]/g, '') || String(i + 1) : String(i + 1)
+                    return '<div class="episode-list-item' + (isCurrent ? ' current' : '') + '" data-ep-index="' + i + '" data-ep-id="' + epId + '">' +
+                        '<span class="episode-index">' + epNum + '</span>' +
+                        '<span class="episode-title">' + (ep.title || '') + (ep.long_title ? ' ' + ep.long_title : '') + '</span>' +
+                        '<span class="episode-segment-count">加载中...</span>' +
+                        '</div>'
+                }).join('')
+                // 隐藏分段编辑区域，显示剧集列表
+                content.style.display = 'none'
+                episodeListEl.style.display = 'flex'
+                manualEntry.style.display = 'none'
+                updateBtn.style.display = 'none'
+                reIdentifyBtn.style.display = 'none'
+                batchSectionEl.style.display = 'none'
+                backBtn.style.display = 'none'
+                // 并行加载所有剧集的片段计数
+                const countPromises = episodes.map(async (ep, i) => {
+                    const epId = String(ep.id)
+                    let count = 0
+                    try {
+                        const cached = await storageService.adCacheGet(epId)
+                        count = cached?.segments?.length || 0
+                    } catch (_) {}
+                    return { index: i, count }
+                })
+                const results = await Promise.all(countPromises)
+                results.forEach(({ index, count }) => {
+                    const item = episodeListEl.querySelector('[data-ep-index="' + index + '"]')
+                    if (!item) return
+                    const countEl = item.querySelector('.episode-segment-count')
+                    if (count === 0) {
+                        countEl.textContent = '无片段'
+                    } else {
+                        countEl.textContent = count + ' 个片段'
+                        item.classList.add('has-segments')
+                    }
+                })
+                // 绑定点击事件
+                episodeListEl.querySelectorAll('.episode-list-item').forEach(item => {
+                    item.addEventListener('click', async () => {
+                        const idx = parseInt(item.dataset.epIndex)
+                        if (idx >= 0 && idx < episodes.length) {
+                            await switchToEpisode(idx)
+                        }
+                    })
+                })
+            }
+
+            const switchToEpisode = async (episodeIndex) => {
+                const ep = state.episodes[episodeIndex]
+                if (!ep) return
+                state.currentEpisodeIndex = episodeIndex
+                state.bangumiView = 'edit'
+                state.bvid = String(ep.id)
+                state.pendingSegments = []
+                renderPendingList()
+                // 加载该集的片段数据
+                const uid = getCurrentUid()
+                let cached = null
+                try {
+                    cached = await storageService.adCacheGet(state.bvid)
+                } catch (_) {}
+                state.currentSegments = cached?.segments ? [...cached.segments] : []
+                state.cached = cached
+                state.canUpdate = canUpdateCache(cached, uid)
+                // 切换到编辑视图
+                episodeListEl.style.display = 'none'
+                content.style.display = ''
+                backBtn.style.display = ''
+                // 重新识别按钮对番剧页始终隐藏
+                reIdentifyBtn.style.display = 'none'
+                // 显示剧集头部信息后渲染片段
+                renderBangumiSegments(state.currentSegments, state.cached, ep)
+            }
+
+            const renderBangumiSegments = (segments, cacheInfo, ep) => {
+                segments = mergeSegments(segments)
+                const epNum = ep.title ? ep.title.replace(/[^\d]/g, '') || '?' : '?'
+                let html = '<div class="episode-header">'
+                html += '<span class="episode-header-index">第' + epNum + '话</span>'
+                html += '<span class="episode-header-title">' + (ep.long_title || ep.title || '') + '</span>'
+                html += '<span class="episode-header-segments">' + (segments.length > 0 ? segments.length + ' 个片段' : '无片段') + '</span>'
+                html += '</div>'
+                if (cacheInfo) {
+                    const time = new Date(cacheInfo.last_updated).toLocaleString('zh-CN')
+                    html += '<div class="cache-info"><div class="cache-meta">上传者 UID: ' + (cacheInfo.uploader_uid || '未知') + '</div>'
+                    html += '<div class="cache-meta">更新时间: ' + time + '</div>'
+                    html += '<div class="cache-meta">版本: v' + (cacheInfo.version || 1) + '</div></div>'
+                }
+                if (!segments || segments.length === 0) {
+                    html += '<div class="empty-result">未识别到需要跳过的片段</div>'
+                } else {
+                    html += '<div class="segment-list">'
+                    segments.forEach((seg, i) => {
+                        const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
+                        html += '<div class="segment-item" data-index="' + i + '"><span class="segment-index">' + (i + 1) + '.</span><span class="segment-time">' + timeStr + '</span><div class="segment-delete" data-index="' + i + '" title="删除">×</div></div>'
+                    })
+                    html += '</div>'
+                }
+                content.innerHTML = html
+                content.querySelectorAll('.segment-delete').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        const idx = parseInt(e.currentTarget.dataset.index)
+                        state.currentSegments.splice(idx, 1)
+                        renderBangumiSegments(state.currentSegments, state.cached, ep)
+                    })
+                })
+                if (state.canUpdate) {
+                    updateBtn.style.display = 'flex'
+                } else {
+                    updateBtn.style.display = 'none'
+                }
+            }
+
+            const backToEpisodeList = async () => {
+                // 如果正在编辑且有待保存的修改，先保存
+                if (state.pendingSegments.length > 0 && state.currentEpisodeIndex >= 0) {
+                    state.currentSegments.push(...state.pendingSegments)
+                    state.currentSegments = mergeSegments(state.currentSegments)
+                    state.pendingSegments = []
+                    renderPendingList()
+                    // 自动保存当前编辑的集数
+                    const uid = getCurrentUid()
+                    const newCache = createCacheEntry(state.bvid, state.currentSegments, uid)
+                    if (state.cached) {
+                        newCache.version = (state.cached.version || 0) + 1
+                        newCache.verified_by = [...new Set([...(state.cached.verified_by || []), uid].filter(Boolean))]
+                    }
+                    try {
+                        await storageService.adCacheSet(state.bvid, newCache)
+                        state.cached = newCache
+                    } catch (_) {}
+                }
+                state.bangumiView = 'list'
+                state.currentEpisodeIndex = -1
+                content.style.display = 'none'
+                episodeListEl.style.display = 'flex'
+                backBtn.style.display = 'none'
+                manualEntry.style.display = 'none'
+                updateBtn.style.display = 'none'
+                batchSectionEl.style.display = 'none'
+                // 重新渲染剧集列表以更新片段计数
+                await renderEpisodeList(state.episodes)
+            }
+
+            popover._mgr.renderEpisodeList = renderEpisodeList
+            popover._mgr.switchToEpisode = switchToEpisode
+            popover._mgr.backToEpisodeList = backToEpisodeList
+
+            // 返回按钮
+            backBtn.addEventListener('click', (e) => {
+                e.stopPropagation()
+                backToEpisodeList()
+            })
 
             // 关闭按钮
             document.getElementById('SkipSegmentManagerCloseButton').addEventListener('click', (e) => {
@@ -498,6 +669,30 @@ export const adSkipFeatures = {
                         batchMsg.className = 'inline-msg warn'
                         return
                     }
+                    // 番剧页：将当前片段填充到所有剧集的编辑视图中，由用户确认后逐集保存
+                    if (self.userConfigs.page_type === 'bangumi' && state.episodes.length > 0) {
+                        const uid = getCurrentUid()
+                        let successCount = 0
+                        for (const ep of state.episodes) {
+                            const epId = String(ep.id)
+                            const cacheEntry = createCacheEntry(epId, state.currentSegments, uid)
+                            await storageService.adCacheSet(epId, cacheEntry)
+                            try {
+                                await fetch(SKIP_CACHE_API, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify(cacheEntry)
+                                })
+                            } catch (_) {}
+                            successCount++
+                        }
+                        batchMsg.textContent = '已应用到 ' + successCount + ' 集'
+                        batchMsg.className = 'inline-msg success'
+                        // 返回剧集列表并刷新计数
+                        await backToEpisodeList()
+                        return
+                    }
+                    // 普通视频页：直接应用
                     applyAllBtn.disabled = true
                     applyAllBtn.textContent = '应用中...'
                     const uid = getCurrentUid()
@@ -570,18 +765,33 @@ export const adSkipFeatures = {
             }
         }
 
-        // 检测当前视频是否属于系列/番剧，获取同系列所有视频ID
+        // ===== 番剧页：显示剧集列表 =====
+        const { renderEpisodeList } = popover._mgr
         const batchSectionEl = document.getElementById('SkipSegmentManagerBatchSection')
         if (batchSectionEl) {
             batchSectionEl.style.display = 'none'
+        }
+
+        if (this.userConfigs.page_type === 'bangumi' && videoInfo?.episodes?.length > 0) {
+            state.episodes = videoInfo.episodes
+            state.seriesEpisodeIds = videoInfo.episodes.map(ep => String(ep.id))
+            // 显示剧集列表
+            popoverManager.show(popoverId)
+            content.style.display = 'none'
+            manualEntry.style.display = 'none'
+            updateBtn.style.display = 'none'
+            reIdentifyBtn.style.display = 'none'
+            if (batchSectionEl) batchSectionEl.style.display = 'block'
+            await renderEpisodeList(state.episodes)
+            return
+        }
+
+        // ===== 普通视频页：原有逻辑 =====
+        // 检测当前视频是否属于系列/合集，获取同系列所有视频ID
+        if (batchSectionEl) {
             if (videoInfo) {
                 let episodeIds = []
-                // 番剧页：从 episodes 获取所有集数
-                if (videoInfo.episodes && videoInfo.episodes.length > 0) {
-                    episodeIds = videoInfo.episodes.map(ep => String(ep.id))
-                }
-                // 投稿视频页：从 ugc_season 获取同系列所有视频
-                if (!episodeIds.length && videoInfo.ugc_season) {
+                if (videoInfo.ugc_season) {
                     const sections = videoInfo.ugc_season.sections || []
                     for (const section of sections) {
                         for (const ep of (section.episodes || [])) {
