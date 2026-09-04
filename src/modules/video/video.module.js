@@ -23,7 +23,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.25.5',
+    version: '3.26.0',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -143,7 +143,7 @@ export default {
         this.autoReapplyUnlockOnFullscreenExit()
         // 监听播放器模式变化，记录用户手动切换的模式
         this._lastPlayerMode = this.userConfigs?.selected_player_mode || 'normal'
-        elementSelectors.playerContainer.then(container => {
+        elementSelectors.wait('playerContainer').then(container => {
             if (!container) return
             const observer = new MutationObserver(() => {
                 const mode = container.getAttribute('data-screen')
@@ -181,7 +181,7 @@ export default {
                     if (isActive) {
                         logger.info('标签页｜已激活')
                         insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
-                        this.checkVideoCanplaythrough(await elementSelectors.video)
+                        this.checkVideoCanplaythrough(elementSelectors.get('video'))
                     }
                 },
                 immediate: true,
@@ -293,7 +293,7 @@ export default {
         return false
     },
     async handleVideoPauseOnTabSwitch () {
-        const video = await elementSelectors.video
+        const video = elementSelectors.get('video')
         if (!video) return
         let playFlag = false
         const tabState = isTabActive({
@@ -340,7 +340,7 @@ export default {
         }
         await this.locateToPlayer()
         // 重新绑定播放器模式观察器（SPA 导航后元素可能被替换）
-        elementSelectors.playerContainer.then(container => {
+        elementSelectors.wait('playerContainer').then(container => {
             if (!container) return
             const observer = new MutationObserver(() => {
                 const mode = container.getAttribute('data-screen')
@@ -373,7 +373,7 @@ export default {
         ]
         // 等待新视频可播放，最长 5 秒；超时也继续执行，避免视频加载异常时其余功能挂起
         const videoReady = await Promise.race([
-            this.checkVideoCanplaythrough(await elementSelectors.video, false),
+            this.checkVideoCanplaythrough(elementSelectors.get('video'), false),
             sleep(5000).then(() => false)
         ])
         if (!videoReady) logger.warn('视频资源丨等待可播放超时（5s），继续执行其余功能')

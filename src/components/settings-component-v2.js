@@ -155,7 +155,7 @@ export class SettingsComponentV2 {
             return
         }
         // 绑定弹窗开关事件；关闭后移除容器（统一关闭逻辑），重开时经 openSettings 重建
-        const app = elementSelectors.query('#app') || elementSelectors.query('#__next') || document.body
+        const app = elementSelectors.get('app') || document.querySelector('#__next') || document.body
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') {
@@ -424,7 +424,7 @@ export class SettingsComponentV2 {
         }
         // 自动开启字幕同步到播放器开关
         if (configId === 'auto_subtitle') {
-            const switchInput = await elementSelectors.AutoEnableSubtitleSwitchInput
+            const switchInput = elementSelectors.get('AutoEnableSubtitleSwitchInput')
             if (switchInput) {
                 requestAnimationFrame(() => {
                     switchInput.checked = value
@@ -642,7 +642,7 @@ export class SettingsComponentV2 {
         const popover = document.getElementById('DynamicSettingsPopover')
         if (!popover) return
         this.bindVersionUpdateCheck(popover)
-        const app = elementSelectors.query('#app') || elementSelectors.query('#__next') || document.body
+        const app = elementSelectors.get('app') || document.querySelector('#__next') || document.body
         addEventListenerToElement(popover, 'toggle', e => {
             if (e.newState === 'open') app.style.pointerEvents = 'none'
             if (e.newState === 'closed') {

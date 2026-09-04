@@ -549,7 +549,7 @@ export const createPopoverManager = () => {
     const getAppElement = async () => {
         if (!appElement) {
             const { elementSelectors } = await import('@/shared/element-selectors')
-            appElement = await elementSelectors.app
+            appElement = elementSelectors.get('app')
         }
         return appElement
     }

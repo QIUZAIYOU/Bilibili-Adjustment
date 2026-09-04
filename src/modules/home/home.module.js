@@ -41,7 +41,7 @@ export default {
         }
     },
     async initEventListeners () {
-        const indexRecommendVideoRollButton = await elementSelectors.indexRecommendVideoRollButton
+        const indexRecommendVideoRollButton = await elementSelectors.wait('indexRecommendVideoRollButton')
         const cleanup = addEventListenerToElement(indexRecommendVideoRollButton, 'click', async () => {
             await executeFunctionsSequentially([
                 () => this.setRecordRecommendVideoHistory(),

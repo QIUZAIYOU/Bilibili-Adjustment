@@ -3,7 +3,7 @@ export const videoRotateFeatures = {
     // 视频画面旋转
     videoRotateState: 0,
     async initVideoRotate () {
-        const video = await elementSelectors.video
+        const video = elementSelectors.get('video')
         if (!video) return
         this._videoRotateVideo = video
         // 监听右键菜单事件，注入旋转选项

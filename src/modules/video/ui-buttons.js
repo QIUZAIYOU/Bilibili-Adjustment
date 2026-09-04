@@ -28,7 +28,7 @@ export const uiButtonsFeatures = {
         document.querySelector('#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item')?.click()
     },
     async insertSideFloatNavToolsButtons () {
-        const floatNav = this.userConfigs.page_type === 'video' ? await elementSelectors.videoFloatNav : await elementSelectors.bangumiFloatNav
+        const floatNav = this.userConfigs.page_type === 'video' ? elementSelectors.get('videoFloatNav') : elementSelectors.get('bangumiFloatNav')
         if (!floatNav) {
             logger.warn('侧边栏工具丨未找到浮动导航栏，跳过插入')
             return

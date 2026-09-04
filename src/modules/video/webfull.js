@@ -9,7 +9,7 @@ const logger = new LoggerService('VideoModule')
 export const webfullFeatures = {
     // 解锁网页全屏模式
     async webfullPlayerModeUnlock () {
-        const container = await elementSelectors.playerContainer
+        const container = elementSelectors.get('playerContainer')
         if (container?.getAttribute('data-screen') !== 'web') {
             logger.debug('网页全屏丨当前非网页全屏模式，跳过解锁')
             return
@@ -41,7 +41,7 @@ export const webfullFeatures = {
             await this.resetPlayerLayout()
         }))
         // 监听网页全屏进入按钮
-        const webEnterBtn = await elementSelectors.playerModeWebEnterButton
+        const webEnterBtn = elementSelectors.get('playerModeWebEnterButton')
         if (webEnterBtn) {
             this._cleanup.push(addEventListenerToElement(webEnterBtn, 'click', async () => {
                 await this.webfullPlayerModeUnlock()
@@ -58,7 +58,7 @@ export const webfullFeatures = {
         this._webfullWheelAttached = true
         const onWheel = e => {
             if (!this.userConfigs?.webfull_unlock || this.userConfigs?.selected_player_mode !== 'web') return
-            const playerContainer = elementSelectors.query('playerContainer')
+            const playerContainer = elementSelectors.get('playerContainer')
             if (playerContainer?.getAttribute('data-screen') !== 'web') return
             if (!(e.target instanceof Node) || !playerContainer.contains(e.target)) return
             e.stopPropagation()
@@ -76,7 +76,7 @@ export const webfullFeatures = {
                 if (player) player.classList.add('mode-webscreen')
                 document.body.classList.add('webscreen-fix')
                 // 再触发 B 站自身的网页全屏进入流程
-                const webBtn = await elementSelectors.playerModeWebEnterButton
+                const webBtn = elementSelectors.get('playerModeWebEnterButton')
                 if (webBtn) {
                     webBtn.click()
                     logger.debug('网页全屏丨退出全屏后重新进入网页全屏')

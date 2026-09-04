@@ -74,10 +74,10 @@ export const homeHistoryFeatures = {
         await this._recordingPromise
     },
     async insertIndexRecommendVideoHistoryPopover () {
-        const indexRecommendVideoRollButtonWrapper = await elementSelectors.indexRecommendVideoRollButtonWrapper
+        const indexRecommendVideoRollButtonWrapper = await elementSelectors.wait('indexRecommendVideoRollButtonWrapper')
         const indexRecommendVideoHistoryOpenButtonTemplate = getTemplates.indexRecommendVideoHistoryOpenButton
         createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper)
-        const indexRecommendVideoHistoryOpenButton = await elementSelectors.indexRecommendVideoHistoryOpenButton
+        const indexRecommendVideoHistoryOpenButton = await elementSelectors.wait('indexRecommendVideoHistoryOpenButton')
         // 点击打开按钮时创建并显示弹窗
         const cleanup = addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
             // 检查是否已存在弹窗，避免重复创建

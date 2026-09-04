@@ -80,7 +80,7 @@ export const progressMemoryFeatures = {
             }
         }
         this._playbackProgressPointerDownHandler = event => {
-            if (!(event.target instanceof Element) || !event.target.closest(elementSelectors.value('playerProgress'))) return
+            if (!(event.target instanceof Element) || !event.target.closest(elementSelectors.CSS('playerProgress'))) return
             // 用户手动点击/拖动进度条：标记操作，抬起后立即保存新进度；
             // 同时记录"本视频已被用户手动定位"，此后本视频不再自动恢复，避免与用户意图冲突
             this._playbackUserSeeking = true

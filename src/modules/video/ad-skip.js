@@ -213,7 +213,7 @@ export const adSkipFeatures = {
     },
     async autoSkipAdvertisementSegments (advertisementSegments) {
         if (!advertisementSegments || advertisementSegments.length === 0) return
-        const video = await elementSelectors.video
+        const video = elementSelectors.get('video')
         if (!video) return
         const sortedSegments = mergeSegments(advertisementSegments)
         const processedSegments = new Set()

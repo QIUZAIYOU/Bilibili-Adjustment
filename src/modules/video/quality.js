@@ -14,7 +14,7 @@ export const qualityFeatures = {
             32: '480P清晰',
             16: '360P流畅'
         }
-        const qualityList = Array.from(await elementSelectors.queryAll('qualitySwitchButtons'))
+        const qualityList = Array.from(elementSelectors.queryAll('qualitySwitchButtons'))
             .map(btn => ({
                 value: +btn.dataset.value,
                 element: btn,
@@ -51,7 +51,7 @@ export const qualityFeatures = {
     },
     async autoEnableHiResMode (){
         // const highResButton = await elementSelectors.highResButton
-        const highResButton = await elementSelectors.query('highResButton')
+        const highResButton = elementSelectors.get('highResButton')
         if (highResButton && !highResButton.className.includes('bpx-state-active')){
             highResButton.click()
             logger.info('Hi-Res无损音质丨已启用')

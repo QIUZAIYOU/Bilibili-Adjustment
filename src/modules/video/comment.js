@@ -15,7 +15,7 @@ export const commentFeatures = {
             const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
             if (existingLocation) return
             const locationWrapperHtml = '<div id="location" style="margin-left:5px"></div>'
-            const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
+            const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.CSS('videoReplyPubDate'))
             if (!pubdate) return
             const locationElement = createElementAndInsert(locationWrapperHtml, pubdate, 'after')
             if (locationElement) locationElement.textContent = location || 'IP属地：未知'
@@ -53,9 +53,9 @@ export const commentFeatures = {
     },
     // 绑定简介区替换内容中的时间锚点点击跳转（替换简介区后调用）
     async activeDescriptionTimeSeek () {
-        const video = await elementSelectors.video
+        const video = elementSelectors.get('video')
         if (!video) return
-        const seekElements = document.querySelectorAll(`${elementSelectors.value('videoDescriptionText')} a[data-type="seek"]`)
+        const seekElements = document.querySelectorAll(`${elementSelectors.CSS('videoDescriptionText')} a[data-type="seek"]`)
         seekElements.forEach(element => {
             addEventListenerToElement(element, 'click', async event => {
                 event.stopPropagation()
@@ -66,7 +66,7 @@ export const commentFeatures = {
     },
     // 处理评论元素
     async doSomethingToCommentElements () {
-        const video = await elementSelectors.video
+        const video = elementSelectors.get('video')
         // 链接变化时重建观察器：先释放上一轮的外层与内层观察器，
         // 避免多套观察器叠加导致同一评论元素被重复处理（重复链接化会产生嵌套链接）
         this._commentObservationCleanups?.forEach(cleanup => cleanup())
@@ -131,7 +131,7 @@ export const commentFeatures = {
             return
         }
         // 插入前检查：移除所有已存在的视频简介元素
-        const existingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.value('adjustmentCommentDescription'))
+        const existingDescriptions = shadowDOMHelper.querySelectorAll(elementSelectors.CSS('adjustmentCommentDescription'))
         for (const el of existingDescriptions) {
             el.remove()
             logger.debug('视频简介丨插入前发现已存在，已移除')
@@ -163,10 +163,10 @@ export const commentFeatures = {
         // 1) 页面标题与当前视频一致；2) 简介区文本与当前视频简介开头一致（简介较长时 DOM 中可能只保留开头）
         const normalize = text => String(text || '').replace(/\s+/g, ' ').trim()
         const pageRenderedForCurrentVideo = () => {
-            const titleElement = elementSelectors.query('videoTitle')
+            const titleElement = elementSelectors.get('videoTitle')
             const currentTitle = normalize(videoInfo.title)
             if (currentTitle !== '' && normalize(titleElement?.textContent) === currentTitle) return true
-            const descriptionTextElement = elementSelectors.query('videoDescriptionText')
+            const descriptionTextElement = elementSelectors.get('videoDescriptionText')
             const descPrefix = normalize(videoDescription).slice(0, 20)
             return descPrefix !== '' && normalize(descriptionTextElement?.textContent).startsWith(descPrefix)
         }
@@ -204,7 +204,7 @@ export const commentFeatures = {
         }
         // 替换原简介区内容为链接化版本（时间锚点/URL/BV号/cv号/@用户），不论简介长短都要执行，
         // 与插入评论区解耦；仅替换 .desc-info-text 内部内容，保留 B 站原始 DOM 结构
-        const videoDescriptionInfoElement = elementSelectors.query('videoDescriptionInfo')
+        const videoDescriptionInfoElement = elementSelectors.get('videoDescriptionInfo')
         const descriptionTextElement = videoDescriptionInfoElement?.querySelector('.desc-info-text')
         if (descriptionTextElement) {
             // 简介区无 pre-line 样式保证时换行会被 HTML 折叠，显式转为 <br>
@@ -222,7 +222,7 @@ export const commentFeatures = {
             this._descriptionWatchdog = setTimeout(async () => {
                 this._descriptionWatchdog = null
                 if (isCancelled()) return
-                if (shadowDOMHelper.querySelector(elementSelectors.value('adjustmentCommentDescription'))) return
+                if (shadowDOMHelper.querySelector(elementSelectors.CSS('adjustmentCommentDescription'))) return
                 if (insertToCommentArea()) {
                     logger.debug('视频简介丨插入内容被清除，已重新插入')
                     verifyAndRepairInsert(rounds - 1)
@@ -257,7 +257,7 @@ export const commentFeatures = {
         this._descriptionFallbackTimer = setTimeout(() => {
             this._descriptionFallbackTimer = null
             if (isCancelled()) return
-            const videoDescriptionInfoElement = elementSelectors.query('videoDescriptionInfo')
+            const videoDescriptionInfoElement = elementSelectors.get('videoDescriptionInfo')
             if (videoDescriptionInfoElement) {
                 videoDescriptionInfoElement.innerHTML = descriptionHtml
                 logger.info('视频简介丨评论区不可用，已替换简介区内容')

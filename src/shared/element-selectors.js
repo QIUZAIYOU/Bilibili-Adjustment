@@ -1,10 +1,9 @@
 import { LoggerService } from '@/services/logger.service'
-import {
-    registerSelector, getSelector, hasSelector, recordUsage
-} from './selector-registry'
+import { registerSelector, getSelector, hasSelector } from './selector-registry'
 const logger = new LoggerService('ElementSelectors')
+
 // ========== 选择器定义 ==========
-const selectors = {
+const CSS_MAP = {
     // 通用
     app: '#app',
     header: '#biliMainHeader',
@@ -193,6 +192,7 @@ const selectors = {
     DynamicSettingStyle: '#DynamicSettingStyle',
     BodyOverflowHiddenStyle: '#BodyOverflowHiddenStyle'
 }
+
 // ========== Shadow DOM 选择器 ==========
 export const shadowDomSelectors = {
     descriptionRenderer: '#feed > bili-adjustment-comment-thread-renderer',
@@ -203,47 +203,74 @@ export const shadowDomSelectors = {
     commentReplyRenderder: 'bili-comment-reply-renderer',
     commentTags: '#tags'
 }
-// ========== 分类元数据 ==========
-const selectorMeta = {
-    // 播放器相关
-    player: { category: 'player', description: '播放器主容器' },
-    playerWrap: { category: 'player', description: '播放器包装层' },
-    playerContainer: { category: 'player', description: '播放器控制容器' },
-    playerController: { category: 'player', description: '播放器控制按钮' },
-    playerTooltipArea: { category: 'player', description: '播放器提示区域' },
-    volumeButton: { category: 'player', description: '音量按钮' },
-    mutedButton: { category: 'player', description: '静音按钮' },
-    // 视频相关
-    video: { category: 'video', description: '视频元素' },
-    videoTitleArea: { category: 'video', description: '视频标题区域' },
-    videoTitle: { category: 'video', description: '视频标题' },
-    videoDescription: { category: 'video', description: '视频简介' },
-    videoDescriptionInfo: { category: 'video', description: '视频简介信息' },
-    // 评论相关
-    videoComment: { category: 'comment', description: '评论区容器' },
-    videoCommentRoot: { category: 'comment', description: '评论根元素' },
-    videoCommentRenderder: { category: 'comment', description: '评论渲染器' },
-    adjustmentCommentDescription: { category: 'comment', description: '插入评论区的视频简介' },
-    // 设置相关
-    VideoSettingsPopover: { category: 'settings', description: '视频设置弹窗' },
-    IsVip: { category: 'settings', description: '大会员开关' },
-    AutoLocate: { category: 'settings', description: '自动定位开关' },
-    LogLevelInfo: { category: 'settings', description: 'Info日志级别' },
-    LogLevelError: { category: 'settings', description: 'Error日志级别' },
-    LogLevelWarn: { category: 'settings', description: 'Warn日志级别' },
-    LogLevelDebug: { category: 'settings', description: 'Debug日志级别' }
+
+// ========== 页面类型专属选择器 ==========
+// 用于 wait() 判断：如果选择器属于其他页面类型，直接跳过不等待
+const PAGE_TYPE_EXCLUSIVE = {
+    video: new Set([
+        'videoTitleArea', 'videoTitle', 'playerTitle',
+        'videoFloatNav', 'videoFloatNavBackToTopButton',
+        'videoNextPlayAndRecommendLink', 'videoSectionsEpisodeLink',
+        'videoEpisodeListMultiMenuItem', 'videoMultiPageLink',
+        'videoPreviousButton', 'videoNextButton'
+    ]),
+    bangumi: new Set([
+        'bangumiApp', 'bangumiComment', 'bangumiFloatNav',
+        'bangumiMainContainer', 'bangumiSectionsEpisodeLink'
+    ]),
+    home: new Set([
+        'indexApp', 'indexRecommendVideo', 'indexRecommendVideoRollButtonWrapper',
+        'indexRecommendVideoHistoryPopoverTitle', 'indexRecommendVideoHistoryPopoverTitleCount',
+        'indexRecommendVideoRollButton', 'indexRecommendVideoHistoryOpenButton',
+        'indexRecommendVideoHistoryPopover', 'indexRecommendVideoHistoryCategory',
+        'indexRecommendVideoHistoryCategoryV2', 'indexRecommendVideoHistoryCategoryButtons',
+        'indexRecommendVideoHistoryCategoryButtonsExceptAll',
+        'indexRecommendVideoHistoryCategoryButtonAll',
+        'indexRecommendVideoHistoryList', 'indexRecommendVideoHistoryListItem',
+        'indexRecommendVideoHistorySearchInput', 'clearRecommendVideoHistoryButton',
+        'notChargeHighLevelCover'
+    ]),
+    dynamic: new Set([
+        'dynamicListItem', 'dynamicSidebar', 'dynamicCommentLoadButton',
+        'DynamicSettingsPopover', 'DynamicSettingSaveButton',
+        'DynamicSettingsPopoverTips', 'DynamicHeaderContainer'
+    ])
 }
-// ========== 初始化注册所有选择器 ==========
-Object.entries(selectors).forEach(([name, selector]) => {
+
+// ========== 初始化：注册所有选择器 ==========
+Object.entries(CSS_MAP).forEach(([name, selector]) => {
     try {
-        registerSelector(name, selector, selectorMeta[name] || { category: 'general' })
+        registerSelector(name, selector)
     } catch (e) {
         logger.warn(`选择器注册失败: ${name}`, e.message)
     }
 })
+
 // ========== 缓存系统 ==========
 const elementCache = new Map()
-const CACHE_MAX_SIZE = 200
+const CACHE_MAX_SIZE = 50
+
+// ========== 负缓存：已知不存在的元素短期内不再等待 ==========
+const NEGATIVE_CACHE_TTL = 5000 // 5 秒
+const negativeCache = new Map() // key → expiry timestamp
+
+const getNegativeCacheKey = (key, all) => `${key}|${all}`
+
+const setNegative = (key, all) => {
+    negativeCache.set(getNegativeCacheKey(key, all), Date.now() + NEGATIVE_CACHE_TTL)
+}
+
+const checkNegative = (key, all) => {
+    const k = getNegativeCacheKey(key, all)
+    const expiry = negativeCache.get(k)
+    if (expiry === undefined) return false
+    if (Date.now() > expiry) {
+        negativeCache.delete(k)
+        return false
+    }
+    return true
+}
+
 /**
  * 清理最旧的缓存条目
  */
@@ -260,140 +287,232 @@ const trimCache = () => {
         }
     }
 }
+
 /**
- * 验证选择器名称是否已注册
- * @param {string} selectorKey
- * @returns {string|null}
- */
-const resolveSelector = selectorKey => {
-    if (hasSelector(selectorKey)) {
-        return getSelector(selectorKey)
-    }
-    // 兼容直接使用 CSS 选择器字符串的情况（用于外部传入的原始选择器）
-    if (typeof selectorKey === 'string' && (selectorKey.includes(' ') || selectorKey.startsWith('#') || selectorKey.startsWith('.') || selectorKey.startsWith('['))) {
-        return selectorKey
-    }
-    logger.error(`未注册的选择器: "${selectorKey}"，请先在 element-selectors.js 中定义或在 SelectorRegistry 中注册`)
-    return null
-}
-/**
- * 带缓存和性能监控的元素查询
- * @param {string} selectorKey - 选择器名称或 CSS 选择器
+ * 内部：同步查询 DOM，带缓存
+ * @param {string} key - 选择器名称
  * @param {boolean} all - 是否查询所有匹配元素
- * @returns {Promise<Element|Element[]|null>}
+ * @returns {Element|Element[]|null}
  */
-const createCachedQuery = async (selectorKey, all = false) => {
-    const startTime = performance.now()
-    const selector = resolveSelector(selectorKey)
+const syncQuery = (key, all = false) => {
+    const selector = CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
     if (!selector) {
-        recordUsage(selectorKey, performance.now() - startTime)
+        logger.error(`未注册的选择器: "${key}"`)
         return all ? [] : null
     }
-    const cacheKey = `${selector}|${all}`
-    // 只缓存单元素查询。集合查询必须每次重新读取，避免新增/删除节点后返回过期结果。
-    if (!all && elementCache.has(cacheKey)) {
+    if (all) {
+        return [...document.querySelectorAll(selector)]
+    }
+    // 检查缓存
+    const cacheKey = `${selector}|false`
+    if (elementCache.has(cacheKey)) {
         const cached = elementCache.get(cacheKey)
-        const element = cached.element
-        if (element?.isConnected && element.matches?.(selector)) {
-            recordUsage(selectorKey, performance.now() - startTime)
-            return element
+        if (cached.element?.isConnected && cached.element.matches?.(selector)) {
+            return cached.element
         }
         cached.observer?.disconnect()
         elementCache.delete(cacheKey)
     }
-    const queryMethod = all ? 'querySelectorAll' : 'querySelector'
-    const waitForElements = () => {
-        const result = document[queryMethod](selector)
-        if (result && !all && result !== null) return result
-        if (all && result?.length > 0) return result
-        return new Promise(resolve => {
-            const observer = new MutationObserver(() => {
-                const els = document[queryMethod](selector)
-                if ((all && els.length > 0) || (!all && els)) {
-                    observer.disconnect()
-                    resolve(els)
-                }
-            })
-            observer.observe(document, {
-                childList: true,
-                subtree: true
-            })
-            setTimeout(() => {
-                observer.disconnect()
-                resolve(all ? [] : null)
-            }, 10000)
-        })
-    }
-    let result = document[queryMethod](selector)
-    if ((all && result.length === 0) || (!all && !result)) {
-        result = await waitForElements()
-    }
-    if (all) {
-        recordUsage(selectorKey, performance.now() - startTime)
-        return result instanceof NodeList ? [...result] : result ? [result] : []
-    }
-    // 存储单元素缓存，并在其父节点变化时失效
+    const element = document.querySelector(selector)
+    if (!element) return null
+    // 缓存结果
     trimCache()
     const observer = new MutationObserver(() => {
         observer.disconnect()
         elementCache.delete(cacheKey)
     })
-    elementCache.set(cacheKey, { element: result, observer })
-    if (result?.parentElement) {
-        observer.observe(result.parentElement, { childList: true })
+    elementCache.set(cacheKey, { element, observer })
+    if (element.parentElement) {
+        observer.observe(element.parentElement, { childList: true })
     }
-    recordUsage(selectorKey, performance.now() - startTime)
-    return result
+    return element
 }
+
 /**
- * 遍历所有匹配元素
- * @param {string} selectorKey
- * @param {Function} callback
+ * 内部：异步等待元素出现（带 MutationObserver + 超时）
+ * @param {string} key - 选择器名称
+ * @param {number} timeout - 超时毫秒数
+ * @param {boolean} all - 是否查询所有匹配元素
+ * @returns {Promise<Element|Element[]|null>}
  */
-const each = async (selectorKey, callback) => {
-    const selector = resolveSelector(selectorKey)
-    if (!selector) return
-    const elements = await createCachedQuery(selectorKey, true)
-    elements.forEach(callback)
-}
-// ========== 对外暴露的 Proxy API ==========
-export const elementSelectors = new Proxy(selectors, {
-    get (target, prop) {
-        if (prop === 'batch') {
-            return async selArray => {
-                const selectorString = selArray.map(s => resolveSelector(s) || '').filter(Boolean).join(', ')
-                if (!selectorString) {
-                    logger.error('batch 查询失败: 所有选择器均未注册')
-                    return selArray.map(() => null)
-                }
-                const elements = await createCachedQuery(selectorString, true)
-                const elementMap = new Map()
-                elements.forEach(el => {
-                    selArray.forEach(s_1 => {
-                        const sel = resolveSelector(s_1)
-                        if (sel && el.matches(sel)) elementMap.set(s_1, el)
-                    })
-                })
-                return selArray.map(s_2 => elementMap.get(s_2))
+const asyncWait = (key, timeout = 3000, all = false) => {
+    const selector = CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
+    if (!selector) {
+        logger.error(`未注册的选择器: "${key}"`)
+        return Promise.resolve(all ? [] : null)
+    }
+    // 页面类型检查：如果选择器属于其他页面类型，直接跳过
+    const currentPageType = getCurrentPageType()
+    if (currentPageType) {
+        for (const [pageType, exclusiveSet] of Object.entries(PAGE_TYPE_EXCLUSIVE)) {
+            if (pageType !== currentPageType && exclusiveSet.has(key)) {
+                logger.debug(`选择器 "${key}" 属于 ${pageType} 页，当前为 ${currentPageType} 页，跳过等待`)
+                setNegative(key, all)
+                return Promise.resolve(all ? [] : null)
             }
         }
-        if (prop === 'all') return selector => createCachedQuery(selector, true)
-        if (prop === 'value') return selector => resolveSelector(selector)
-        if (prop === 'query') {return selector => {
-            const sel = resolveSelector(selector)
-            return sel ? document.querySelector(sel) : null
-        }}
-        if (prop === 'queryAll') {return selector => {
-            const sel = resolveSelector(selector)
-            return sel ? document.querySelectorAll(sel) : []
-        }}
-        if (prop === 'each') return each
-        // 返回带验证的选择器字符串
-        return createCachedQuery(target[prop])
     }
-})
+    // 负缓存检查
+    if (checkNegative(key, all)) {
+        return Promise.resolve(all ? [] : null)
+    }
+    // 先尝试同步查询
+    const queryMethod = all ? 'querySelectorAll' : 'querySelector'
+    let result = document[queryMethod](selector)
+    if (all && result.length > 0) return Promise.resolve([...result])
+    if (!all && result) {
+        // 缓存单元素
+        if (!elementCache.has(`${selector}|false`)) {
+            trimCache()
+            const observer = new MutationObserver(() => {
+                observer.disconnect()
+                elementCache.delete(`${selector}|false`)
+            })
+            elementCache.set(`${selector}|false`, { element: result, observer })
+            if (result.parentElement) {
+                observer.observe(result.parentElement, { childList: true })
+            }
+        }
+        return Promise.resolve(result)
+    }
+    // 元素不存在，创建 MutationObserver 等待
+    return new Promise(resolve => {
+        const observer = new MutationObserver(() => {
+            const els = document[queryMethod](selector)
+            if ((all && els.length > 0) || (!all && els)) {
+                observer.disconnect()
+                clearTimeout(timer)
+                resolve(all ? [...els] : els)
+            }
+        })
+        observer.observe(document, { childList: true, subtree: true })
+        const timer = setTimeout(() => {
+            observer.disconnect()
+            setNegative(key, all)
+            resolve(all ? [] : null)
+        }, timeout)
+    })
+}
+
+// ========== 当前页面类型缓存 ==========
+let _currentPageType = null
+
+const getCurrentPageType = () => {
+    if (_currentPageType !== null) return _currentPageType
+    const path = location.pathname
+    if (path.startsWith('/bangumi/')) _currentPageType = 'bangumi'
+    else if (path.startsWith('/video/')) _currentPageType = 'video'
+    else if (path === '/' || path.startsWith('/home')) _currentPageType = 'home'
+    else if (path.startsWith('/dynamic')) _currentPageType = 'dynamic'
+    else _currentPageType = 'other'
+    return _currentPageType
+}
+
+// ========== 对外暴露的 API ==========
+export const elementSelectors = {
+    /**
+     * 同步查询：立即返回 DOM 中已存在的元素，不存在返回 null
+     * 适用于大多数场景：元素应该已经在页面上
+     * @param {string} key - 选择器名称
+     * @returns {Element|null}
+     */
+    get (key) {
+        return syncQuery(key, false)
+    },
+
+    /**
+     * 异步等待：等待元素出现在 DOM 中，超时返回 null
+     * 适用于元素在页面 JS 加载后才渲染的场景
+     * @param {string} key - 选择器名称
+     * @param {number} [timeout=3000] - 超时毫秒数（默认 3 秒）
+     * @returns {Promise<Element|null>}
+     */
+    wait (key, timeout = 3000) {
+        return asyncWait(key, timeout, false)
+    },
+
+    /**
+     * 获取原始 CSS 选择器字符串（替代旧版 .value()）
+     * @param {string} key - 选择器名称
+     * @returns {string|null}
+     */
+    CSS (key) {
+        return CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
+    },
+
+    /**
+     * 批量查询多个选择器（一次 DOM 遍历）
+     * @param {string[]} keys - 选择器名称数组
+     * @returns {Promise<(Element|null)[]>}
+     */
+    async batch (keys) {
+        const selectorStrings = keys.map(k => CSS_MAP[k] || (hasSelector(k) ? getSelector(k) : null)).filter(Boolean)
+        if (selectorStrings.length === 0) {
+            logger.error('batch 查询失败: 所有选择器均未注册')
+            return keys.map(() => null)
+        }
+        const combinedSelector = selectorStrings.join(', ')
+        // 先同步查询
+        let elements = [...document.querySelectorAll(combinedSelector)]
+        if (elements.length === 0) {
+            // 异步等待（用最长的超时）
+            elements = await new Promise(resolve => {
+                const observer = new MutationObserver(() => {
+                    const els = [...document.querySelectorAll(combinedSelector)]
+                    if (els.length > 0) {
+                        observer.disconnect()
+                        clearTimeout(timer)
+                        resolve(els)
+                    }
+                })
+                observer.observe(document, { childList: true, subtree: true })
+                const timer = setTimeout(() => {
+                    observer.disconnect()
+                    resolve([])
+                }, 3000)
+            })
+        }
+        // 分发到各个选择器
+        const resultMap = new Map()
+        elements.forEach(el => {
+            keys.forEach(k => {
+                const sel = CSS_MAP[k] || (hasSelector(k) ? getSelector(k) : null)
+                if (sel && el.matches(sel) && !resultMap.has(k)) {
+                    resultMap.set(k, el)
+                }
+            })
+        })
+        return keys.map(k => resultMap.get(k) || null)
+    },
+
+    /**
+     * 遍历所有匹配元素（同步）
+     * @param {string} key - 选择器名称
+     * @param {Function} callback - 对每个元素执行的回调
+     */
+    each (key, callback) {
+        const elements = syncQuery(key, true)
+        elements.forEach(callback)
+    },
+
+    /**
+     * 查询所有匹配元素（同步，不缓存）
+     * @param {string} key - 选择器名称
+     * @returns {Element[]}
+     */
+    queryAll (key) {
+        return syncQuery(key, true)
+    },
+
+    /**
+     * 原始 CSS 选择器映射表（用于需要完整列表的场景）
+     */
+    CSS_MAP
+}
+
 // ========== 页面卸载时清理 ==========
 window.addEventListener('unload', () => {
     elementCache.forEach(entry => entry.observer.disconnect())
     elementCache.clear()
+    negativeCache.clear()
 })

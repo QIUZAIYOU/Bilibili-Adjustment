@@ -12,7 +12,7 @@ export const subtitleFeatures = {
         this._subtitleUserClickHandler = event => {
             if (!event.target?.closest?.('[data-lan], [data-action="close"], [aria-label="字幕"]')) return
             setTimeout(() => {
-                elementSelectors.subtitleLanguageChineseAI.then(el => {
+                elementSelectors.wait('subtitleLanguageChineseAI').then(el => {
                     if (!el) return
                     this._lastSubtitleState = el.classList.contains('bpx-state-active') ? 'on' : 'off'
                     sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_SUBTITLE_STATE, this._lastSubtitleState)
@@ -26,9 +26,9 @@ export const subtitleFeatures = {
     },
     async autoEnableSubtitle () {
         if (this.userConfigs.auto_subtitle) {
-            const switchSubtitleButton = await elementSelectors.switchSubtitleButton
+            const switchSubtitleButton = elementSelectors.get('switchSubtitleButton')
             if (!switchSubtitleButton) return
-            const subtitleLanguageChineseAI = await elementSelectors.subtitleLanguageChineseAI
+            const subtitleLanguageChineseAI = await elementSelectors.wait('subtitleLanguageChineseAI')
             if (!subtitleLanguageChineseAI) {
                 logger.warn('视频字幕（中文AI）丨未找到字幕按钮，可能页面结构已变更')
                 return

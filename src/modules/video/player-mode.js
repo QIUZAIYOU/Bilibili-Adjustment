@@ -33,7 +33,7 @@ export const playerModeFeatures = {
             return
         }
         // 先判断当前播放器模式是否已经是用户设置的模式
-        const playerContainer = await elementSelectors.playerContainer
+        const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) {
             eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
             return
@@ -48,14 +48,14 @@ export const playerModeFeatures = {
             {
                 type: 'wide',
                 action: async () => {
-                    const playerModeWideEnterButton = await elementSelectors.playerModeWideEnterButton
+                    const playerModeWideEnterButton = elementSelectors.get('playerModeWideEnterButton')
                     playerModeWideEnterButton?.click()
                 }
             },
             {
                 type: 'web',
                 action: async () => {
-                    const playerModeWebEnterButton = await elementSelectors.playerModeWebEnterButton
+                    const playerModeWebEnterButton = elementSelectors.get('playerModeWebEnterButton')
                     playerModeWebEnterButton?.click()
                 }
             },
@@ -70,7 +70,7 @@ export const playerModeFeatures = {
         selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode)?.action()
         await sleep(350)
         if (this.userConfigs.selected_player_mode !== 'normal') {
-            const video = await elementSelectors.video
+            const video = elementSelectors.get('video')
             const success = await this.isPlayerModeSwitchSuccess(this.userConfigs.selected_player_mode, video)
             if (success) {
                 this._modeSwitchCooldown = Date.now()
@@ -85,7 +85,7 @@ export const playerModeFeatures = {
         }
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {
-        const playerContainer = await elementSelectors.playerContainer
+        const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return false
         await storageService.userSet('player_offset_top', await getElementOffsetToDocument(playerContainer).top)
         const playerMode = playerContainer.getAttribute('data-screen')
@@ -137,7 +137,7 @@ export const playerModeFeatures = {
                 }
             }
             // 先判断当前页面是否已经定位到了播放器位置
-            const playerContainer = await elementSelectors.playerContainer
+            const playerContainer = elementSelectors.get('playerContainer')
             if (!playerContainer) {
                 eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
@@ -149,7 +149,7 @@ export const playerModeFeatures = {
                 return
             }
             const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer).top : this.userConfigs.player_offset_top
-            const header = await elementSelectors.headerMini
+            const header = elementSelectors.get('headerMini')
             const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
             const headerHeight = parseInt(headerComputedStyle.height, 10) || 0
             const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
@@ -170,12 +170,12 @@ export const playerModeFeatures = {
                 // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
                 const maxRetry = this.userConfigs.page_type === 'bangumi' ? 3 : 2
                 for (let retry = 0; retry < maxRetry; retry++) {
-                    const freshContainer = await elementSelectors.playerContainer
+                    const freshContainer = elementSelectors.get('playerContainer')
                     if (!freshContainer) break
                     const freshMode = freshContainer.getAttribute('data-screen')
                     if (freshMode === 'web' || freshMode === 'full') break
                     const freshOffsetTop = freshMode !== 'mini' ? await getElementOffsetToDocument(freshContainer).top : this.userConfigs.player_offset_top
-                    const freshHeader = await elementSelectors.headerMini
+                    const freshHeader = elementSelectors.get('headerMini')
                     const freshHeaderStyle = freshHeader ? getElementComputedStyle(freshHeader, ['position', 'height']) : {}
                     const freshHeaderHeight = parseInt(freshHeaderStyle.height, 10) || 0
                     const freshTargetViewportTop = freshHeaderStyle.position === 'fixed' ? freshHeaderHeight + Number(this.userConfigs.offset_top || 0) : Number(this.userConfigs.offset_top || 0)
@@ -199,12 +199,12 @@ export const playerModeFeatures = {
         }
     },
     async locateToPlayer () {
-        const playerContainer = await elementSelectors.playerContainer
+        const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
         if (playerMode === 'full' || playerMode === 'web') return
-        const header = await elementSelectors.headerMini
+        const header = elementSelectors.get('headerMini')
         const headerComputedStyle = header ? getElementComputedStyle(header, ['position', 'height']) : {}
         const headerHeight = parseInt(headerComputedStyle.height, 10) || 0
         const headerFixed = headerComputedStyle.position === 'fixed'
@@ -243,7 +243,7 @@ export const playerModeFeatures = {
         // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 5 次
         for (let attempt = 0; attempt < 5; attempt++) {
             await sleep(300)
-            const freshContainer = await elementSelectors.playerContainer
+            const freshContainer = elementSelectors.get('playerContainer')
             if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full' || freshContainer.getAttribute('data-screen') === 'web') return
             if (isPositioned(freshContainer)) return
             const freshTarget = computeTarget(freshContainer)
@@ -261,7 +261,7 @@ export const playerModeFeatures = {
         logger.debug('自动定位丨多次尝试后仍未到位')
     },
     async clickPlayerAutoLocate () {
-        addEventListenerToElement(await elementSelectors.playerContainer, 'click', async e => {
+        addEventListenerToElement(elementSelectors.get('playerContainer'), 'click', async e => {
             if (e.target.closest('.bpx-player-ctrl-bottom') || e.target.closest('.bpx-player-ctrl-top')) {
                 return
             }

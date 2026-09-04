@@ -70,7 +70,7 @@ export default {
         }
     },
     async insertSidebarButtons (){
-        const dynamicSidebar = await elementSelectors.dynamicSidebar
+        const dynamicSidebar = await elementSelectors.wait('dynamicSidebar')
         if (!dynamicSidebar) {
             logger.warn('动态页侧边栏未找到，跳过插入设置按钮')
             return

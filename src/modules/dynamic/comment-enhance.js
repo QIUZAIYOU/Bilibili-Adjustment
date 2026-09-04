@@ -6,13 +6,13 @@ const logger = new LoggerService('DynamicModule')
 const shadowDOMHelper = new ShadowDOMHelper()
 export const commentEnhanceFeatures = {
     async doSomethingToCommentElements (buttonElement) {
-        const listItem = buttonElement.closest(elementSelectors.value('dynamicListItem'))
+        const listItem = buttonElement.closest(elementSelectors.CSS('dynamicListItem'))
         const showLocation = (host, location) => {
             try {
                 const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
                 if (existingLocation) return
                 const locationWrapperHtml = '<div id="location" style="margin-left:5px"></div>'
-                const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.value('videoReplyPubDate'))
+                const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.CSS('videoReplyPubDate'))
                 if (!pubdate) return
                 const locationElement = createElementAndInsert(locationWrapperHtml, pubdate, 'after')
                 if (locationElement) locationElement.textContent = location || 'IP属地：未知'
@@ -42,7 +42,7 @@ export const commentEnhanceFeatures = {
     },
     handleLoadComments () {
         const handledButtons = new WeakMap()
-        this._cleanup.push(shadowDOMHelper.observeInsertion(elementSelectors.value('dynamicCommentLoadButton'), button => {
+        this._cleanup.push(shadowDOMHelper.observeInsertion(elementSelectors.CSS('dynamicCommentLoadButton'), button => {
             if (!handledButtons.has(button)) {
                 this._cleanup.push(addEventListenerToElement(button, 'click', () => {
                     this.doSomethingToCommentElements(button)
