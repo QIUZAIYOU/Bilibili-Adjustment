@@ -174,7 +174,7 @@ export default {
         if (this.userConfigs.page_type === 'bangumi') {
             logger.debug('番剧页丨跳过标签页检测，直接检测视频元素')
             insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
-            ;(async () => this.checkVideoCanplaythrough(await this.findVideoElement()))()
+            ;(async () => this.checkVideoCanplaythrough(await elementSelectors.wait('video')))()
         } else {
             this._cleanup.push(isTabActive({
                 onActiveChange: async isActive => {
@@ -190,26 +190,7 @@ export default {
             }))
         }
     },
-    // 直接查询视频元素，绕过 elementSelectors 缓存（避免缓存失效时 10s 超时）
-    findVideoElement () {
-        return new Promise(resolve => {
-            const el = document.querySelector('#bilibili-player video')
-            if (el) return resolve(el)
-            const observer = new MutationObserver(() => {
-                const found = document.querySelector('#bilibili-player video')
-                if (found) {
-                    observer.disconnect()
-                    resolve(found)
-                }
-            })
-            observer.observe(document.body || document, { childList: true, subtree: true })
-            // 安全兜底：最多等 3 秒（正常情况元素应已存在）
-            setTimeout(() => {
-                observer.disconnect()
-                resolve(document.querySelector('#bilibili-player video'))
-            }, 3000)
-        })
-    },
+
     isVideoCanplaythrough (videoElement) {
         return new Promise(resolve => {
             if (!videoElement) {
