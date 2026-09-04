@@ -344,66 +344,37 @@ export const monitorHrefChange = callback => {
         hrefMonitorLastHref = location.href
     }
 }
-// 自定义"点击外部关闭"：原生 popover 的 light dismiss 在"弹窗内按下、弹窗外松开"
-// （如拖选文字）时也会关闭弹窗（Chromium 行为），改为仅当按下与松开都在弹窗外才关闭
+// 自定义"点击外部关闭"：用真实 DOM 遮罩替代 ::backdrop（UA 的 backdrop 不接收指针事件，导致穿透）
+// 同时原生 light dismiss 在"弹窗内按下、弹窗外松开"（如拖选文字）时也会误关，
+// 改为遮罩元素拦截所有弹窗外交互——点击遮罩即关闭，拖选不受影响
 export const enablePopoverLightDismiss = popover => {
-    let pending = false
-    let dismissing = false
-    const isInside = target => target instanceof Node && popover.contains(target)
-    // 点击目标是否在其他 popover 内（如更新弹窗），若是则不关闭当前弹窗
-    const isInsideOtherPopover = target => {
-        if (!(target instanceof Node)) return false
-        const other = target.closest('[popover]:not(:scope)')
-        return other && other.matches(':popover-open')
-    }
-    // 遮罩拦截：popover 的 ::backdrop 不接收指针事件，点击会穿透到背后页面元素，
-    // 这里在捕获阶段拦截弹窗外的交互（点击、拖选、hover），使遮罩区域不可操作
-    const blocked = e => popover.matches(':popover-open') && !isInside(e.target) && !isInsideOtherPopover(e.target)
-    const onPointerDown = e => {
-        if (!blocked(e)) return
+    const overlay = document.createElement('div')
+    overlay.className = 'adjustment-popover-overlay'
+    overlay.addEventListener('click', e => {
         e.preventDefault()
         e.stopPropagation()
-        pending = true
-    }
-    const onPointerMove = e => {
-        if (blocked(e)) {
-            e.stopPropagation()
-        }
-    }
-    const onPointerUp = e => {
-        if (!pending) return
-        pending = false
-        if (!isInside(e.target)) {
-            // click 在 pointerup 之后同步派发：弹窗关闭后 click 的目标是背后元素，
-            // 标记本次序列的 click 一并拦截，防止穿透误触
-            dismissing = true
-            popover.hidePopover()
-        }
-    }
-    const onClick = e => {
-        // click 由浏览器独立合成，pointerdown 拦截无法阻止其派发，需单独拦截
-        if (dismissing || blocked(e)) {
-            e.preventDefault()
-            e.stopPropagation()
-            dismissing = false
-        }
-    }
+        popover.hidePopover()
+    })
     const onKeyDown = e => {
         if (e.key === 'Escape' && popover.matches(':popover-open')) {
             popover.hidePopover()
         }
     }
-    document.addEventListener('pointerdown', onPointerDown, true)
-    document.addEventListener('pointermove', onPointerMove, true)
-    document.addEventListener('pointerup', onPointerUp, true)
-    document.addEventListener('click', onClick, true)
-    document.addEventListener('keydown', onKeyDown, true)
+    const onToggle = e => {
+        if (e.newState === 'open') {
+            // 遮罩插入到弹窗前面（同级），z-index 低于弹窗
+            popover.parentElement?.insertBefore(overlay, popover)
+            document.addEventListener('keydown', onKeyDown)
+        } else {
+            overlay.remove()
+            document.removeEventListener('keydown', onKeyDown)
+        }
+    }
+    popover.addEventListener('toggle', onToggle)
     return () => {
-        document.removeEventListener('pointerdown', onPointerDown, true)
-        document.removeEventListener('pointermove', onPointerMove, true)
-        document.removeEventListener('pointerup', onPointerUp, true)
-        document.removeEventListener('click', onClick, true)
-        document.removeEventListener('keydown', onKeyDown, true)
+        overlay.remove()
+        document.removeEventListener('keydown', onKeyDown)
+        popover.removeEventListener('toggle', onToggle)
     }
 }
 export const escapeHtml = value => String(value ?? '')
@@ -538,31 +509,11 @@ export const generateMentionUserLinks = (username, desc_v2) => {
 /**
  * 统一的弹窗管理器
  * 所有弹窗应使用此函数创建，以确保行为一致：
- * 1. 打开时禁用后方元素点击
- * 2. 关闭时恢复后方元素点击
- * 3. 提供统一的打开/关闭 API
+ * 1. 提供统一的打开/关闭 API
+ * 2. 遮罩穿透由 enablePopoverLightDismiss 的真实 DOM 遮罩处理
  */
 export const createPopoverManager = () => {
     const popoverInstances = new Map()
-    let appElement = null
-
-    const getAppElement = async () => {
-        if (!appElement) {
-            const { elementSelectors } = await import('@/shared/element-selectors')
-            appElement = elementSelectors.get('app')
-        }
-        return appElement
-    }
-
-    const disableBackgroundInteraction = async () => {
-        const app = await getAppElement()
-        if (app) app.style.pointerEvents = 'none'
-    }
-
-    const enableBackgroundInteraction = async () => {
-        const app = await getAppElement()
-        if (app) app.style.pointerEvents = 'auto'
-    }
 
     return {
         /**
@@ -602,12 +553,9 @@ export const createPopoverManager = () => {
 
             instance.element = element
 
-            // 绑定 toggle 事件，控制后方元素交互
-            element.addEventListener('toggle', async e => {
-                if (e.newState === 'open') {
-                    await disableBackgroundInteraction()
-                } else if (e.newState === 'closed') {
-                    await enableBackgroundInteraction()
+            // 绑定 toggle 事件：关闭时触发回调
+            element.addEventListener('toggle', e => {
+                if (e.newState === 'closed') {
                     options.onClose?.()
                 }
             })
@@ -615,9 +563,8 @@ export const createPopoverManager = () => {
             // 提供统一的打开/关闭方法
             instance.showPopover = () => element.showPopover()
             instance.hidePopover = () => element.hidePopover()
-            instance.destroy = async () => {
+            instance.destroy = () => {
                 element.hidePopover()
-                await enableBackgroundInteraction()
                 element.remove()
                 popoverInstances.delete(id)
             }

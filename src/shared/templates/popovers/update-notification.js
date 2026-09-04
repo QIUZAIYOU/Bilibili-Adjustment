@@ -1,0 +1,3 @@
+export const updateNotificationTemplate = {
+    update: '<bilibili-adjustment-update id="UpdatePopover" class="adjustment-popover" popover="manual" bilibili-adjustment-element><div class="adjustment-popover-title">哔哩哔哩调整 · 有新版本<div class="adjustment-popover-subtitle">（点击更新按钮安装最新版）</div></div><div class="adjustment-form"><div class="adjustment-form-item"><div class="adjustment-version"><div>当前版本: [[CURRENT]]</div><div>最新版本: [[LATEST]]</div></div>[[CONTENTS]]</div><div class="adjustment-button-group"><div class="adjustment-button info adjustment-button-close">关闭</div><div class="adjustment-button primary adjustment-button-update">更新</div></div></div></bilibili-adjustment-update>',
+}

@@ -181,96 +181,8 @@ export const videoPageStyles = {
             background: #333;
         }
 
-        .episode-list {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            max-height: 420px;
-            overflow-y: auto;
-            padding: 16px 20px;
-        }
 
-        .episode-list-item {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            padding: 10px 14px;
-            border-radius: 8px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
-            cursor: pointer;
-            transition: all 0.2s;
-        }
 
-        .episode-list-item:hover {
-            background: rgba(255,255,255,0.08);
-            border-color: rgba(0,161,214,0.3);
-        }
-
-        .episode-list-item.current {
-            background: rgba(0,161,214,0.12);
-            border-color: rgba(0,161,214,0.4);
-        }
-
-        .episode-list-item.has-segments .episode-segment-count {
-            color: #00a1d6;
-        }
-
-        .episode-index {
-            color: #00a1d6;
-            font-weight: 600;
-            font-size: 14px;
-            min-width: 24px;
-        }
-
-        .episode-title {
-            color: #ccc;
-            font-size: 13px;
-            flex: 1;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .episode-list-item.current .episode-title {
-            color: #fff;
-            font-weight: 500;
-        }
-
-        .episode-segment-count {
-            color: #666;
-            font-size: 12px;
-            white-space: nowrap;
-            flex-shrink: 0;
-        }
-
-        .episode-header {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            padding: 12px 14px;
-            margin-bottom: 14px;
-            border-radius: 8px;
-            background: rgba(0,161,214,0.08);
-            border: 1px solid rgba(0,161,214,0.15);
-        }
-
-        .episode-header-index {
-            color: #00a1d6;
-            font-weight: 600;
-            font-size: 15px;
-        }
-
-        .episode-header-title {
-            color: #fff;
-            font-size: 14px;
-        }
-
-        .episode-header-segments {
-            margin-left: auto;
-            color: #868686;
-            font-size: 13px;
-        }
 
         #SkipSegmentManagerPopover .adjustment-popover-content {
             flex: 1;
@@ -494,6 +406,308 @@ export const videoPageStyles = {
         #SkipSegmentManagerPopover .pending-item .pending-delete:hover {
             color: #f56c6c;
             background: rgba(245,108,108,0.15);
+        }
+
+        #SkipSegmentManagerPopover .input-mode-toggle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 8px;
+        }
+
+        #SkipSegmentManagerPopover .input-mode-btn,
+        #SkipSegmentManagerPopover .accordion-manual-entry .input-mode-btn {
+            background: rgba(0,161,214,0.15);
+            border: 1px solid rgba(0,161,214,0.3);
+            border-radius: 6px;
+            color: #00a1d6;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+            height: 34px;
+            box-sizing: border-box;
+        }
+
+        #SkipSegmentManagerPopover .input-mode-btn:hover,
+        #SkipSegmentManagerPopover .accordion-manual-entry .input-mode-btn:hover {
+            background: rgba(0,161,214,0.25);
+        }
+
+        #SkipSegmentManagerPopover .adjustment-button.danger {
+            background: rgba(245,108,108,0.15);
+            border: 1px solid rgba(245,108,108,0.3);
+            color: #f56c6c;
+        }
+
+        #SkipSegmentManagerPopover .adjustment-button.danger:hover {
+            background: rgba(245,108,108,0.25);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            max-height: 420px;
+            overflow-y: auto;
+            padding: 16px 20px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-item {
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: background 0.2s;
+            border-radius: 8px 8px 0 0;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header.active {
+            background: rgba(0,161,214,0.12);
+            border-color: rgba(0,161,214,0.4);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header .episode-index {
+            color: #00a1d6;
+            font-weight: 600;
+            font-size: 14px;
+            min-width: 24px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header .episode-title {
+            color: #ccc;
+            font-size: 13px;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header.active .episode-title {
+            color: #fff;
+            font-weight: 500;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header .episode-segment-preview {
+            color: #868686;
+            font-size: 12px;
+            font-family: monospace;
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header .episode-segment-preview.has-segments {
+            color: #00a1d6;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header .accordion-arrow {
+            color: #868686;
+            font-size: 12px;
+            transition: transform 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header.active .accordion-arrow {
+            transform: rotate(180deg);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            padding: 0 14px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 0 0 8px 8px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body.expanded {
+            max-height: 600px;
+            padding: 14px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body .segment-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body .segment-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body .segment-time {
+            color: #fff;
+            font-family: monospace;
+            font-size: 13px;
+            background: rgba(0,161,214,0.12);
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body .empty-result {
+            color: #666;
+            font-size: 13px;
+            padding: 12px 0;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body .accordion-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 12px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body .accordion-actions .adjustment-button {
+            flex: 1 1 calc(50% - 4px);
+            min-width: 0;
+            font-size: 12px;
+            padding: 6px 8px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255,255,255,0.06);
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .manual-entry-form {
+            display: flex;
+            align-items: flex-end;
+            gap: 10px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .time-inputs {
+            display: flex;
+            align-items: flex-end;
+            gap: 8px;
+            flex: 1;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .time-input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            flex: 1;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .time-input-group label {
+            font-size: 12px;
+            color: #868686;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .time-input {
+            background: #2a2a2a;
+            border: 1px solid #424242;
+            border-radius: 6px;
+            color: #fff;
+            padding: 8px 10px;
+            font-size: 14px;
+            font-family: monospace;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .time-input:focus {
+            border-color: #00a1d6;
+            outline: none;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .time-separator {
+            color: #868686;
+            font-size: 14px;
+            padding-bottom: 8px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-add-btn {
+            padding: 8px 16px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        #SkipSegmentManagerPopover .accordion-pending-list {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            margin-top: 8px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-pending-list .pending-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 6px;
+            background: rgba(0,161,214,0.06);
+            border: 1px solid rgba(0,161,214,0.12);
+            font-size: 13px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-pending-list .pending-item .segment-time {
+            background: rgba(0,161,214,0.12);
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+            color: #fff;
+        }
+
+        #SkipSegmentManagerPopover .accordion-pending-list .pending-item .pending-delete {
+            margin-left: auto;
+            cursor: pointer;
+            color: #868686;
+            font-size: 14px;
+            padding: 2px 4px;
+            border-radius: 3px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-pending-list .pending-item .pending-delete:hover {
+            color: #f56c6c;
+            background: rgba(245,108,108,0.15);
+        }
+
+        #SkipSegmentManagerPopover .accordion-inline-msg {
+            font-size: 13px;
+            border-radius: 6px;
+            padding: 0;
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.2s;
+        }
+
+        #SkipSegmentManagerPopover .accordion-inline-msg.warn {
+            color: #e6a23c;
+            background: rgba(230,162,60,0.1);
+            border: 1px solid rgba(230,162,60,0.2);
+            padding: 8px 12px;
+            max-height: 60px;
+        }
+
+        #SkipSegmentManagerPopover .accordion-inline-msg.success {
+            color: #67c23a;
+            background: rgba(103,194,58,0.1);
+            border: 1px solid rgba(103,194,58,0.2);
+            padding: 8px 12px;
+            max-height: 60px;
         }
     `
 }

@@ -1,0 +1,5 @@
+import packageJson from '../../../../package.json'
+
+export const dynamicSettingsTemplate = {
+    dynamicSettings: `<bilibili-adjustment-dynamic-setting id="DynamicSettingsPopover" class="adjustment-popover" popover="manual" bilibili-adjustment-element><div class="adjustment-popover-version">v${packageJson.version}</div><div class="adjustment-popover-title">哔哩哔哩动态页设置<div class="adjustment-popover-subtitle">（以下设置内容更改即生效，刷新页面即可）</div></div><div class="recommend">推荐使用样式表：<a href="https://userstyles.world/style/241/nightmode-for-bilibili-com" target="_blank">「夜间哔哩 NightMode For Bilibili」</a></div><label class="bilibili-adjustment-setting-label" style="padding-top:0!important;display: grid;grid-gap: 10px">「投稿视频」链接：<input id="WebVideoLinkInput" class="adjustment-input" value="[[DYNAMICVIDEOLINK]]"></label><div id="DynamicSettingsPopoverTips" class="adjustment-tips info">点击「投稿视频」选项后，填入当前浏览器地址栏链接，即可自动跳转至该链接</div><div class="adjustment-buttonGroup"><button id="DynamicSettingsSaveButton" class="adjustment-button primary">保存</button></div></bilibili-adjustment-dynamic-setting>`
+}

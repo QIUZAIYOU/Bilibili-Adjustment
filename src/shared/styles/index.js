@@ -94,17 +94,30 @@ function generateBilibiliAdjustmentStyle () {
             }
         }
 
+        /* 禁用 UA 默认 backdrop（它天生不接收指针事件，导致穿透），改用真实 DOM 遮罩 */
         .adjustment-popover::backdrop {
-            pointer-events: none;
-            backdrop-filter: blur(8px);
-            -webkit-backdrop-filter: blur(8px);
-            background: rgba(0, 0, 0, 0.65);
-            animation: adjustment-backdrop-in 0.2s ease;
+            display: none;
         }
 
-        @keyframes adjustment-backdrop-in {
+        /* 真实 DOM 遮罩：插入在弹窗同级前面，拦截所有指针事件 */
+        .adjustment-popover-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 9;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(2px);
+            -webkit-backdrop-filter: blur(2px);
+            pointer-events: auto;
+            animation: adjustment-overlay-in 0.2s ease;
+        }
+
+        @keyframes adjustment-overlay-in {
             from { opacity: 0; }
             to { opacity: 1; }
+        }
+
+        .adjustment-popover {
+            z-index: 10;
         }
 
         /* ========== 弹窗头部 ========== */
