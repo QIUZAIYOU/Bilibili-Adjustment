@@ -3,7 +3,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
-import { createElementAndInsert, addEventListenerToElement, showPlayerTooltip, hidePlayerTooltip, popoverManager, enablePopoverLightDismiss, adjustmentConfirm } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, showPlayerTooltip, hidePlayerTooltip, popoverManager, enablePopoverLightDismiss, adjustmentConfirm, escapeHtml } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 const SKIP_CACHE_API = 'https://www.asifadeaway.com/UserScripts/bilibili/api/ad-cache.php'
@@ -404,7 +404,8 @@ export const adSkipFeatures = {
                     html += '<div class="segment-count">共 ' + segments.length + ' 个片段：</div><div class="segment-list">'
                     segments.forEach((seg, i) => {
                         const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
-                        html += '<div class="segment-item" data-index="' + i + '"><span class="segment-index">' + (i + 1) + '.</span><span class="segment-time">' + timeStr + '</span><div class="segment-delete" data-index="' + i + '" title="删除">×</div></div>'
+                        const summaryHtml = seg.summary ? '<span class="segment-summary" title="' + escapeHtml(seg.summary) + '">' + escapeHtml(seg.summary) + '</span>' : ''
+                        html += '<div class="segment-item" data-index="' + i + '"><span class="segment-index">' + (i + 1) + '.</span><span class="segment-time">' + timeStr + '</span>' + summaryHtml + '<div class="segment-delete" data-index="' + i + '" title="删除">×</div></div>'
                     })
                     html += '</div>'
                 }
@@ -448,7 +449,8 @@ export const adSkipFeatures = {
                     bodyHtml += '<div class="segment-list cached-segment-list">'
                     cachedSegments.forEach((seg) => {
                         const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
-                        bodyHtml += '<div class="segment-item cached-item"><span class="segment-time">' + timeStr + '</span></div>'
+                        const summaryHtml = seg.summary ? '<span class="segment-summary" title="' + escapeHtml(seg.summary) + '">' + escapeHtml(seg.summary) + '</span>' : ''
+                        bodyHtml += '<div class="segment-item cached-item"><span class="segment-time">' + timeStr + '</span>' + summaryHtml + '</div>'
                     })
                     bodyHtml += '</div>'
                 }

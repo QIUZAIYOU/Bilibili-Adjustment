@@ -5,7 +5,7 @@
  * 共享广告识别结果，避免重复调用大模型 API。
  * 
  * GET  ?bvid=BVxxxxxx        → 查询缓存
- * POST body: {"bvid":"BVxxxx","segments":[{"start":120,"end":180}]}  → 写入缓存
+ * POST body: {"bvid":"BVxxxx","segments":[{"start":120,"end":180,"summary":"..."}]}  → 写入缓存
  * 
  * 数据存储：SQLite（ad-cache.db）
  */
@@ -197,8 +197,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
     
-    // 校验每个 segment 的格式
+    // 校验每个 segment 的格式（summary 为可选字段：广告内容简明总结）
     foreach ($segments as $seg) {
+        if (!is_array($seg)) {
+            http_response_code(400);
+            echo json_encode(['error' => 'segment must be an object']);
+            exit;
+        }
         if (!isset($seg['start']) || !isset($seg['end']) || !is_numeric($seg['start']) || !is_numeric($seg['end'])) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid segment format, need start and end numbers']);
@@ -207,6 +212,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($seg['start'] < 0 || $seg['end'] <= $seg['start']) {
             http_response_code(400);
             echo json_encode(['error' => 'Invalid segment time range']);
+            exit;
+        }
+        if (isset($seg['summary']) && !is_string($seg['summary'])) {
+            http_response_code(400);
+            echo json_encode(['error' => 'segment summary must be a string']);
             exit;
         }
     }

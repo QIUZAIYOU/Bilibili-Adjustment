@@ -267,9 +267,25 @@ export const videoPageStyles = {
             background: rgba(0,161,214,0.15);
             padding: 4px 10px;
             border-radius: 4px;
+            flex-shrink: 0;
         }
 
-        #SkipSegmentManagerPopover .segment-delete {
+        #SkipSegmentManagerPopover .segment-summary {
+            flex: 1;
+            min-width: 0;
+            color: #999;
+            font-size: 12px;
+            line-height: 1.5;
+            text-align: left;
+            word-break: break-word;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+        }
+
+        #SkipSegmentManagerPopover .segment-item .segment-delete {
             margin-left: auto;
             cursor: pointer;
             color: #868686;
