@@ -330,6 +330,14 @@ export const videoPageStyles = {
             max-height: 60px;
         }
 
+        #SkipSegmentManagerPopover .inline-msg.success {
+            color: #67c23a;
+            background: rgba(103,194,58,0.1);
+            border: 1px solid rgba(103,194,58,0.2);
+            padding: 8px 12px;
+            max-height: 60px;
+        }
+
         #SkipSegmentManagerPopover .manual-entry-form {
             display: flex;
             align-items: flex-end;

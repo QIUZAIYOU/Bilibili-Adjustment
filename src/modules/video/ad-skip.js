@@ -338,13 +338,16 @@ export const adSkipFeatures = {
             const pendingList = document.getElementById('SkipSegmentManagerPendingList')
             const episodeAccordionEl = document.getElementById('SkipSegmentManagerEpisodeAccordion')
 
-            const showInlineMsg = (msg, duration = 3000) => {
+            const showInlineMsg = (msg, type = 'warn', duration = 3000) => {
                 inlineMsg.textContent = msg
-                inlineMsg.className = 'inline-msg warn'
+                inlineMsg.className = 'inline-msg' + (type ? ' ' + type : '')
                 clearTimeout(inlineMsg._timer)
-                inlineMsg._timer = setTimeout(() => {
-                    inlineMsg.className = 'inline-msg'
-                }, duration)
+                if (duration > 0) {
+                    inlineMsg._timer = setTimeout(() => {
+                        inlineMsg.className = 'inline-msg'
+                        inlineMsg.textContent = ''
+                    }, duration)
+                }
             }
 
             // 切换输入模式
@@ -582,6 +585,22 @@ export const adSkipFeatures = {
                 }
 
                 // 绑定操作按钮事件
+                const setAccordionBtnsBusy = (busy) => {
+                    body.querySelectorAll('[data-action]').forEach(b => {
+                        if (busy) {
+                            b.dataset.originText = b.textContent
+                            b.style.pointerEvents = 'none'
+                            b.style.opacity = '0.6'
+                        } else {
+                            b.style.pointerEvents = ''
+                            b.style.opacity = ''
+                            if (b.dataset.originText) {
+                                b.textContent = b.dataset.originText
+                                delete b.dataset.originText
+                            }
+                        }
+                    })
+                }
                 body.querySelectorAll('[data-action]').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         e.stopPropagation()
@@ -594,38 +613,52 @@ export const adSkipFeatures = {
                                 return
                             }
                             if (!await adjustmentConfirm('确定要将暂存区的 ' + state.stagingSegments.length + ' 个片段追加到同系列全部 ' + state.episodes.length + ' 集吗？（仅暂存，需点击「更新全部缓存」生效）', { container: popover })) return
-                            const mergedStaging = mergeSegments(state.stagingSegments)
-                            let appendCount = 0
-                            for (const ep of state.episodes) {
-                                const epId = String(ep.id)
-                                if (epId === state.bvid) continue // 跳过当前集
-                                // 追加到目标剧集的暂存区（不提交缓存）
-                                const existing = state.stagingMap[epId]?.segments || []
-                                const combined = mergeSegments([...existing, ...mergedStaging])
-                                state.stagingMap[epId] = { segments: combined, editingIndex: -1 }
-                                appendCount++
+                            setAccordionBtnsBusy(true)
+                            try {
+                                const mergedStaging = mergeSegments(state.stagingSegments)
+                                let appendCount = 0
+                                for (const ep of state.episodes) {
+                                    const epId = String(ep.id)
+                                    if (epId === state.bvid) continue // 跳过当前集
+                                    // 追加到目标剧集的暂存区（不提交缓存）
+                                    const existing = state.stagingMap[epId]?.segments || []
+                                    const combined = mergeSegments([...existing, ...mergedStaging])
+                                    state.stagingMap[epId] = { segments: combined, editingIndex: -1 }
+                                    appendCount++
+                                }
+                                showInlineMsg('已追加到 ' + appendCount + ' 集的暂存区，点击「更新全部缓存」生效', 'success', 4000)
+                            } catch (error) {
+                                logger.error('跳过片段管理丨批量追加暂存失败:', error)
+                                showInlineMsg('批量追加失败，请重试', 'warn', 4000)
+                                setAccordionBtnsBusy(false)
                             }
-                            if (msg) { msg.textContent = '已追加到 ' + appendCount + ' 集的暂存区，点击「更新全部缓存」生效'; msg.className = 'accordion-inline-msg success' }
                             await renderAccordionList(state.episodes)
                         } else if (action === 'clear-others') {
                             if (!await adjustmentConfirm('确定要清空同系列其他 ' + (state.episodes.length - 1) + ' 集的跳过片段吗？此操作不可撤销。', { container: popover })) return
-                            const uid = getCurrentUid()
-                            let clearedCount = 0
-                            for (const ep of state.episodes) {
-                                const epId = String(ep.id)
-                                if (epId === state.bvid) continue
-                                const cacheEntry = createCacheEntry(epId, [], uid)
-                                await storageService.adCacheSet(epId, cacheEntry)
-                                try {
-                                    await fetch(SKIP_CACHE_API, {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify(cacheEntry)
-                                    })
-                                } catch (_) {}
-                                clearedCount++
+                            setAccordionBtnsBusy(true)
+                            try {
+                                const uid = getCurrentUid()
+                                let clearedCount = 0
+                                for (const ep of state.episodes) {
+                                    const epId = String(ep.id)
+                                    if (epId === state.bvid) continue
+                                    const cacheEntry = createCacheEntry(epId, [], uid)
+                                    await storageService.adCacheSet(epId, cacheEntry)
+                                    try {
+                                        await fetch(SKIP_CACHE_API, {
+                                            method: 'POST',
+                                            headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify(cacheEntry)
+                                        })
+                                    } catch (_) {}
+                                    clearedCount++
+                                }
+                                showInlineMsg('已清空 ' + clearedCount + ' 集的跳过片段', 'success', 4000)
+                            } catch (error) {
+                                logger.error('跳过片段管理丨批量清空失败:', error)
+                                showInlineMsg('批量清空失败，请重试', 'warn', 4000)
+                                setAccordionBtnsBusy(false)
                             }
-                            if (msg) { msg.textContent = '已清空 ' + clearedCount + ' 集的跳过片段'; msg.className = 'accordion-inline-msg success' }
                             await renderAccordionList(state.episodes)
                         } else if (action === 'update-append' || action === 'update-overwrite') {
                             if (state.stagingSegments.length === 0) {
@@ -639,29 +672,42 @@ export const adSkipFeatures = {
                                 const ok = await adjustmentConfirm('覆盖更新将不保留已有缓存片段（' + existingCount + ' 段），仅上传当前暂存区的 ' + mergedStaging.length + ' 个片段。确定继续？', { container: popover })
                                 if (!ok) return
                             }
-                            const uid = getCurrentUid()
-                            // 追加：保留已有缓存 + 暂存（去重）；覆盖：仅暂存（去重）
-                            const finalSegments = action === 'update-overwrite'
-                                ? mergedStaging
-                                : mergeSegments([...(state.cached?.segments || []), ...mergedStaging])
-                            const newCache = createCacheEntry(state.bvid, finalSegments, uid)
-                            if (state.cached) {
-                                newCache.version = (state.cached.version || 0) + 1
-                                newCache.verified_by = [...new Set([...(state.cached.verified_by || []), uid].filter(Boolean))]
-                            }
-                            await storageService.adCacheSet(state.bvid, newCache)
+                            setAccordionBtnsBusy(true)
                             try {
-                                await fetch(SKIP_CACHE_API, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify(newCache)
-                                })
-                            } catch (_) {}
-                            state.cached = newCache
-                            state.stagingSegments = []
-                            state.editingIndex = -1
-                            if (msg) { msg.textContent = action === 'update-overwrite' ? '缓存已更新（覆盖）' : '缓存已更新（追加）'; msg.className = 'accordion-inline-msg success' }
-                            renderAccordionBody(body, ep)
+                                const uid = getCurrentUid()
+                                // 追加：保留已有缓存 + 暂存（去重）；覆盖：仅暂存（去重）
+                                const finalSegments = action === 'update-overwrite'
+                                    ? mergedStaging
+                                    : mergeSegments([...(state.cached?.segments || []), ...mergedStaging])
+                                const newCache = createCacheEntry(state.bvid, finalSegments, uid)
+                                if (state.cached) {
+                                    newCache.version = (state.cached.version || 0) + 1
+                                    newCache.verified_by = [...new Set([...(state.cached.verified_by || []), uid].filter(Boolean))]
+                                }
+                                await storageService.adCacheSet(state.bvid, newCache)
+                                try {
+                                    await fetch(SKIP_CACHE_API, {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify(newCache)
+                                    })
+                                } catch (_) {}
+                                state.cached = newCache
+                                state.stagingSegments = []
+                                state.editingIndex = -1
+                                // 重建该集内容（暂存已清空、缓存已更新）
+                                renderAccordionBody(body, ep)
+                                // 重建后在新消息元素上给出结果提示
+                                const newMsg = body.querySelector('.accordion-inline-msg')
+                                if (newMsg) {
+                                    newMsg.textContent = action === 'update-overwrite' ? '缓存已更新（覆盖）' : '缓存已更新（追加）'
+                                    newMsg.className = 'accordion-inline-msg success'
+                                }
+                            } catch (error) {
+                                logger.error('跳过片段管理丨更新缓存失败:', error)
+                                setAccordionBtnsBusy(false)
+                                if (msg) { msg.textContent = '更新缓存失败：' + (error?.message || '请稍后重试'); msg.className = 'accordion-inline-msg warn' }
+                            }
                         }
                     })
                 })
@@ -978,7 +1024,7 @@ export const adSkipFeatures = {
                 updateAllBtn.style.opacity = '0.5'
                 const originalText = updateAllBtn.textContent
                 updateAllBtn.textContent = '更新中...'
-                showInlineMsg('正在更新 ' + stagingCount + ' 集缓存...')
+                showInlineMsg('正在更新 ' + stagingCount + ' 集缓存...', '', 0)
                 try {
                     const uid = getCurrentUid()
                     let successCount = 0
@@ -1023,10 +1069,10 @@ export const adSkipFeatures = {
                         const curBody = curItem && curItem.querySelector('.episode-accordion-body')
                         if (curBody) renderAccordionBody(curBody, state.episodes[curIdx])
                     }
-                    showInlineMsg('已更新 ' + successCount + ' 集缓存')
+                    showInlineMsg('已更新 ' + successCount + ' 集缓存', 'success', 4000)
                 } catch (error) {
                     logger.error('跳过片段管理丨批量更新缓存失败:', error)
-                    showInlineMsg('批量更新失败')
+                    showInlineMsg('批量更新失败，请重试', 'warn', 5000)
                 } finally {
                     updateAllBtn.classList.remove('disabled')
                     updateAllBtn.style.pointerEvents = ''
@@ -1163,7 +1209,24 @@ export const adSkipFeatures = {
 
             // 更新缓存：合并待定片段后保存
             // 主面板缓存提交（追加/覆盖共用），确保写入去重后数据
+            // 主面板缓存提交（追加/覆盖共用），确保写入去重后数据
+            const setMainBtnsBusy = (busy) => {
+                [appendBtn, overwriteBtn].forEach(btn => {
+                    if (!btn) return
+                    if (busy) {
+                        btn.dataset.originText = btn.textContent
+                        btn.textContent = '更新中...'
+                        btn.style.pointerEvents = 'none'
+                        btn.style.opacity = '0.6'
+                    } else {
+                        btn.textContent = btn.dataset.originText || btn.textContent
+                        btn.style.pointerEvents = ''
+                        btn.style.opacity = ''
+                    }
+                })
+            }
             const submitMainCache = async (finalSegments, label) => {
+                setMainBtnsBusy(true)
                 try {
                     finalSegments = mergeSegments(finalSegments)
                     const uid = getCurrentUid()
@@ -1189,10 +1252,12 @@ export const adSkipFeatures = {
                     self.advertisementIdentified = false
                     await self.identifyAdvertisementTimestamps()
                     renderSegments(finalSegments, state.cached)
-                    content.insertAdjacentHTML('beforeend', '<div class="success">' + label + '</div>')
+                    showInlineMsg(label, 'success', 4000)
                 } catch (error) {
                     logger.error('跳过片段管理丨更新缓存失败:', error)
-                    content.innerHTML = '<div class="error">更新缓存失败</div>'
+                    showInlineMsg('更新缓存失败：' + (error?.message || '请稍后重试'), 'warn', 5000)
+                } finally {
+                    setMainBtnsBusy(false)
                 }
             }
 
