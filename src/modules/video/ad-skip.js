@@ -1300,7 +1300,10 @@ export const adSkipFeatures = {
                         + '<div class="adjustment-button danger" data-act="all">覆盖全部</div>'
                         + '<div class="adjustment-button primary" data-act="pick">覆盖选中(0)</div>'
                         + '</div></div>'
+                    // 用原生 popover（top layer）承载，确保盖在片段管理弹窗之上
+                    overlay.setAttribute('popover', 'manual')
                     document.body.appendChild(overlay)
+                    if (typeof overlay.showPopover === 'function') overlay.showPopover()
                     const updatePickBtn = () => {
                         const n = overlay.querySelectorAll('input[type="checkbox"]:checked').length
                         const pickBtn = overlay.querySelector('[data-act="pick"]')
@@ -1312,7 +1315,20 @@ export const adSkipFeatures = {
                     overlay.querySelectorAll('input[type="checkbox"]').forEach(cb => {
                         cb.addEventListener('change', updatePickBtn)
                     })
+                    // 宿主弹窗关闭时同步收起（top layer 中的覆盖层）
+                    let hostToggleHandler = null
+                    if (popover) {
+                        hostToggleHandler = (ev) => {
+                            if (ev.newState === 'closed') {
+                                overlay.remove()
+                                resolve(null)
+                            }
+                        }
+                        popover.addEventListener('toggle', hostToggleHandler)
+                    }
                     const close = (val) => {
+                        try { overlay.hidePopover() } catch (_) {}
+                        if (hostToggleHandler) popover.removeEventListener('toggle', hostToggleHandler)
                         overlay.remove()
                         resolve(val)
                     }

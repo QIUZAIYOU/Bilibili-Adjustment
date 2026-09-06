@@ -370,28 +370,34 @@ export const adjustmentConfirm = (message, options = {}) => {
             </div>
         `
         overlay.querySelector('.adjustment-confirm-msg').textContent = message
+        const closeAndResolve = (value) => {
+            try { overlay.hidePopover() } catch (_) {}
+            overlay.remove()
+            resolve(value)
+        }
         overlay.querySelectorAll('.adjustment-confirm-btns .adjustment-button').forEach(btn => {
             btn.addEventListener('click', () => {
-                overlay.remove()
                 const key = btn.dataset.key
-                resolve(buttons ? key : key === 'ok')
+                closeAndResolve(buttons ? key : key === 'ok')
             })
         })
         overlay.addEventListener('click', (e) => {
             if (e.target === overlay) {
-                overlay.remove()
-                resolve(buttons ? 'cancel' : false)
+                closeAndResolve(buttons ? 'cancel' : false)
             }
         })
-        // 挂载到 document.body，避免被嵌套进 fixed/overflow 的 popover 内而无法全屏置顶
+        // 用原生 popover（top layer）承载：当宿主是原生 popover 弹窗时，
+        // 普通文档流元素（即使 z-index 99999）会被压在 top layer 之下，
+        // 只有同为 popover/top layer 的元素才能覆盖其上。
+        overlay.setAttribute('popover', 'manual')
         document.body.appendChild(overlay)
+        if (typeof overlay.showPopover === 'function') overlay.showPopover()
         // 若宿主弹窗在确认期间被关闭（Esc/外部点击），自动移除确认遮罩并作取消处理，防止残留模态
         if (container instanceof Element && container !== document.body) {
             const onToggle = e => {
                 if (e.newState === 'closed') {
-                    overlay.remove()
                     container.removeEventListener('toggle', onToggle)
-                    resolve(buttons ? 'cancel' : false)
+                    closeAndResolve(buttons ? 'cancel' : false)
                 }
             }
             container.addEventListener('toggle', onToggle)

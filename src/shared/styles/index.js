@@ -788,6 +788,21 @@ function generateBilibiliAdjustmentStyle () {
             animation: fadeIn 0.15s ease;
         }
 
+        /* 以原生 popover（top layer）承载时，覆盖 UA 默认的 fit-content 居中为全屏遮罩 */
+        .adjustment-confirm-overlay[popover] {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            overflow: auto;
+        }
+
+        .adjustment-confirm-overlay[popover]::backdrop {
+            background: transparent;
+        }
+
         .adjustment-confirm-dialog {
             background: #2a2a2a;
             border: 1px solid #424242;
