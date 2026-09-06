@@ -385,7 +385,7 @@ export const adSkipFeatures = {
                 updateBtnsVisible(state.canUpdate && (state.currentSegments.length > 0 || state.pendingSegments.length > 0))
             }
 
-            popover._mgr = { content, appendBtn, overwriteBtn, updateAllBtn, reIdentifyBtn, manualEntry, manualBtn, manualAddBtn, manualStartTime, manualEndTime, inlineMsg, pendingList, showInlineMsg, renderPendingList, batchSection: document.getElementById('SkipSegmentManagerBatchSection') }
+            popover._mgr = { content, appendBtn, overwriteBtn, updateAllBtn, reIdentifyBtn, manualEntry, manualBtn, manualAddBtn, manualStartTime, manualEndTime, inlineMsg, pendingList, showInlineMsg, renderPendingList }
 
             const renderSegments = (segments, cacheInfo) => {
                 segments = mergeSegments(segments)
@@ -795,7 +795,6 @@ export const adSkipFeatures = {
                 updateBtnsVisible(false)
                 updateAllBtn.style.display = 'none'
                 reIdentifyBtn.style.display = 'none'
-                if (batchSectionEl) batchSectionEl.style.display = 'none'
                 backBtn.style.display = 'none'
 
                 // 显示手风琴列表
@@ -1222,77 +1221,16 @@ export const adSkipFeatures = {
                 await submitMainCache(state.pendingSegments, '缓存已更新（覆盖）')
             })
 
-            // 应用到同系列全部视频
-            const batchSection = document.getElementById('SkipSegmentManagerBatchSection')
-            const applyAllBtn = document.getElementById('SkipSegmentManagerApplyAllBtn')
-            const batchMsg = document.getElementById('SkipSegmentManagerBatchMsg')
-
-            applyAllBtn.addEventListener('click', async () => {
-                try {
-                    // 合并待定片段
-                    if (state.pendingSegments.length > 0) {
-                        state.currentSegments.push(...state.pendingSegments)
-                        state.currentSegments = mergeSegments(state.currentSegments)
-                        state.pendingSegments = []
-                        renderPendingList()
-                    }
-                    if (state.currentSegments.length === 0) {
-                        batchMsg.textContent = '请先添加跳过片段'
-                        batchMsg.className = 'inline-msg warn'
-                        return
-                    }
-                    const episodeIds = state.seriesEpisodeIds || []
-                    if (episodeIds.length === 0) {
-                        batchMsg.textContent = '未检测到系列信息'
-                        batchMsg.className = 'inline-msg warn'
-                        return
-                    }
-                    // 普通视频页：直接应用
-                    applyAllBtn.disabled = true
-                    applyAllBtn.textContent = '应用中...'
-                    const uid = getCurrentUid()
-                    let successCount = 0
-                    for (const epId of episodeIds) {
-                        const cacheEntry = createCacheEntry(epId, state.currentSegments, uid)
-                        await storageService.adCacheSet(epId, cacheEntry)
-                        try {
-                            await fetch(SKIP_CACHE_API, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify(cacheEntry)
-                            })
-                        } catch (_) {}
-                        successCount++
-                    }
-                    applyAllBtn.disabled = false
-                    applyAllBtn.textContent = '应用到同系列全部视频'
-                    batchMsg.textContent = '已应用到 ' + successCount + ' 个视频'
-                    batchMsg.className = 'inline-msg success'
-                    // 重新加载当前视频的片段
-                    state.cached = await storageService.adCacheGet(state.bvid)
-                    self.advertisementIdentified = false
-                    await self.identifyAdvertisementTimestamps()
-                    renderSegments(state.currentSegments, state.cached)
-                } catch (error) {
-                    logger.error('跳过片段管理丨批量应用失败:', error)
-                    batchMsg.textContent = '批量应用失败'
-                    batchMsg.className = 'inline-msg warn'
-                    applyAllBtn.disabled = false
-                    applyAllBtn.textContent = '应用到同系列全部视频'
-                }
-            })
             popover._skipMgrReady = true
         }
 
         // --- 每次打开时更新状态并渲染 ---
-        const { content, updateAllBtn, reIdentifyBtn, manualEntry, renderPendingList, renderSegments, batchSection } = popover._mgr
+        const { content, updateAllBtn, reIdentifyBtn, manualEntry, renderPendingList, renderSegments } = popover._mgr
         state.bvid = bvid
         state.currentSegments = []
         state.pendingSegments = []
-        state.seriesEpisodeIds = []
         renderPendingList()
         const uid = getCurrentUid()
-        const batchSectionEl = document.getElementById('SkipSegmentManagerBatchSection')
 
         // ===== 番剧页：先打开弹窗再异步加载剧集列表 =====
         // 不因视频信息接口慢/挂起而导致点击管理无任何反应
@@ -1303,7 +1241,6 @@ export const adSkipFeatures = {
             manualEntry.style.display = 'none'
             updateBtnsVisible(false)
             updateAllBtn.style.display = 'none'
-            if (batchSectionEl) batchSectionEl.style.display = 'none'
             popoverManager.show(popoverId)
 
             let videoInfo = null
@@ -1314,7 +1251,6 @@ export const adSkipFeatures = {
             }
             if (videoInfo?.episodes?.length > 0) {
                 state.episodes = videoInfo.episodes
-                state.seriesEpisodeIds = videoInfo.episodes.map(ep => String(ep.id))
                 // ss/季链接模式（id 带 ss 前缀）：没有可对应的当前分集，默认展开第一集作为编辑对象
                 const seasonMode = typeof bvid === 'string' && bvid.startsWith('ss')
                 if (seasonMode) {
@@ -1353,24 +1289,6 @@ export const adSkipFeatures = {
                 logger.debug('跳过片段管理丨检测字幕失败', error)
             }
             reIdentifyBtn.style.display = hasSubtitles ? '' : 'none'
-        }
-        if (batchSectionEl) batchSectionEl.style.display = 'none'
-        // 检测当前视频是否属于系列/合集，获取同系列所有视频ID
-        if (videoInfo) {
-            let episodeIds = []
-            if (videoInfo.ugc_season) {
-                const sections = videoInfo.ugc_season.sections || []
-                for (const section of sections) {
-                    for (const ep of (section.episodes || [])) {
-                        if (ep.bvid) episodeIds.push(ep.bvid)
-                    }
-                }
-            }
-            if (episodeIds.length > 1) {
-                state.seriesEpisodeIds = episodeIds
-                // 显示「应用到同系列全部视频」批量操作区
-                if (batchSectionEl) batchSectionEl.style.display = 'block'
-            }
         }
 
         // 先检查本地缓存
