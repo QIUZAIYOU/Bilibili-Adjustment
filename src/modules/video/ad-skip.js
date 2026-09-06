@@ -3,7 +3,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
-import { createElementAndInsert, addEventListenerToElement, showPlayerTooltip, hidePlayerTooltip, popoverManager, enablePopoverLightDismiss } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, showPlayerTooltip, hidePlayerTooltip, popoverManager, enablePopoverLightDismiss, adjustmentConfirm } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
 const logger = new LoggerService('VideoModule')
 const SKIP_CACHE_API = 'https://www.asifadeaway.com/UserScripts/bilibili/api/ad-cache.php'
@@ -146,7 +146,8 @@ export const adSkipFeatures = {
             this.advertisementIdentified = false
         }, 30000)
         const bvid = biliApis.getCurrentVideoID(window.location.href)
-        if (!bvid || bvid === 'error') return
+        // ss/季链接无法确定具体分集，跳过自动识别（可在片段管理弹窗内按集手动操作）
+        if (!bvid || bvid === 'error' || (typeof bvid === 'string' && bvid.startsWith('ss'))) return
         try {
             const cached = await storageService.adCacheGet(bvid)
             if (cached) {
@@ -270,6 +271,14 @@ export const adSkipFeatures = {
     },
 
     async showSkipSegmentManager (bvid) {
+        // 函数级变量：底部主面板「追加更新/覆盖更新」按钮与显隐控制（供 if 内绑定与 if 外每次打开逻辑共用）
+        let appendBtn = null
+        let overwriteBtn = null
+        let renderAccordionList = null
+        const updateBtnsVisible = (visible) => {
+            if (appendBtn) appendBtn.style.display = visible ? 'flex' : 'none'
+            if (overwriteBtn) overwriteBtn.style.display = visible ? 'flex' : 'none'
+        }
         const popoverId = 'SkipSegmentManagerPopover'
         const self = this
 
@@ -285,13 +294,25 @@ export const adSkipFeatures = {
                 episodes: [],
                 currentEpisodeIndex: -1,
                 bangumiView: 'accordion', // 'list' | 'accordion'
-                inputMode: 'start-end' // 'start-end' | 'start-duration'
+                inputMode: 'start-end', // 'start-end' | 'start-duration'
+                // 暂存区：每个剧集独立存储，操作按钮以此为准
+                // key = episodeId, value = { segments: [], editingIndex: -1 }
+                stagingMap: {},
+                // 当前剧集的工作副本（从 stagingMap 加载/保存）
+                stagingSegments: [],
+                editingIndex: -1
             }
         }
         const state = this._skipMgrState
 
         // --- DOM 元素（首次创建时获取，后续复用） ---
         let popover = document.getElementById(popoverId)
+        // 热更新残留/状态不一致的旧弹窗：销毁重建，确保本次代码的初始化（按钮绑定、函数赋值）完整执行
+        if (popover && !popover._skipMgrReady) {
+            popover.__popoverDismissCleanup?.()
+            popover.remove()
+            popover = null
+        }
         if (!popover) {
             popover = createElementAndInsert(getTemplates.skipSegmentManagerPopover, document.body, 'append')
             popoverManager.register(popoverId)
@@ -299,7 +320,8 @@ export const adSkipFeatures = {
             popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
 
             const content = document.getElementById('SkipSegmentManagerContent')
-            const updateBtn = document.getElementById('SkipSegmentManagerUpdateBtn')
+            appendBtn = document.getElementById('SkipSegmentManagerAppendBtn')
+            overwriteBtn = document.getElementById('SkipSegmentManagerOverwriteBtn')
             const updateAllBtn = document.getElementById('SkipSegmentManagerUpdateAllBtn')
             const reIdentifyBtn = document.getElementById('SkipSegmentManagerReIdentifyBtn')
             const manualEntry = document.getElementById('SkipSegmentManagerManualEntry')
@@ -330,12 +352,12 @@ export const adSkipFeatures = {
                 e.stopPropagation()
                 if (state.inputMode === 'start-end') {
                     state.inputMode = 'start-duration'
-                    inputModeBtn.textContent = '起止时间'
+                    inputModeBtn.textContent = '起始+时长'
                     timeInputsStartEnd.style.display = 'none'
                     timeInputsStartDuration.style.display = 'flex'
                 } else {
                     state.inputMode = 'start-end'
-                    inputModeBtn.textContent = '起始+时长'
+                    inputModeBtn.textContent = '起止时间'
                     timeInputsStartEnd.style.display = 'flex'
                     timeInputsStartDuration.style.display = 'none'
                 }
@@ -360,10 +382,10 @@ export const adSkipFeatures = {
                     })
                 }
                 // 有待添加片段或已有片段时显示更新按钮
-                updateBtn.style.display = (state.canUpdate && (state.currentSegments.length > 0 || state.pendingSegments.length > 0)) ? 'flex' : 'none'
+                updateBtnsVisible(state.canUpdate && (state.currentSegments.length > 0 || state.pendingSegments.length > 0))
             }
 
-            popover._mgr = { content, updateBtn, updateAllBtn, reIdentifyBtn, manualEntry, manualBtn, manualAddBtn, manualStartTime, manualEndTime, inlineMsg, pendingList, showInlineMsg, renderPendingList, batchSection: document.getElementById('SkipSegmentManagerBatchSection') }
+            popover._mgr = { content, appendBtn, overwriteBtn, updateAllBtn, reIdentifyBtn, manualEntry, manualBtn, manualAddBtn, manualStartTime, manualEndTime, inlineMsg, pendingList, showInlineMsg, renderPendingList, batchSection: document.getElementById('SkipSegmentManagerBatchSection') }
 
             const renderSegments = (segments, cacheInfo) => {
                 segments = mergeSegments(segments)
@@ -397,9 +419,9 @@ export const adSkipFeatures = {
                 })
 
                 if (state.canUpdate && segments && segments.length > 0) {
-                    updateBtn.style.display = 'flex'
+                    updateBtnsVisible(true)
                 } else {
-                    updateBtn.style.display = 'none'
+                    updateBtnsVisible(false)
                 }
             }
 
@@ -409,71 +431,182 @@ export const adSkipFeatures = {
 
             // 渲染单个剧集的手风琴展开内容
             const renderAccordionBody = (body, ep) => {
-                const segments = mergeSegments(state.currentSegments)
+                const cachedSegments = mergeSegments(state.cached?.segments || [])
+                const stagingSegments = state.stagingSegments
                 let bodyHtml = ''
 
-                if (segments.length === 0) {
-                    bodyHtml += '<div class="empty-result">未识别到需要跳过的片段</div>'
+                // 已有片段（只读参考）
+                bodyHtml += '<div class="cached-section">'
+                bodyHtml += '<div class="cached-section-header">已有片段'
+                if (cachedSegments.length > 0) {
+                    bodyHtml += '<span class="cached-count">' + cachedSegments.length + ' 个</span>'
+                }
+                bodyHtml += '</div>'
+                if (cachedSegments.length === 0) {
+                    bodyHtml += '<div class="empty-result">暂无缓存数据</div>'
                 } else {
-                    bodyHtml += '<div class="segment-list">'
-                    segments.forEach((seg, i) => {
+                    bodyHtml += '<div class="segment-list cached-segment-list">'
+                    cachedSegments.forEach((seg) => {
                         const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
-                        bodyHtml += '<div class="segment-item"><span class="segment-time">' + timeStr + '</span></div>'
+                        bodyHtml += '<div class="segment-item cached-item"><span class="segment-time">' + timeStr + '</span></div>'
                     })
                     bodyHtml += '</div>'
                 }
+                bodyHtml += '</div>'
 
-                // 手动添加表单（内嵌在剧集编辑区内）
+                // 暂存区（用户添加/编辑的片段）
+                bodyHtml += '<div class="staging-section">'
+                bodyHtml += '<div class="staging-header">暂存区'
+                if (stagingSegments.length > 0) {
+                    bodyHtml += '<span class="staging-count">' + stagingSegments.length + ' 个待提交</span>'
+                }
+                bodyHtml += '</div>'
+                bodyHtml += '<div class="staging-list"></div>'
+                bodyHtml += '</div>'
+
+                // 手动添加表单
                 bodyHtml += '<div class="accordion-manual-entry">'
                 bodyHtml += '<div class="accordion-inline-msg"></div>'
                 bodyHtml += '<div class="manual-entry-form">'
                 bodyHtml += '<div class="input-mode-toggle"><button class="input-mode-btn" title="切换输入模式">起止时间</button></div>'
                 bodyHtml += '<div class="time-inputs time-inputs-start-end"><div class="time-input-group"><label>开始</label><input type="text" class="time-input accordion-start-time" placeholder="0:00" value=""></div><span class="time-separator">-</span><div class="time-input-group"><label>结束</label><input type="text" class="time-input accordion-end-time" placeholder="0:00" value=""></div></div>'
                 bodyHtml += '<div class="time-inputs time-inputs-start-duration" style="display:none;"><div class="time-input-group"><label>开始</label><input type="text" class="time-input accordion-start-time-2" placeholder="0:00" value=""></div><span class="time-separator">+</span><div class="time-input-group"><label>跳过</label><input type="text" class="time-input accordion-duration" placeholder="30s" value=""></div></div>'
-                bodyHtml += '<div class="adjustment-button info accordion-add-btn">添加</div>'
+                bodyHtml += '<div class="form-actions"><div class="adjustment-button info accordion-add-btn">添加</div>'
+                bodyHtml += '<div class="adjustment-button secondary accordion-cancel-edit-btn" style="display:none;">取消编辑</div></div>'
                 bodyHtml += '</div>'
-                bodyHtml += '<div class="accordion-pending-list"></div>'
                 bodyHtml += '</div>'
 
                 bodyHtml += '<div class="accordion-actions">' +
-                    '<div class="adjustment-button secondary" data-action="apply-all">应用到全部</div>' +
+                    '<div class="adjustment-button secondary" data-action="apply-all"' + (stagingSegments.length === 0 ? ' style="opacity:.4;pointer-events:none;"' : '') + '>应用到全部</div>' +
                     '<div class="adjustment-button danger" data-action="clear-others">清空其他</div>' +
-                    '<div class="adjustment-button primary" data-action="update-cache">更新缓存</div>' +
+                    '<div class="adjustment-button primary" data-action="update-append"' + (stagingSegments.length === 0 ? ' style="opacity:.4;pointer-events:none;"' : '') + '>追加更新</div>' +
+                    '<div class="adjustment-button danger" data-action="update-overwrite"' + (stagingSegments.length === 0 ? ' style="opacity:.4;pointer-events:none;"' : '') + '>覆盖更新</div>' +
                     '</div>'
 
                 body.innerHTML = bodyHtml
+
+                // 渲染暂存区列表
+                const stagingList = body.querySelector('.staging-list')
+                const renderStagingList = () => {
+                    if (state.stagingSegments.length === 0) {
+                        stagingList.innerHTML = '<div class="empty-result">暂无待提交片段，请在下方添加</div>'
+                    } else {
+                        let html = ''
+                        state.stagingSegments.forEach((seg, i) => {
+                            const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
+                            const isEditing = state.editingIndex === i
+                            html += '<div class="staging-item' + (isEditing ? ' editing' : '') + '" data-index="' + i + '">'
+                            html += '<span class="segment-time">' + timeStr + '</span>'
+                            html += '<div class="staging-actions">'
+                            html += '<div class="staging-edit" data-index="' + i + '" title="编辑">✎</div>'
+                            html += '<div class="staging-delete" data-index="' + i + '" title="移除">×</div>'
+                            html += '</div></div>'
+                        })
+                        stagingList.innerHTML = html
+                        // 删除事件
+                        stagingList.querySelectorAll('.staging-delete').forEach(dBtn => {
+                            dBtn.addEventListener('click', (e) => {
+                                e.stopPropagation()
+                                const idx = parseInt(e.currentTarget.dataset.index)
+                                state.stagingSegments.splice(idx, 1)
+                                if (state.editingIndex === idx) {
+                                    state.editingIndex = -1
+                                    clearForm()
+                                } else if (state.editingIndex > idx) {
+                                    state.editingIndex--
+                                }
+                                renderStagingList()
+                                updateActionBtns()
+                            })
+                        })
+                        // 编辑事件
+                        stagingList.querySelectorAll('.staging-edit').forEach(eBtn => {
+                            eBtn.addEventListener('click', (e) => {
+                                e.stopPropagation()
+                                const idx = parseInt(e.currentTarget.dataset.index)
+                                const seg = state.stagingSegments[idx]
+                                state.editingIndex = idx
+                                // 填充表单
+                                if (state.inputMode === 'start-end') {
+                                    accordionStartTime.value = formatTime(seg.start)
+                                    accordionEndTime.value = formatTime(seg.end)
+                                } else {
+                                    accordionStartTime2.value = formatTime(seg.start)
+                                    const dur = seg.end - seg.start
+                                    accordionDuration.value = dur >= 60 ? Math.floor(dur / 60) + 'm' + (dur % 60 > 0 ? (dur % 60) + 's' : '') : dur + 's'
+                                }
+                                // 切换按钮为「保存编辑」
+                                accordionAddBtn.textContent = '保存编辑'
+                                accordionAddBtn.classList.remove('info')
+                                accordionAddBtn.classList.add('primary')
+                                cancelEditBtn.style.display = ''
+                                renderStagingList()
+                            })
+                        })
+                    }
+                    // 更新按钮状态
+                    updateActionBtns()
+                }
+
+                // 更新操作按钮可用状态
+                const updateActionBtns = () => {
+                    const hasStaging = state.stagingSegments.length > 0
+                    const applyAllBtn = body.querySelector('[data-action="apply-all"]')
+                    const appendBtn = body.querySelector('[data-action="update-append"]')
+                    const overwriteBtn = body.querySelector('[data-action="update-overwrite"]')
+                    if (applyAllBtn) {
+                        applyAllBtn.style.opacity = hasStaging ? '' : '.4'
+                        applyAllBtn.style.pointerEvents = hasStaging ? '' : 'none'
+                    }
+                    ;[appendBtn, overwriteBtn].forEach(btn => {
+                        if (btn) {
+                            btn.style.opacity = hasStaging ? '' : '.4'
+                            btn.style.pointerEvents = hasStaging ? '' : 'none'
+                        }
+                    })
+                }
+
+                // 清空表单并重置编辑状态
+                const clearForm = () => {
+                    state.editingIndex = -1
+                    accordionStartTime.value = ''
+                    accordionEndTime.value = ''
+                    accordionStartTime2.value = ''
+                    accordionDuration.value = ''
+                    accordionAddBtn.textContent = '添加'
+                    accordionAddBtn.classList.remove('primary')
+                    accordionAddBtn.classList.add('info')
+                    cancelEditBtn.style.display = 'none'
+                }
 
                 // 绑定操作按钮事件
                 body.querySelectorAll('[data-action]').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
                         e.stopPropagation()
                         const action = btn.dataset.action
+                        const msg = body.querySelector('.accordion-inline-msg')
 
                         if (action === 'apply-all') {
-                            if (!confirm('确定要将当前剧集的跳过片段应用到同系列全部 ' + state.episodes.length + ' 集吗？')) return
-                            if (state.pendingSegments.length > 0) {
-                                state.currentSegments.push(...state.pendingSegments)
-                                state.currentSegments = mergeSegments(state.currentSegments)
-                                state.pendingSegments = []
-                            }
-                            if (state.currentSegments.length === 0) {
-                                const msg = body.querySelector('.accordion-inline-msg')
-                                if (msg) { msg.textContent = '请先添加跳过片段'; msg.className = 'accordion-inline-msg warn' }
+                            if (state.stagingSegments.length === 0) {
+                                if (msg) { msg.textContent = '请先在暂存区添加片段'; msg.className = 'accordion-inline-msg warn' }
                                 return
                             }
-                            const uid = getCurrentUid()
-                            let successCount = 0
+                            if (!await adjustmentConfirm('确定要将暂存区的 ' + state.stagingSegments.length + ' 个片段追加到同系列全部 ' + state.episodes.length + ' 集吗？（仅暂存，需点击「更新全部缓存」生效）', { container: popover })) return
+                            const mergedStaging = mergeSegments(state.stagingSegments)
+                            let appendCount = 0
                             for (const ep of state.episodes) {
                                 const epId = String(ep.id)
-                                const cacheEntry = createCacheEntry(epId, state.currentSegments, uid)
-                                await storageService.adCacheSet(epId, cacheEntry)
-                                successCount++
+                                if (epId === state.bvid) continue // 跳过当前集
+                                // 追加到目标剧集的暂存区（不提交缓存）
+                                const existing = state.stagingMap[epId]?.segments || []
+                                const combined = mergeSegments([...existing, ...mergedStaging])
+                                state.stagingMap[epId] = { segments: combined, editingIndex: -1 }
+                                appendCount++
                             }
-                            const msg = body.querySelector('.accordion-inline-msg')
-                            if (msg) { msg.textContent = '已应用到 ' + successCount + ' 集'; msg.className = 'accordion-inline-msg success' }
+                            if (msg) { msg.textContent = '已追加到 ' + appendCount + ' 集的暂存区，点击「更新全部缓存」生效'; msg.className = 'accordion-inline-msg success' }
                             await renderAccordionList(state.episodes)
                         } else if (action === 'clear-others') {
-                            if (!confirm('确定要清空同系列其他 ' + (state.episodes.length - 1) + ' 集的跳过片段吗？此操作不可撤销。')) return
+                            if (!await adjustmentConfirm('确定要清空同系列其他 ' + (state.episodes.length - 1) + ' 集的跳过片段吗？此操作不可撤销。', { container: popover })) return
                             const uid = getCurrentUid()
                             let clearedCount = 0
                             for (const ep of state.episodes) {
@@ -490,17 +623,26 @@ export const adSkipFeatures = {
                                 } catch (_) {}
                                 clearedCount++
                             }
-                            const msg = body.querySelector('.accordion-inline-msg')
                             if (msg) { msg.textContent = '已清空 ' + clearedCount + ' 集的跳过片段'; msg.className = 'accordion-inline-msg success' }
                             await renderAccordionList(state.episodes)
-                        } else if (action === 'update-cache') {
-                            if (state.pendingSegments.length > 0) {
-                                state.currentSegments.push(...state.pendingSegments)
-                                state.currentSegments = mergeSegments(state.currentSegments)
-                                state.pendingSegments = []
+                        } else if (action === 'update-append' || action === 'update-overwrite') {
+                            if (state.stagingSegments.length === 0) {
+                                if (msg) { msg.textContent = '请先在暂存区添加片段'; msg.className = 'accordion-inline-msg warn' }
+                                return
+                            }
+                            const mergedStaging = mergeSegments(state.stagingSegments)
+                            // 覆盖更新（不保留已有）需二次确认
+                            if (action === 'update-overwrite') {
+                                const existingCount = state.cached?.segments?.length || 0
+                                const ok = await adjustmentConfirm('覆盖更新将不保留已有缓存片段（' + existingCount + ' 段），仅上传当前暂存区的 ' + mergedStaging.length + ' 个片段。确定继续？', { container: popover })
+                                if (!ok) return
                             }
                             const uid = getCurrentUid()
-                            const newCache = createCacheEntry(state.bvid, state.currentSegments, uid)
+                            // 追加：保留已有缓存 + 暂存（去重）；覆盖：仅暂存（去重）
+                            const finalSegments = action === 'update-overwrite'
+                                ? mergedStaging
+                                : mergeSegments([...(state.cached?.segments || []), ...mergedStaging])
+                            const newCache = createCacheEntry(state.bvid, finalSegments, uid)
                             if (state.cached) {
                                 newCache.version = (state.cached.version || 0) + 1
                                 newCache.verified_by = [...new Set([...(state.cached.verified_by || []), uid].filter(Boolean))]
@@ -514,125 +656,122 @@ export const adSkipFeatures = {
                                 })
                             } catch (_) {}
                             state.cached = newCache
-                            const msg = body.querySelector('.accordion-inline-msg')
-                            if (msg) { msg.textContent = '缓存已更新'; msg.className = 'accordion-inline-msg success' }
+                            state.stagingSegments = []
+                            state.editingIndex = -1
+                            if (msg) { msg.textContent = action === 'update-overwrite' ? '缓存已更新（覆盖）' : '缓存已更新（追加）'; msg.className = 'accordion-inline-msg success' }
+                            renderAccordionBody(body, ep)
                         }
                     })
                 })
 
                 // 绑定手动添加表单事件
-                const accordionManualEntry = body.querySelector('.accordion-manual-entry')
                 const accordionInputModeBtn = body.querySelector('.input-mode-btn')
                 const accordionStartTime = body.querySelector('.accordion-start-time')
                 const accordionEndTime = body.querySelector('.accordion-end-time')
                 const accordionStartTime2 = body.querySelector('.accordion-start-time-2')
                 const accordionDuration = body.querySelector('.accordion-duration')
                 const accordionAddBtn = body.querySelector('.accordion-add-btn')
-                const accordionPendingList = body.querySelector('.accordion-pending-list')
+                const cancelEditBtn = body.querySelector('.accordion-cancel-edit-btn')
                 const accordionInlineMsg = body.querySelector('.accordion-inline-msg')
                 const timeInputsSE = body.querySelector('.time-inputs-start-end')
                 const timeInputsSD = body.querySelector('.time-inputs-start-duration')
                 let localInputMode = 'start-end'
-                let localPendingSegments = []
 
-                const renderLocalPendingList = () => {
-                    if (localPendingSegments.length === 0) {
-                        accordionPendingList.innerHTML = ''
+                // 取消编辑
+                cancelEditBtn.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    clearForm()
+                    renderStagingList()
+                })
+
+                // 切换输入模式
+                accordionInputModeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    if (localInputMode === 'start-end') {
+                        localInputMode = 'start-duration'
+                        state.inputMode = 'start-duration'
+                        accordionInputModeBtn.textContent = '起始+时长'
+                        timeInputsSE.style.display = 'none'
+                        timeInputsSD.style.display = 'flex'
                     } else {
-                        let html = ''
-                        localPendingSegments.forEach((seg, i) => {
-                            const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
-                            html += '<div class="pending-item"><span class="segment-time">' + timeStr + '</span><div class="pending-delete" data-index="' + i + '" title="移除">×</div></div>'
-                        })
-                        accordionPendingList.innerHTML = html
-                        accordionPendingList.querySelectorAll('.pending-delete').forEach(dBtn => {
-                            dBtn.addEventListener('click', (e) => {
-                                const idx = parseInt(e.currentTarget.dataset.index)
-                                localPendingSegments.splice(idx, 1)
-                                renderLocalPendingList()
-                            })
-                        })
+                        localInputMode = 'start-end'
+                        state.inputMode = 'start-end'
+                        accordionInputModeBtn.textContent = '起止时间'
+                        timeInputsSE.style.display = 'flex'
+                        timeInputsSD.style.display = 'none'
                     }
-                }
+                })
 
-                if (accordionInputModeBtn) {
-                    accordionInputModeBtn.addEventListener('click', (e) => {
-                        e.stopPropagation()
-                        if (localInputMode === 'start-end') {
-                            localInputMode = 'start-duration'
-                            accordionInputModeBtn.textContent = '起止时间'
-                            timeInputsSE.style.display = 'none'
-                            timeInputsSD.style.display = 'flex'
-                        } else {
-                            localInputMode = 'start-end'
-                            accordionInputModeBtn.textContent = '起始+时长'
-                            timeInputsSE.style.display = 'flex'
-                            timeInputsSD.style.display = 'none'
-                        }
-                    })
-                }
-
-                if (accordionAddBtn) {
-                    accordionAddBtn.addEventListener('click', (e) => {
-                        e.stopPropagation()
-                        let start = null, end = null
-                        if (localInputMode === 'start-end') {
-                            const startStr = accordionStartTime.value.trim()
-                            const endStr = accordionEndTime.value.trim()
-                            if (!startStr || !endStr) {
-                                if (accordionInlineMsg) { accordionInlineMsg.textContent = '请输入开始和结束时间'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
-                                return
-                            }
-                            start = parseTime(startStr)
-                            end = parseTime(endStr)
-                            if (start === null || end === null) {
-                                if (accordionInlineMsg) { accordionInlineMsg.textContent = '时间格式错误，请使用 M:SS 或秒数'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
-                                return
-                            }
-                            if (start >= end) {
-                                if (accordionInlineMsg) { accordionInlineMsg.textContent = '开始时间必须小于结束时间'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
-                                return
-                            }
-                        } else {
-                            const startStr = accordionStartTime2.value.trim()
-                            const durationStr = accordionDuration.value.trim()
-                            if (!startStr || !durationStr) {
-                                if (accordionInlineMsg) { accordionInlineMsg.textContent = '请输入开始时间和跳过时长'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
-                                return
-                            }
-                            start = parseTime(startStr)
-                            const duration = parseDuration(durationStr)
-                            if (start === null) {
-                                if (accordionInlineMsg) { accordionInlineMsg.textContent = '开始时间格式错误'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
-                                return
-                            }
-                            if (duration === null || duration <= 0) {
-                                if (accordionInlineMsg) { accordionInlineMsg.textContent = '跳过时长格式错误'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
-                                return
-                            }
-                            end = start + duration
-                        }
-                        const allSegs = [...state.currentSegments, ...localPendingSegments]
-                        const conflict = validateSegment({ start, end }, allSegs)
-                        if (conflict) {
-                            if (accordionInlineMsg) { accordionInlineMsg.textContent = conflict; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                // 添加/保存编辑
+                accordionAddBtn.addEventListener('click', (e) => {
+                    e.stopPropagation()
+                    let start = null, end = null
+                    if (localInputMode === 'start-end') {
+                        const startStr = accordionStartTime.value.trim()
+                        const endStr = accordionEndTime.value.trim()
+                        if (!startStr || !endStr) {
+                            if (accordionInlineMsg) { accordionInlineMsg.textContent = '请输入开始和结束时间'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
                             return
                         }
-                        localPendingSegments.push({ start, end })
-                        localPendingSegments.sort((a, b) => a.start - b.start)
-                        state.pendingSegments = [...localPendingSegments]
-                        renderLocalPendingList()
-                        if (localInputMode === 'start-end') {
-                            accordionStartTime.value = ''
-                            accordionEndTime.value = ''
-                            accordionStartTime.focus()
-                        } else {
-                            accordionStartTime2.value = ''
-                            accordionDuration.value = ''
-                            accordionStartTime2.focus()
+                        start = parseTime(startStr)
+                        end = parseTime(endStr)
+                        if (start === null || end === null) {
+                            if (accordionInlineMsg) { accordionInlineMsg.textContent = '时间格式错误，请使用 M:SS 或秒数'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                            return
                         }
-                    })
-                }
+                        if (start >= end) {
+                            if (accordionInlineMsg) { accordionInlineMsg.textContent = '开始时间必须小于结束时间'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                            return
+                        }
+                    } else {
+                        const startStr = accordionStartTime2.value.trim()
+                        const durationStr = accordionDuration.value.trim()
+                        if (!startStr || !durationStr) {
+                            if (accordionInlineMsg) { accordionInlineMsg.textContent = '请输入开始时间和跳过时长'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                            return
+                        }
+                        start = parseTime(startStr)
+                        const duration = parseDuration(durationStr)
+                        if (start === null) {
+                            if (accordionInlineMsg) { accordionInlineMsg.textContent = '开始时间格式错误'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                            return
+                        }
+                        if (duration === null || duration <= 0) {
+                            if (accordionInlineMsg) { accordionInlineMsg.textContent = '跳过时长格式错误'; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                            return
+                        }
+                        end = start + duration
+                    }
+                    // 冲突检测：排除自身（编辑模式下）
+                    const otherSegs = state.stagingSegments.filter((_, i) => i !== state.editingIndex)
+                    const conflict = validateSegment({ start, end }, otherSegs)
+                    if (conflict) {
+                        if (accordionInlineMsg) { accordionInlineMsg.textContent = conflict; accordionInlineMsg.className = 'accordion-inline-msg warn' }
+                        return
+                    }
+                    if (state.editingIndex >= 0) {
+                        // 编辑模式：更新已有片段
+                        state.stagingSegments[state.editingIndex] = { start, end }
+                    } else {
+                        // 新增模式
+                        state.stagingSegments.push({ start, end })
+                    }
+                    state.stagingSegments.sort((a, b) => a.start - b.start)
+                    clearForm()
+                    renderStagingList()
+                    if (localInputMode === 'start-end') {
+                        accordionStartTime.value = ''
+                        accordionEndTime.value = ''
+                        accordionStartTime.focus()
+                    } else {
+                        accordionStartTime2.value = ''
+                        accordionDuration.value = ''
+                        accordionStartTime2.focus()
+                    }
+                })
+
+                // 初始渲染暂存区
+                renderStagingList()
             }
 
             // ===== 番剧页：手风琴剧集列表相关函数 =====
@@ -645,7 +784,7 @@ export const adSkipFeatures = {
                 return merged.slice(0, 3).map(seg => formatTime(seg.start) + '-' + formatTime(seg.end)).join(', ') + (merged.length > 3 ? '...' : '')
             }
 
-            const renderAccordionList = async (episodes) => {
+            renderAccordionList = async (episodes) => {
                 if (!episodes || episodes.length === 0) return
                 state.bangumiView = 'accordion'
                 state.currentEpisodeIndex = -1
@@ -653,10 +792,10 @@ export const adSkipFeatures = {
                 // 隐藏其他区域
                 content.style.display = 'none'
                 manualEntry.style.display = 'none'
-                updateBtn.style.display = 'none'
+                updateBtnsVisible(false)
                 updateAllBtn.style.display = 'none'
                 reIdentifyBtn.style.display = 'none'
-                batchSectionEl.style.display = 'none'
+                if (batchSectionEl) batchSectionEl.style.display = 'none'
                 backBtn.style.display = 'none'
 
                 // 显示手风琴列表
@@ -669,10 +808,15 @@ export const adSkipFeatures = {
                     const epId = String(ep.id)
                     const isCurrent = epId === state.bvid
                     const epNum = ep.title ? ep.title.replace(/[^\d]/g, '') || String(i + 1) : String(i + 1)
+                    // 标题仅为数字时显示「第x集」
+                    const titleText = ep.title && /^\d+$/.test(ep.title.trim())
+                        ? '第' + ep.title.trim() + '集'
+                        : (ep.title || '')
+                    const subTitle = ep.long_title ? ' ' + ep.long_title : ''
                     return '<div class="episode-accordion-item" data-ep-index="' + i + '" data-ep-id="' + epId + '">' +
                         '<div class="episode-accordion-header' + (isCurrent ? ' active' : '') + '" data-ep-index="' + i + '">' +
                         '<span class="episode-index">' + epNum + '</span>' +
-                        '<span class="episode-title">' + (ep.title || '') + (ep.long_title ? ' ' + ep.long_title : '') + '</span>' +
+                        '<span class="episode-title">' + titleText + subTitle + '</span>' +
                         '<span class="episode-segment-preview">加载中...</span>' +
                         '<span class="accordion-arrow">▼</span>' +
                         '</div>' +
@@ -715,11 +859,20 @@ export const adSkipFeatures = {
                         state.bvid = String(episodes[index].id)
                         state.currentSegments = cached?.segments ? [...cached.segments] : []
                         state.cached = cached
-                        state.canUpdate = canUpdateCache(cached, getCurrentUid())
-                        // 渲染编辑区
+                        state.canUpdate = canUpdateCache(cached, getCurrentUid())                        // 渲染编辑区
                         renderAccordionBody(body, episodes[index])
+                        // 自动将当前集滚动到顶部
+                        requestAnimationFrame(() => {
+                            const header = item.querySelector('.episode-accordion-header')
+                            if (header) {
+                                episodeAccordionEl.scrollTop = 0
+                                const itemTop = item.offsetTop - episodeAccordionEl.offsetTop
+                                if (itemTop > 0) episodeAccordionEl.scrollTop = itemTop
+                            }
+                        })
                     }
                 })
+
 
                 // 绑定手风琴头部点击事件
                 episodeAccordionEl.querySelectorAll('.episode-accordion-header').forEach(header => {
@@ -739,7 +892,13 @@ export const adSkipFeatures = {
                         })
 
                         if (isActive) {
-                            // 收起当前项
+                            // 收起前保存当前剧集的暂存区数据
+                            if (state.bvid) {
+                                const prevStaging = state.stagingMap[state.bvid] || { segments: [], editingIndex: -1 }
+                                prevStaging.segments = [...state.stagingSegments]
+                                prevStaging.editingIndex = state.editingIndex
+                                state.stagingMap[state.bvid] = prevStaging
+                            }
                             header.classList.remove('active')
                             body.classList.remove('expanded')
                             state.currentEpisodeIndex = -1
@@ -748,12 +907,26 @@ export const adSkipFeatures = {
                             header.classList.add('active')
                             body.classList.add('expanded')
 
+                            // 先保存上一个剧集的暂存区
+                            if (state.bvid && state.bvid !== String(episodes[idx].id)) {
+                                const prevStaging = state.stagingMap[state.bvid] || { segments: [], editingIndex: -1 }
+                                prevStaging.segments = [...state.stagingSegments]
+                                prevStaging.editingIndex = state.editingIndex
+                                state.stagingMap[state.bvid] = prevStaging
+                            }
+
                             // 加载该集的片段数据并渲染编辑区
                             const ep = episodes[idx]
                             const epId = String(ep.id)
                             state.currentEpisodeIndex = idx
                             state.bvid = epId
                             state.pendingSegments = []
+
+                            // 从 stagingMap 恢复暂存区数据
+                            const savedStaging = state.stagingMap[epId]
+                            state.stagingSegments = savedStaging ? [...savedStaging.segments] : []
+                            state.stagingSegments.sort((a, b) => a.start - b.start)
+                            state.editingIndex = savedStaging ? savedStaging.editingIndex : -1
 
                             let cached = null
                             try {
@@ -773,20 +946,61 @@ export const adSkipFeatures = {
                 updateAllBtn.style.display = 'flex'
             }
 
-            // 「更新全部缓存」按钮事件
+            // 「更新全部缓存」按钮事件：将各集暂存区合并到缓存并提交
             updateAllBtn.addEventListener('click', async () => {
+                // 先把当前展开集的工作副本同步进 stagingMap，避免直接点「更新全部缓存」漏掉刚编辑的暂存
+                if (state.bvid && state.stagingSegments?.length > 0) {
+                    state.stagingMap[state.bvid] = { segments: [...state.stagingSegments], editingIndex: state.editingIndex }
+                }
+                // 统计有暂存数据的集数
+                let stagingCount = 0
+                for (const ep of state.episodes) {
+                    const epId = String(ep.id)
+                    const stagingData = state.stagingMap[epId]
+                    if (stagingData?.segments?.length > 0) stagingCount++
+                }
+                if (stagingCount === 0) {
+                    showInlineMsg('暂存区无数据，无需更新')
+                    return
+                }
+                const confirmResult = await adjustmentConfirm('将 ' + stagingCount + ' 集的暂存区数据合并到缓存，选择上传方式：', {
+                    container: popover,
+                    buttons: [
+                        { key: 'cancel', label: '取消', className: 'secondary' },
+                        { key: 'overwrite', label: '覆盖上传', className: 'danger' },
+                        { key: 'append', label: '追加上传', className: 'primary' }
+                    ]
+                })
+                if (confirmResult === 'cancel') return
+                updateAllBtn.classList.add('disabled')
+                updateAllBtn.style.pointerEvents = 'none'
+                updateAllBtn.style.opacity = '0.5'
+                const originalText = updateAllBtn.textContent
+                updateAllBtn.textContent = '更新中...'
+                showInlineMsg('正在更新 ' + stagingCount + ' 集缓存...')
                 try {
                     const uid = getCurrentUid()
                     let successCount = 0
                     for (const ep of state.episodes) {
                         const epId = String(ep.id)
+                        // 读取已有缓存
                         let cached = null
                         try {
                             cached = await storageService.adCacheGet(epId)
                         } catch (_) {}
-                        const segments = cached?.segments || []
-                        if (segments.length === 0) continue
-                        const cacheEntry = createCacheEntry(epId, segments, uid)
+                        const existingSegments = cached?.segments || []
+                        const stagingData = state.stagingMap[epId]
+                        const stagingSegs = stagingData?.segments || []
+                        if (stagingSegs.length === 0 && existingSegments.length === 0) continue
+                        // 追加模式：合并已有+暂存；覆盖模式：仅用暂存
+                        const merged = confirmResult === 'overwrite'
+                            ? mergeSegments(stagingSegs)
+                            : mergeSegments([...existingSegments, ...stagingSegs])
+                        const cacheEntry = createCacheEntry(epId, merged, uid)
+                        if (cached) {
+                            cacheEntry.version = (cached.version || 0) + 1
+                            cacheEntry.verified_by = [...new Set([...(cached.verified_by || []), uid].filter(Boolean))]
+                        }
                         await storageService.adCacheSet(epId, cacheEntry)
                         try {
                             await fetch(SKIP_CACHE_API, {
@@ -797,10 +1011,26 @@ export const adSkipFeatures = {
                         } catch (_) {}
                         successCount++
                     }
+                    // 清空所有剧集的暂存区
+                    state.stagingMap = {}
+                    state.stagingSegments = []
+                    state.editingIndex = -1
+                    // 刷新当前展开集的视图（暂存已清空）
+                    if (state.currentEpisodeIndex >= 0 && state.episodes[state.currentEpisodeIndex]) {
+                        const curIdx = state.currentEpisodeIndex
+                        const curItem = episodeAccordionEl.querySelector('.episode-accordion-item[data-ep-index="' + curIdx + '"]')
+                        const curBody = curItem && curItem.querySelector('.episode-accordion-body')
+                        if (curBody) renderAccordionBody(curBody, state.episodes[curIdx])
+                    }
                     showInlineMsg('已更新 ' + successCount + ' 集缓存')
                 } catch (error) {
                     logger.error('跳过片段管理丨批量更新缓存失败:', error)
                     showInlineMsg('批量更新失败')
+                } finally {
+                    updateAllBtn.classList.remove('disabled')
+                    updateAllBtn.style.pointerEvents = ''
+                    updateAllBtn.style.opacity = ''
+                    updateAllBtn.textContent = originalText
                 }
             })
 
@@ -931,43 +1161,65 @@ export const adSkipFeatures = {
             })
 
             // 更新缓存：合并待定片段后保存
-            updateBtn.addEventListener('click', async () => {
+            // 主面板缓存提交（追加/覆盖共用），确保写入去重后数据
+            const submitMainCache = async (finalSegments, label) => {
                 try {
-                    // 合并待定片段到当前片段
-                    if (state.pendingSegments.length > 0) {
-                        state.currentSegments.push(...state.pendingSegments)
-                        state.currentSegments = mergeSegments(state.currentSegments)
-                        state.pendingSegments = []
-                        renderPendingList()
-                    }
-
+                    finalSegments = mergeSegments(finalSegments)
                     const uid = getCurrentUid()
-                    const newCache = createCacheEntry(state.bvid, state.currentSegments, uid)
+                    const newCache = createCacheEntry(state.bvid, finalSegments, uid)
                     if (state.cached) {
                         newCache.version = (state.cached.version || 0) + 1
                         newCache.verified_by = [...new Set([...(state.cached.verified_by || []), uid].filter(Boolean))]
                     }
-
                     await storageService.adCacheSet(state.bvid, newCache)
                     logger.info('跳过片段管理丨已更新本地缓存')
-
-                    await fetch(SKIP_CACHE_API, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(newCache)
-                    })
-                    logger.info('跳过片段管理丨已更新远程缓存')
-
+                    try {
+                        await fetch(SKIP_CACHE_API, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(newCache)
+                        })
+                        logger.info('跳过片段管理丨已更新远程缓存')
+                    } catch (_) {}
                     state.cached = newCache
+                    state.currentSegments = finalSegments
+                    state.pendingSegments = []
+                    renderPendingList()
                     self.advertisementIdentified = false
                     await self.identifyAdvertisementTimestamps()
-
-                    renderSegments(state.currentSegments, state.cached)
-                    content.insertAdjacentHTML('beforeend', '<div class="success">缓存已更新</div>')
+                    renderSegments(finalSegments, state.cached)
+                    content.insertAdjacentHTML('beforeend', '<div class="success">' + label + '</div>')
                 } catch (error) {
                     logger.error('跳过片段管理丨更新缓存失败:', error)
                     content.innerHTML = '<div class="error">更新缓存失败</div>'
                 }
+            }
+
+            // 追加更新：保留已有缓存片段 + 待提交片段（均去重合并）
+            appendBtn.addEventListener('click', async () => {
+                if (state.pendingSegments.length === 0) {
+                    if (state.currentSegments.length === 0) {
+                        showInlineMsg('暂无可提交片段，请先手动添加或重新识别')
+                        return
+                    }
+                    // 无待提交但有面板清单（如仅需重传/落盘识别结果）：按当前清单合并提交
+                    await submitMainCache(state.currentSegments, '缓存已更新')
+                    return
+                }
+                const existing = state.cached?.segments || []
+                await submitMainCache([...existing, ...state.pendingSegments], '缓存已更新（追加）')
+            })
+
+            // 覆盖更新：不保留已有片段，仅上传待提交片段（覆盖前二次确认）
+            overwriteBtn.addEventListener('click', async () => {
+                if (state.pendingSegments.length === 0) {
+                    showInlineMsg('覆盖更新需先手动添加片段，当前无待提交片段')
+                    return
+                }
+                const existingCount = (state.cached?.segments || []).length
+                const ok = await adjustmentConfirm('覆盖更新将不保留已有缓存片段（' + existingCount + ' 段），仅上传当前待提交的 ' + state.pendingSegments.length + ' 个片段。确定继续？', { container: popover })
+                if (!ok) return
+                await submitMainCache(state.pendingSegments, '缓存已更新（覆盖）')
             })
 
             // 应用到同系列全部视频
@@ -1029,84 +1281,95 @@ export const adSkipFeatures = {
                     applyAllBtn.textContent = '应用到同系列全部视频'
                 }
             })
+            popover._skipMgrReady = true
         }
 
         // --- 每次打开时更新状态并渲染 ---
-        const { content, updateBtn, updateAllBtn, reIdentifyBtn, manualEntry, renderPendingList, renderSegments, batchSection } = popover._mgr
+        const { content, updateAllBtn, reIdentifyBtn, manualEntry, renderPendingList, renderSegments, batchSection } = popover._mgr
         state.bvid = bvid
         state.currentSegments = []
         state.pendingSegments = []
         state.seriesEpisodeIds = []
         renderPendingList()
         const uid = getCurrentUid()
-
-        // 获取视频信息（用于检测字幕和系列信息）
-        let videoInfo = null
-        try {
-            videoInfo = await biliApis.getVideoInformation(this.userConfigs.page_type, bvid)
-        } catch (error) {
-            logger.debug('跳过片段管理丨获取视频信息失败', error)
-        }
-
-        // 番剧页直接隐藏「重新识别」按钮（番剧页不支持AI识别）
-        // video页面：检测字幕，无字幕则隐藏
-        if (reIdentifyBtn) {
-            if (this.userConfigs.page_type === 'bangumi') {
-                reIdentifyBtn.style.display = 'none'
-            } else {
-                let hasSubtitles = false
-                try {
-                    const cid = videoInfo?.cid
-                    if (cid) {
-                        const subtitles = await biliApis.getVideoSubtitles(bvid, cid)
-                        hasSubtitles = !!(subtitles && subtitles.length > 0)
-                    }
-                } catch (error) {
-                    logger.debug('跳过片段管理丨检测字幕失败', error)
-                }
-                reIdentifyBtn.style.display = hasSubtitles ? '' : 'none'
-            }
-        }
-
-        // ===== 番剧页：显示手风琴剧集列表 =====
-        const { renderAccordionList } = popover._mgr
         const batchSectionEl = document.getElementById('SkipSegmentManagerBatchSection')
-        if (batchSectionEl) {
-            batchSectionEl.style.display = 'none'
-        }
 
-        if (this.userConfigs.page_type === 'bangumi' && videoInfo?.episodes?.length > 0) {
-            state.episodes = videoInfo.episodes
-            state.seriesEpisodeIds = videoInfo.episodes.map(ep => String(ep.id))
-            // 显示手风琴剧集列表
-            popoverManager.show(popoverId)
-            content.style.display = 'none'
+        // ===== 番剧页：先打开弹窗再异步加载剧集列表 =====
+        // 不因视频信息接口慢/挂起而导致点击管理无任何反应
+        if (this.userConfigs.page_type === 'bangumi') {
+            if (reIdentifyBtn) reIdentifyBtn.style.display = 'none'
+            content.style.display = ''
+            content.innerHTML = '<div class="loading">正在加载剧集列表...</div>'
             manualEntry.style.display = 'none'
-            updateBtn.style.display = 'none'
+            updateBtnsVisible(false)
             updateAllBtn.style.display = 'none'
-            reIdentifyBtn.style.display = 'none'
             if (batchSectionEl) batchSectionEl.style.display = 'none'
-            await renderAccordionList(state.episodes)
+            popoverManager.show(popoverId)
+
+            let videoInfo = null
+            try {
+                videoInfo = await biliApis.getVideoInformation('bangumi', bvid)
+            } catch (error) {
+                logger.debug('跳过片段管理丨获取番剧信息失败', error)
+            }
+            if (videoInfo?.episodes?.length > 0) {
+                state.episodes = videoInfo.episodes
+                state.seriesEpisodeIds = videoInfo.episodes.map(ep => String(ep.id))
+                // ss/季链接模式（id 带 ss 前缀）：没有可对应的当前分集，默认展开第一集作为编辑对象
+                const seasonMode = typeof bvid === 'string' && bvid.startsWith('ss')
+                if (seasonMode) {
+                    state.bvid = String(state.episodes[0].id)
+                }
+                await renderAccordionList(state.episodes)
+            } else {
+                content.style.display = ''
+                content.innerHTML = '<div class="error">获取剧集列表失败（接口超时或无法获取该番剧剧集），请刷新页面后重试</div>'
+                const epAcc = document.getElementById('SkipSegmentManagerEpisodeAccordion')
+                if (epAcc) epAcc.style.display = 'none'
+                const mBtn = document.getElementById('SkipSegmentManagerManualBtn')
+                if (mBtn) mBtn.style.display = 'none'
+            }
             return
         }
 
         // ===== 普通视频页：原有逻辑 =====
+        // 获取视频信息（用于检测字幕和系列信息）
+        let videoInfo = null
+        try {
+            videoInfo = await biliApis.getVideoInformation('video', bvid)
+        } catch (error) {
+            logger.debug('跳过片段管理丨获取视频信息失败', error)
+        }
+        // 检测字幕，无字幕则隐藏「重新识别」按钮
+        if (reIdentifyBtn) {
+            let hasSubtitles = false
+            try {
+                const cid = videoInfo?.cid
+                if (cid) {
+                    const subtitles = await biliApis.getVideoSubtitles(bvid, cid)
+                    hasSubtitles = !!(subtitles && subtitles.length > 0)
+                }
+            } catch (error) {
+                logger.debug('跳过片段管理丨检测字幕失败', error)
+            }
+            reIdentifyBtn.style.display = hasSubtitles ? '' : 'none'
+        }
+        if (batchSectionEl) batchSectionEl.style.display = 'none'
         // 检测当前视频是否属于系列/合集，获取同系列所有视频ID
-        if (batchSectionEl) {
-            if (videoInfo) {
-                let episodeIds = []
-                if (videoInfo.ugc_season) {
-                    const sections = videoInfo.ugc_season.sections || []
-                    for (const section of sections) {
-                        for (const ep of (section.episodes || [])) {
-                            if (ep.bvid) episodeIds.push(ep.bvid)
-                        }
+        if (videoInfo) {
+            let episodeIds = []
+            if (videoInfo.ugc_season) {
+                const sections = videoInfo.ugc_season.sections || []
+                for (const section of sections) {
+                    for (const ep of (section.episodes || [])) {
+                        if (ep.bvid) episodeIds.push(ep.bvid)
                     }
                 }
-                if (episodeIds.length > 1) {
-                    state.seriesEpisodeIds = episodeIds
-                    batchSectionEl.style.display = 'block'
-                }
+            }
+            if (episodeIds.length > 1) {
+                state.seriesEpisodeIds = episodeIds
+                // 显示「应用到同系列全部视频」批量操作区
+                if (batchSectionEl) batchSectionEl.style.display = 'block'
             }
         }
 
@@ -1123,7 +1386,7 @@ export const adSkipFeatures = {
             popoverManager.show(popoverId)
         } else {
             content.innerHTML = '<div class="loading">正在查询缓存...</div>'
-            updateBtn.style.display = 'none'
+            updateBtnsVisible(false)
             manualEntry.style.display = 'none'
             popoverManager.show(popoverId)
 
@@ -1149,7 +1412,7 @@ export const adSkipFeatures = {
             state.cached = null
             state.canUpdate = true
             content.innerHTML = '<div class="empty-result">暂无跳过片段数据</div><div class="empty-tip">可点击下方「手动添加」填写片头片尾等固定片段，或点击「重新识别」通过 AI 识别广告</div>'
-            updateBtn.style.display = 'none'
+            updateBtnsVisible(false)
             manualEntry.style.display = 'none'
         }
     },
@@ -1160,7 +1423,8 @@ export const adSkipFeatures = {
         this.advertisementIdentified = true
         setTimeout(() => { this.advertisementIdentified = false }, 30000)
         const bvid = biliApis.getCurrentVideoID(window.location.href)
-        if (!bvid || bvid === 'error') return
+        // ss/季链接无法确定具体分集，跳过自动识别（可在片段管理弹窗内按集手动操作）
+        if (!bvid || bvid === 'error' || (typeof bvid === 'string' && bvid.startsWith('ss'))) return
         // 先查本地缓存
         try {
             const cached = await storageService.adCacheGet(bvid)

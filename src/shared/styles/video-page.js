@@ -444,6 +444,16 @@ export const videoPageStyles = {
             background: rgba(245,108,108,0.25);
         }
 
+        #SkipSegmentManagerPopover .adjustment-button.info {
+            background: rgba(0,161,214,0.15);
+            border: 1px solid rgba(0,161,214,0.3);
+            color: #00a1d6;
+        }
+
+        #SkipSegmentManagerPopover .adjustment-button.info:hover {
+            background: rgba(0,161,214,0.25);
+        }
+
         #SkipSegmentManagerPopover .episode-accordion {
             display: flex;
             flex-direction: column;
@@ -454,7 +464,15 @@ export const videoPageStyles = {
         }
 
         #SkipSegmentManagerPopover .episode-accordion-item {
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 8px;
+            margin-bottom: 6px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-item:has(.episode-accordion-body.expanded) {
+            border-color: rgba(0,161,214,0.3);
+            z-index: 1;
+            position: relative;
         }
 
         #SkipSegmentManagerPopover .episode-accordion-header {
@@ -464,6 +482,10 @@ export const videoPageStyles = {
             padding: 10px 14px;
             cursor: pointer;
             transition: background 0.2s;
+            border-radius: 8px;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-header.active {
             border-radius: 8px 8px 0 0;
         }
 
@@ -530,6 +552,11 @@ export const videoPageStyles = {
             padding: 0 14px;
             background: rgba(0,0,0,0.15);
             border-radius: 0 0 8px 8px;
+            border-top: 1px solid transparent;
+        }
+
+        #SkipSegmentManagerPopover .episode-accordion-body.expanded {
+            border-top-color: rgba(0,161,214,0.2);
         }
 
         #SkipSegmentManagerPopover .episode-accordion-body.expanded {
@@ -538,16 +565,16 @@ export const videoPageStyles = {
         }
 
         #SkipSegmentManagerPopover .episode-accordion-body .segment-list {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+            gap: 6px;
         }
 
         #SkipSegmentManagerPopover .episode-accordion-body .segment-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px 12px;
+            justify-content: center;
+            padding: 5px 8px;
             border-radius: 6px;
             background: rgba(255,255,255,0.04);
             border: 1px solid rgba(255,255,255,0.06);
@@ -556,9 +583,9 @@ export const videoPageStyles = {
         #SkipSegmentManagerPopover .episode-accordion-body .segment-time {
             color: #fff;
             font-family: monospace;
-            font-size: 13px;
+            font-size: 12px;
             background: rgba(0,161,214,0.12);
-            padding: 2px 8px;
+            padding: 2px 6px;
             border-radius: 4px;
         }
 
@@ -639,9 +666,41 @@ export const videoPageStyles = {
         }
 
         #SkipSegmentManagerPopover .accordion-manual-entry .accordion-add-btn {
-            padding: 8px 16px;
+            padding: 8px 14px;
             white-space: nowrap;
             flex-shrink: 0;
+            font-size: 12px;
+            background: #00a1d6;
+            color: #fff;
+            border: 1px solid rgba(0,161,214,0.4);
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-add-btn:hover {
+            background: #00b8e6;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-cancel-edit-btn {
+            padding: 8px 14px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            font-size: 12px;
+            background: #2c2c2c;
+            color: #ccc;
+            border: 1px solid #424242;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-cancel-edit-btn:hover {
+            background: #333;
+        }
+
+        #SkipSegmentManagerPopover .accordion-manual-entry .form-actions {
+            display: flex;
+            gap: 6px;
+            align-items: flex-end;
         }
 
         #SkipSegmentManagerPopover .accordion-pending-list {
@@ -708,6 +767,110 @@ export const videoPageStyles = {
             border: 1px solid rgba(103,194,58,0.2);
             padding: 8px 12px;
             max-height: 60px;
+        }
+
+        /* 暂存区样式 */
+        #SkipSegmentManagerPopover .cached-section,
+        #SkipSegmentManagerPopover .staging-section {
+            margin-bottom: 8px;
+        }
+
+        #SkipSegmentManagerPopover .cached-section-header,
+        #SkipSegmentManagerPopover .staging-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #868686;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+        }
+
+        #SkipSegmentManagerPopover .cached-count,
+        #SkipSegmentManagerPopover .staging-count {
+            font-size: 11px;
+            padding: 1px 6px;
+            border-radius: 3px;
+            background: rgba(255,255,255,0.06);
+        }
+
+        #SkipSegmentManagerPopover .staging-count {
+            background: rgba(0,161,214,0.12);
+            color: #00a1d6;
+        }
+
+        #SkipSegmentManagerPopover .cached-segment-list .segment-item.cached-item .segment-time {
+            background: rgba(255,255,255,0.04);
+            color: #999;
+        }
+
+        #SkipSegmentManagerPopover .staging-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        #SkipSegmentManagerPopover .staging-item {
+            display: flex;
+            align-items: center;
+            padding: 5px 10px;
+            border-radius: 4px;
+            background: rgba(0,161,214,0.06);
+            border: 1px solid rgba(0,161,214,0.12);
+            transition: all 0.15s;
+        }
+
+        #SkipSegmentManagerPopover .staging-item:hover {
+            background: rgba(0,161,214,0.1);
+        }
+
+        #SkipSegmentManagerPopover .staging-item.editing {
+            border-color: #00a1d6;
+            background: rgba(0,161,214,0.12);
+        }
+
+        #SkipSegmentManagerPopover .staging-item .segment-time {
+            font-size: 13px;
+            background: rgba(0,161,214,0.12);
+            padding: 2px 8px;
+            border-radius: 3px;
+        }
+
+        #SkipSegmentManagerPopover .staging-actions {
+            margin-left: auto;
+            display: flex;
+            gap: 4px;
+        }
+
+        #SkipSegmentManagerPopover .staging-edit,
+        #SkipSegmentManagerPopover .staging-delete {
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #868686;
+            transition: all 0.15s;
+        }
+
+        #SkipSegmentManagerPopover .staging-edit:hover {
+            color: #00a1d6;
+            background: rgba(0,161,214,0.15);
+        }
+
+        #SkipSegmentManagerPopover .staging-delete:hover {
+            color: #f56c6c;
+            background: rgba(245,108,108,0.15);
+        }
+
+        #SkipSegmentManagerPopover .form-actions {
+            display: flex;
+            gap: 6px;
+            align-items: flex-end;
         }
     `
 }

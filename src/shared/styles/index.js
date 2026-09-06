@@ -678,6 +678,16 @@ function generateBilibiliAdjustmentStyle () {
             border-color: #444;
         }
 
+        .adjustment-button.danger {
+            background: rgba(245,108,108,0.15);
+            border: 1px solid rgba(245,108,108,0.3);
+            color: #f56c6c;
+        }
+
+        .adjustment-button.danger:hover {
+            background: rgba(245,108,108,0.25);
+        }
+
         /* ========== 更新弹窗专用样式 ========== */
         #UpdatePopover .adjustment-popover-title {
             font-size: 24px;
@@ -763,6 +773,46 @@ function generateBilibiliAdjustmentStyle () {
             padding-top: 16px;
             margin-top: 16px;
             border-top: 1px solid #333;
+        }
+
+        /* ========== 自定义确认弹窗 ========== */
+        .adjustment-confirm-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(2px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.15s ease;
+        }
+
+        .adjustment-confirm-dialog {
+            background: #2a2a2a;
+            border: 1px solid #424242;
+            border-radius: 12px;
+            padding: 24px;
+            min-width: 300px;
+            max-width: 400px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+        }
+
+        .adjustment-confirm-msg {
+            color: #eee;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 20px;
+        }
+
+        .adjustment-confirm-btns {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .adjustment-confirm-btns .adjustment-button {
+            min-width: 72px;
         }
     `.replace(/\s+/g, ' ').trim()
 }

@@ -4,254 +4,284 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Bilibili Adjustment — 哔哩哔哩增强脚本</title>
-    <meta name="description" content="AI 驱动的哔哩哔哩增强用户脚本，智能广告跳过、播放体验优化、评论区增强">
+    <meta name="description" content="Bilibili Adjustment — 哔哩哔哩增强用户脚本，网页全屏、播放优化、评论增强、片段管理">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <!-- 动态背景 -->
-    <div class="bg-grid"></div>
-    <div class="bg-glow bg-glow-1"></div>
-    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-orb bg-orb--pink"></div>
+    <div class="bg-orb bg-orb--blue"></div>
+    <div class="bg-noise"></div>
 
     <!-- 导航 -->
-    <nav class="nav">
+    <nav class="nav" id="nav">
         <div class="nav-inner">
-            <a href="#" class="nav-logo">
-                <span class="logo-icon">🎬</span>
-                <span class="logo-text">Bilibili Adjustment</span>
+            <a href="#" class="nav-brand">
+                <span class="brand-icon">🎬</span>
+                <span class="brand-text">Bilibili Adjustment</span>
+                <span class="brand-version">v3.27</span>
             </a>
             <div class="nav-links">
                 <a href="#features">功能</a>
-                <a href="#how-it-works">安装</a>
-                <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank">GitHub</a>
+                <a href="#install">安装</a>
+                <a href="#changelog">更新</a>
+                <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank" class="nav-github">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    GitHub
+                </a>
             </div>
         </div>
     </nav>
 
     <!-- Hero -->
     <section class="hero">
-        <div class="hero-badge">
-            <span class="badge-dot"></span>
-            V3 全新重构 · AI 驱动
-        </div>
-        <h1 class="hero-title">
-            让 B 站体验<br>
-            <span class="gradient-text">更智能、更舒适</span>
-        </h1>
-        <p class="hero-desc">
-            AI 自动识别并跳过广告 · 播放体验全面优化 · 评论区深度增强<br>
-            一个脚本，解锁 B 站全部潜力
-        </p>
-        <div class="hero-actions">
-            <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                一键安装
-            </a>
-            <a href="#features" class="btn btn-ghost">
-                了解更多
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
-            </a>
-        </div>
-        <div class="hero-stats">
-            <div class="stat">
-                <span class="stat-value" data-count="20">0</span>
-                <span class="stat-label">核心功能</span>
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="badge-pulse"></span>
+                V3 · 开源免费 · 持续迭代
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat">
-                <span class="stat-value">AI</span>
-                <span class="stat-label">智能驱动</span>
+            <h1 class="hero-title">
+                <span class="title-line">自由观看，</span>
+                <span class="title-line title-accent">按需调节。</span>
+            </h1>
+            <p class="hero-sub">网页全屏、播放优化、评论增强、片段管理等功能，按需开启。<br>开源免费，轻量运行。</p>
+            <div class="hero-actions">
+                <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                    一键安装
+                </a>
+                <a href="#features" class="btn btn-ghost">探索功能</a>
             </div>
-            <div class="stat-divider"></div>
-            <div class="stat">
-                <span class="stat-value">V3</span>
-                <span class="stat-label">全新架构</span>
+            <p class="hero-note">需要 Tampermonkey / Violentmonkey / ScriptCat 浏览器扩展</p>
+        </div>
+
+        <!-- 播放器演示 -->
+        <div class="hero-visual">
+            <div class="demo-player-full">
+                <div class="demo-player-chrome">
+                    <div class="chrome-dots"><span></span><span></span><span></span></div>
+                    <span class="demo-player-title">bilibili.com/video/BV1xx411c7mD</span>
+                </div>
+                <div class="demo-player-viewport">
+                    <div class="demo-player-content">
+                        <div class="demo-pause-icon">
+                            <svg width="40" height="40" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>
+                        </div>
+                    </div>
+                    <div class="demo-player-controls">
+                        <div class="demo-ctrl-left">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><polygon points="5,3 19,12 5,21"/></svg>
+                            <span>02:15 / 10:30</span>
+                        </div>
+                        <div class="demo-ctrl-right">
+                            <span class="demo-ctrl-tag">网页全屏</span>
+                            <span class="demo-ctrl-tag demo-ctrl-tag--active">弹幕</span>
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="10" fill="none" stroke="white" stroke-width="2"/><polygon points="10,8 16,12 10,16" fill="white"/></svg>
+                        </div>
+                    </div>
+                    <div class="demo-player-progress">
+                        <div class="demo-pp-fill"></div>
+                        <div class="demo-pp-dot"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="demo-features">
+                <div class="demo-feat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>进度记忆已恢复</span>
+                </div>
+                <div class="demo-feat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>播放器已定位</span>
+                </div>
+                <div class="demo-feat">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--blue)" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>网页全屏就绪</span>
+                </div>
             </div>
         </div>
     </section>
 
-    <!-- 特色功能 -->
+    <!-- 功能概览 -->
     <section class="features" id="features">
-        <div class="section-inner">
-            <div class="section-header">
-                <span class="section-tag">核心功能</span>
-                <h2>重新定义你的 B 站体验</h2>
-                <p>每一项功能都经过精心打磨，只为给你最好的观看体验</p>
+        <div class="container">
+            <div class="section-head">
+                <span class="section-label">核心功能</span>
+                <h2>一个脚本，全搞定</h2>
             </div>
 
-            <!-- Feature 1: AI 广告跳过 -->
-            <div class="feature-card feature-hero">
-                <div class="feature-hero-content">
-                    <div class="feature-icon feature-icon-ai">
-                        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 2a4 4 0 0 1 4 4v2a4 4 0 0 1-8 0V6a4 4 0 0 1 4-4z"/><path d="M16 14h.01M8 14h.01M12 14v7M8 18h8"/><circle cx="12" cy="6" r="1" fill="currentColor"/></svg>
-                    </div>
-                    <div class="feature-badge">✨ 特色功能</div>
-                    <h3>AI 智能广告跳过</h3>
-                    <p>利用大模型 AI 分析视频字幕，自动识别广告片段并精准跳过。支持多家 AI 提供商，识别结果跨用户共享缓存，一次识别全网受益。</p>
-                    <ul class="feature-list">
-                        <li>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            硅基流动 / DeepSeek / Kimi / 智谱 / OpenAI / 自定义接口
-                        </li>
-                        <li>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            IndexedDB + 云端双重缓存
-                        </li>
-                        <li>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            识别结果共享，全网用户受益
-                        </li>
-                        <li>
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                            片段管理：手动添加、重新识别、一键更新缓存
-                        </li>
-                    </ul>
-                </div>
-                <div class="feature-hero-visual">
-                    <div class="ai-demo">
-                        <div class="ai-demo-header">
-                            <span class="demo-dot demo-red"></span>
-                            <span class="demo-dot demo-yellow"></span>
-                            <span class="demo-dot demo-green"></span>
-                            <span class="demo-title">AI 识别中...</span>
-                        </div>
-                        <div class="ai-demo-body">
-                            <div class="ai-line">
-                                <span class="ai-time">00:15</span>
-                                <span class="ai-text">欢迎来到本期视频...</span>
-                            </div>
-                            <div class="ai-line ai-ad">
-                                <span class="ai-time">01:23</span>
-                                <span class="ai-text">感谢 XX 品牌赞助...</span>
-                                <span class="ai-tag">广告</span>
-                            </div>
-                            <div class="ai-line ai-ad">
-                                <span class="ai-time">01:45</span>
-                                <span class="ai-text">使用优惠码 BIOUP...</span>
-                                <span class="ai-tag">广告</span>
-                            </div>
-                            <div class="ai-line">
-                                <span class="ai-time">02:01</span>
-                                <span class="ai-text">好的，让我们回到正题...</span>
-                            </div>
-                            <div class="ai-result">
-                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#22c55e" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
-                                <span>已识别 2 个广告片段，自动跳过中</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- 其他功能网格 -->
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-                    </div>
-                    <h3>播放体验优化</h3>
-                    <p>自动定位播放器、智能画质选择、自动暂停恢复、播放进度记忆，让每一秒观看都舒适。</p>
-                </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
+            <!-- 主功能：网页全屏 -->
+            <div class="feature-primary">
+                <div class="feature-primary-text">
+                    <div class="feature-icon-lg">
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3"/></svg>
                     </div>
                     <h3>网页全屏解锁</h3>
-                    <p>突破 B 站网页全屏的布局限制，播放器真正占满视口。支持自动切换、迷你播放器屏蔽，沉浸式观影体验。</p>
+                    <p>突破 B 站网页全屏的布局限制，播放器真正占满视口。支持自动切换、迷你播放器屏蔽，以及网页全屏与系统全屏的设置联动。</p>
+                    <ul class="check-list">
+                        <li>一键切换网页全屏，不受 B 站 UI 限制</li>
+                        <li>自动进入网页全屏，打开视频即生效</li>
+                        <li>迷你播放器屏蔽，专注观看不被打断</li>
+                    </ul>
                 </div>
-
-                <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+                <div class="feature-primary-visual">
+                    <div class="visual-card">
+                        <div class="visual-row">
+                            <span class="visual-provider">网页全屏</span>
+                            <span class="visual-status visual-status--ok">可用</span>
+                        </div>
+                        <div class="visual-row">
+                            <span class="visual-provider">自动切换</span>
+                            <span class="visual-status visual-status--ok">可配置</span>
+                        </div>
+                        <div class="visual-row">
+                            <span class="visual-provider">迷你播放器</span>
+                            <span class="visual-status">可屏蔽</span>
+                        </div>
+                        <div class="visual-row">
+                            <span class="visual-provider">设置联动</span>
+                            <span class="visual-status visual-status--ok">已启用</span>
+                        </div>
                     </div>
-                    <h3>评论区增强</h3>
-                    <p>IP 属地展示、标签清理、视频简介嵌入评论区、时间锚点快速跳转，评论区从此更清爽。</p>
                 </div>
+            </div>
 
+            <!-- 功能网格 -->
+            <div class="feature-grid">
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
+                    <div class="feature-card-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
                     </div>
-                    <h3>首页辅助</h3>
-                    <p>推荐视频历史记录，误点刷新也不怕错过。付费视频实时标记，再也不点进才知道要钱。</p>
+                    <h4>播放优化</h4>
+                    <p>自动定位播放器、进度记忆、智能画质选择、暂停恢复。</p>
                 </div>
-
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                    <div class="feature-card-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
                     </div>
-                    <h3>独立设置面板</h3>
-                    <p>页面内直接修改设置，无需打开脚本管理器。设置跨标签页实时同步，一处修改处处生效。</p>
+                    <h4>评论增强</h4>
+                    <p>IP 属地展示、标签清理、简介嵌入评论区、时间锚点跳转。</p>
                 </div>
-
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    <div class="feature-card-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 20V10M18 20V4M6 20v-4"/></svg>
                     </div>
-                    <h3>自动更新</h3>
-                    <p>托管在个人服务器，支持自动检查更新并弹窗提醒。版本号可点击手动检查，更新日志一目了然。</p>
+                    <h4>首页辅助</h4>
+                    <p>推荐视频历史记录，误刷新后可找回。付费视频实时标记。</p>
                 </div>
-
                 <div class="feature-card">
-                    <div class="feature-icon">
-                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <div class="feature-card-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
                     </div>
-                    <h3>隐私安全</h3>
-                    <p>播放进度、历史记录等个人数据仅存本地；广告缓存仅存 bvid 与时间段，上传者 uid 仅用于归属区分防止误改。代码开源，可自行审计。</p>
+                    <h4>设置面板</h4>
+                    <p>页面内直接修改设置，无需打开脚本管理器。跨标签页实时同步。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                    </div>
+                    <h4>片段管理</h4>
+                    <p>手动添加或删除跳过片段，支持远程缓存共享，按集编辑。</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-card-icon">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>
+                    </div>
+                    <h4>自动更新</h4>
+                    <p>自动检查更新并弹窗提醒，更新日志一目了然。</p>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- 安装指南 -->
-    <section class="how-it-works" id="how-it-works">
-        <div class="section-inner">
-            <div class="section-header">
-                <span class="section-tag">快速开始</span>
-                <h2>三步即可使用</h2>
-                <p>无需注册、无需配置，安装即用</p>
+    <!-- 安装 -->
+    <section class="install" id="install">
+        <div class="container">
+            <div class="section-head">
+                <span class="section-label">快速开始</span>
+                <h2>三步搞定</h2>
             </div>
-            <div class="steps">
-                <div class="step">
-                    <div class="step-number">1</div>
-                    <h3>安装脚本引擎</h3>
-                    <p>安装 Tampermonkey、Violentmonkey 或 ScriptCat 任一浏览器扩展</p>
-                    <div class="step-badges">
-                        <span class="engine-badge">Tampermonkey</span>
-                        <span class="engine-badge">Violentmonkey</span>
-                        <span class="engine-badge">ScriptCat</span>
+            <div class="install-steps">
+                <div class="install-step">
+                    <div class="step-num">01</div>
+                    <div class="step-body">
+                        <h4>安装脚本引擎</h4>
+                        <p>安装 Tampermonkey、Violentmonkey 或 ScriptCat 任一扩展</p>
+                        <div class="step-tags">
+                            <span>Tampermonkey</span>
+                            <span>Violentmonkey</span>
+                            <span>ScriptCat</span>
+                        </div>
                     </div>
                 </div>
-                <div class="step-connector">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                <div class="install-step">
+                    <div class="step-num">02</div>
+                    <div class="step-body">
+                        <h4>安装脚本</h4>
+                        <p>点击安装按钮，脚本引擎自动处理</p>
+                        <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary btn-sm">立即安装</a>
+                    </div>
                 </div>
-                <div class="step">
-                    <div class="step-number">2</div>
-                    <h3>安装脚本</h3>
-                    <p>点击一键安装按钮，脚本引擎会自动处理后续</p>
-                    <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary btn-sm">
-                        立即安装
-                    </a>
-                </div>
-                <div class="step-connector">
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-                </div>
-                <div class="step">
-                    <div class="step-number">3</div>
-                    <h3>享受增强体验</h3>
-                    <p>打开 B 站，脚本自动生效。点击右上角齿轮图标自定义设置</p>
+                <div class="install-step">
+                    <div class="step-num">03</div>
+                    <div class="step-body">
+                        <h4>打开 B 站</h4>
+                        <p>脚本自动生效，点击齿轮图标自定义设置</p>
+                    </div>
                 </div>
             </div>
         </div>
     </section>
 
-    <!-- 底部 CTA -->
+    <!-- 更新日志 -->
+    <section class="changelog" id="changelog">
+        <div class="container">
+            <div class="section-head">
+                <span class="section-label">持续迭代</span>
+                <h2>最近更新</h2>
+            </div>
+            <div class="changelog-list">
+                <div class="changelog-item">
+                    <span class="cl-version">v3.27</span>
+                    <div class="cl-body">
+                        <span class="cl-date">2026-09-04</span>
+                        <p>弹窗遮罩穿透根治，真实 DOM 遮罩替代事件拦截；跳过片段管理新增手风琴视图与起始+时长输入模式；模板文件按功能模块拆分</p>
+                    </div>
+                </div>
+                <div class="changelog-item">
+                    <span class="cl-version">v3.26</span>
+                    <div class="cl-body">
+                        <span class="cl-date">2026-08-30</span>
+                        <p>重构元素选择器系统，同步查询替代异步等待；新增页面类型感知与负缓存；静态校验替代运行时发现</p>
+                    </div>
+                </div>
+                <div class="changelog-item">
+                    <span class="cl-version">v3.25</span>
+                    <div class="cl-body">
+                        <span class="cl-date">2026-08-20</span>
+                        <p>番剧页跳过片段管理重构，新增剧集列表视图；修复番剧页视频就绪检测阻塞问题；设置面板初始化不再阻塞模块加载</p>
+                    </div>
+                </div>
+                <div class="changelog-item">
+                    <span class="cl-version">v3.24</span>
+                    <div class="cl-body">
+                        <span class="cl-date">2026-07-15</span>
+                        <p>自动定位新增滚动后验证与重试机制；跳过片段管理重构，支持手动添加删除并一键更新缓存</p>
+                    </div>
+                </div>
+            </div>
+            <div class="changelog-more">
+                <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment/releases" target="_blank">查看完整更新历史 →</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA -->
     <section class="cta">
-        <div class="section-inner">
-            <h2>准备好升级你的 B 站体验了吗？</h2>
-            <p>免费、开源、无广告。一键安装，即刻生效。</p>
+        <div class="container">
+            <h2>开源免费，即装即用</h2>
+            <p>免费 · 开源 · 无广告 · 按需配置</p>
             <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary btn-lg">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 一键安装
@@ -261,12 +291,13 @@
 
     <!-- 页脚 -->
     <footer class="footer">
-        <div class="footer-inner">
+        <div class="container footer-inner">
             <div class="footer-left">
-                <span class="footer-logo">🎬 Bilibili Adjustment</span>
-                <p>Made with ❤️ for Bilibili users</p>
+                <span>🎬 Bilibili Adjustment</span>
+                <span class="footer-sep">·</span>
+                <span>Made with ❤️ for Bilibili users</span>
             </div>
-            <div class="footer-links">
+            <div class="footer-right">
                 <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank">GitHub</a>
                 <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" target="_blank">安装脚本</a>
                 <a href="https://www.bilibili.com" target="_blank">Bilibili</a>

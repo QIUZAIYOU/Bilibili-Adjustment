@@ -78,10 +78,27 @@ export const playerModeFeatures = {
                 sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, this.userConfigs.selected_player_mode)
                 logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
             } else {
-                logger.warn('屏幕模式丨切换失败，继续执行其余功能')
+                logger.warn('屏幕模式丨切换失败，已加入重试队列')
+                this._retryQueue?.register('playerMode', () => this._retryPlayerMode(), 3)
             }
             // 无论切换成败都继续后续流程：页面初始滚动锁定依赖该事件解除，失败时不发会导致页面永远无法滚动
             eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
+        }
+    },
+    async _retryPlayerMode () {
+        const playerContainer = elementSelectors.get('playerContainer')
+        if (!playerContainer) return
+        const targetMode = this.userConfigs.selected_player_mode
+        if (playerContainer.getAttribute('data-screen') === targetMode) return
+        const strategy = { wide: 'playerModeWideEnterButton', web: 'playerModeWebEnterButton' }
+        const btn = elementSelectors.get(strategy[targetMode])
+        if (!btn) return
+        btn.click()
+        await sleep(350)
+        const success = await this.isPlayerModeSwitchSuccess(targetMode, elementSelectors.get('video'))
+        if (success) {
+            this._modeSwitchCooldown = Date.now()
+            logger.info(`屏幕模式丨${targetMode === 'wide' ? '宽屏' : '网页全屏'}丨重试切换成功`)
         }
     },
     async isPlayerModeSwitchSuccess (selectedPlayerMode, videoElement) {

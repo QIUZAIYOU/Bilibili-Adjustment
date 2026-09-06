@@ -40,12 +40,13 @@ async function _processQueue () {
 const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => {
     for (let i = 0; i <= retries; i++) {
         try {
-            return await axios.get(url, { withCredentials: true, ...options })
+            return await axios.get(url, { withCredentials: true, timeout: 15000, ...options })
         } catch (err) {
+            const isTimeout = err?.code === 'ECONNABORTED'
             const is429 = err?.response?.status === 429
-            if (is429 && i < retries) {
+            if ((is429 || isTimeout) && i < retries) {
                 const wait = delay * Math.pow(2, i) // 1s, 2s
-                logger.info(`请求被限流(429)，${wait}ms 后重试 (${i + 1}/${retries})`)
+                logger.info(`请求被限流或超时(${is429 ? '429' : 'timeout'})，${wait}ms 后重试 (${i + 1}/${retries})`)
                 await new Promise(r => setTimeout(r, wait))
                 continue
             }
@@ -112,7 +113,25 @@ export const biliApis = {
             return match?.[1] || parsedUrl.searchParams.get('bvid') || 'error'
         } else if (pathname.startsWith('/bangumi/')) {
             const match = pathname.match(/\/bangumi\/play\/ep(\d+)/)
-            return match?.[1] || 'error'
+            if (match?.[1]) return match[1]
+            // ss/季链接（如 /bangumi/play/ss12345）
+            const ssMatch = pathname.match(/\/bangumi\/play\/ss(\d+)/)
+            if (ssMatch?.[1]) {
+                // 优先尝试从页面解析当前分集 ep id（精确到分集，缓存/识别更准）
+                try {
+                    const state = window.__INITIAL_STATE__
+                    const epId = state?.epInfo?.id
+                        || (Array.isArray(state?.epList) && state.epList.find(ep => ep && (ep.now === true || ep.now === 1) && ep.id)?.id)
+                    if (epId) return String(epId)
+                    // DOM 兜底：高亮的当前集链接
+                    const activeLink = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')].find(a => /(^|\s)(active|current|on|selected)(\s|$)/.test(a.className || ''))
+                    const domEp = activeLink?.getAttribute('href')?.match(/ep(\d+)/)?.[1]
+                    if (domEp) return String(domEp)
+                } catch (_) {}
+                // 无法解析当前分集时，返回带 ss 前缀的季 id（调用方可走 season API）
+                return 'ss' + ssMatch[1]
+            }
+            return 'error'
         }
         return 'error'
     },
@@ -123,11 +142,21 @@ export const biliApis = {
         if (_videoInfoCache.has(cacheKey)) return _videoInfoCache.get(cacheKey)
         const promise = this._fetchVideoInformation(pageType, videoId)
         _videoInfoCache.set(cacheKey, promise)
+        // 失败不缓存，允许下次重试
+        promise.catch(() => { _videoInfoCache.delete(cacheKey) })
         setTimeout(() => _videoInfoCache.delete(cacheKey), VIDEO_INFO_CACHE_TTL)
         return promise
     },
     async _fetchVideoInformation (pageType, videoId) {
-        const url = pageType === 'video' ? `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}` : `https://api.bilibili.com/pgc/view/web/season?ep_id=${videoId}`
+        let url
+        if (pageType === 'video') {
+            url = `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`
+        } else {
+            // bangumi：纯数字视为 ep_id；带 ss 前缀视为 season_id（/bangumi/play/ss 链接）
+            const isSeason = typeof videoId === 'string' && videoId.startsWith('ss')
+            const id = isSeason ? videoId.slice(2) : videoId
+            url = `https://api.bilibili.com/pgc/view/web/season?${isSeason ? 'season_id' : 'ep_id'}=${id}`
+        }
         if (pageType === 'video') {
             const { data: { code, data }} = await _apiRequest(url)
             // logger.debug(pageType, videoId, data)

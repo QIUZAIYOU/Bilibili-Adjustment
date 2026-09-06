@@ -7,6 +7,7 @@ import { destroyTooltip } from '@/components/tooltip-component'
 import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { sleep, executeFunctionsSequentially, isTabActive, monitorHrefChange, insertStyleToDocument } from '@/utils/common'
+import { retryQueue } from '@/utils/retry-queue'
 import { stylesV2 } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { playerModeFeatures } from './player-mode'
@@ -27,6 +28,7 @@ export default {
     async install () {
         this._cleanup = []
         this._modeObservers = []
+        this._retryQueue = retryQueue
         // 广告识别与简介观察器状态（原模块级变量，随模块实例生命周期）
         this.advertisementIdentified = false
         this.videoDescriptionObserver = null
@@ -343,7 +345,7 @@ export default {
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements
         ]
-        executeFunctionsSequentially(immediateFunctions)
+        executeFunctionsSequentially(immediateFunctions, { onAfterChunk: () => retryQueue.drain() })
         // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行，避免延误简介/评论等即时功能
         const deferredFunctions = [
             [this.unlockEpisodeSelector, !hasTitle],
@@ -358,7 +360,7 @@ export default {
             sleep(5000).then(() => false)
         ])
         if (!videoReady) logger.warn('视频资源丨等待可播放超时（5s），继续执行其余功能')
-        executeFunctionsSequentially(deferredFunctions)
+        executeFunctionsSequentially(deferredFunctions, { onAfterChunk: () => retryQueue.drain() })
         // 选择播放器默认模式（番剧页可能未触发 VIDEO_CANPLAYTHROUGH 事件，需在此补充调用）
         await this.autoSelectPlayerMode()
         // SPA 切换时首次定位可能在布局稳定前执行，视频可播放后重新校验并纠正定位
@@ -385,7 +387,7 @@ export default {
             // 番剧页不执行AI广告识别，但加载缓存中的跳过片段（片头片尾等手动配置）
             [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && this.userConfigs.page_type === 'bangumi')]
         ]
-        executeFunctionsSequentially(functions)
+        executeFunctionsSequentially(functions, { onAfterChunk: () => retryQueue.drain() })
         this.autoEnableSubtitle()
     },
     ...playerModeFeatures,

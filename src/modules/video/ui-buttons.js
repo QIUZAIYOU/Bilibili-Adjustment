@@ -89,7 +89,7 @@ export const uiButtonsFeatures = {
                 const skipButton = createElementAndInsert(getTemplates.replace('skipSegmentManagerButton', {
                     style: '',
                     dataV: dataV,
-                    text: ''
+                    text: '管理'
                 }), floatNav.lastElementChild, 'prepend')
                 addEventListenerToElement(skipButton, 'click', async () => {
                     const bvid = biliApis.getCurrentVideoID(window.location.href)
@@ -100,12 +100,11 @@ export const uiButtonsFeatures = {
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
-            if (!existingLocateButton) {
-                locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
+            if (!existingLocateButton) {                    locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
                     class: 'bili-adjustment-icon locate',
-                    style: `style="height:40px;padding:0;${stylesV2.videoSettingsOpenButton}"`,
+                    style: `style="${stylesV2.videoSettingsOpenButton}"`,
                     dataV: dataV,
-                    text: ''
+                    text: '定位'
                 }), floatNav, 'append')
                 addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
@@ -114,7 +113,7 @@ export const uiButtonsFeatures = {
                     floatNavMenuItemClass: '',
                     style: `style="${stylesV2.videoSettingsOpenButton}"`,
                     dataV: '',
-                    text: ''
+                    text: '设置'
                 }), floatNav, 'append')
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
                     await this.settingsComponent.openSettings()
@@ -123,9 +122,9 @@ export const uiButtonsFeatures = {
             // 插入跳过片段管理按钮（番剧页用于配置片头片尾跳过）
             if (!existingSkipButton) {
                 const skipButton = createElementAndInsert(getTemplates.replace('skipSegmentManagerButton', {
-                    style: `style="height:40px;padding:0;${stylesV2.videoSettingsOpenButton}"`,
+                    style: `style="${stylesV2.videoSettingsOpenButton}"`,
                     dataV: '',
-                    text: ''
+                    text: '管理'
                 }), floatNav, 'append')
                 addEventListenerToElement(skipButton, 'click', async () => {
                     const epId = biliApis.getCurrentVideoID(window.location.href)

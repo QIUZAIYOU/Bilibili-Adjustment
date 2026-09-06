@@ -224,9 +224,9 @@ export const addEventListenerToElement = (targets, type, callback, options = {})
 }
 export const executeFunctionsSequentially = async (
     functionsArray,
-    options = { concurrency: 1, continueOnError: false }
+    options = { concurrency: 1, continueOnError: false, onAfterChunk: null }
 ) => {
-    const { concurrency, continueOnError } = options
+    const { concurrency, continueOnError, onAfterChunk } = options
     const chunks = _.chunk(functionsArray, concurrency)
     const results = []
     for (const chunk of chunks) {
@@ -249,6 +249,8 @@ export const executeFunctionsSequentially = async (
             })
         )
         results.push(...chunkResults)
+        // 每个 chunk 执行完后尝试重试队列
+        if (onAfterChunk) await onAfterChunk()
     }
     return results
 }
@@ -344,6 +346,59 @@ export const monitorHrefChange = callback => {
         hrefMonitorLastHref = location.href
     }
 }
+
+/**
+ * 自定义确认弹窗（替代浏览器 confirm）
+ * @param {string} message - 提示文字
+ * @param {object} [options]
+ * @param {Element} [options.container] - 渲染容器（传入 popover 元素以确保在 top layer 中显示）
+ * @param {Array<{key: string, label: string, className?: string}>} [options.buttons] - 自定义按钮列表，未设置则使用默认「取消/确定」
+ * @returns {Promise<string|boolean>} 自定义按钮时返回 key，默认时返回 true/false
+ */
+export const adjustmentConfirm = (message, options = {}) => {
+    const { container = document.body, buttons } = options
+    return new Promise(resolve => {
+        const overlay = document.createElement('div')
+        overlay.className = 'adjustment-confirm-overlay'
+        const btnsHtml = buttons
+            ? buttons.map(b => '<div class="adjustment-button ' + (b.className || 'secondary') + '" data-key="' + b.key + '">' + b.label + '</div>').join('')
+            : '<div class="adjustment-button secondary" data-key="cancel">取消</div><div class="adjustment-button primary" data-key="ok">确定</div>'
+        overlay.innerHTML = `
+            <div class="adjustment-confirm-dialog">
+                <div class="adjustment-confirm-msg"></div>
+                <div class="adjustment-confirm-btns">${btnsHtml}</div>
+            </div>
+        `
+        overlay.querySelector('.adjustment-confirm-msg').textContent = message
+        overlay.querySelectorAll('.adjustment-confirm-btns .adjustment-button').forEach(btn => {
+            btn.addEventListener('click', () => {
+                overlay.remove()
+                const key = btn.dataset.key
+                resolve(buttons ? key : key === 'ok')
+            })
+        })
+        overlay.addEventListener('click', (e) => {
+            if (e.target === overlay) {
+                overlay.remove()
+                resolve(buttons ? 'cancel' : false)
+            }
+        })
+        // 挂载到 document.body，避免被嵌套进 fixed/overflow 的 popover 内而无法全屏置顶
+        document.body.appendChild(overlay)
+        // 若宿主弹窗在确认期间被关闭（Esc/外部点击），自动移除确认遮罩并作取消处理，防止残留模态
+        if (container instanceof Element && container !== document.body) {
+            const onToggle = e => {
+                if (e.newState === 'closed') {
+                    overlay.remove()
+                    container.removeEventListener('toggle', onToggle)
+                    resolve(buttons ? 'cancel' : false)
+                }
+            }
+            container.addEventListener('toggle', onToggle)
+        }
+    })
+}
+
 // 自定义"点击外部关闭"：用真实 DOM 遮罩替代 ::backdrop（UA 的 backdrop 不接收指针事件，导致穿透）
 // 同时原生 light dismiss 在"弹窗内按下、弹窗外松开"（如拖选文字）时也会误关，
 // 改为遮罩元素拦截所有弹窗外交互——点击遮罩即关闭，拖选不受影响

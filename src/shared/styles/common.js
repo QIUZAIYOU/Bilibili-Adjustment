@@ -127,6 +127,10 @@ export const commonStyles = {
         }
     `,
     videoSettingsOpenButton: `
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
         border: 1px solid var(--line_light);
         font-size: 12px;
         box-sizing: border-box;
