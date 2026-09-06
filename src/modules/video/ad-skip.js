@@ -290,6 +290,8 @@ export const adSkipFeatures = {
                 cached: null,
                 canUpdate: true,
                 bvid: null,
+                // 重新识别得到的待提交预览（AI 识别清单，未落库前可被覆盖/追加上传）
+                pendingIdentify: false,
                 // 番剧页专用状态
                 episodes: [],
                 currentEpisodeIndex: -1,
@@ -665,20 +667,26 @@ export const adSkipFeatures = {
                                 if (msg) { msg.textContent = '请先在暂存区添加片段'; msg.className = 'accordion-inline-msg warn' }
                                 return
                             }
-                            const mergedStaging = mergeSegments(state.stagingSegments)
-                            // 覆盖更新（不保留已有）需二次确认
+                            const stagingSource = mergeSegments(state.stagingSegments)
+                            // 计算最终要写入的片段：追加=保留已有+暂存；覆盖=用暂存替换选中（或全部）已有片段
+                            let finalSegments
                             if (action === 'update-overwrite') {
-                                const existingCount = state.cached?.segments?.length || 0
-                                const ok = await adjustmentConfirm('覆盖更新将不保留已有缓存片段（' + existingCount + ' 段），仅上传当前暂存区的 ' + mergedStaging.length + ' 个片段。确定继续？', { container: popover })
-                                if (!ok) return
+                                const existing = (state.cached?.segments || []).length > 0 ? mergeSegments(state.cached.segments) : []
+                                if (existing.length === 0) {
+                                    finalSegments = stagingSource
+                                } else {
+                                    const picked = await selectSegmentsOverwrite(existing)
+                                    if (picked === null) return
+                                    finalSegments = picked === 'all'
+                                        ? stagingSource
+                                        : mergeSegments([...existing.filter((_, i) => !picked.includes(i)), ...stagingSource])
+                                }
+                            } else {
+                                finalSegments = mergeSegments([...(state.cached?.segments || []), ...stagingSource])
                             }
                             setAccordionBtnsBusy(true)
                             try {
                                 const uid = getCurrentUid()
-                                // 追加：保留已有缓存 + 暂存（去重）；覆盖：仅暂存（去重）
-                                const finalSegments = action === 'update-overwrite'
-                                    ? mergedStaging
-                                    : mergeSegments([...(state.cached?.segments || []), ...mergedStaging])
                                 const newCache = createCacheEntry(state.bvid, finalSegments, uid)
                                 if (state.cached) {
                                     newCache.version = (state.cached.version || 0) + 1
@@ -1199,8 +1207,10 @@ export const adSkipFeatures = {
                     }
 
                     state.currentSegments = result.segments || []
+                    state.pendingIdentify = true
                     const newCache = createCacheEntry(state.bvid, state.currentSegments, getCurrentUid())
                     renderSegments(state.currentSegments, newCache)
+                    showInlineMsg('重新识别完成，共 ' + state.currentSegments.length + ' 段，可点击「覆盖更新」或「追加更新」生效', 'success', 5000)
                 } catch (error) {
                     reIdentifyBtn.disabled = false
                     content.innerHTML = '<div class="error">识别失败: ' + error.message + '</div>'
@@ -1248,6 +1258,7 @@ export const adSkipFeatures = {
                     state.cached = newCache
                     state.currentSegments = finalSegments
                     state.pendingSegments = []
+                    state.pendingIdentify = false
                     renderPendingList()
                     self.advertisementIdentified = false
                     await self.identifyAdvertisementTimestamps()
@@ -1261,31 +1272,97 @@ export const adSkipFeatures = {
                 }
             }
 
+            // 待提交内容源：手动暂存 + AI 重新识别预览（识别结果未落库前可覆盖/追加上传）
+            const getOverwriteSource = () => {
+                const parts = []
+                if (state.pendingIdentify && state.currentSegments && state.currentSegments.length > 0) parts.push(...state.currentSegments)
+                if (state.pendingSegments && state.pendingSegments.length > 0) parts.push(...state.pendingSegments)
+                return mergeSegments(parts)
+            }
+
+            // 覆盖选择层：让用户挑选要替换（移除）的已有片段
+            // 返回 'all'（替换全部）/ 已勾选下标数组（未勾选的保留）/ null（取消）
+            const selectSegmentsOverwrite = (existingSegments) => {
+                return new Promise(resolve => {
+                    const overlay = document.createElement('div')
+                    overlay.className = 'adjustment-confirm-overlay'
+                    let listHtml = ''
+                    existingSegments.forEach((seg, i) => {
+                        const timeStr = formatTime(seg.start) + ' - ' + formatTime(seg.end)
+                        const sumHtml = seg.summary ? '<span class="ow-summary">' + escapeHtml(seg.summary) + '</span>' : ''
+                        listHtml += '<label class="ow-item"><input type="checkbox" data-idx="' + i + '" checked><span class="ow-time">' + timeStr + '</span>' + sumHtml + '</label>'
+                    })
+                    overlay.innerHTML = '<div class="adjustment-confirm-dialog overwrite-select">'
+                        + '<div class="adjustment-confirm-msg"><b>覆盖更新</b><div class="ow-hint">已有 ' + existingSegments.length + ' 段。勾选的片段将被新的待提交片段替换，<b>未勾选</b>的片段将保留。默认全选。</div>'
+                        + '<div class="ow-list">' + listHtml + '</div></div>'
+                        + '<div class="adjustment-confirm-btns">'
+                        + '<div class="adjustment-button secondary" data-act="cancel">取消</div>'
+                        + '<div class="adjustment-button danger" data-act="all">覆盖全部</div>'
+                        + '<div class="adjustment-button primary" data-act="pick">覆盖选中(0)</div>'
+                        + '</div></div>'
+                    document.body.appendChild(overlay)
+                    const updatePickBtn = () => {
+                        const n = overlay.querySelectorAll('input[type="checkbox"]:checked').length
+                        const pickBtn = overlay.querySelector('[data-act="pick"]')
+                        pickBtn.textContent = '覆盖选中(' + n + ')'
+                        pickBtn.style.pointerEvents = n > 0 ? '' : 'none'
+                        pickBtn.style.opacity = n > 0 ? '' : '0.5'
+                    }
+                    updatePickBtn()
+                    overlay.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+                        cb.addEventListener('change', updatePickBtn)
+                    })
+                    const close = (val) => {
+                        overlay.remove()
+                        resolve(val)
+                    }
+                    overlay.querySelector('[data-act="cancel"]').addEventListener('click', () => close(null))
+                    overlay.querySelector('[data-act="all"]').addEventListener('click', () => close('all'))
+                    overlay.querySelector('[data-act="pick"]').addEventListener('click', () => {
+                        const picked = [...overlay.querySelectorAll('input[type="checkbox"]:checked')].map(cb => parseInt(cb.dataset.idx, 10))
+                        if (picked.length === 0) return
+                        close(picked)
+                    })
+                    overlay.addEventListener('click', (e) => {
+                        if (e.target === overlay) close(null)
+                    })
+                })
+            }
+
             // 追加更新：保留已有缓存片段 + 待提交片段（均去重合并）
             appendBtn.addEventListener('click', async () => {
-                if (state.pendingSegments.length === 0) {
-                    if (state.currentSegments.length === 0) {
-                        showInlineMsg('暂无可提交片段，请先手动添加或重新识别')
-                        return
-                    }
-                    // 无待提交但有面板清单（如仅需重传/落盘识别结果）：按当前清单合并提交
-                    await submitMainCache(state.currentSegments, '缓存已更新')
+                const source = getOverwriteSource()
+                if (source.length === 0) {
+                    showInlineMsg('暂无可提交内容，请先手动添加片段或重新识别')
                     return
                 }
                 const existing = state.cached?.segments || []
-                await submitMainCache([...existing, ...state.pendingSegments], '缓存已更新（追加）')
+                await submitMainCache(mergeSegments([...existing, ...source]), '缓存已更新（追加）')
             })
 
-            // 覆盖更新：不保留已有片段，仅上传待提交片段（覆盖前二次确认）
+            // 覆盖更新：用待提交片段替换选中的已有片段（支持部分/全部），并清理识别预览
             overwriteBtn.addEventListener('click', async () => {
-                if (state.pendingSegments.length === 0) {
-                    showInlineMsg('覆盖更新需先手动添加片段，当前无待提交片段')
+                const source = getOverwriteSource()
+                if (source.length === 0) {
+                    showInlineMsg('暂无可覆盖内容，请先手动添加片段或重新识别')
                     return
                 }
-                const existingCount = (state.cached?.segments || []).length
-                const ok = await adjustmentConfirm('覆盖更新将不保留已有缓存片段（' + existingCount + ' 段），仅上传当前待提交的 ' + state.pendingSegments.length + ' 个片段。确定继续？', { container: popover })
-                if (!ok) return
-                await submitMainCache(state.pendingSegments, '缓存已更新（覆盖）')
+                const existing = (state.cached?.segments || []).length > 0 ? mergeSegments(state.cached.segments) : []
+                let finalSegments
+                if (existing.length === 0) {
+                    // 无已有片段：直接上传待提交内容
+                    finalSegments = source
+                } else {
+                    const picked = await selectSegmentsOverwrite(existing)
+                    if (picked === null) return
+                    if (picked === 'all') {
+                        finalSegments = source
+                    } else {
+                        const keep = existing.filter((_, i) => !picked.includes(i))
+                        finalSegments = mergeSegments([...keep, ...source])
+                    }
+                }
+                await submitMainCache(finalSegments, '缓存已更新（覆盖）')
             })
 
             popover._skipMgrReady = true
@@ -1296,6 +1373,7 @@ export const adSkipFeatures = {
         state.bvid = bvid
         state.currentSegments = []
         state.pendingSegments = []
+        state.pendingIdentify = false
         renderPendingList()
         const uid = getCurrentUid()
 

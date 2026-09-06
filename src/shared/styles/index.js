@@ -814,6 +814,73 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-confirm-btns .adjustment-button {
             min-width: 72px;
         }
+
+        .adjustment-confirm-dialog.overwrite-select {
+            width: min(480px, 82vw);
+            max-width: 480px;
+        }
+
+        .adjustment-confirm-msg b {
+            color: #00a1d6;
+            font-size: 15px;
+        }
+
+        .ow-hint {
+            color: #aaa;
+            font-size: 12px;
+            margin-top: 6px;
+            line-height: 1.7;
+        }
+
+        .ow-list {
+            max-height: 240px;
+            overflow-y: auto;
+            margin: 12px 0 4px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .ow-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(255,255,255,0.08);
+            cursor: pointer;
+            font-size: 13px;
+            color: #ddd;
+        }
+
+        .ow-item:hover {
+            background: rgba(255,255,255,0.08);
+        }
+
+        .ow-item input {
+            accent-color: #00a1d6;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+
+        .ow-time {
+            font-family: monospace;
+            font-size: 12px;
+            background: rgba(255,255,255,0.06);
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #fff;
+            flex-shrink: 0;
+        }
+
+        .ow-summary {
+            color: #999;
+            font-size: 12px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
     `.replace(/\s+/g, ' ').trim()
 }
 export const generateAllStyles = () => ({
