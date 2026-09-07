@@ -98,6 +98,19 @@ export const progressMemoryFeatures = {
                 this.savePlaybackPosition()
             }, PLAYBACK_SEEK_SAVE_DELAY_MS)
         }
+        // 键盘左右方向键 seek（焦点在视频元素上时）：同样立即保存新进度。
+        // keydown 时 currentTime 尚未更新，延迟片刻等 seek 稳定后写入；
+        // 长按连发会不断重置计时，松开后统一保存一次
+        this._playbackKeyboardSeekHandler = event => {
+            if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
+            if (!(event.target instanceof HTMLVideoElement) || !event.target.matches('#bilibili-player video')) return
+            this._playbackSeekedKey = this._playbackKey
+            clearTimeout(this._playbackSeekSaveTimer)
+            this._playbackSeekSaveTimer = setTimeout(() => {
+                this._playbackSeekSaveTimer = null
+                this.savePlaybackPosition()
+            }, PLAYBACK_SEEK_SAVE_DELAY_MS)
+        }
         this._playbackPageHideHandler = () => this.savePlaybackPosition()
         this._playbackVisibilityHandler = () => {
             if (document.visibilityState === 'hidden') this.savePlaybackPosition()
@@ -111,6 +124,7 @@ export const progressMemoryFeatures = {
         document.addEventListener('pointerdown', this._playbackProgressPointerDownHandler, true)
         document.addEventListener('pointerup', this._playbackProgressReleaseHandler, true)
         document.addEventListener('pointercancel', this._playbackProgressReleaseHandler, true)
+        document.addEventListener('keydown', this._playbackKeyboardSeekHandler, true)
         window.addEventListener('pagehide', this._playbackPageHideHandler)
         document.addEventListener('visibilitychange', this._playbackVisibilityHandler)
         logger.debug('播放进度诊断丨初始化完成 key=' + this._playbackKey)
@@ -128,6 +142,7 @@ export const progressMemoryFeatures = {
         document.removeEventListener('pointerdown', this._playbackProgressPointerDownHandler, true)
         document.removeEventListener('pointerup', this._playbackProgressReleaseHandler, true)
         document.removeEventListener('pointercancel', this._playbackProgressReleaseHandler, true)
+        document.removeEventListener('keydown', this._playbackKeyboardSeekHandler, true)
         window.removeEventListener('pagehide', this._playbackPageHideHandler)
         document.removeEventListener('visibilitychange', this._playbackVisibilityHandler)
         this._playbackSaveThrottled?.cancel?.()
