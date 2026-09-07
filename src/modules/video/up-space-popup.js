@@ -33,7 +33,7 @@ export const upSpacePopupFeatures = {
             key: 'up-space',
             keepAliveMs: UP_SPACE_POPUP_CACHE_MS,
             title: 'UP主空间',
-            width: 'min(1080px, 94vw)',
+            width: 'min(1100px, 94vw)',
             className: 'up-space-dialog',
             content: createUpSpaceFrame
         })

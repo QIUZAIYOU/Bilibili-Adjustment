@@ -37,6 +37,8 @@ const DIALOG_CSS = `
         font-size: 14px;
         overflow: hidden;
         max-height: 86vh;
+        display: flex;
+        flex-direction: column;
     }
     .adjustment-dialog[popover] {
         margin: auto;
@@ -51,6 +53,7 @@ const DIALOG_CSS = `
         gap: 12px;
         padding: 18px 22px 12px;
         border-bottom: 1px solid rgba(255,255,255,0.07);
+        flex-shrink: 0;
     }
     .adjustment-dialog-title {
         font-size: 16px;
@@ -93,9 +96,10 @@ const DIALOG_CSS = `
         background: rgba(255,255,255,0.1);
     }
     .adjustment-dialog-body {
+        flex: 1 1 auto;
+        min-height: 0;
         padding: 14px 22px 18px;
         overflow-y: auto;
-        max-height: calc(86vh - 120px);
         line-height: 1.7;
     }
     .adjustment-dialog-footer {
@@ -104,6 +108,7 @@ const DIALOG_CSS = `
         gap: 10px;
         padding: 12px 22px 16px;
         border-top: 1px solid rgba(255,255,255,0.07);
+        flex-shrink: 0;
     }
 `
 
