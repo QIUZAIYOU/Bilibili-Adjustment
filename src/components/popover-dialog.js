@@ -45,7 +45,6 @@ const DIALOG_CSS = `
     .adjustment-dialog[popover] {
         margin: auto;
         inset: 0;
-        border: none;
         width: 550px;
         max-width: 92vw;
     }

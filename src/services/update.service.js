@@ -335,7 +335,6 @@ export class UpdateService {
             key: 'update-notice',
             title: '哔哩哔哩调整 · 有新版本',
             subtitle: '（点击更新按钮安装最新版）',
-            width: 560,
             className: 'update-dialog',
             content: '<div class="adjustment-form"><div class="adjustment-form-item"><div class="adjustment-version"><div>当前版本: ' + escapeHtml(currentVersion) + '</div><div>最新版本: ' + escapeHtml(latestVersion) + '</div></div>' + updateContentsHtml + '</div></div>',
             actions: [
