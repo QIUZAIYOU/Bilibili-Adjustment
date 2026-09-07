@@ -296,41 +296,38 @@ export class UpdateService {
     // 生成更新内容列表 HTML
     generateUpdateList (changelog) {
         if (!changelog) return '<div class="adjustment-update-contents">暂无更新说明</div>'
-        // 如果是字符串，尝试解析为列表（支持分号、换行分隔）
+        // 解析为列表（字符串按分号/换行分隔）
+        let items = changelog
         if (typeof changelog === 'string') {
-            // 先尝试按分号分割
-            let items = changelog
+            items = changelog
                 .split(';')
                 .map(item => item.trim())
                 .filter(item => item)
-            // 如果分号分割后只有一项，尝试按换行分割
             if (items.length <= 1) {
                 items = changelog
                     .split(/\n/)
                     .map(item => item.trim())
                     .filter(item => item && !item.match(/^[-=]+$/))
             }
-            if (items.length === 0) {
-                return '<div class="adjustment-update-contents">暂无更新说明</div>'
-            }
-            return `
-                <ul class="adjustment-update-contents">
-                    ${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
-                </ul>
-            `.replace(/\n\s+/g, '').trim()
         }
-        // 如果是数组，直接生成列表
-        if (Array.isArray(changelog)) {
-            if (changelog.length === 0) {
-                return '<div class="adjustment-update-contents">暂无更新说明</div>'
-            }
-            return `
-                <ul class="adjustment-update-contents">
-                    ${changelog.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
-                </ul>
-            `.replace(/\n\s+/g, '').trim()
+        if (!Array.isArray(items) || items.length === 0) {
+            return '<div class="adjustment-update-contents">暂无更新说明</div>'
         }
-        return '<div class="adjustment-update-contents">暂无更新说明</div>'
+        // 每条格式为「版本号：描述」，渲染为版本徽章 + 内容的结构化条目（首条最新高亮）
+        const liHtml = items.map((item, index) => {
+            const match = String(item).match(/^(\d+\.\d+\.\d+)\s*[：:]\s*([\s\S]*)$/)
+            if (match) {
+                const ver = escapeHtml(match[1])
+                const desc = escapeHtml(match[2].trim())
+                return `<li class="adj-update-item${index === 0 ? ' is-latest' : ''}"><span class="adj-update-ver">${ver}</span><span class="adj-update-desc">${desc}</span></li>`
+            }
+            return `<li class="adj-update-item"><span class="adj-update-desc">${escapeHtml(String(item))}</span></li>`
+        }).join('')
+        return `
+            <ul class="adjustment-update-contents">
+                ${liHtml}
+            </ul>
+        `.replace(/\n\s+/g, '').trim()
     }
     // 显示更新弹窗
     #showUpdatePopover (currentVersion, latestVersion, updateContentsHtml) {
@@ -339,6 +336,7 @@ export class UpdateService {
             title: '哔哩哔哩调整 · 有新版本',
             subtitle: '（点击更新按钮安装最新版）',
             width: 560,
+            className: 'update-dialog',
             content: '<div class="adjustment-form"><div class="adjustment-form-item"><div class="adjustment-version"><div>当前版本: ' + escapeHtml(currentVersion) + '</div><div>最新版本: ' + escapeHtml(latestVersion) + '</div></div>' + updateContentsHtml + '</div></div>',
             actions: [
                 { text: '关闭', type: 'info', onClick: d => d.close() },

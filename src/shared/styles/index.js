@@ -725,25 +725,57 @@ function generateBilibiliAdjustmentStyle () {
             overflow: hidden;
         }
 
-        #UpdatePopover .adjustment-update-contents {
-            margin: 0;
-            padding: 4px 16px 4px 24px;
-            color: #ccc;
-            font-size: 13px;
-            line-height: 1.8;
-            height: 465px;
+        /* 更新说明内容（update 弹窗组件作用域）：版本徽章 + 内容卡片 */
+        .update-dialog .adjustment-update-contents {
+            list-style: none;
+            margin: 14px 0 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: 46vh;
             overflow-y: auto;
         }
 
-        #UpdatePopover .adjustment-update-contents li {
-            margin-bottom: 6px;
-            padding-left: 4px;
-            word-break: break-word;
-            list-style: disc;
+        .update-dialog .adjustment-update-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 12px;
+            border: 1px solid #424242;
+            border-radius: 10px;
+            background: #2c2c2c;
         }
 
-        #UpdatePopover .adjustment-update-contents li::marker {
+        .update-dialog .adjustment-update-item.is-latest {
+            border-color: rgba(0,161,214,0.5);
+            background: rgba(0,161,214,0.08);
+        }
+
+        .update-dialog .adj-update-ver {
+            flex-shrink: 0;
+            font-family: monospace;
+            font-size: 12px;
+            font-weight: 600;
+            line-height: 1.7;
+            padding: 1px 8px;
+            border-radius: 6px;
+            background: rgba(0,161,214,0.15);
             color: #00a1d6;
+        }
+
+        .update-dialog .adjustment-update-item.is-latest .adj-update-ver {
+            background: #00a1d6;
+            color: #fff;
+        }
+
+        .update-dialog .adj-update-desc {
+            flex: 1;
+            min-width: 0;
+            font-size: 13px;
+            line-height: 1.7;
+            color: #ccc;
+            word-break: break-word;
         }
 
         #UpdatePopover .adjustment-update-more {
