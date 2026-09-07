@@ -1,4 +1,3 @@
-import { theme } from '../theme'
 export const homePageStyles = {
     indexAdjustment: `
         #indexRecommendVideoHistoryOpenButton {
@@ -6,12 +5,12 @@ export const homePageStyles = {
         }
         .adjustment-history-popover {
             width: 820px;
-            border: 1px solid ${theme.colors.border};
+            border: 1px solid var(--adj-border-strong);
             outline: 0;
-            background: ${theme.colors.backgroundLight};
-            border-radius: ${theme.borderRadius.sm};
-            color: ${theme.colors.textSecondary};
-            padding: ${theme.spacing.lg};
+            background: var(--adj-bg-page);
+            border-radius: var(--adj-radius-sm);
+            color: var(--adj-text-soft);
+            padding: var(--adj-space-lg);
             max-height: 80vh;
             overflow: hidden;
         }
@@ -22,52 +21,52 @@ export const homePageStyles = {
             flex-direction: column;
         }
         .adjustment-history-popover::backdrop {
-            background: rgba(0, 0, 0, 0.6);
+            background: var(--adj-bg-scrim);
         }
         #indexRecommendVideoHistoryPopover #indexRecommendVideoHistoryPopoverTitle {
             display: flex;
             box-sizing: border-box;
-            padding-bottom: ${theme.spacing.lg};
-            border-bottom: 1px solid ${theme.colors.border};
+            padding-bottom: var(--adj-space-lg);
+            border-bottom: 1px solid var(--adj-border-strong);
             font-weight: 700;
-            font-size: ${theme.fontSize.xxl};
+            font-size: var(--adj-font-xxl);
             align-items: center;
             justify-content: space-between;
             flex-shrink: 0;
         }
         #indexRecommendVideoHistoryPopoverTitle #clearRecommendVideoHistoryButton {
-            font-size: ${theme.fontSize.sm};
-            color: ${theme.colors.danger};
+            font-size: var(--adj-font-sm);
+            color: var(--adj-danger);
             cursor: pointer;
             padding: 4px 10px;
-            border-radius: ${theme.borderRadius.sm};
-            transition: all ${theme.transitions.fast};
+            border-radius: var(--adj-radius-sm);
+            transition: all var(--adj-motion-fast);
         }
         #indexRecommendVideoHistoryPopoverTitle #clearRecommendVideoHistoryButton:hover {
-            background: rgba(255, 71, 87, 0.1);
+            background: rgba(var(--adj-danger-rgb), 0.1);
         }
         #indexRecommendVideoHistorySearch {
-            margin: ${theme.spacing.lg} 0;
+            margin: var(--adj-space-lg) 0;
             flex-shrink: 0;
         }
         #indexRecommendVideoHistorySearchInput {
             width: 100%;
             box-sizing: border-box;
-            padding: ${theme.spacing.sm} ${theme.spacing.md};
-            border: 1px solid ${theme.colors.border};
-            border-radius: ${theme.borderRadius.sm};
-            background: ${theme.colors.backgroundLight};
-            color: ${theme.colors.textSecondary};
-            font-size: ${theme.fontSize.base};
+            padding: var(--adj-space-sm) var(--adj-space-md);
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-sm);
+            background: var(--adj-bg-page);
+            color: var(--adj-text-soft);
+            font-size: var(--adj-font-base);
             outline: none;
-            transition: all ${theme.transitions.slow};
+            transition: all var(--adj-motion-slow);
         }
         #indexRecommendVideoHistorySearchInput:focus {
-            border-color: ${theme.colors.primary};
-            background: ${theme.colors.background};
+            border-color: var(--adj-brand);
+            background: var(--adj-bg-input);
         }
         #indexRecommendVideoHistorySearchInput::placeholder {
-            color: ${theme.colors.textDisabled};
+            color: var(--adj-text-disabled);
         }
         #indexRecommendVideoHistoryCategoryV2 {
             display: grid;
@@ -80,30 +79,30 @@ export const homePageStyles = {
             overflow-y: auto;
             flex-shrink: 0;
             width: 340px;
-            border-right: 1px solid ${theme.colors.border};
+            border-right: 1px solid var(--adj-border-strong);
         }
         #indexRecommendVideoHistoryCategoryV2 li {
             display: flex;
             align-items: center;
             justify-content: center;
             padding: 10px 6px;
-            border: 1px solid ${theme.colors.border};
+            border: 1px solid var(--adj-border-strong);
             border-radius: 6px;
-            font-size: ${theme.fontSize.sm};
-            color: ${theme.colors.textSecondary};
+            font-size: var(--adj-font-sm);
+            color: var(--adj-text-soft);
             cursor: pointer;
-            transition: all ${theme.transitions.fast};
+            transition: all var(--adj-motion-fast);
             line-height: 1.3;
             word-break: break-all;
         }
         #indexRecommendVideoHistoryCategoryV2 li:hover {
-            background: rgba(255,255,255,0.05);
-            color: ${theme.colors.primary};
+            background: var(--adj-bg-hover);
+            color: var(--adj-brand);
         }
         #indexRecommendVideoHistoryCategoryV2 li.active {
-            background: ${theme.colors.primary}20;
-            color: ${theme.colors.primary};
-            border-color: ${theme.colors.primary}40;
+            background: var(--adj-brand)20;
+            color: var(--adj-brand);
+            border-color: var(--adj-brand)40;
         }
         .history-body {
             display: flex;
@@ -124,21 +123,21 @@ export const homePageStyles = {
             display: flex;
             gap: 12px;
             padding: 10px;
-            border-radius: ${theme.borderRadius.sm};
-            transition: background ${theme.transitions.fast};
+            border-radius: var(--adj-radius-sm);
+            transition: background var(--adj-motion-fast);
             cursor: pointer;
             align-items: flex-start;
         }
         #indexRecommendVideoHistoryList li:hover {
-            background: rgba(255, 255, 255, 0.05);
+            background: var(--adj-bg-hover);
         }
         #indexRecommendVideoHistoryList li > span:first-child {
             width: 120px;
             height: 75px;
             flex-shrink: 0;
-            border-radius: ${theme.borderRadius.sm};
+            border-radius: var(--adj-radius-sm);
             overflow: hidden;
-            background: ${theme.colors.background};
+            background: var(--adj-bg-input);
         }
         #indexRecommendVideoHistoryList li > span:first-child img {
             width: 100%;
@@ -155,9 +154,9 @@ export const homePageStyles = {
             padding: 2px 0;
         }
         #indexRecommendVideoHistoryList li .video-info a {
-            color: ${theme.colors.textPrimary};
+            color: var(--adj-text-primary);
             text-decoration: none;
-            font-size: ${theme.fontSize.base};
+            font-size: var(--adj-font-base);
             line-height: 1.5;
             display: -webkit-box;
             -webkit-line-clamp: 2;
@@ -166,18 +165,18 @@ export const homePageStyles = {
             word-break: break-all;
         }
         #indexRecommendVideoHistoryList li .video-info a:hover {
-            color: ${theme.colors.primary};
+            color: var(--adj-brand);
         }
         #indexRecommendVideoHistoryList li .video-author {
-            color: ${theme.colors.textDisabled};
-            font-size: ${theme.fontSize.sm};
+            color: var(--adj-text-disabled);
+            font-size: var(--adj-font-sm);
             margin-top: 6px;
         }
         #indexRecommendVideoHistoryList .empty-state {
             text-align: center;
             padding: 40px 20px;
-            color: ${theme.colors.textDisabled};
-            font-size: ${theme.fontSize.base};
+            color: var(--adj-text-disabled);
+            font-size: var(--adj-font-base);
         }
         #indexRecommendVideoHistoryList .loading-state {
             display: flex;
@@ -186,14 +185,14 @@ export const homePageStyles = {
             justify-content: center;
             padding: 20px;
             gap: 12px;
-            color: ${theme.colors.textDisabled};
-            font-size: ${theme.fontSize.sm};
+            color: var(--adj-text-disabled);
+            font-size: var(--adj-font-sm);
         }
         #indexRecommendVideoHistoryList .loading-state .loading-spinner {
             width: 24px;
             height: 24px;
-            border: 2px solid ${theme.colors.border};
-            border-top-color: ${theme.colors.primary};
+            border: 2px solid var(--adj-border-strong);
+            border-top-color: var(--adj-brand);
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }

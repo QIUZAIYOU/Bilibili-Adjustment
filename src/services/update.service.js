@@ -452,7 +452,7 @@ export class UpdateService {
         const hint = document.createElement('div')
         hint.id = 'updateCheckFailedHint'
         hint.textContent = '检查更新失败，请稍后重试'
-        hint.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:999999;padding:10px 14px;border-radius:8px;background:#1a1a1a;color:#f0f0f0;font-size:13px;border:1px solid #333;box-shadow:0 8px 24px rgba(0,0,0,0.6);'
+        hint.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:999999;padding:10px 14px;border-radius:8px;background:var(--adj-bg-tooltip);color:var(--adj-text-primary);font-size:13px;border:1px solid var(--adj-border);box-shadow:var(--adj-shadow-float);'
         document.body.appendChild(hint)
         setTimeout(() => hint.remove(), 5000)
     }

@@ -30,9 +30,9 @@ const NOTIFICATION_STYLES = `
         width: 330px;
         padding: 14px 26px 14px 13px;
         border-radius: 8px;
-        border: 1px solid #e4e7ed;
-        background: #fff;
-        box-shadow: 0 4px 12px rgba(0,0,0,.08);
+        border: 1px solid var(--adj-border-strong);
+        background: var(--adj-bg-surface);
+        box-shadow: var(--adj-shadow-md);
         overflow: hidden;
         pointer-events: auto;
         animation: ba-slide-in .35s ease-out;
@@ -55,8 +55,8 @@ const NOTIFICATION_STYLES = `
         font-size: 24px;
         line-height: 24px;
     }
-    .ba-notification--warn .ba-notification__icon { color: #e6a23c; }
-    .ba-notification--error .ba-notification__icon { color: #f56c6c; }
+    .ba-notification--warn .ba-notification__icon { color: var(--adj-warning); }
+    .ba-notification--error .ba-notification__icon { color: var(--adj-danger); }
     .ba-notification__group {
         flex: 1;
         min-width: 0;
@@ -66,13 +66,13 @@ const NOTIFICATION_STYLES = `
     .ba-notification__title {
         font-size: 16px;
         font-weight: 700;
-        color: #303133;
+        color: var(--adj-text-strong);
         line-height: 24px;
         margin: 0;
     }
     .ba-notification__content {
         font-size: 14px;
-        color: #606266;
+        color: var(--adj-text-secondary);
         line-height: 24px;
         margin-top: 6px;
         display: -webkit-box;
@@ -91,13 +91,13 @@ const NOTIFICATION_STYLES = `
         background: none;
         cursor: pointer;
         padding: 0;
-        color: #909399;
+        color: var(--adj-text-soft);
         font-size: 16px;
         line-height: 16px;
         text-align: center;
         transition: color .2s;
     }
-    .ba-notification__close:hover { color: #606266; }
+    .ba-notification__close:hover { color: var(--adj-text-secondary); }
     .ba-notification__progress {
         position: absolute;
         bottom: 0;
@@ -106,8 +106,8 @@ const NOTIFICATION_STYLES = `
         border-radius: 0 2px 0 0;
         transition: width .1s linear;
     }
-    .ba-notification--warn .ba-notification__progress { background: #e6a23c; }
-    .ba-notification--error .ba-notification__progress { background: #f56c6c; }
+    .ba-notification--warn .ba-notification__progress { background: var(--adj-warning); }
+    .ba-notification--error .ba-notification__progress { background: var(--adj-danger); }
 `
 
 let _notificationContainer = null

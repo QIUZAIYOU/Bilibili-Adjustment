@@ -1,4 +1,3 @@
-import { theme } from '../theme'
 export const commonStyles = {
     bodyOverflowHidden: `
         body {
@@ -78,7 +77,7 @@ export const commonStyles = {
             height: 48px;
             opacity: 1;
             border-radius: 50%;
-            border: 2px solid ${theme.colors.primary};
+            border: 2px solid var(--adj-brand);
         }
         #bili-adjustment-info {
             display: inline-flex;
@@ -89,13 +88,13 @@ export const commonStyles = {
             font-weight: 500;
         }
         #bili-adjustment-user-name a {
-            color: ${theme.colors.primary};
+            color: var(--adj-brand);
             text-decoration: none;
         }
         #bili-adjustment-user-badge {
-            background: #0491bf;
+            background: var(--adj-brand);
             border-radius: 3px;
-            color: #fff;
+            color: var(--adj-on-brand);
             padding: 2px 3px;
             margin-left: 5px;
             font-size: 10px;
@@ -115,7 +114,7 @@ export const commonStyles = {
             -webkit-font-smoothing: antialiased;
         }
         #bili-adjustment-contents a {
-            color: ${theme.colors.primary};
+            color: var(--adj-brand);
             text-decoration: none;
             background-color: transparent;
             cursor: pointer;
@@ -134,10 +133,10 @@ export const commonStyles = {
         border: 1px solid var(--line_light);
         font-size: 12px;
         box-sizing: border-box;
-        border-radius: ${theme.borderRadius.sm};
+        border-radius: var(--adj-radius-sm);
         width: 40px;
         margin-bottom: 12px;
-        transition: ${theme.transitions.slow};
+        transition: var(--adj-motion-slow);
         cursor: pointer;
         color: var(--text1);
         fill: var(--text1);

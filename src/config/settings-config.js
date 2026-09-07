@@ -8,6 +8,18 @@
 // visible: boolean | (configs) => boolean - 控制显示条件
 export const videoSettingsConfig = [
     {
+        id: 'theme',
+        type: 'select',
+        label: '界面主题',
+        tips: '夜间哔哩：脚本自带深色外观；跟随B站：随 B 站夜间模式（html.night-mode）自动在官方浅色/深色主题间切换',
+        options: [
+            { value: 'night', label: '夜间哔哩' },
+            { value: 'follow', label: '跟随B站' }
+        ],
+        category: 'basic',
+        defaultValue: 'night'
+    },
+    {
         id: 'is_vip',
         type: 'checkbox',
         label: '是否为大会员',

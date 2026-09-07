@@ -19,7 +19,8 @@ export const videoRotateFeatures = {
                 menu.querySelectorAll('[data-action^="rotate_"]').forEach(el => el.remove())
                 const oldDivider = menu.querySelector('.bpx-player-contextmenu-rotate-divider')
                 if (oldDivider) oldDivider.remove()
-                // 分割线
+                // 分割线：rgba 白浮色保留字面（嵌入 B 站官方播放器右键菜单，随官方播放器深色皮肤，
+                // 不随脚本主题切换；见 docs/theme-system.md §2 例外清单）
                 const divider = document.createElement('li')
                 divider.className = 'bpx-player-contextmenu-rotate-divider'
                 divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.12);margin:4px 16px;list-style:none'

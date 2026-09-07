@@ -1,19 +1,7 @@
-import { theme } from '@/shared/theme'
-import * as styleUtils from '@/shared/style-utils'
-import { popoverStyles } from './popover'
 import { videoPageStyles } from './video-page'
 import { dynamicPageStyles } from './dynamic-page'
 import { commonStyles } from './common'
 import { homePageStyles } from './home-page'
-export {
-    theme,
-    styleUtils,
-    popoverStyles,
-    videoPageStyles,
-    dynamicPageStyles,
-    commonStyles,
-    homePageStyles
-}
 export const stylesV2 = {
     BilibiliAdjustment: generateBilibiliAdjustmentStyle(),
     VideoPageAdjustment: Object.values(videoPageStyles).join(''),
@@ -41,12 +29,12 @@ function generateBilibiliAdjustmentStyle () {
         }
         ::-webkit-scrollbar-thumb {
             border-radius: 4px !important;
-            background-color: #333 !important;
+            background-color: var(--adj-scrollbar-thumb) !important;
             border: 2px solid transparent !important;
             background-clip: padding-box !important;
         }
         ::-webkit-scrollbar-thumb:hover {
-            background-color: #444 !important;
+            background-color: var(--adj-scrollbar-thumb-hover) !important;
         }
         ::-webkit-scrollbar-corner {
             background: transparent !important;
@@ -66,12 +54,12 @@ function generateBilibiliAdjustmentStyle () {
             font-size: 14px;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
             overscroll-behavior: contain;
-            background: #212121;
+            background: var(--adj-bg-page);
             overflow-y: auto;
             overflow-x: hidden;
-            color: #f0f0f0;
-            border: 1px solid #333;
-            box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.5);
+            color: var(--adj-text-primary);
+            border: 1px solid var(--adj-border);
+            box-shadow: var(--adj-shadow-dialog);
             animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
@@ -104,7 +92,7 @@ function generateBilibiliAdjustmentStyle () {
             position: fixed;
             inset: 0;
             z-index: 9;
-            background: rgba(0, 0, 0, 0.5);
+            background: var(--adj-bg-scrim);
             backdrop-filter: blur(2px);
             -webkit-backdrop-filter: blur(2px);
             pointer-events: auto;
@@ -126,8 +114,8 @@ function generateBilibiliAdjustmentStyle () {
             top: 0;
             z-index: 100;
             padding: 24px 28px 20px;
-            background: #212121;
-            border-bottom: 1px solid #333;
+            background: var(--adj-bg-page);
+            border-bottom: 1px solid var(--adj-border);
         }
 
         .adjustment-popover-header-top {
@@ -147,20 +135,20 @@ function generateBilibiliAdjustmentStyle () {
 
         .adjustment-popover-version {
             font-size: 11px;
-            color: #666;
-            background: #2c2c2c;
+            color: var(--adj-text-disabled);
+            background: var(--adj-bg-surface);
             padding: 3px 10px;
             border-radius: 9999px;
             font-weight: 500;
             letter-spacing: 0.3px;
-            border: 1px solid #333;
+            border: 1px solid var(--adj-border);
             cursor: pointer;
             user-select: none;
         }
 
         .adjustment-popover-version:hover {
-            color: #999;
-            border-color: #444;
+            color: var(--adj-text-soft);
+            border-color: var(--adj-border-hover);
         }
 
         .adjustment-popover-version-status {
@@ -170,7 +158,7 @@ function generateBilibiliAdjustmentStyle () {
             margin-top: 4px;
             white-space: nowrap;
             font-size: 11px;
-            color: #999;
+            color: var(--adj-text-soft);
             line-height: 1.4;
             text-align: right;
             opacity: 1;
@@ -183,17 +171,17 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-popover-version-status.update {
-            color: #ff9c46;
+            color: var(--adj-warning);
         }
 
         .adjustment-popover-version-status.error {
-            color: #e56b6b;
+            color: var(--adj-danger);
         }
 
         .adjustment-popover-title {
             font-weight: 700;
             font-size: 22px;
-            color: #fff;
+            color: var(--adj-text-strong);
             letter-spacing: -0.3px;
             line-height: 1.3;
             white-space: nowrap;
@@ -204,7 +192,7 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-popover-subtitle {
             font-size: 12px;
             margin-top: 6px;
-            color: #888;
+            color: var(--adj-text-muted);
             font-weight: 400;
             line-height: 1.5;
         }
@@ -213,11 +201,11 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-recommend {
             margin: 20px 28px;
             padding: 12px 16px;
-            border: 1px solid #333;
+            border: 1px solid var(--adj-border);
             border-radius: 8px;
-            background: #2c2c2c;
+            background: var(--adj-bg-surface);
             font-size: 12px;
-            color: #888;
+            color: var(--adj-text-muted);
             display: flex;
             align-items: center;
             gap: 8px;
@@ -231,7 +219,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-recommend a {
-            color: #00a1d6;
+            color: var(--adj-brand);
             text-decoration: none;
             font-weight: 500;
             transition: all 0.15s ease;
@@ -239,7 +227,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-recommend a:hover {
-            color: #00b8e6;
+            color: var(--adj-brand-hover);
             text-decoration: underline;
         }
 
@@ -261,9 +249,9 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-section-title {
             font-size: 16px;
             font-weight: 700;
-            color: #fff;
+            color: var(--adj-text-strong);
             padding: 0 0 10px 0;
-            border-bottom: 2px solid #00a1d6;
+            border-bottom: 2px solid var(--adj-brand);
             display: flex;
             align-items: center;
             gap: 10px;
@@ -274,7 +262,7 @@ function generateBilibiliAdjustmentStyle () {
             content: '';
             width: 4px;
             height: 18px;
-            background: linear-gradient(180deg, #00a1d6 0%, #00b8e6 100%);
+            background: linear-gradient(180deg, var(--adj-brand) 0%, var(--adj-brand-hover) 100%);
             border-radius: 2px;
             flex-shrink: 0;
         }
@@ -309,14 +297,14 @@ function generateBilibiliAdjustmentStyle () {
             gap: 12px;
             padding: 16px 20px;
             border-radius: 10px;
-            background: #2c2c2c;
+            background: var(--adj-bg-surface);
             border: 1px solid transparent;
             transition: all 0.15s ease;
         }
 
         .adjustment-setting-item:hover {
-            border-color: #3a3a3a;
-            background: #323232;
+            border-color: var(--adj-border-hover);
+            background: var(--adj-bg-surface-hover);
         }
 
         /* 设置项主体：标签+控制 横向排列 */
@@ -341,7 +329,7 @@ function generateBilibiliAdjustmentStyle () {
             display: flex;
             align-items: center;
             font-size: 14px;
-            color: #f0f0f0;
+            color: var(--adj-text-primary);
             font-weight: 500;
             line-height: 1.4;
             word-wrap: break-word;
@@ -350,7 +338,7 @@ function generateBilibiliAdjustmentStyle () {
 
         .adjustment-setting-desc {
             font-size: 12px;
-            color: #888;
+            color: var(--adj-text-muted);
             line-height: 1.5;
         }
 
@@ -368,7 +356,7 @@ function generateBilibiliAdjustmentStyle () {
             width: 48px;
             height: 26px;
             border-radius: 13px;
-            background: #555;
+            background: var(--adj-switch-track);
             cursor: pointer;
             transition: all 0.2s ease;
             flex-shrink: 0;
@@ -376,15 +364,15 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-switch:hover {
-            background: #666;
+            background: var(--adj-switch-track-hover);
         }
 
         .adjustment-switch.on {
-            background: #00a1d6;
+            background: var(--adj-brand);
         }
 
         .adjustment-switch.on:hover {
-            background: #00b8e6;
+            background: var(--adj-brand-hover);
         }
 
         .adjustment-switch input {
@@ -404,9 +392,9 @@ function generateBilibiliAdjustmentStyle () {
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            background: #fff;
+            background: var(--adj-on-brand);
             transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+            box-shadow: var(--adj-shadow-sm);
             pointer-events: none;
         }
 
@@ -419,9 +407,9 @@ function generateBilibiliAdjustmentStyle () {
             display: flex;
             gap: 12px;
             padding: 12px;
-            background: #212121;
+            background: var(--adj-bg-page);
             border-radius: 8px;
-            border: 1px solid #333;
+            border: 1px solid var(--adj-border);
             overflow-x: auto;
         }
 
@@ -452,10 +440,10 @@ function generateBilibiliAdjustmentStyle () {
             min-width: 0;
             box-sizing: border-box;
             padding: 8px 12px;
-            border: 1px solid #333;
+            border: 1px solid var(--adj-border);
             border-radius: 8px;
-            background: #212121;
-            color: #f0f0f0;
+            background: var(--adj-bg-page);
+            color: var(--adj-text-primary);
             font-size: 14px;
             outline: none;
             transition: all 0.15s ease;
@@ -464,12 +452,12 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-input:focus {
-            border-color: #00a1d6;
-            box-shadow: 0 0 0 3px rgba(0, 161, 214, 0.15);
+            border-color: var(--adj-brand);
+            box-shadow: var(--adj-shadow-ring);
         }
 
         .adjustment-input::placeholder {
-            color: #555;
+            color: var(--adj-text-faint);
         }
 
         /* ========== 下拉选择框 ========== */
@@ -482,10 +470,10 @@ function generateBilibiliAdjustmentStyle () {
             width: 100%;
             height: 36px;
             padding: 0 32px 0 12px;
-            border: 1px solid #333;
+            border: 1px solid var(--adj-border);
             border-radius: 8px;
-            background: #212121;
-            color: #f0f0f0;
+            background: var(--adj-bg-page);
+            color: var(--adj-text-primary);
             font-size: 14px;
             outline: none;
             transition: all 0.15s ease;
@@ -496,13 +484,13 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-select select:focus {
-            border-color: #00a1d6;
-            box-shadow: 0 0 0 3px rgba(0, 161, 214, 0.15);
+            border-color: var(--adj-brand);
+            box-shadow: var(--adj-shadow-ring);
         }
 
         .adjustment-select select option {
-            background: #2c2c2c;
-            color: #f0f0f0;
+            background: var(--adj-bg-surface);
+            color: var(--adj-text-primary);
             padding: 8px;
         }
 
@@ -516,7 +504,7 @@ function generateBilibiliAdjustmentStyle () {
             height: 0;
             border-left: 4px solid transparent;
             border-right: 4px solid transparent;
-            border-top: 5px solid #666;
+            border-top: 5px solid var(--adj-text-disabled);
             pointer-events: none;
         }
 
@@ -540,7 +528,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-radio-item:hover {
-            background: #333;
+            background: var(--adj-bg-surface-hover);
         }
 
         .adjustment-radio-item input[type="radio"] {
@@ -548,12 +536,12 @@ function generateBilibiliAdjustmentStyle () {
             height: 18px;
             margin: 0;
             cursor: pointer;
-            accent-color: #00a1d6;
+            accent-color: var(--adj-brand);
             flex-shrink: 0;
         }
 
         .adjustment-radio-item span {
-            color: #888;
+            color: var(--adj-text-muted);
             font-size: 14px;
         }
 
@@ -568,13 +556,13 @@ function generateBilibiliAdjustmentStyle () {
             margin-left: 6px;
             vertical-align: middle;
             flex-shrink: 0;
-            color: #00a1d6;
+            color: var(--adj-brand);
             transition: all 0.15s ease;
         }
 
         .adjustment-tips-icon:hover {
-            color: #00b8e6;
-            filter: drop-shadow(0 0 4px rgba(0, 161, 214, 0.5));
+            color: var(--adj-brand-hover);
+            filter: drop-shadow(0 0 4px rgba(var(--adj-brand-rgb), 0.5));
         }
 
         .adjustment-tips-icon svg {
@@ -593,23 +581,23 @@ function generateBilibiliAdjustmentStyle () {
             max-width: 320px;
             padding: 10px 14px;
             border-radius: 8px;
-            background: #1a1a1a;
-            color: #e0e0e0;
+            background: var(--adj-bg-tooltip);
+            color: var(--adj-text-secondary);
             font-size: 13px;
             line-height: 1.6;
-            border: 1px solid #333;
-            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+            border: 1px solid var(--adj-border);
+            box-shadow: var(--adj-shadow-float);
             word-wrap: break-word;
             overflow-wrap: break-word;
         }
 
         .adjustment-tooltip a {
-            color: #00a1d6;
+            color: var(--adj-brand);
             text-decoration: underline;
         }
 
         .adjustment-tooltip a:hover {
-            color: #00b8e6;
+            color: var(--adj-brand-hover);
         }
 
         /* ========== 按钮组 ========== */
@@ -619,8 +607,8 @@ function generateBilibiliAdjustmentStyle () {
             justify-content: flex-end;
             gap: 12px;
             padding: 20px 28px;
-            border-top: 1px solid #333;
-            background: #212121;
+            border-top: 1px solid var(--adj-border);
+            background: var(--adj-bg-page);
             position: sticky;
             bottom: 0;
         }
@@ -658,34 +646,34 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-button.primary {
-            background: #00a1d6;
-            color: #fff;
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
         }
 
         .adjustment-button.primary:hover {
-            background: #00b8e6;
-            box-shadow: 0 0 16px rgba(0, 161, 214, 0.3);
+            background: var(--adj-brand-hover);
+            box-shadow: var(--adj-shadow-glow);
         }
 
         .adjustment-button.secondary {
-            background: #2c2c2c;
-            color: #f0f0f0;
-            border-color: #333;
+            background: var(--adj-bg-surface);
+            color: var(--adj-text-primary);
+            border-color: var(--adj-border);
         }
 
         .adjustment-button.secondary:hover {
-            background: #323232;
-            border-color: #444;
+            background: var(--adj-bg-surface-hover);
+            border-color: var(--adj-border-hover);
         }
 
         .adjustment-button.danger {
-            background: rgba(245,108,108,0.15);
-            border: 1px solid rgba(245,108,108,0.3);
-            color: #f56c6c;
+            background: rgba(var(--adj-danger-rgb), 0.15);
+            border: 1px solid rgba(var(--adj-danger-rgb), 0.3);
+            color: var(--adj-danger);
         }
 
         .adjustment-button.danger:hover {
-            background: rgba(245,108,108,0.25);
+            background: rgba(var(--adj-danger-rgb), 0.25);
         }
 
         /* ========== 更新弹窗专用样式 ========== */
@@ -697,7 +685,7 @@ function generateBilibiliAdjustmentStyle () {
 
         #UpdatePopover .adjustment-popover-subtitle {
             font-size: 16px;
-            color: #888;
+            color: var(--adj-text-muted);
             margin-top: 4px;
         }
 
@@ -706,18 +694,18 @@ function generateBilibiliAdjustmentStyle () {
             gap: 16px;
             margin-bottom: 16px;
             padding: 12px 16px;
-            background: #2c2c2c;
+            background: var(--adj-bg-surface);
             border-radius: 8px;
             font-size: 13px;
-            color: #888;
+            color: var(--adj-text-muted);
         }
 
         #UpdatePopover .adjustment-version div:first-child {
-            color: #aaa;
+            color: var(--adj-text-soft);
         }
 
         #UpdatePopover .adjustment-version div:last-child {
-            color: #00a1d6;
+            color: var(--adj-brand);
             font-weight: 500;
         }
 
@@ -742,14 +730,14 @@ function generateBilibiliAdjustmentStyle () {
             align-items: flex-start;
             gap: 10px;
             padding: 10px 12px;
-            border: 1px solid #424242;
+            border: 1px solid var(--adj-border-strong);
             border-radius: 10px;
-            background: #2c2c2c;
+            background: var(--adj-bg-surface);
         }
 
         .update-dialog .adjustment-update-item.is-latest {
-            border-color: rgba(0,161,214,0.5);
-            background: rgba(0,161,214,0.08);
+            border-color: rgba(var(--adj-brand-rgb), 0.5);
+            background: rgba(var(--adj-brand-rgb), 0.08);
         }
 
         .update-dialog .adj-update-ver {
@@ -761,13 +749,13 @@ function generateBilibiliAdjustmentStyle () {
             padding: 5px 6px;
             margin-right: 5px;
             border-radius: 6px;
-            background: rgba(0,161,214,0.15);
-            color: #00a1d6;
+            background: rgba(var(--adj-brand-rgb), 0.15);
+            color: var(--adj-brand);
         }
 
         .update-dialog .adjustment-update-item.is-latest .adj-update-ver {
-            background: #00a1d6;
-            color: #fff;
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
         }
 
         .update-dialog .adj-update-desc {
@@ -775,7 +763,7 @@ function generateBilibiliAdjustmentStyle () {
             min-width: 0;
             font-size: 13px;
             line-height: 1.7;
-            color: #ccc;
+            color: var(--adj-text-secondary);
             word-break: break-word;
         }
 
@@ -783,18 +771,18 @@ function generateBilibiliAdjustmentStyle () {
             text-align: center;
             padding-top: 12px;
             margin-top: 12px;
-            border-top: 1px solid #333;
+            border-top: 1px solid var(--adj-border);
         }
 
         #UpdatePopover .adjustment-update-more a {
-            color: #00a1d6;
+            color: var(--adj-brand);
             text-decoration: none;
             font-size: 13px;
             font-weight: 500;
         }
 
         #UpdatePopover .adjustment-update-more a:hover {
-            color: #00b8e6;
+            color: var(--adj-brand-hover);
             text-decoration: underline;
         }
 
@@ -805,7 +793,7 @@ function generateBilibiliAdjustmentStyle () {
             gap: 12px;
             padding-top: 16px;
             margin-top: 16px;
-            border-top: 1px solid #333;
+            border-top: 1px solid var(--adj-border);
         }
 
         /* ========== 自定义确认弹窗 ========== */
@@ -813,7 +801,7 @@ function generateBilibiliAdjustmentStyle () {
             position: fixed;
             inset: 0;
             z-index: 99999;
-            background: rgba(0,0,0,0.55);
+            background: var(--adj-bg-scrim);
             backdrop-filter: blur(2px);
             display: flex;
             align-items: center;
@@ -837,17 +825,17 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-confirm-dialog {
-            background: #2a2a2a;
-            border: 1px solid #424242;
+            background: var(--adj-bg-surface);
+            border: 1px solid var(--adj-border-strong);
             border-radius: 12px;
             padding: 24px;
             min-width: 300px;
             max-width: 400px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+            box-shadow: var(--adj-shadow-float);
         }
 
         .adjustment-confirm-msg {
-            color: #eee;
+            color: var(--adj-text-secondary);
             font-size: 14px;
             line-height: 1.6;
             margin-bottom: 20px;
@@ -869,12 +857,12 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-confirm-msg b {
-            color: #00a1d6;
+            color: var(--adj-brand);
             font-size: 15px;
         }
 
         .ow-hint {
-            color: #aaa;
+            color: var(--adj-text-soft);
             font-size: 12px;
             margin-top: 6px;
             line-height: 1.7;
@@ -895,19 +883,19 @@ function generateBilibiliAdjustmentStyle () {
             gap: 8px;
             padding: 6px 10px;
             border-radius: 6px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
+            background: var(--adj-bg-hover);
+            border: 1px solid var(--adj-border-subtle);
             cursor: pointer;
             font-size: 13px;
-            color: #ddd;
+            color: var(--adj-text-secondary);
         }
 
         .ow-item:hover {
-            background: rgba(255,255,255,0.08);
+            background: var(--adj-bg-hover);
         }
 
         .ow-item input {
-            accent-color: #00a1d6;
+            accent-color: var(--adj-brand);
             flex-shrink: 0;
             cursor: pointer;
         }
@@ -915,15 +903,15 @@ function generateBilibiliAdjustmentStyle () {
         .ow-time {
             font-family: monospace;
             font-size: 12px;
-            background: rgba(255,255,255,0.06);
+            background: var(--adj-bg-hover);
             padding: 2px 8px;
             border-radius: 4px;
-            color: #fff;
+            color: var(--adj-text-strong);
             flex-shrink: 0;
         }
 
         .ow-summary {
-            color: #999;
+            color: var(--adj-text-soft);
             font-size: 12px;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -931,7 +919,3 @@ function generateBilibiliAdjustmentStyle () {
         }
     `.replace(/\s+/g, ' ').trim()
 }
-export const generateAllStyles = () => ({
-    ...stylesV2,
-    cssVariables: styleUtils.generateCssVariables()
-})

@@ -1,120 +1,119 @@
-import { theme } from '../theme'
 import { popoverBaseStyle, buttonStyle, scrollbarStyle } from '../style-utils'
 export const popoverStyles = {
     base: popoverBaseStyle(),
     backdrop: `
         &::backdrop {
             backdrop-filter: blur(12px);
-            background: rgba(0,0,0,0.7);
+            background: var(--adj-bg-scrim-strong);
         }
     `,
     title: `
-        margin-bottom: ${theme.spacing.lg};
+        margin-bottom: var(--adj-space-lg);
         text-align: center;
         font-weight: 600;
-        font-size: ${theme.fontSize.xxl};
-        color: #fff;
+        font-size: var(--adj-font-xxl);
+        color: var(--adj-text-strong);
 
         .subTitle {
-            font-size: ${theme.fontSize.sm};
-            margin-top: ${theme.spacing.xs};
-            color: ${theme.colors.textSecondary};
+            font-size: var(--adj-font-sm);
+            margin-top: var(--adj-space-xs);
+            color: var(--adj-text-soft);
         }
     `,
     version: `
         position: absolute;
-        top: ${theme.spacing.sm};
-        right: ${theme.spacing.md};
-        font-size: ${theme.fontSize.xs};
-        color: ${theme.colors.textDisabled};
+        top: var(--adj-space-sm);
+        right: var(--adj-space-md);
+        font-size: var(--adj-font-xs);
+        color: var(--adj-text-disabled);
     `,
     recommend: `
-        padding: ${theme.spacing.md};
-        border: 1px solid ${theme.colors.border};
-        border-radius: ${theme.borderRadius.md};
+        padding: var(--adj-space-md);
+        border: 1px solid var(--adj-border-strong);
+        border-radius: var(--adj-radius-md);
         box-sizing: border-box;
         text-align: center;
-        margin-bottom: ${theme.spacing.xl};
-        font-size: ${theme.fontSize.sm};
-        background: rgba(0,161,214,0.05);
+        margin-bottom: var(--adj-space-xl);
+        font-size: var(--adj-font-sm);
+        background: rgba(var(--adj-brand-rgb), 0.05);
 
         a {
-            color: ${theme.colors.primary};
+            color: var(--adj-brand);
             text-decoration: none;
             font-weight: 500;
         }
     `,
     buttonGroup: `
         display: flex;
-        margin-top: ${theme.spacing.xl};
+        margin-top: var(--adj-space-xl);
         align-items: center;
         justify-content: flex-end;
-        gap: ${theme.spacing.md};
-        padding-top: ${theme.spacing.lg};
-        border-top: 1px solid ${theme.colors.border};
+        gap: var(--adj-space-md);
+        padding-top: var(--adj-space-lg);
+        border-top: 1px solid var(--adj-border-strong);
     `,
     button: buttonStyle(),
     form: `
         display: flex;
         flex-direction: column;
-        gap: ${theme.spacing.lg};
+        gap: var(--adj-space-lg);
     `,
     sectionTitle: `
-        font-size: ${theme.fontSize.lg};
+        font-size: var(--adj-font-lg);
         font-weight: 600;
-        color: #fff;
-        margin-bottom: ${theme.spacing.md};
-        padding-bottom: ${theme.spacing.sm};
-        border-bottom: 1px solid ${theme.colors.border};
+        color: var(--adj-text-strong);
+        margin-bottom: var(--adj-space-md);
+        padding-bottom: var(--adj-space-sm);
+        border-bottom: 1px solid var(--adj-border-strong);
     `,
     formItem: `
         display: flex;
         flex-direction: column;
-        gap: ${theme.spacing.sm};
-        padding: ${theme.spacing.md};
-        border-radius: ${theme.borderRadius.lg};
-        background: rgba(255,255,255,0.02);
+        gap: var(--adj-space-sm);
+        padding: var(--adj-space-md);
+        border-radius: var(--adj-radius-lg);
+        background: var(--adj-bg-subtle);
         border: 1px solid transparent;
-        transition: ${theme.transitions.normal};
+        transition: var(--adj-motion-normal);
 
         &:hover {
-            background: rgba(255,255,255,0.05);
-            border-color: rgba(0,161,214,0.2);
+            background: var(--adj-bg-hover);
+            border-color: rgba(var(--adj-brand-rgb), 0.2);
         }
     `,
     formItemContent: `
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: ${theme.spacing.md};
+        gap: var(--adj-space-md);
 
         label {
             flex-shrink: 0;
-            font-size: ${theme.fontSize.base};
-            color: ${theme.colors.textPrimary};
+            font-size: var(--adj-font-base);
+            color: var(--adj-text-primary);
         }
     `,
     input: `
         flex: 1;
         min-width: 0;
         box-sizing: border-box;
-        padding: ${theme.spacing.sm} ${theme.spacing.md};
-        border: 1px solid ${theme.colors.border};
-        border-radius: ${theme.borderRadius.md};
-        background: ${theme.colors.backgroundLight};
-        color: ${theme.colors.textPrimary};
-        font-size: ${theme.fontSize.base};
+        padding: var(--adj-space-sm) var(--adj-space-md);
+        border: 1px solid var(--adj-border-strong);
+        border-radius: var(--adj-radius-md);
+        background: var(--adj-bg-page);
+        color: var(--adj-text-primary);
+        font-size: var(--adj-font-base);
         outline: none;
-        transition: ${theme.transitions.normal};
+        transition: var(--adj-motion-normal);
 
         &:focus {
-            border-color: ${theme.colors.primary};
-            background: ${theme.colors.background};
-            box-shadow: 0 0 0 3px rgba(0,161,214,0.1);
+            border-color: var(--adj-brand);
+            background: var(--adj-bg-input);
+            box-shadow: 0 0 0 3px rgba(var(--adj-brand-rgb), 0.1);
         }
 
         &::placeholder {
-            color: ${theme.colors.textDisabled};
+            color: var(--adj-text-disabled);
         }
     `,
     checkboxBtn: `
@@ -122,12 +121,12 @@ export const popoverStyles = {
         width: 44px;
         height: 26px;
         border-radius: 13px;
-        background: ${theme.colors.secondary};
+        background: var(--adj-bg-surface-hover);
         cursor: pointer;
-        transition: ${theme.transitions.normal};
+        transition: var(--adj-motion-normal);
 
         &:hover {
-            background: ${theme.colors.surface};
+            background: var(--adj-bg-surface);
         }
 
         .knob {
@@ -137,22 +136,22 @@ export const popoverStyles = {
             width: 22px;
             height: 22px;
             border-radius: 50%;
-            background: ${theme.colors.textSecondary};
-            transition: ${theme.transitions.normal};
+            background: var(--adj-text-soft);
+            transition: var(--adj-motion-normal);
         }
 
         .btn-bg {
             position: absolute;
             inset: 0;
             border-radius: 13px;
-            background: linear-gradient(135deg, ${theme.colors.primary} 0%, ${theme.colors.primaryHover} 100%);
+            background: linear-gradient(135deg, var(--adj-brand) 0%, var(--adj-brand-hover) 100%);
             opacity: 0;
-            transition: opacity ${theme.transitions.normal};
+            transition: opacity var(--adj-motion-normal);
         }
 
         input:checked ~ .knob {
             left: 20px;
-            background: #fff;
+            background: var(--adj-on-brand);
             transform: scale(1.05);
         }
 
@@ -166,63 +165,63 @@ export const popoverStyles = {
         select {
             min-width: 140px;
             height: 40px;
-            padding: 0 32px 0 ${theme.spacing.md};
-            border: 1px solid ${theme.colors.border};
-            border-radius: ${theme.borderRadius.md};
-            background: ${theme.colors.backgroundLight};
-            color: ${theme.colors.textPrimary};
-            font-size: ${theme.fontSize.base};
+            padding: 0 32px 0 var(--adj-space-md);
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-md);
+            background: var(--adj-bg-page);
+            color: var(--adj-text-primary);
+            font-size: var(--adj-font-base);
             outline: none;
-            transition: ${theme.transitions.normal};
+            transition: var(--adj-motion-normal);
             appearance: none;
             -webkit-appearance: none;
             -moz-appearance: none;
             cursor: pointer;
 
             &:focus {
-                border-color: ${theme.colors.primary};
-                background: ${theme.colors.background};
-                box-shadow: 0 0 0 3px rgba(0,161,214,0.1);
+                border-color: var(--adj-brand);
+                background: var(--adj-bg-input);
+                box-shadow: 0 0 0 3px rgba(var(--adj-brand-rgb), 0.1);
             }
 
             option {
-                background: ${theme.colors.background};
-                color: ${theme.colors.textPrimary};
+                background: var(--adj-bg-input);
+                color: var(--adj-text-primary);
                 border: none;
-                padding: ${theme.spacing.sm} ${theme.spacing.md};
+                padding: var(--adj-space-sm) var(--adj-space-md);
             }
         }
 
         &::after {
             content: "▼";
             position: absolute;
-            right: ${theme.spacing.md};
+            right: var(--adj-space-md);
             top: 50%;
             transform: translateY(-50%);
-            font-size: ${theme.fontSize.xs};
-            color: ${theme.colors.textSecondary};
+            font-size: var(--adj-font-xs);
+            color: var(--adj-text-soft);
             pointer-events: none;
         }
     `,
     tips: `
-        font-size: ${theme.fontSize.sm};
-        color: ${theme.colors.textDisabled};
+        font-size: var(--adj-font-sm);
+        color: var(--adj-text-disabled);
         line-height: 1.5;
 
         &.info {
-            color: ${theme.colors.textSecondary};
+            color: var(--adj-text-soft);
         }
 
         &.warning {
-            color: ${theme.colors.warning};
+            color: var(--adj-warning);
         }
 
         &.error {
-            color: ${theme.colors.error};
+            color: var(--adj-danger);
         }
 
         &.success {
-            color: ${theme.colors.success};
+            color: var(--adj-success);
         }
 
         a {
@@ -232,55 +231,55 @@ export const popoverStyles = {
     `,
     scrollbar: scrollbarStyle(),
     adRecognitionContent: `
-        padding: ${theme.spacing.md};
+        padding: var(--adj-space-md);
         min-height: 100px;
 
         .loading {
             text-align: center;
-            color: ${theme.colors.textSecondary};
-            padding: ${theme.spacing.xl};
+            color: var(--adj-text-soft);
+            padding: var(--adj-space-xl);
         }
 
         .error {
             text-align: center;
-            color: ${theme.colors.error};
-            padding: ${theme.spacing.xl};
+            color: var(--adj-danger);
+            padding: var(--adj-space-xl);
         }
 
         .success {
             text-align: center;
-            color: ${theme.colors.success};
-            padding: ${theme.spacing.xl};
+            color: var(--adj-success);
+            padding: var(--adj-space-xl);
         }
 
         .result {
             .no-ad {
                 text-align: center;
-                color: ${theme.colors.textSecondary};
-                padding: ${theme.spacing.xl};
+                color: var(--adj-text-soft);
+                padding: var(--adj-space-xl);
             }
 
             .ad-count {
-                margin-bottom: ${theme.spacing.md};
-                color: ${theme.colors.textPrimary};
+                margin-bottom: var(--adj-space-md);
+                color: var(--adj-text-primary);
             }
 
             .ad-item {
                 display: flex;
                 align-items: center;
-                gap: ${theme.spacing.sm};
-                padding: ${theme.spacing.sm};
-                border-radius: ${theme.borderRadius.md};
-                background: rgba(255,255,255,0.02);
-                margin-bottom: ${theme.spacing.xs};
+                gap: var(--adj-space-sm);
+                padding: var(--adj-space-sm);
+                border-radius: var(--adj-radius-md);
+                background: var(--adj-bg-subtle);
+                margin-bottom: var(--adj-space-xs);
 
                 .ad-index {
-                    color: ${theme.colors.primary};
+                    color: var(--adj-brand);
                     font-weight: 600;
                 }
 
                 .ad-time {
-                    color: ${theme.colors.textPrimary};
+                    color: var(--adj-text-primary);
                     font-family: monospace;
                 }
             }

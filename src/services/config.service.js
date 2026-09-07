@@ -203,6 +203,10 @@ export class ConfigService {
             await storageService.userSet(name, value)
             this.#cache.set(name, value)
             this.#ensureSyncChannel()
+            // 本地写入也广播事件：主题等运行时即时生效项依赖该事件（远端消息处理见 #ensureSyncChannel）
+            if (name === 'theme') {
+                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key: name, value })
+            }
             this.#syncChannel?.postMessage({ key: name, value })
         } catch (error) {
             this.#logger.error('配置写入失败', error)

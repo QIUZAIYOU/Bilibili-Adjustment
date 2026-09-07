@@ -28,12 +28,12 @@ import { insertStyleToDocument, enablePopoverLightDismiss } from '@/utils/common
 
 const DIALOG_CSS = `
     .adjustment-dialog {
-        background: #212121;
-        border: 1px solid #424242;
+        background: var(--adj-bg-page);
+        border: 1px solid var(--adj-border-strong);
         border-radius: 16px;
-        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.5);
+        box-shadow: var(--adj-shadow-dialog);
         padding: 0;
-        color: #f0f0f0;
+        color: var(--adj-text-primary);
         font-size: 14px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         overflow: hidden;
@@ -42,6 +42,16 @@ const DIALOG_CSS = `
         flex-direction: column;
         animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
+
+    /* 关闭态隐藏兜底：原生 popover 移出 top layer 后仍留在 DOM（keepAlive 缓存期不销毁），
+       隐藏依赖 UA 规则 [popover]:not(:popover-open){ display: none }（无 !important），
+       上方作者级 display:flex 会覆盖它，导致缓存弹窗关闭后以 flex 残留在文档流中
+       （如 UP 主空间弹窗关闭后仍显示于其他元素之后）。
+       故必须显式以 !important 兜底；:popover-open 打开时此规则不匹配，回归上方 flex 布局。 */
+    .adjustment-dialog:not(:popover-open) {
+        display: none !important;
+    }
+
     .adjustment-dialog[popover] {
         margin: auto;
         inset: 0;
@@ -53,18 +63,18 @@ const DIALOG_CSS = `
         align-items: flex-start;
         gap: 12px;
         padding: 18px 22px 12px;
-        border-bottom: 1px solid rgba(255,255,255,0.07);
+        border-bottom: 1px solid var(--adj-border-subtle);
         flex-shrink: 0;
     }
     .adjustment-dialog-title {
         font-size: 16px;
         font-weight: 600;
-        color: #fff;
+        color: var(--adj-text-strong);
         line-height: 1.5;
     }
     .adjustment-dialog-subtitle {
         font-size: 12px;
-        color: #999;
+        color: var(--adj-text-soft);
         margin-top: 2px;
     }
     .adjustment-dialog-tag {
@@ -72,9 +82,9 @@ const DIALOG_CSS = `
         line-height: 1;
         padding: 3px 8px;
         border-radius: 999px;
-        border: 1px solid #424242;
-        background: #2c2c2c;
-        color: #f0a020;
+        border: 1px solid var(--adj-border-strong);
+        background: var(--adj-bg-surface);
+        color: var(--adj-warning);
         white-space: nowrap;
         flex-shrink: 0;
     }
@@ -82,7 +92,7 @@ const DIALOG_CSS = `
         margin-left: auto;
         flex-shrink: 0;
         cursor: pointer;
-        color: #868686;
+        color: var(--adj-text-muted);
         font-size: 16px;
         width: 26px;
         height: 26px;
@@ -93,8 +103,8 @@ const DIALOG_CSS = `
         transition: all 0.15s;
     }
     .adjustment-dialog-close:hover {
-        color: #fff;
-        background: rgba(255,255,255,0.1);
+        color: var(--adj-text-strong);
+        background: var(--adj-bg-active);
     }
     .adjustment-dialog-body {
         flex: 1 1 auto;
@@ -108,7 +118,7 @@ const DIALOG_CSS = `
         justify-content: flex-end;
         gap: 10px;
         padding: 12px 22px 16px;
-        border-top: 1px solid rgba(255,255,255,0.07);
+        border-top: 1px solid var(--adj-border-subtle);
         flex-shrink: 0;
     }
 `

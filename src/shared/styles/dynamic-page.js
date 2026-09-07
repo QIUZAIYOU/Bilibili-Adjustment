@@ -1,15 +1,14 @@
-import { theme } from '../theme'
 export const dynamicPageStyles = {
     popover: `
         #DynamicSettingsPopoverTitle {
-            margin-bottom: ${theme.spacing.lg};
+            margin-bottom: var(--adj-space-lg);
             text-align: center;
             font-weight: 700;
-            font-size: ${theme.fontSize.xxl};
+            font-size: var(--adj-font-xxl);
         }
 
         #DynamicSettingsPopover #DynamicSettingsPopoverTips {
-            margin-top: ${theme.spacing.sm};
+            margin-top: var(--adj-space-sm);
         }
     `
 }

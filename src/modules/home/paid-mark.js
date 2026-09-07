@@ -24,7 +24,7 @@ export const homePaidMarkFeatures = {
                     const titleEl = video.querySelector('h3')
                     if (titleEl) {
                         titleEl.title = `🟡付费视频 丨 ${title}`
-                        titleEl.innerHTML = `<span style="color:#fb7299;font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${escapeHtml(title)}`
+                        titleEl.innerHTML = `<span style="color:var(--adj-pink);font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${escapeHtml(title)}`
                     }
                 }
             }))

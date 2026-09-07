@@ -1,4 +1,3 @@
-import { theme } from '../theme'
 export const videoPageStyles = {
     playerControl: `
         .bpx-player-container[data-screen=full] #goToComments {
@@ -19,10 +18,10 @@ export const videoPageStyles = {
     commentDescription: `
         #comment-description .user-name {
             display: flex;
-            padding: 0 ${theme.spacing.xs};
+            padding: 0 var(--adj-space-xs);
             height: 22px;
             border: 1px solid;
-            border-radius: ${theme.borderRadius.sm};
+            border-radius: var(--adj-radius-sm);
             align-items: center;
             justify-content: center;
         }
@@ -71,7 +70,7 @@ export const videoPageStyles = {
             display: flex;
             flex-direction: column;
             width: 100%;
-            gap: ${theme.spacing.lg};
+            gap: var(--adj-space-lg);
         }
 
         .auto-skip-checkbox {
@@ -111,7 +110,7 @@ export const videoPageStyles = {
         #UpSpacePopoverCloseButton {
             cursor: pointer;
             font-size: 16px;
-            color: #888;
+            color: var(--adj-text-muted);
             line-height: 1;
             padding: 4px 8px;
             border-radius: 6px;
@@ -119,15 +118,15 @@ export const videoPageStyles = {
         }
 
         #UpSpacePopoverCloseButton:hover {
-            color: #fff;
-            background: #333;
+            color: var(--adj-text-strong);
+            background: var(--adj-bg-surface-hover);
         }
 
 
         .adjustment-popover-back {
             cursor: pointer;
             font-size: 22px;
-            color: #888;
+            color: var(--adj-text-muted);
             line-height: 1;
             padding: 4px 8px;
             border-radius: 6px;
@@ -137,8 +136,8 @@ export const videoPageStyles = {
         }
 
         .adjustment-popover-back:hover {
-            color: #fff;
-            background: #333;
+            color: var(--adj-text-strong);
+            background: var(--adj-bg-surface-hover);
         }
 
 
@@ -153,7 +152,7 @@ export const videoPageStyles = {
         }
         .skip-manager-dialog .cache-lock-state {
             font-size: 12px;
-            color: #999;
+            color: var(--adj-text-soft);
         }
         .skip-manager-dialog .cache-lock-btn,
         .skip-manager-dialog .accordion-lock-btn {
@@ -171,10 +170,10 @@ export const videoPageStyles = {
             gap: 8px;
             padding: 8px 12px;
             margin-bottom: 12px;
-            border: 1px solid #424242;
+            border: 1px solid var(--adj-border-strong);
             border-radius: 8px;
-            background: #2c2c2c;
-            color: #ccc;
+            background: var(--adj-bg-surface);
+            color: var(--adj-text-secondary);
             font-size: 12px;
         }
 
@@ -188,7 +187,7 @@ export const videoPageStyles = {
 
         .skip-manager-dialog .empty-tip {
             text-align: center;
-            color: #666;
+            color: var(--adj-text-disabled);
             font-size: 13px;
             line-height: 1.6;
             margin: -12px 0 28px;
@@ -200,30 +199,30 @@ export const videoPageStyles = {
         .skip-manager-dialog .success {
             text-align: center;
             padding: 40px 0 24px;
-            color: #868686;
+            color: var(--adj-text-muted);
         }
 
         .skip-manager-dialog .empty-result { padding: 24px; }
-        .skip-manager-dialog .error { color: #f56c6c; }
-        .skip-manager-dialog .success { color: #67c23a; }
+        .skip-manager-dialog .error { color: var(--adj-danger); }
+        .skip-manager-dialog .success { color: var(--adj-success); }
 
         .skip-manager-dialog .cache-info {
             padding: 12px;
             margin-bottom: 16px;
-            background: rgba(0,161,214,0.08);
+            background: rgba(var(--adj-brand-rgb), 0.08);
             border-radius: 8px;
-            border: 1px solid rgba(0,161,214,0.15);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.15);
         }
 
         .skip-manager-dialog .cache-meta {
             font-size: 13px;
-            color: #868686;
+            color: var(--adj-text-muted);
             line-height: 1.6;
         }
 
         .skip-manager-dialog .segment-count {
             margin: 16px 0;
-            color: #fff;
+            color: var(--adj-text-strong);
             font-size: 15px;
         }
 
@@ -239,27 +238,27 @@ export const videoPageStyles = {
             gap: 12px;
             padding: 12px 14px;
             border-radius: 8px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
+            background: var(--adj-bg-hover);
+            border: 1px solid var(--adj-border-subtle);
             transition: background 0.2s;
         }
 
         .skip-manager-dialog .segment-item:hover {
-            background: rgba(255,255,255,0.08);
+            background: var(--adj-bg-hover);
         }
 
         .skip-manager-dialog .segment-index {
-            color: #00a1d6;
+            color: var(--adj-brand);
             font-weight: 600;
             font-size: 14px;
             min-width: 20px;
         }
 
         .skip-manager-dialog .segment-time {
-            color: #fff;
+            color: var(--adj-text-strong);
             font-family: monospace;
             font-size: 14px;
-            background: rgba(0,161,214,0.15);
+            background: rgba(var(--adj-brand-rgb), 0.15);
             padding: 4px 10px;
             border-radius: 4px;
             flex-shrink: 0;
@@ -268,7 +267,7 @@ export const videoPageStyles = {
         .skip-manager-dialog .segment-summary {
             flex: 1;
             min-width: 0;
-            color: #999;
+            color: var(--adj-text-soft);
             font-size: 12px;
             line-height: 1.5;
             text-align: left;
@@ -283,7 +282,7 @@ export const videoPageStyles = {
         .skip-manager-dialog .segment-item .segment-delete {
             margin-left: auto;
             cursor: pointer;
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 16px;
             padding: 2px 6px;
             border-radius: 4px;
@@ -296,13 +295,13 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .segment-delete:hover {
-            color: #f56c6c;
-            background: rgba(245,108,108,0.15);
+            color: var(--adj-danger);
+            background: rgba(var(--adj-danger-rgb), 0.15);
         }
 
         .skip-manager-dialog .manual-entry-section {
             padding: 12px 20px 16px;
-            border-top: 1px solid #424242;
+            border-top: 1px solid var(--adj-border-strong);
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -318,17 +317,17 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .inline-msg.warn {
-            color: #e6a23c;
-            background: rgba(230,162,60,0.1);
-            border: 1px solid rgba(230,162,60,0.2);
+            color: var(--adj-warning);
+            background: rgba(var(--adj-warning-rgb), 0.1);
+            border: 1px solid rgba(var(--adj-warning-rgb), 0.2);
             padding: 8px 12px;
             max-height: 60px;
         }
 
         .skip-manager-dialog .inline-msg.success {
-            color: #67c23a;
-            background: rgba(103,194,58,0.1);
-            border: 1px solid rgba(103,194,58,0.2);
+            color: var(--adj-success);
+            background: rgba(var(--adj-success-rgb), 0.1);
+            border: 1px solid rgba(var(--adj-success-rgb), 0.2);
             padding: 8px 12px;
             max-height: 60px;
         }
@@ -355,14 +354,14 @@ export const videoPageStyles = {
 
         .skip-manager-dialog .time-input-group label {
             font-size: 12px;
-            color: #868686;
+            color: var(--adj-text-muted);
         }
 
         .skip-manager-dialog .time-input {
-            background: #2a2a2a;
-            border: 1px solid #424242;
+            background: var(--adj-bg-surface);
+            border: 1px solid var(--adj-border-strong);
             border-radius: 6px;
-            color: #fff;
+            color: var(--adj-text-strong);
             padding: 8px 10px;
             font-size: 14px;
             font-family: monospace;
@@ -371,12 +370,12 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .time-input:focus {
-            border-color: #00a1d6;
+            border-color: var(--adj-brand);
             outline: none;
         }
 
         .skip-manager-dialog .time-separator {
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 14px;
             padding-bottom: 8px;
         }
@@ -399,32 +398,32 @@ export const videoPageStyles = {
             gap: 8px;
             padding: 8px 12px;
             border-radius: 6px;
-            background: rgba(0,161,214,0.06);
-            border: 1px solid rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.06);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.12);
             font-size: 13px;
         }
 
         .skip-manager-dialog .pending-item .segment-time {
-            background: rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.12);
             padding: 2px 8px;
             border-radius: 4px;
             font-family: monospace;
             font-size: 13px;
-            color: #fff;
+            color: var(--adj-text-strong);
         }
 
         .skip-manager-dialog .pending-item .pending-delete {
             margin-left: auto;
             cursor: pointer;
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 14px;
             padding: 2px 4px;
             border-radius: 3px;
         }
 
         .skip-manager-dialog .pending-item .pending-delete:hover {
-            color: #f56c6c;
-            background: rgba(245,108,108,0.15);
+            color: var(--adj-danger);
+            background: rgba(var(--adj-danger-rgb), 0.15);
         }
 
         .skip-manager-dialog .input-mode-toggle {
@@ -436,10 +435,10 @@ export const videoPageStyles = {
 
         .skip-manager-dialog .input-mode-btn,
         .skip-manager-dialog .accordion-manual-entry .input-mode-btn {
-            background: rgba(0,161,214,0.15);
-            border: 1px solid rgba(0,161,214,0.3);
+            background: rgba(var(--adj-brand-rgb), 0.15);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.3);
             border-radius: 6px;
-            color: #00a1d6;
+            color: var(--adj-brand);
             padding: 4px 10px;
             font-size: 12px;
             cursor: pointer;
@@ -450,27 +449,27 @@ export const videoPageStyles = {
 
         .skip-manager-dialog .input-mode-btn:hover,
         .skip-manager-dialog .accordion-manual-entry .input-mode-btn:hover {
-            background: rgba(0,161,214,0.25);
+            background: rgba(var(--adj-brand-rgb), 0.25);
         }
 
         .skip-manager-dialog .adjustment-button.danger {
-            background: rgba(245,108,108,0.15);
-            border: 1px solid rgba(245,108,108,0.3);
-            color: #f56c6c;
+            background: rgba(var(--adj-danger-rgb), 0.15);
+            border: 1px solid rgba(var(--adj-danger-rgb), 0.3);
+            color: var(--adj-danger);
         }
 
         .skip-manager-dialog .adjustment-button.danger:hover {
-            background: rgba(245,108,108,0.25);
+            background: rgba(var(--adj-danger-rgb), 0.25);
         }
 
         .skip-manager-dialog .adjustment-button.info {
-            background: rgba(0,161,214,0.15);
-            border: 1px solid rgba(0,161,214,0.3);
-            color: #00a1d6;
+            background: rgba(var(--adj-brand-rgb), 0.15);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.3);
+            color: var(--adj-brand);
         }
 
         .skip-manager-dialog .adjustment-button.info:hover {
-            background: rgba(0,161,214,0.25);
+            background: rgba(var(--adj-brand-rgb), 0.25);
         }
 
         .skip-manager-dialog .episode-accordion {
@@ -483,13 +482,13 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .episode-accordion-item {
-            border: 1px solid rgba(255,255,255,0.06);
+            border: 1px solid var(--adj-border-subtle);
             border-radius: 8px;
             margin-bottom: 6px;
         }
 
         .skip-manager-dialog .episode-accordion-item:has(.episode-accordion-body.expanded) {
-            border-color: rgba(0,161,214,0.3);
+            border-color: rgba(var(--adj-brand-rgb), 0.3);
             z-index: 1;
             position: relative;
         }
@@ -509,23 +508,23 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .episode-accordion-header:hover {
-            background: rgba(255,255,255,0.08);
+            background: var(--adj-bg-hover);
         }
 
         .skip-manager-dialog .episode-accordion-header.active {
-            background: rgba(0,161,214,0.12);
-            border-color: rgba(0,161,214,0.4);
+            background: rgba(var(--adj-brand-rgb), 0.12);
+            border-color: rgba(var(--adj-brand-rgb), 0.4);
         }
 
         .skip-manager-dialog .episode-accordion-header .episode-index {
-            color: #00a1d6;
+            color: var(--adj-brand);
             font-weight: 600;
             font-size: 14px;
             min-width: 24px;
         }
 
         .skip-manager-dialog .episode-accordion-header .episode-title {
-            color: #ccc;
+            color: var(--adj-text-secondary);
             font-size: 13px;
             flex: 1;
             overflow: hidden;
@@ -534,12 +533,12 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .episode-accordion-header.active .episode-title {
-            color: #fff;
+            color: var(--adj-text-strong);
             font-weight: 500;
         }
 
         .skip-manager-dialog .episode-accordion-header .episode-segment-preview {
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 12px;
             font-family: monospace;
             max-width: 180px;
@@ -550,11 +549,11 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .episode-accordion-header .episode-segment-preview.has-segments {
-            color: #00a1d6;
+            color: var(--adj-brand);
         }
 
         .skip-manager-dialog .episode-accordion-header .accordion-arrow {
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 12px;
             transition: transform 0.3s ease;
             flex-shrink: 0;
@@ -569,13 +568,13 @@ export const videoPageStyles = {
             overflow: hidden;
             transition: max-height 0.3s ease, padding 0.3s ease;
             padding: 0 14px;
-            background: rgba(0,0,0,0.15);
+            background: var(--adj-bg-dim);
             border-radius: 0 0 8px 8px;
             border-top: 1px solid transparent;
         }
 
         .skip-manager-dialog .episode-accordion-body.expanded {
-            border-top-color: rgba(0,161,214,0.2);
+            border-top-color: rgba(var(--adj-brand-rgb), 0.2);
         }
 
         .skip-manager-dialog .episode-accordion-body.expanded {
@@ -595,21 +594,21 @@ export const videoPageStyles = {
             justify-content: center;
             padding: 5px 8px;
             border-radius: 6px;
-            background: rgba(255,255,255,0.04);
-            border: 1px solid rgba(255,255,255,0.06);
+            background: var(--adj-bg-hover);
+            border: 1px solid var(--adj-border-subtle);
         }
 
         .skip-manager-dialog .episode-accordion-body .segment-time {
-            color: #fff;
+            color: var(--adj-text-strong);
             font-family: monospace;
             font-size: 12px;
-            background: rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.12);
             padding: 2px 6px;
             border-radius: 4px;
         }
 
         .skip-manager-dialog .episode-accordion-body .empty-result {
-            color: #666;
+            color: var(--adj-text-disabled);
             font-size: 13px;
             padding: 12px 0;
         }
@@ -620,7 +619,7 @@ export const videoPageStyles = {
             gap: 8px;
             margin-top: 12px;
             padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid var(--adj-border-subtle);
         }
 
         .skip-manager-dialog .episode-accordion-body .accordion-actions .adjustment-button {
@@ -633,7 +632,7 @@ export const videoPageStyles = {
         .skip-manager-dialog .accordion-manual-entry {
             margin-top: 10px;
             padding-top: 10px;
-            border-top: 1px solid rgba(255,255,255,0.06);
+            border-top: 1px solid var(--adj-border-subtle);
         }
 
         .skip-manager-dialog .accordion-manual-entry .manual-entry-form {
@@ -658,14 +657,14 @@ export const videoPageStyles = {
 
         .skip-manager-dialog .accordion-manual-entry .time-input-group label {
             font-size: 12px;
-            color: #868686;
+            color: var(--adj-text-muted);
         }
 
         .skip-manager-dialog .accordion-manual-entry .time-input {
-            background: #2a2a2a;
-            border: 1px solid #424242;
+            background: var(--adj-bg-surface);
+            border: 1px solid var(--adj-border-strong);
             border-radius: 6px;
-            color: #fff;
+            color: var(--adj-text-strong);
             padding: 8px 10px;
             font-size: 14px;
             font-family: monospace;
@@ -674,12 +673,12 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .accordion-manual-entry .time-input:focus {
-            border-color: #00a1d6;
+            border-color: var(--adj-brand);
             outline: none;
         }
 
         .skip-manager-dialog .accordion-manual-entry .time-separator {
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 14px;
             padding-bottom: 8px;
         }
@@ -689,15 +688,15 @@ export const videoPageStyles = {
             white-space: nowrap;
             flex-shrink: 0;
             font-size: 12px;
-            background: #00a1d6;
-            color: #fff;
-            border: 1px solid rgba(0,161,214,0.4);
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.4);
             border-radius: 6px;
             cursor: pointer;
         }
 
         .skip-manager-dialog .accordion-manual-entry .accordion-add-btn:hover {
-            background: #00b8e6;
+            background: var(--adj-brand-hover);
         }
 
         .skip-manager-dialog .accordion-manual-entry .accordion-cancel-edit-btn {
@@ -705,15 +704,15 @@ export const videoPageStyles = {
             white-space: nowrap;
             flex-shrink: 0;
             font-size: 12px;
-            background: #2c2c2c;
-            color: #ccc;
-            border: 1px solid #424242;
+            background: var(--adj-bg-surface);
+            color: var(--adj-text-secondary);
+            border: 1px solid var(--adj-border-strong);
             border-radius: 6px;
             cursor: pointer;
         }
 
         .skip-manager-dialog .accordion-manual-entry .accordion-cancel-edit-btn:hover {
-            background: #333;
+            background: var(--adj-bg-surface-hover);
         }
 
         .skip-manager-dialog .accordion-manual-entry .form-actions {
@@ -735,32 +734,32 @@ export const videoPageStyles = {
             gap: 8px;
             padding: 8px 12px;
             border-radius: 6px;
-            background: rgba(0,161,214,0.06);
-            border: 1px solid rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.06);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.12);
             font-size: 13px;
         }
 
         .skip-manager-dialog .accordion-pending-list .pending-item .segment-time {
-            background: rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.12);
             padding: 2px 8px;
             border-radius: 4px;
             font-family: monospace;
             font-size: 13px;
-            color: #fff;
+            color: var(--adj-text-strong);
         }
 
         .skip-manager-dialog .accordion-pending-list .pending-item .pending-delete {
             margin-left: auto;
             cursor: pointer;
-            color: #868686;
+            color: var(--adj-text-muted);
             font-size: 14px;
             padding: 2px 4px;
             border-radius: 3px;
         }
 
         .skip-manager-dialog .accordion-pending-list .pending-item .pending-delete:hover {
-            color: #f56c6c;
-            background: rgba(245,108,108,0.15);
+            color: var(--adj-danger);
+            background: rgba(var(--adj-danger-rgb), 0.15);
         }
 
         .skip-manager-dialog .accordion-inline-msg {
@@ -773,17 +772,17 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .accordion-inline-msg.warn {
-            color: #e6a23c;
-            background: rgba(230,162,60,0.1);
-            border: 1px solid rgba(230,162,60,0.2);
+            color: var(--adj-warning);
+            background: rgba(var(--adj-warning-rgb), 0.1);
+            border: 1px solid rgba(var(--adj-warning-rgb), 0.2);
             padding: 8px 12px;
             max-height: 60px;
         }
 
         .skip-manager-dialog .accordion-inline-msg.success {
-            color: #67c23a;
-            background: rgba(103,194,58,0.1);
-            border: 1px solid rgba(103,194,58,0.2);
+            color: var(--adj-success);
+            background: rgba(var(--adj-success-rgb), 0.1);
+            border: 1px solid rgba(var(--adj-success-rgb), 0.2);
             padding: 8px 12px;
             max-height: 60px;
         }
@@ -800,10 +799,10 @@ export const videoPageStyles = {
             align-items: center;
             gap: 8px;
             font-size: 12px;
-            color: #868686;
+            color: var(--adj-text-muted);
             margin-bottom: 6px;
             padding-bottom: 4px;
-            border-bottom: 1px solid rgba(255,255,255,0.06);
+            border-bottom: 1px solid var(--adj-border-subtle);
         }
 
         .skip-manager-dialog .cached-count,
@@ -811,17 +810,17 @@ export const videoPageStyles = {
             font-size: 11px;
             padding: 1px 6px;
             border-radius: 3px;
-            background: rgba(255,255,255,0.06);
+            background: var(--adj-bg-hover);
         }
 
         .skip-manager-dialog .staging-count {
-            background: rgba(0,161,214,0.12);
-            color: #00a1d6;
+            background: rgba(var(--adj-brand-rgb), 0.12);
+            color: var(--adj-brand);
         }
 
         .skip-manager-dialog .cached-segment-list .segment-item.cached-item .segment-time {
-            background: rgba(255,255,255,0.04);
-            color: #999;
+            background: var(--adj-bg-hover);
+            color: var(--adj-text-soft);
         }
 
         .skip-manager-dialog .staging-list {
@@ -835,23 +834,23 @@ export const videoPageStyles = {
             align-items: center;
             padding: 5px 10px;
             border-radius: 4px;
-            background: rgba(0,161,214,0.06);
-            border: 1px solid rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.06);
+            border: 1px solid rgba(var(--adj-brand-rgb), 0.12);
             transition: all 0.15s;
         }
 
         .skip-manager-dialog .staging-item:hover {
-            background: rgba(0,161,214,0.1);
+            background: rgba(var(--adj-brand-rgb), 0.1);
         }
 
         .skip-manager-dialog .staging-item.editing {
-            border-color: #00a1d6;
-            background: rgba(0,161,214,0.12);
+            border-color: var(--adj-brand);
+            background: rgba(var(--adj-brand-rgb), 0.12);
         }
 
         .skip-manager-dialog .staging-item .segment-time {
             font-size: 13px;
-            background: rgba(0,161,214,0.12);
+            background: rgba(var(--adj-brand-rgb), 0.12);
             padding: 2px 8px;
             border-radius: 3px;
         }
@@ -872,18 +871,18 @@ export const videoPageStyles = {
             border-radius: 3px;
             cursor: pointer;
             font-size: 13px;
-            color: #868686;
+            color: var(--adj-text-muted);
             transition: all 0.15s;
         }
 
         .skip-manager-dialog .staging-edit:hover {
-            color: #00a1d6;
-            background: rgba(0,161,214,0.15);
+            color: var(--adj-brand);
+            background: rgba(var(--adj-brand-rgb), 0.15);
         }
 
         .skip-manager-dialog .staging-delete:hover {
-            color: #f56c6c;
-            background: rgba(245,108,108,0.15);
+            color: var(--adj-danger);
+            background: rgba(var(--adj-danger-rgb), 0.15);
         }
 
         .skip-manager-dialog .form-actions {

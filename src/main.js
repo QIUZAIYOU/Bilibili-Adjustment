@@ -7,6 +7,7 @@ import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/u
 import { initScrollbarHoverWidening } from '@/utils/scrollbar-hover'
 import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
+import { ThemeManager } from '@/shared/theme'
 import { EVENT_NAMES } from '@/shared/constants'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
@@ -46,6 +47,8 @@ const detectAndLoadModule = async () => {
 const initializeApp = async () => {
     try {
         await ConfigService.initialize()
+        // config 就绪后按持久化主题切换（默认 night 已顶部注入，无闪烁）
+        ThemeManager.setTheme(await ConfigService.getValue('theme'))
         logger.debug('ConfigService 初始化完成')
         await LoggerService.updateLogLevelsFromConfig({
             log_level_info: await ConfigService.getValue('log_level_info'),
@@ -116,6 +119,8 @@ if (window.self !== window.top && location.search.includes('bili-adjustment-popu
         `
     })
 }
+// 主题变量先于一切样式注入（样式字符串引用 var(--adj-*)），默认 night 兜底
+ThemeManager.init()
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
 initScrollbarHoverWidening()
 initializeApp()

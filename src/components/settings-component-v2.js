@@ -6,6 +6,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
 import { SettingsRenderer } from '@/components/settings-renderer'
+import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
@@ -88,7 +89,7 @@ export class SettingsComponentV2 {
         // 销毁旧的 tooltip
         destroyTooltip()
         // 不 await fetchDynamicOptions（fetchModels 有 10s 超时），用当前模型作为 fallback 立即渲染
-        const dynamicOptions = this._pendingModelOptions || { ai_model: this.userConfigs.ai_model ? [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }] : [] }
+        const dynamicOptions = this._pendingModelOptions || { ai_model: this.userConfigs.ai_model ? [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }] : []}
         // 创建渲染器并渲染
         this.renderer = new SettingsRenderer(videoSettingsConfig)
         const formContent = this.renderer.render(this.userConfigs, dynamicOptions)
@@ -101,6 +102,8 @@ export class SettingsComponentV2 {
         createElementAndInsert(popoverHtml, document.body)
         // 获取 popover DOM 元素（需要等 DOM 插入后才能获取）
         const popover = document.getElementById('VideoSettingsPopover')
+        // 原生 select 视觉替身：套自绘下拉（trigger+菜单），数据/事件仍走原生 select
+        enhanceCustomSelects(popover)
         // 初始化 tooltip 并将 tooltip 元素插入 popover 内，避免被 popover 的顶层(top layer)遮挡
         this.tooltip = initTooltip({ delay: 300, hideDelay: 100, container: popover })
         requestAnimationFrame(() => {
@@ -110,12 +113,13 @@ export class SettingsComponentV2 {
         this.fetchDynamicOptions().then(options => {
             if (options?.ai_model) {
                 this._pendingModelOptions = options
-                const modelSelect = document.getElementById('AIModel')
+                const modelSelect = document.getElementById('ai_model')
                 if (modelSelect) {
                     const currentValue = modelSelect.value
                     modelSelect.innerHTML = options.ai_model.map(m =>
-                        '<option value="' + m.value + '"' + (m.value === currentValue ? ' selected' : '') + '>' + m.label + '</option>'
-                    ).join('')
+                        '<option value="' + m.value + '"' + (m.value === currentValue ? ' selected' : '') + '>' + m.label + '</option>').join('')
+                    // 同步自绘下拉的选项与当前值显示
+                    refreshCustomSelects(popover)
                 }
             }
         }).catch(() => {})
@@ -368,10 +372,10 @@ export class SettingsComponentV2 {
     setButtonFeedback (button, success, successText = '', failureText = '') {
         if (!button) return
         const isSuccess = Boolean(success)
-        button.style.borderColor = isSuccess ? '#2ed573' : '#ff4757'
+        button.style.borderColor = isSuccess ? 'var(--adj-success)' : 'var(--adj-danger)'
         if (successText || failureText) {
             button.textContent = isSuccess ? successText : failureText
-            button.style.color = isSuccess ? '#2ed573' : '#ff4757'
+            button.style.color = isSuccess ? 'var(--adj-success)' : 'var(--adj-danger)'
         }
         clearTimeout(button._feedbackResetTimer)
         button._feedbackResetTimer = setTimeout(() => {
@@ -523,6 +527,8 @@ export class SettingsComponentV2 {
                 modelSelect.value = ''
                 modelSelect.disabled = true
             }
+            // 同步自绘下拉（模型列表已重建或禁用态变化）
+            refreshCustomSelects(popover)
             logger.info('模型列表已刷新')
             return true
         } catch (error) {
@@ -637,6 +643,8 @@ export class SettingsComponentV2 {
             formContent
         )
         createElementAndInsert(popoverHtml, document.body)
+        // 原生 select 视觉替身：套自绘下拉（动态页暂无 select，预留一致性）
+        enhanceCustomSelects(document.getElementById('DynamicSettingsPopover'))
     }
     async initDynamicSettingsEventListeners () {
         const popover = document.getElementById('DynamicSettingsPopover')
@@ -719,6 +727,8 @@ export class SettingsComponentV2 {
                 select.disabled = false
             }
             select.value = value
+            // 同步自绘下拉显示（label / 禁用态）
+            refreshCustomSelects(popover)
             found = true
         }
         // 输入框
@@ -737,10 +747,10 @@ export class SettingsComponentV2 {
      */
     showInputValidationStatus (input, isSuccess) {
         if (!input) return
-        input.style.borderColor = isSuccess ? '#2ed573' : '#ff4757'
+        input.style.borderColor = isSuccess ? 'var(--adj-success)' : 'var(--adj-danger)'
         input.style.boxShadow = isSuccess
-            ? '0 0 0 3px rgba(46, 213, 115, 0.15)'
-            : '0 0 0 3px rgba(255, 71, 87, 0.15)'
+            ? '0 0 0 3px rgba(var(--adj-success-rgb), 0.15)'
+            : '0 0 0 3px rgba(var(--adj-danger-rgb), 0.15)'
         setTimeout(() => {
             if (input) {
                 input.style.borderColor = ''

@@ -1,18 +1,3 @@
-import { theme } from './theme'
-export const generateCssVariables = () => {
-    let css = ':root {'
-    Object.entries(theme.colors).forEach(([key, value]) => {
-        css += `--color-${key}: ${value};`
-    })
-    Object.entries(theme.spacing).forEach(([key, value]) => {
-        css += `--spacing-${key}: ${value};`
-    })
-    Object.entries(theme.borderRadius).forEach(([key, value]) => {
-        css += `--radius-${key}: ${value};`
-    })
-    css += '}'
-    return css
-}
 export const ifTrue = (condition, styles) => condition ? styles : ''
 export const cx = (...styles) => styles.filter(Boolean).join(' ')
 export const breakpoint = {
@@ -20,14 +5,14 @@ export const breakpoint = {
     md: '@media (max-width: 768px)',
     lg: '@media (max-width: 992px)'
 }
-export const scrollbarStyle = (color = theme.colors.primary) => `
+export const scrollbarStyle = (color = 'var(--adj-brand)') => `
     ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
     }
     ::-webkit-scrollbar-track-piece {
         border-radius: 0;
-        background-color: ${theme.colors.background};
+        background-color: var(--adj-bg-input);
     }
     ::-webkit-scrollbar-thumb:vertical,
     ::-webkit-scrollbar-thumb:horizontal {
@@ -36,7 +21,7 @@ export const scrollbarStyle = (color = theme.colors.primary) => `
     }
     ::-webkit-scrollbar-corner {
         border-radius: 0;
-        background-color: ${theme.colors.backgroundLight};
+        background-color: var(--adj-bg-page);
     }
 `
 export const popoverBaseStyle = (width = '520px') => `
@@ -44,46 +29,46 @@ export const popoverBaseStyle = (width = '520px') => `
     inset: 0;
     margin: auto;
     box-sizing: border-box;
-    padding: ${theme.spacing.xl};
+    padding: var(--adj-space-xl);
     width: ${width};
     max-height: 85vh;
     border: 0;
-    border-radius: ${theme.borderRadius.lg};
-    font-size: ${theme.fontSize.base};
+    border-radius: var(--adj-radius-lg);
+    font-size: var(--adj-font-base);
     overscroll-behavior: contain;
-    background: linear-gradient(180deg, ${theme.colors.backgroundLight} 0%, ${theme.colors.background} 100%);
+    background: linear-gradient(180deg, var(--adj-bg-page) 0%, var(--adj-bg-input) 100%);
     overflow-y: auto;
-    color: ${theme.colors.textPrimary};
-    border: 1px solid ${theme.colors.border};
-    box-shadow: ${theme.shadows.lg}, 0 0 0 1px rgba(0,161,214,0.1);
+    color: var(--adj-text-primary);
+    border: 1px solid var(--adj-border-strong);
+    box-shadow: var(--adj-shadow-lg), 0 0 0 1px rgba(var(--adj-brand-rgb), 0.1);
 `
 export const buttonStyle = (variant = 'primary') => {
     const variants = {
         primary: `
-            background: ${theme.colors.primary};
-            color: #fff;
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
             border-color: transparent;
             &:hover {
-                background: ${theme.colors.primaryHover};
+                background: var(--adj-brand-hover);
                 transform: translateY(-1px);
-                box-shadow: ${theme.shadows.glow};
+                box-shadow: var(--adj-shadow-glow);
             }
         `,
         secondary: `
-            background: ${theme.colors.secondary};
-            color: ${theme.colors.textPrimary};
-            border-color: ${theme.colors.border};
+            background: var(--adj-bg-surface-hover);
+            color: var(--adj-text-primary);
+            border-color: var(--adj-border-strong);
             &:hover {
-                background: ${theme.colors.surface};
+                background: var(--adj-bg-surface);
             }
         `,
         outline: `
             background: transparent;
-            border-color: ${theme.colors.border};
-            color: ${theme.colors.textSecondary};
+            border-color: var(--adj-border-strong);
+            color: var(--adj-text-soft);
             &:hover {
-                background: ${theme.colors.surface};
-                color: ${theme.colors.textPrimary};
+                background: var(--adj-bg-surface);
+                color: var(--adj-text-primary);
             }
         `
     }
@@ -93,17 +78,17 @@ export const buttonStyle = (variant = 'primary') => {
         justify-content: center;
         box-sizing: border-box;
         margin: 0;
-        padding: ${theme.spacing.sm} ${theme.spacing.xl};
+        padding: var(--adj-space-sm) var(--adj-space-xl);
         outline: 0;
         border: 1px solid;
-        border-radius: ${theme.borderRadius.md};
+        border-radius: var(--adj-radius-md);
         text-align: center;
         white-space: nowrap;
         font-weight: 500;
-        font-size: ${theme.fontSize.base};
+        font-size: var(--adj-font-base);
         line-height: 1;
         cursor: pointer;
-        transition: ${theme.transitions.normal};
+        transition: var(--adj-motion-normal);
         -webkit-appearance: none;
         -moz-user-select: none;
         -webkit-user-select: none;
