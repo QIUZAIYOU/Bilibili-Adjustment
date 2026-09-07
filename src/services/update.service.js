@@ -348,9 +348,7 @@ export class UpdateService {
                         d.close()
                     }
                 }
-            ],
-            // 30 秒后自动关闭
-            autoClose: 30000
+            ]
         })
     }
     // 获取最新版本信息：GitHub 优先，失败回退脚本内容提取
