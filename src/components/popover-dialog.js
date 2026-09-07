@@ -29,7 +29,7 @@ import { insertStyleToDocument, enablePopoverLightDismiss } from '@/utils/common
 const DIALOG_CSS = `
     .adjustment-dialog {
         background: #212121;
-        border: 1px solid #333;
+        border: 1px solid #424242;
         border-radius: 16px;
         box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.5);
         padding: 0;
@@ -46,7 +46,7 @@ const DIALOG_CSS = `
         margin: auto;
         inset: 0;
         border: none;
-        width: fit-content;
+        width: 550px;
         max-width: 92vw;
     }
     .adjustment-dialog-header {
