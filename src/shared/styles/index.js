@@ -758,7 +758,8 @@ function generateBilibiliAdjustmentStyle () {
             font-size: 12px;
             font-weight: 600;
             line-height: 1.7;
-            padding: 1px 8px;
+            padding: 5px 6px;
+            margin-right: 5px;
             border-radius: 6px;
             background: rgba(0,161,214,0.15);
             color: #00a1d6;

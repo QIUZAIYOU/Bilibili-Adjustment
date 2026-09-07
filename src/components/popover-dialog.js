@@ -29,16 +29,18 @@ import { insertStyleToDocument, enablePopoverLightDismiss } from '@/utils/common
 const DIALOG_CSS = `
     .adjustment-dialog {
         background: #212121;
-        border: 1px solid #3a3d42;
-        border-radius: 14px;
-        box-shadow: 0 10px 40px rgba(0,0,0,0.55);
+        border: 1px solid #333;
+        border-radius: 16px;
+        box-shadow: 0 24px 48px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(0, 0, 0, 0.5);
         padding: 0;
-        color: #eee;
+        color: #f0f0f0;
         font-size: 14px;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         overflow: hidden;
-        max-height: 86vh;
+        max-height: 88vh;
         display: flex;
         flex-direction: column;
+        animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .adjustment-dialog[popover] {
         margin: auto;
