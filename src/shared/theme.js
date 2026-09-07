@@ -1,3 +1,9 @@
+/**
+ * 弹窗/浮层 UI 配色规范（通用弹窗组件 adjustment-dialog 及内部元素）：
+ * 1. 弹窗外层背景： #212121
+ * 2. 外层背景为 #212121 时，内部元素需要背景色一律用 #2c2c2c
+ * 3. 边框色始终用 #424242（即下方 theme.colors.border）
+ */
 export const theme = {
     colors: {
         primary: '#00a1d6',
@@ -14,7 +20,7 @@ export const theme = {
         textSecondary: '#a0a0a0',
         textDisabled: '#666',
         textMuted: '#555',
-        border: '#2a2a2a',
+        border: '#424242',
         borderLight: '#333',
         borderHover: '#444',
         success: '#2ed573',

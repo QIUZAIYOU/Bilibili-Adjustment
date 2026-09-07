@@ -1,7 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
-import { createElementAndInsert, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
-import { getTemplates } from '@/shared/templates'
+import { escapeHtml } from '@/utils/common'
+import { openAdjustmentDialog } from '@/components/popover-dialog'
 const logger = new LoggerService('UpdateService')
 export class UpdateService {
     static #cacheKey = 'latestScriptCache'
@@ -334,45 +334,26 @@ export class UpdateService {
     }
     // 显示更新弹窗
     #showUpdatePopover (currentVersion, latestVersion, updateContentsHtml) {
-        // 检查是否已有更新弹窗，避免重复显示
-        const existingPopover = document.getElementById('UpdatePopover')
-        if (existingPopover) {
-            existingPopover.__popoverDismissCleanup?.()
-            existingPopover.remove()
-        }
-        const updatePopover = createElementAndInsert(getTemplates.replace('update', {
-            current: currentVersion,
-            latest: latestVersion,
-            contents: updateContentsHtml
-        }), document.body, 'append')
-        // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
-        updatePopover.__popoverDismissCleanup = enablePopoverLightDismiss(updatePopover)
-        // 关闭后移除容器（统一关闭逻辑），下次检查更新时重新创建
-        updatePopover.addEventListener('toggle', e => {
-            if (e.newState === 'closed') {
-                updatePopover.__popoverDismissCleanup?.()
-                updatePopover.__popoverDismissCleanup = null
-                updatePopover.remove()
-            }
+        openAdjustmentDialog({
+            key: 'update-notice',
+            title: '哔哩哔哩调整 · 有新版本',
+            subtitle: '（点击更新按钮安装最新版）',
+            width: 560,
+            content: '<div class="adjustment-form"><div class="adjustment-form-item"><div class="adjustment-version"><div>当前版本: ' + escapeHtml(currentVersion) + '</div><div>最新版本: ' + escapeHtml(latestVersion) + '</div></div>' + updateContentsHtml + '</div></div>',
+            actions: [
+                { text: '关闭', type: 'info', onClick: d => d.close() },
+                {
+                    text: '更新',
+                    type: 'primary',
+                    onClick: d => {
+                        window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+                        d.close()
+                    }
+                }
+            ],
+            // 30 秒后自动关闭
+            autoClose: 30000
         })
-        updatePopover.showPopover()
-        const updateButton = updatePopover.querySelector('.adjustment-button-update')
-        const closeButton = updatePopover.querySelector('.adjustment-button-close')
-        updateButton.addEventListener('click', () => {
-            window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
-            updatePopover.hidePopover()
-        })
-        if (closeButton) {
-            closeButton.addEventListener('click', () => {
-                updatePopover.hidePopover()
-            })
-        }
-        // 30秒后自动关闭弹窗
-        setTimeout(() => {
-            if (updatePopover && updatePopover.isConnected) {
-                updatePopover.hidePopover()
-            }
-        }, 30000)
     }
     // 获取最新版本信息：GitHub 优先，失败回退脚本内容提取
     async #fetchLatestVersionInfo () {

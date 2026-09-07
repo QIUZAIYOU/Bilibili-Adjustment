@@ -3,8 +3,9 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
-import { createElementAndInsert, addEventListenerToElement, showPlayerTooltip, hidePlayerTooltip, popoverManager, enablePopoverLightDismiss, adjustmentConfirm, escapeHtml } from '@/utils/common'
+import { adjustmentConfirm, escapeHtml } from '@/utils/common'
 import { getTemplates } from '@/shared/templates'
+import { openAdjustmentDialog } from '@/components/popover-dialog'
 const logger = new LoggerService('VideoModule')
 const SKIP_CACHE_API = 'https://www.asifadeaway.com/UserScripts/bilibili/api/ad-cache.php'
 
@@ -279,7 +280,6 @@ export const adSkipFeatures = {
             if (appendBtn) appendBtn.style.display = visible ? 'flex' : 'none'
             if (overwriteBtn) overwriteBtn.style.display = visible ? 'flex' : 'none'
         }
-        const popoverId = 'SkipSegmentManagerPopover'
         const self = this
 
         // --- 可变状态，由事件处理器共享引用 ---
@@ -307,19 +307,19 @@ export const adSkipFeatures = {
         }
         const state = this._skipMgrState
 
-        // --- DOM 元素（首次创建时获取，后续复用） ---
-        let popover = document.getElementById(popoverId)
-        // 热更新残留/状态不一致的旧弹窗：销毁重建，确保本次代码的初始化（按钮绑定、函数赋值）完整执行
-        if (popover && !popover._skipMgrReady) {
-            popover.__popoverDismissCleanup?.()
-            popover.remove()
-            popover = null
-        }
-        if (!popover) {
-            popover = createElementAndInsert(getTemplates.skipSegmentManagerPopover, document.body, 'append')
-            popoverManager.register(popoverId)
-            popoverManager.init(popoverId, popover)
-            popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
+        // --- DOM：通过通用弹窗组件创建（每次打开全新构建；关闭即销毁 DOM，状态保留于 this._skipMgrState） ---
+        const dialog = openAdjustmentDialog({
+            key: 'skip-manager',
+            title: '跳过片段管理',
+            titleTag: '测试',
+            width: 500,
+            className: 'skip-manager-dialog',
+            content: bodyEl => {
+                bodyEl.insertAdjacentHTML('beforeend', getTemplates.skipSegmentManagerPopover)
+            }
+        })
+        const popover = dialog.root
+        {
 
             const content = document.getElementById('SkipSegmentManagerContent')
             appendBtn = document.getElementById('SkipSegmentManagerAppendBtn')
@@ -400,7 +400,13 @@ export const adSkipFeatures = {
                     const time = new Date(cacheInfo.last_updated).toLocaleString('zh-CN')
                     html += '<div class="cache-info"><div class="cache-meta">上传者 UID: ' + (cacheInfo.uploader_uid || '未知') + '</div>'
                     html += '<div class="cache-meta">更新时间: ' + time + '</div>'
-                    html += '<div class="cache-meta">版本: v' + (cacheInfo.version || 1) + '</div></div>'
+                    html += '<div class="cache-meta">版本: v' + (cacheInfo.version || 1) + '</div>'
+                    // 仅上传者本人、且当前展示的是已落库缓存时才显示锁定/解锁
+                    const ownerUid = getCurrentUid()
+                    if (cacheInfo === state.cached && cacheInfo.uploader_uid && cacheInfo.uploader_uid === ownerUid) {
+                        html += '<div class="cache-meta cache-lock-row"><span class="cache-lock-state">' + (cacheInfo.locked ? '已锁定：他人无法修改此数据' : '未锁定：他人可修改') + '</span><div class="cache-lock-btn adjustment-button ' + (cacheInfo.locked ? 'info' : 'danger') + '">' + (cacheInfo.locked ? '解锁' : '锁定') + '</div></div>'
+                    }
+                    html += '</div>'
                 }
 
                 if (!segments || segments.length === 0) {
@@ -424,6 +430,27 @@ export const adSkipFeatures = {
                     })
                 })
 
+                // 锁定/解锁（仅上传者本人可见）
+                const lockBtn = content.querySelector('.cache-lock-btn')
+                if (lockBtn) {
+                    lockBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation()
+                        if (!state.cached || !self.setCacheLocked) return
+                        const nextLock = !state.cached.locked
+                        lockBtn.style.pointerEvents = 'none'
+                        lockBtn.style.opacity = '0.5'
+                        const entry = await self.setCacheLocked(state.bvid, state.cached, nextLock)
+                        if (entry) {
+                            state.cached = entry
+                            renderSegments(entry.segments, entry)
+                            showInlineMsg(nextLock ? '已锁定，他人将无法修改此片段数据' : '已解锁，他人可再次修改', 'success', 4000)
+                        } else {
+                            lockBtn.style.pointerEvents = ''
+                            lockBtn.style.opacity = ''
+                        }
+                    })
+                }
+
                 if (state.canUpdate && segments && segments.length > 0) {
                     updateBtnsVisible(true)
                 } else {
@@ -440,6 +467,12 @@ export const adSkipFeatures = {
                 const cachedSegments = mergeSegments(state.cached?.segments || [])
                 const stagingSegments = state.stagingSegments
                 let bodyHtml = ''
+
+                // 仅上传者本人显示该集缓存的锁定/解锁
+                const ownerUid = getCurrentUid()
+                if (state.cached && state.cached.uploader_uid && state.cached.uploader_uid === ownerUid) {
+                    bodyHtml += '<div class="accordion-owner-row"><span>' + (state.cached.locked ? '已锁定：他人无法修改此集数据' : '未锁定：他人可修改') + '</span><div class="adjustment-button accordion-lock-btn ' + (state.cached.locked ? 'info' : 'danger') + '">' + (state.cached.locked ? '解锁' : '锁定') + '</div></div>'
+                }
 
                 // 已有片段（只读参考）
                 bodyHtml += '<div class="cached-section">'
@@ -491,6 +524,27 @@ export const adSkipFeatures = {
                     '</div>'
 
                 body.innerHTML = bodyHtml
+
+                // 锁定/解锁（仅上传者本人可见的行会渲染该按钮）
+                const accordionLockBtn = body.querySelector('.accordion-lock-btn')
+                if (accordionLockBtn) {
+                    accordionLockBtn.addEventListener('click', async (e) => {
+                        e.stopPropagation()
+                        if (!state.cached || !self.setCacheLocked) return
+                        const nextLock = !state.cached.locked
+                        accordionLockBtn.style.pointerEvents = 'none'
+                        accordionLockBtn.style.opacity = '0.5'
+                        const entry = await self.setCacheLocked(state.bvid, state.cached, nextLock)
+                        if (entry) {
+                            state.cached = entry
+                            renderAccordionBody(body, ep)
+                            showInlineMsg(nextLock ? '已锁定，他人将无法修改此集数据' : '已解锁，他人可再次修改', 'success', 4000)
+                        } else {
+                            accordionLockBtn.style.pointerEvents = ''
+                            accordionLockBtn.style.opacity = ''
+                        }
+                    })
+                }
 
                 // 渲染暂存区列表
                 const stagingList = body.querySelector('.staging-list')
@@ -831,7 +885,6 @@ export const adSkipFeatures = {
             }
 
             // ===== 番剧页：手风琴剧集列表相关函数 =====
-            const backBtn = document.getElementById('SkipSegmentManagerBackBtn')
 
             // 生成片段预览文本（如 "0:30-1:00, 5:15-5:45"）
             const formatSegmentPreview = (segments) => {
@@ -851,7 +904,6 @@ export const adSkipFeatures = {
                 updateBtnsVisible(false)
                 updateAllBtn.style.display = 'none'
                 reIdentifyBtn.style.display = 'none'
-                backBtn.style.display = 'none'
 
                 // 显示手风琴列表
                 episodeAccordionEl.style.display = 'flex'
@@ -1095,18 +1147,6 @@ export const adSkipFeatures = {
             const restoreBottomButtons = () => {
                 manualBtn.style.display = ''
             }
-
-            // 返回按钮（手风琴模式下隐藏，因为不再需要返回）
-            backBtn.addEventListener('click', (e) => {
-                e.stopPropagation()
-                // 手风琴模式下不需要返回
-            })
-
-            // 关闭按钮
-            document.getElementById('SkipSegmentManagerCloseButton').addEventListener('click', (e) => {
-                e.stopPropagation()
-                popoverManager.hide(popoverId)
-            })
 
             // 手动添加表单：添加片段到待定列表
             manualAddBtn.addEventListener('click', (e) => {
@@ -1381,7 +1421,6 @@ export const adSkipFeatures = {
                 await submitMainCache(finalSegments, '缓存已更新（覆盖）')
             })
 
-            popover._skipMgrReady = true
         }
 
         // --- 每次打开时更新状态并渲染 ---
@@ -1402,7 +1441,6 @@ export const adSkipFeatures = {
             manualEntry.style.display = 'none'
             updateBtnsVisible(false)
             updateAllBtn.style.display = 'none'
-            popoverManager.show(popoverId)
 
             let videoInfo = null
             try {
@@ -1462,12 +1500,10 @@ export const adSkipFeatures = {
         if (hasCache) {
             renderSegments(cached.segments, cached)
             manualEntry.style.display = 'none'
-            popoverManager.show(popoverId)
         } else {
             content.innerHTML = '<div class="loading">正在查询缓存...</div>'
             updateBtnsVisible(false)
             manualEntry.style.display = 'none'
-            popoverManager.show(popoverId)
 
             try {
                 const resp = await fetch(SKIP_CACHE_API + '?bvid=' + bvid)
@@ -1585,5 +1621,27 @@ export const adSkipFeatures = {
         }
 
         return result
+    },
+    // 锁定/解锁片段缓存（仅上传者本人操作）：locked=1 后他人无法修改，上传者解锁后可继续编辑
+    async setCacheLocked (bvid, cacheEntry, locked) {
+        if (!cacheEntry) return null
+        const entry = { ...cacheEntry, locked: locked ? 1 : 0 }
+        try {
+            await storageService.adCacheSet(bvid, entry)
+        } catch (error) {
+            logger.error('跳过片段管理丨缓存锁定状态本地保存失败', error)
+            return null
+        }
+        try {
+            await fetch(SKIP_CACHE_API, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(entry)
+            })
+            logger.info('跳过片段管理丨缓存已' + (locked ? '锁定' : '解锁'))
+        } catch (error) {
+            logger.debug('跳过片段管理丨缓存锁定状态远程同步失败', error)
+        }
+        return entry
     }
 }

@@ -5,7 +5,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { stylesV2 } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
-const logger = new LoggerService('VideoModule')
+const logger = new LoggerService('VideoModule', { notify: false })
 export const playerModeFeatures = {
     async autoSelectPlayerMode () {
         // 电影播放页若默认宽屏则跳过（电影页本身已宽屏，重复执行会退出宽屏）

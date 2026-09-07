@@ -123,46 +123,6 @@ export const videoPageStyles = {
             background: #333;
         }
 
-        #SkipSegmentManagerPopover {
-            width: min(500px, 90vw);
-            max-height: 70vh;
-            padding: 0;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-        }
-
-        #SkipSegmentManagerPopover .adjustment-popover-header {
-            flex-shrink: 0;
-            padding: 14px 20px;
-        }
-
-        #SkipSegmentManagerPopover .adjustment-popover-header-top {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        #SkipSegmentManagerPopover .adjustment-popover-title {
-            font-size: 18px;
-            font-weight: 600;
-            color: #fff;
-        }
-
-        #SkipSegmentManagerCloseButton {
-            cursor: pointer;
-            font-size: 16px;
-            color: #888;
-            line-height: 1;
-            padding: 4px 8px;
-            border-radius: 6px;
-            user-select: none;
-        }
-
-        #SkipSegmentManagerCloseButton:hover {
-            color: #fff;
-            background: #333;
-        }
 
         .adjustment-popover-back {
             cursor: pointer;
@@ -184,14 +144,49 @@ export const videoPageStyles = {
 
 
 
-        #SkipSegmentManagerPopover .adjustment-popover-content {
+        .skip-manager-dialog { width: min(500px, 92vw) !important; }
+        .skip-manager-dialog .cache-lock-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .skip-manager-dialog .cache-lock-state {
+            font-size: 12px;
+            color: #999;
+        }
+        .skip-manager-dialog .cache-lock-btn,
+        .skip-manager-dialog .accordion-lock-btn {
+            cursor: pointer;
+            padding: 3px 10px;
+            font-size: 12px;
+            border-radius: 6px;
+            user-select: none;
+            white-space: nowrap;
+        }
+        .skip-manager-dialog .accordion-owner-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
+            border: 1px solid #424242;
+            border-radius: 8px;
+            background: #2c2c2c;
+            color: #ccc;
+            font-size: 12px;
+        }
+
+        .skip-manager-dialog > .adjustment-dialog-body { padding: 0; }
+        .skip-manager-dialog .adjustment-popover-content {
             flex: 1;
             overflow-y: auto;
             padding: 20px;
             min-height: 80px;
         }
 
-        #SkipSegmentManagerPopover .empty-tip {
+        .skip-manager-dialog .empty-tip {
             text-align: center;
             color: #666;
             font-size: 13px;
@@ -199,20 +194,20 @@ export const videoPageStyles = {
             margin: -12px 0 28px;
         }
 
-        #SkipSegmentManagerPopover .empty-result,
-        #SkipSegmentManagerPopover .loading,
-        #SkipSegmentManagerPopover .error,
-        #SkipSegmentManagerPopover .success {
+        .skip-manager-dialog .empty-result,
+        .skip-manager-dialog .loading,
+        .skip-manager-dialog .error,
+        .skip-manager-dialog .success {
             text-align: center;
             padding: 40px 0 24px;
             color: #868686;
         }
 
-        #SkipSegmentManagerPopover .empty-result { padding: 24px; }
-        #SkipSegmentManagerPopover .error { color: #f56c6c; }
-        #SkipSegmentManagerPopover .success { color: #67c23a; }
+        .skip-manager-dialog .empty-result { padding: 24px; }
+        .skip-manager-dialog .error { color: #f56c6c; }
+        .skip-manager-dialog .success { color: #67c23a; }
 
-        #SkipSegmentManagerPopover .cache-info {
+        .skip-manager-dialog .cache-info {
             padding: 12px;
             margin-bottom: 16px;
             background: rgba(0,161,214,0.08);
@@ -220,25 +215,25 @@ export const videoPageStyles = {
             border: 1px solid rgba(0,161,214,0.15);
         }
 
-        #SkipSegmentManagerPopover .cache-meta {
+        .skip-manager-dialog .cache-meta {
             font-size: 13px;
             color: #868686;
             line-height: 1.6;
         }
 
-        #SkipSegmentManagerPopover .segment-count {
+        .skip-manager-dialog .segment-count {
             margin: 16px 0;
             color: #fff;
             font-size: 15px;
         }
 
-        #SkipSegmentManagerPopover .segment-list {
+        .skip-manager-dialog .segment-list {
             display: flex;
             flex-direction: column;
             gap: 10px;
         }
 
-        #SkipSegmentManagerPopover .segment-item {
+        .skip-manager-dialog .segment-item {
             display: flex;
             align-items: center;
             gap: 12px;
@@ -249,18 +244,18 @@ export const videoPageStyles = {
             transition: background 0.2s;
         }
 
-        #SkipSegmentManagerPopover .segment-item:hover {
+        .skip-manager-dialog .segment-item:hover {
             background: rgba(255,255,255,0.08);
         }
 
-        #SkipSegmentManagerPopover .segment-index {
+        .skip-manager-dialog .segment-index {
             color: #00a1d6;
             font-weight: 600;
             font-size: 14px;
             min-width: 20px;
         }
 
-        #SkipSegmentManagerPopover .segment-time {
+        .skip-manager-dialog .segment-time {
             color: #fff;
             font-family: monospace;
             font-size: 14px;
@@ -270,7 +265,7 @@ export const videoPageStyles = {
             flex-shrink: 0;
         }
 
-        #SkipSegmentManagerPopover .segment-summary {
+        .skip-manager-dialog .segment-summary {
             flex: 1;
             min-width: 0;
             color: #999;
@@ -285,7 +280,7 @@ export const videoPageStyles = {
             -webkit-box-orient: vertical;
         }
 
-        #SkipSegmentManagerPopover .segment-item .segment-delete {
+        .skip-manager-dialog .segment-item .segment-delete {
             margin-left: auto;
             cursor: pointer;
             color: #868686;
@@ -296,16 +291,16 @@ export const videoPageStyles = {
             opacity: 0;
         }
 
-        #SkipSegmentManagerPopover .segment-item:hover .segment-delete {
+        .skip-manager-dialog .segment-item:hover .segment-delete {
             opacity: 1;
         }
 
-        #SkipSegmentManagerPopover .segment-delete:hover {
+        .skip-manager-dialog .segment-delete:hover {
             color: #f56c6c;
             background: rgba(245,108,108,0.15);
         }
 
-        #SkipSegmentManagerPopover .manual-entry-section {
+        .skip-manager-dialog .manual-entry-section {
             padding: 12px 20px 16px;
             border-top: 1px solid #424242;
             display: flex;
@@ -313,7 +308,7 @@ export const videoPageStyles = {
             gap: 10px;
         }
 
-        #SkipSegmentManagerPopover .inline-msg {
+        .skip-manager-dialog .inline-msg {
             font-size: 13px;
             border-radius: 6px;
             padding: 0;
@@ -322,7 +317,7 @@ export const videoPageStyles = {
             transition: all 0.2s;
         }
 
-        #SkipSegmentManagerPopover .inline-msg.warn {
+        .skip-manager-dialog .inline-msg.warn {
             color: #e6a23c;
             background: rgba(230,162,60,0.1);
             border: 1px solid rgba(230,162,60,0.2);
@@ -330,7 +325,7 @@ export const videoPageStyles = {
             max-height: 60px;
         }
 
-        #SkipSegmentManagerPopover .inline-msg.success {
+        .skip-manager-dialog .inline-msg.success {
             color: #67c23a;
             background: rgba(103,194,58,0.1);
             border: 1px solid rgba(103,194,58,0.2);
@@ -338,32 +333,32 @@ export const videoPageStyles = {
             max-height: 60px;
         }
 
-        #SkipSegmentManagerPopover .manual-entry-form {
+        .skip-manager-dialog .manual-entry-form {
             display: flex;
             align-items: flex-end;
             gap: 10px;
         }
 
-        #SkipSegmentManagerPopover .time-inputs {
+        .skip-manager-dialog .time-inputs {
             display: flex;
             align-items: flex-end;
             gap: 8px;
             flex: 1;
         }
 
-        #SkipSegmentManagerPopover .time-input-group {
+        .skip-manager-dialog .time-input-group {
             display: flex;
             flex-direction: column;
             gap: 4px;
             flex: 1;
         }
 
-        #SkipSegmentManagerPopover .time-input-group label {
+        .skip-manager-dialog .time-input-group label {
             font-size: 12px;
             color: #868686;
         }
 
-        #SkipSegmentManagerPopover .time-input {
+        .skip-manager-dialog .time-input {
             background: #2a2a2a;
             border: 1px solid #424242;
             border-radius: 6px;
@@ -375,30 +370,30 @@ export const videoPageStyles = {
             box-sizing: border-box;
         }
 
-        #SkipSegmentManagerPopover .time-input:focus {
+        .skip-manager-dialog .time-input:focus {
             border-color: #00a1d6;
             outline: none;
         }
 
-        #SkipSegmentManagerPopover .time-separator {
+        .skip-manager-dialog .time-separator {
             color: #868686;
             font-size: 14px;
             padding-bottom: 8px;
         }
 
-        #SkipSegmentManagerPopover .manual-add-btn {
+        .skip-manager-dialog .manual-add-btn {
             padding: 8px 16px;
             white-space: nowrap;
             flex-shrink: 0;
         }
 
-        #SkipSegmentManagerPopover .pending-list {
+        .skip-manager-dialog .pending-list {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
 
-        #SkipSegmentManagerPopover .pending-item {
+        .skip-manager-dialog .pending-item {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -409,7 +404,7 @@ export const videoPageStyles = {
             font-size: 13px;
         }
 
-        #SkipSegmentManagerPopover .pending-item .segment-time {
+        .skip-manager-dialog .pending-item .segment-time {
             background: rgba(0,161,214,0.12);
             padding: 2px 8px;
             border-radius: 4px;
@@ -418,7 +413,7 @@ export const videoPageStyles = {
             color: #fff;
         }
 
-        #SkipSegmentManagerPopover .pending-item .pending-delete {
+        .skip-manager-dialog .pending-item .pending-delete {
             margin-left: auto;
             cursor: pointer;
             color: #868686;
@@ -427,20 +422,20 @@ export const videoPageStyles = {
             border-radius: 3px;
         }
 
-        #SkipSegmentManagerPopover .pending-item .pending-delete:hover {
+        .skip-manager-dialog .pending-item .pending-delete:hover {
             color: #f56c6c;
             background: rgba(245,108,108,0.15);
         }
 
-        #SkipSegmentManagerPopover .input-mode-toggle {
+        .skip-manager-dialog .input-mode-toggle {
             display: flex;
             align-items: center;
             justify-content: center;
             margin-bottom: 8px;
         }
 
-        #SkipSegmentManagerPopover .input-mode-btn,
-        #SkipSegmentManagerPopover .accordion-manual-entry .input-mode-btn {
+        .skip-manager-dialog .input-mode-btn,
+        .skip-manager-dialog .accordion-manual-entry .input-mode-btn {
             background: rgba(0,161,214,0.15);
             border: 1px solid rgba(0,161,214,0.3);
             border-radius: 6px;
@@ -453,32 +448,32 @@ export const videoPageStyles = {
             box-sizing: border-box;
         }
 
-        #SkipSegmentManagerPopover .input-mode-btn:hover,
-        #SkipSegmentManagerPopover .accordion-manual-entry .input-mode-btn:hover {
+        .skip-manager-dialog .input-mode-btn:hover,
+        .skip-manager-dialog .accordion-manual-entry .input-mode-btn:hover {
             background: rgba(0,161,214,0.25);
         }
 
-        #SkipSegmentManagerPopover .adjustment-button.danger {
+        .skip-manager-dialog .adjustment-button.danger {
             background: rgba(245,108,108,0.15);
             border: 1px solid rgba(245,108,108,0.3);
             color: #f56c6c;
         }
 
-        #SkipSegmentManagerPopover .adjustment-button.danger:hover {
+        .skip-manager-dialog .adjustment-button.danger:hover {
             background: rgba(245,108,108,0.25);
         }
 
-        #SkipSegmentManagerPopover .adjustment-button.info {
+        .skip-manager-dialog .adjustment-button.info {
             background: rgba(0,161,214,0.15);
             border: 1px solid rgba(0,161,214,0.3);
             color: #00a1d6;
         }
 
-        #SkipSegmentManagerPopover .adjustment-button.info:hover {
+        .skip-manager-dialog .adjustment-button.info:hover {
             background: rgba(0,161,214,0.25);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion {
+        .skip-manager-dialog .episode-accordion {
             display: flex;
             flex-direction: column;
             gap: 0;
@@ -487,19 +482,19 @@ export const videoPageStyles = {
             padding: 16px 20px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-item {
+        .skip-manager-dialog .episode-accordion-item {
             border: 1px solid rgba(255,255,255,0.06);
             border-radius: 8px;
             margin-bottom: 6px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-item:has(.episode-accordion-body.expanded) {
+        .skip-manager-dialog .episode-accordion-item:has(.episode-accordion-body.expanded) {
             border-color: rgba(0,161,214,0.3);
             z-index: 1;
             position: relative;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header {
+        .skip-manager-dialog .episode-accordion-header {
             display: flex;
             align-items: center;
             gap: 12px;
@@ -509,27 +504,27 @@ export const videoPageStyles = {
             border-radius: 8px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header.active {
+        .skip-manager-dialog .episode-accordion-header.active {
             border-radius: 8px 8px 0 0;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header:hover {
+        .skip-manager-dialog .episode-accordion-header:hover {
             background: rgba(255,255,255,0.08);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header.active {
+        .skip-manager-dialog .episode-accordion-header.active {
             background: rgba(0,161,214,0.12);
             border-color: rgba(0,161,214,0.4);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header .episode-index {
+        .skip-manager-dialog .episode-accordion-header .episode-index {
             color: #00a1d6;
             font-weight: 600;
             font-size: 14px;
             min-width: 24px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header .episode-title {
+        .skip-manager-dialog .episode-accordion-header .episode-title {
             color: #ccc;
             font-size: 13px;
             flex: 1;
@@ -538,12 +533,12 @@ export const videoPageStyles = {
             white-space: nowrap;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header.active .episode-title {
+        .skip-manager-dialog .episode-accordion-header.active .episode-title {
             color: #fff;
             font-weight: 500;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header .episode-segment-preview {
+        .skip-manager-dialog .episode-accordion-header .episode-segment-preview {
             color: #868686;
             font-size: 12px;
             font-family: monospace;
@@ -554,22 +549,22 @@ export const videoPageStyles = {
             flex-shrink: 0;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header .episode-segment-preview.has-segments {
+        .skip-manager-dialog .episode-accordion-header .episode-segment-preview.has-segments {
             color: #00a1d6;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header .accordion-arrow {
+        .skip-manager-dialog .episode-accordion-header .accordion-arrow {
             color: #868686;
             font-size: 12px;
             transition: transform 0.3s ease;
             flex-shrink: 0;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-header.active .accordion-arrow {
+        .skip-manager-dialog .episode-accordion-header.active .accordion-arrow {
             transform: rotate(180deg);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body {
+        .skip-manager-dialog .episode-accordion-body {
             max-height: 0;
             overflow: hidden;
             transition: max-height 0.3s ease, padding 0.3s ease;
@@ -579,22 +574,22 @@ export const videoPageStyles = {
             border-top: 1px solid transparent;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body.expanded {
+        .skip-manager-dialog .episode-accordion-body.expanded {
             border-top-color: rgba(0,161,214,0.2);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body.expanded {
+        .skip-manager-dialog .episode-accordion-body.expanded {
             max-height: 600px;
             padding: 14px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body .segment-list {
+        .skip-manager-dialog .episode-accordion-body .segment-list {
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
             gap: 6px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body .segment-item {
+        .skip-manager-dialog .episode-accordion-body .segment-item {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -604,7 +599,7 @@ export const videoPageStyles = {
             border: 1px solid rgba(255,255,255,0.06);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body .segment-time {
+        .skip-manager-dialog .episode-accordion-body .segment-time {
             color: #fff;
             font-family: monospace;
             font-size: 12px;
@@ -613,13 +608,13 @@ export const videoPageStyles = {
             border-radius: 4px;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body .empty-result {
+        .skip-manager-dialog .episode-accordion-body .empty-result {
             color: #666;
             font-size: 13px;
             padding: 12px 0;
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body .accordion-actions {
+        .skip-manager-dialog .episode-accordion-body .accordion-actions {
             display: flex;
             flex-wrap: wrap;
             gap: 8px;
@@ -628,45 +623,45 @@ export const videoPageStyles = {
             border-top: 1px solid rgba(255,255,255,0.06);
         }
 
-        #SkipSegmentManagerPopover .episode-accordion-body .accordion-actions .adjustment-button {
+        .skip-manager-dialog .episode-accordion-body .accordion-actions .adjustment-button {
             flex: 1 1 calc(50% - 4px);
             min-width: 0;
             font-size: 12px;
             padding: 6px 8px;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry {
+        .skip-manager-dialog .accordion-manual-entry {
             margin-top: 10px;
             padding-top: 10px;
             border-top: 1px solid rgba(255,255,255,0.06);
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .manual-entry-form {
+        .skip-manager-dialog .accordion-manual-entry .manual-entry-form {
             display: flex;
             align-items: flex-end;
             gap: 10px;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .time-inputs {
+        .skip-manager-dialog .accordion-manual-entry .time-inputs {
             display: flex;
             align-items: flex-end;
             gap: 8px;
             flex: 1;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .time-input-group {
+        .skip-manager-dialog .accordion-manual-entry .time-input-group {
             display: flex;
             flex-direction: column;
             gap: 4px;
             flex: 1;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .time-input-group label {
+        .skip-manager-dialog .accordion-manual-entry .time-input-group label {
             font-size: 12px;
             color: #868686;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .time-input {
+        .skip-manager-dialog .accordion-manual-entry .time-input {
             background: #2a2a2a;
             border: 1px solid #424242;
             border-radius: 6px;
@@ -678,18 +673,18 @@ export const videoPageStyles = {
             box-sizing: border-box;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .time-input:focus {
+        .skip-manager-dialog .accordion-manual-entry .time-input:focus {
             border-color: #00a1d6;
             outline: none;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .time-separator {
+        .skip-manager-dialog .accordion-manual-entry .time-separator {
             color: #868686;
             font-size: 14px;
             padding-bottom: 8px;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-add-btn {
+        .skip-manager-dialog .accordion-manual-entry .accordion-add-btn {
             padding: 8px 14px;
             white-space: nowrap;
             flex-shrink: 0;
@@ -701,11 +696,11 @@ export const videoPageStyles = {
             cursor: pointer;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-add-btn:hover {
+        .skip-manager-dialog .accordion-manual-entry .accordion-add-btn:hover {
             background: #00b8e6;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-cancel-edit-btn {
+        .skip-manager-dialog .accordion-manual-entry .accordion-cancel-edit-btn {
             padding: 8px 14px;
             white-space: nowrap;
             flex-shrink: 0;
@@ -717,24 +712,24 @@ export const videoPageStyles = {
             cursor: pointer;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .accordion-cancel-edit-btn:hover {
+        .skip-manager-dialog .accordion-manual-entry .accordion-cancel-edit-btn:hover {
             background: #333;
         }
 
-        #SkipSegmentManagerPopover .accordion-manual-entry .form-actions {
+        .skip-manager-dialog .accordion-manual-entry .form-actions {
             display: flex;
             gap: 6px;
             align-items: flex-end;
         }
 
-        #SkipSegmentManagerPopover .accordion-pending-list {
+        .skip-manager-dialog .accordion-pending-list {
             display: flex;
             flex-direction: column;
             gap: 6px;
             margin-top: 8px;
         }
 
-        #SkipSegmentManagerPopover .accordion-pending-list .pending-item {
+        .skip-manager-dialog .accordion-pending-list .pending-item {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -745,7 +740,7 @@ export const videoPageStyles = {
             font-size: 13px;
         }
 
-        #SkipSegmentManagerPopover .accordion-pending-list .pending-item .segment-time {
+        .skip-manager-dialog .accordion-pending-list .pending-item .segment-time {
             background: rgba(0,161,214,0.12);
             padding: 2px 8px;
             border-radius: 4px;
@@ -754,7 +749,7 @@ export const videoPageStyles = {
             color: #fff;
         }
 
-        #SkipSegmentManagerPopover .accordion-pending-list .pending-item .pending-delete {
+        .skip-manager-dialog .accordion-pending-list .pending-item .pending-delete {
             margin-left: auto;
             cursor: pointer;
             color: #868686;
@@ -763,12 +758,12 @@ export const videoPageStyles = {
             border-radius: 3px;
         }
 
-        #SkipSegmentManagerPopover .accordion-pending-list .pending-item .pending-delete:hover {
+        .skip-manager-dialog .accordion-pending-list .pending-item .pending-delete:hover {
             color: #f56c6c;
             background: rgba(245,108,108,0.15);
         }
 
-        #SkipSegmentManagerPopover .accordion-inline-msg {
+        .skip-manager-dialog .accordion-inline-msg {
             font-size: 13px;
             border-radius: 6px;
             padding: 0;
@@ -777,7 +772,7 @@ export const videoPageStyles = {
             transition: all 0.2s;
         }
 
-        #SkipSegmentManagerPopover .accordion-inline-msg.warn {
+        .skip-manager-dialog .accordion-inline-msg.warn {
             color: #e6a23c;
             background: rgba(230,162,60,0.1);
             border: 1px solid rgba(230,162,60,0.2);
@@ -785,7 +780,7 @@ export const videoPageStyles = {
             max-height: 60px;
         }
 
-        #SkipSegmentManagerPopover .accordion-inline-msg.success {
+        .skip-manager-dialog .accordion-inline-msg.success {
             color: #67c23a;
             background: rgba(103,194,58,0.1);
             border: 1px solid rgba(103,194,58,0.2);
@@ -794,13 +789,13 @@ export const videoPageStyles = {
         }
 
         /* 暂存区样式 */
-        #SkipSegmentManagerPopover .cached-section,
-        #SkipSegmentManagerPopover .staging-section {
+        .skip-manager-dialog .cached-section,
+        .skip-manager-dialog .staging-section {
             margin-bottom: 8px;
         }
 
-        #SkipSegmentManagerPopover .cached-section-header,
-        #SkipSegmentManagerPopover .staging-header {
+        .skip-manager-dialog .cached-section-header,
+        .skip-manager-dialog .staging-header {
             display: flex;
             align-items: center;
             gap: 8px;
@@ -811,31 +806,31 @@ export const videoPageStyles = {
             border-bottom: 1px solid rgba(255,255,255,0.06);
         }
 
-        #SkipSegmentManagerPopover .cached-count,
-        #SkipSegmentManagerPopover .staging-count {
+        .skip-manager-dialog .cached-count,
+        .skip-manager-dialog .staging-count {
             font-size: 11px;
             padding: 1px 6px;
             border-radius: 3px;
             background: rgba(255,255,255,0.06);
         }
 
-        #SkipSegmentManagerPopover .staging-count {
+        .skip-manager-dialog .staging-count {
             background: rgba(0,161,214,0.12);
             color: #00a1d6;
         }
 
-        #SkipSegmentManagerPopover .cached-segment-list .segment-item.cached-item .segment-time {
+        .skip-manager-dialog .cached-segment-list .segment-item.cached-item .segment-time {
             background: rgba(255,255,255,0.04);
             color: #999;
         }
 
-        #SkipSegmentManagerPopover .staging-list {
+        .skip-manager-dialog .staging-list {
             display: flex;
             flex-direction: column;
             gap: 4px;
         }
 
-        #SkipSegmentManagerPopover .staging-item {
+        .skip-manager-dialog .staging-item {
             display: flex;
             align-items: center;
             padding: 5px 10px;
@@ -845,30 +840,30 @@ export const videoPageStyles = {
             transition: all 0.15s;
         }
 
-        #SkipSegmentManagerPopover .staging-item:hover {
+        .skip-manager-dialog .staging-item:hover {
             background: rgba(0,161,214,0.1);
         }
 
-        #SkipSegmentManagerPopover .staging-item.editing {
+        .skip-manager-dialog .staging-item.editing {
             border-color: #00a1d6;
             background: rgba(0,161,214,0.12);
         }
 
-        #SkipSegmentManagerPopover .staging-item .segment-time {
+        .skip-manager-dialog .staging-item .segment-time {
             font-size: 13px;
             background: rgba(0,161,214,0.12);
             padding: 2px 8px;
             border-radius: 3px;
         }
 
-        #SkipSegmentManagerPopover .staging-actions {
+        .skip-manager-dialog .staging-actions {
             margin-left: auto;
             display: flex;
             gap: 4px;
         }
 
-        #SkipSegmentManagerPopover .staging-edit,
-        #SkipSegmentManagerPopover .staging-delete {
+        .skip-manager-dialog .staging-edit,
+        .skip-manager-dialog .staging-delete {
             width: 22px;
             height: 22px;
             display: flex;
@@ -881,17 +876,17 @@ export const videoPageStyles = {
             transition: all 0.15s;
         }
 
-        #SkipSegmentManagerPopover .staging-edit:hover {
+        .skip-manager-dialog .staging-edit:hover {
             color: #00a1d6;
             background: rgba(0,161,214,0.15);
         }
 
-        #SkipSegmentManagerPopover .staging-delete:hover {
+        .skip-manager-dialog .staging-delete:hover {
             color: #f56c6c;
             background: rgba(245,108,108,0.15);
         }
 
-        #SkipSegmentManagerPopover .form-actions {
+        .skip-manager-dialog .form-actions {
             display: flex;
             gap: 6px;
             align-items: flex-end;

@@ -43,6 +43,7 @@ export default {
         this._cleanup = []
         this._upSpacePopupDismissCleanup?.()
         this._upSpacePopupDismissCleanup = null
+        this.destroyUpSpacePopup?.()
         this._remoteConfigSyncUnsubscribe?.()
         this._remoteConfigSyncUnsubscribe = null
         if (this.videoDescriptionObserver) {
