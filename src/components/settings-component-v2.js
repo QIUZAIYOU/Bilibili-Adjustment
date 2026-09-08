@@ -129,6 +129,8 @@ export class SettingsComponentV2 {
      */
     async fetchDynamicOptions () {
         const options = {}
+        // 「AI 自动识别广告」未开启时不拉取模型列表：无意义的网络请求且未配置 API Key 时会告警（手动/共享片段跳过不依赖 AI）
+        if (!this.userConfigs.ai_auto_identify) return options
         const useCustomModel = this.userConfigs.use_custom_model || false
         if (!useCustomModel) {
             try {
@@ -421,6 +423,10 @@ export class SettingsComponentV2 {
             }
             // 刷新可见性以显示/隐藏相关配置项
             this.refreshVisibility(popover)
+        }
+        // 「AI 自动识别广告」开启时：拉取模型列表填充下拉（默认关闭状态下打开设置不会预取）
+        if (configId === 'ai_auto_identify' && value && !this.userConfigs.use_custom_model) {
+            await this.refreshModelList(popover)
         }
         // 日志级别变更
         if (configId.startsWith('log_level_')) {

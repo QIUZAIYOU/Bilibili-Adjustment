@@ -59,6 +59,9 @@ export const light = {
         'text-muted': '#9499A0', // 图标/辅助文字，官方 text3 档
         'text-disabled': '#C9CCD0', // text4 → Ga3_u
         'text-faint': '#C9CCD0', // 占位符，text4 档
+        // 页面内容正文（插入 B 站页面的内容块）：主文本=text1、副文本=text2
+        'text-content': '#18191C', // 正文主文本 → text1 → Ga10_u
+        'text-content-secondary': '#61666D', // 正文副文本 → text2 → Ga7_u
         // 边框：line_light/regular/bold → Ga1_u/Ga2_u/Ga3_u（light 无 *_s，逐档对应）
         'border-strong': '#C9CCD0', // line_bold → Ga3_u（主描边/输入框强边）
         'border': '#E3E5E7', // line_regular → Ga2_u（常用分隔）
@@ -121,6 +124,9 @@ export const dark = {
         'text-muted': '#757A81', // 官方 text3 档
         'text-disabled': '#46494D', // text4 → Ga3
         'text-faint': '#46494D', // text4 档
+        // 页面内容正文（插入 B 站页面的内容块）：主文本=text1、副文本=text2
+        'text-content': '#E7E9EB', // 正文主文本 → text1 → Ga10
+        'text-content-secondary': '#A2A7AE', // 正文副文本 → text2 → Ga7
         // 边框：line_light/regular/bold → Ga1_s/Ga2/Ga3
         'border-strong': '#46494D', // line_bold → Ga3
         'border': '#2F3134', // line_regular → Ga2

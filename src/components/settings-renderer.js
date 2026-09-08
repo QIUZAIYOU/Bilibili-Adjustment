@@ -42,7 +42,7 @@ export class SettingsRenderer {
                 content = this.renderSection(item, userConfigs, dynamicOptions)
                 break
             case 'checkbox':
-                content = this.renderCheckbox(item, userConfigs)
+                content = this.renderCheckbox(item, userConfigs, dynamicOptions)
                 break
             case 'input':
                 content = this.renderInput(item, userConfigs)
@@ -101,13 +101,16 @@ export class SettingsRenderer {
     /**
      * 渲染复选框 - 新布局
      */
-    renderCheckbox (item, userConfigs) {
+    renderCheckbox (item, userConfigs, dynamicOptions = {}) {
         const value = userConfigs[item.id] ?? false
         const children = item.children
-            ?.map(child => this.renderItem(child, userConfigs))
+            ?.map(child => this.renderItem(child, userConfigs, dynamicOptions))
             .join('') || ''
         const switchClass = value ? 'on' : ''
         const hasChildren = item.children && item.children.length > 0
+        // 子项布局：全为纯 checkbox 小开关时横向排列（如自动定位的 video/bangumi 子项）；
+        // 含 input/select 等完整设置行（如 AI 自动识别的提供商/Key/模型配置）时改为纵向堆叠，避免横向挤压滚动
+        const isRowLayout = item.children?.length > 0 && item.children.every(child => child.type === 'checkbox' && !child.children?.length && !child.items?.length)
         // 容器可见条件：父开关开启 且 至少有一个子项满足自身 visible 条件
         const anyChildVisible = item.children?.some(child => {
             if (!child.visible) return true
@@ -115,6 +118,11 @@ export class SettingsRenderer {
             return Boolean(child.visible)
         }) ?? true
         const childrenDisplayStyle = (value && anyChildVisible) ? 'flex' : 'none'
+        // 纵向布局（含 input/select 等完整设置行的子项）：容器底色/边框/圆角/内衬沿用与
+        // 「自动选择最高画质」等内嵌选项组一致的主题样式，仅改为纵向堆叠避免横向挤压；
+        // 子项经 .adjustment-setting-item-wrapper 隔层，横向规则的 flex/min-width 不作用于卡片本身
+        const childrenInlineLayout = isRowLayout ? '' : ' flex-direction: column; align-items: stretch; overflow-x: visible;'
+        const childrenStyle = `display: ${childrenDisplayStyle};${childrenInlineLayout}`
         const tipsIcon = this.renderTipsIcon(item, userConfigs)
         // 日志配置等inline项：紧凑布局，一行多个
         if (item.inline) {
@@ -143,7 +151,7 @@ export class SettingsRenderer {
                         </div>
                     </div>
                 </div>
-                ${hasChildren ? `<div class="adjustment-setting-children" style="display: ${childrenDisplayStyle};">${children}</div>` : ''}
+                ${hasChildren ? `<div class="adjustment-setting-children" style="${childrenStyle}">${children}</div>` : ''}
             </div>
         `.trim()
     }

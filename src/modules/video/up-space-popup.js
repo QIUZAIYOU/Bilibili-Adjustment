@@ -5,7 +5,6 @@ const UP_SPACE_POPUP_FLAG = 'bili-adjustment-popup'
 // 关闭后保留弹窗的缓存时长：期间再次打开直接复用已加载的 iframe（不重新加载，
 // 且保留浏览位置）；超过此时长未再打开才销毁，避免重型空间页 iframe 常驻内存
 const UP_SPACE_POPUP_CACHE_MS = 10 * 60 * 1000
-
 let upSpaceFrame = null
 const createUpSpaceFrame = body => {
     if (!upSpaceFrame) {
@@ -16,7 +15,6 @@ const createUpSpaceFrame = body => {
     }
     body.appendChild(upSpaceFrame)
 }
-
 export const upSpacePopupFeatures = {
     // 路由：按设置项决定新标签页或弹窗
     async openUpSpace (mid) {

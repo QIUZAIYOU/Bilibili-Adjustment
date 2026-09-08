@@ -11,13 +11,13 @@ export const videoSettingsConfig = [
         id: 'theme',
         type: 'select',
         label: '界面主题',
-        tips: '夜间哔哩：脚本自带深色外观；跟随B站：随 B 站夜间模式（html.night-mode）自动在官方浅色/深色主题间切换',
+        tips: '默认「跟随B站」，脚本界面配色随 B 站当前模式自动匹配（html.night-mode → 官方深色，否则官方浅色）；「夜间哔哩」为脚本自带深色外观，检测到 Stylus「夜间哔哩」样式时也会自动切换为它',
         options: [
             { value: 'night', label: '夜间哔哩' },
             { value: 'follow', label: '跟随B站' }
         ],
         category: 'basic',
-        defaultValue: 'night'
+        defaultValue: 'follow'
     },
     {
         id: 'is_vip',
@@ -232,96 +232,107 @@ export const videoSettingsConfig = [
         category: 'basic',
         defaultValue: true
     },
-    // AI 服务配置区域
+    // 跳过片段区域：总开关（自动应用已有片段，含手动/共享缓存）＋ AI 自动识别广告子开关（需 API Key）
     {
         id: 'ai_section',
         type: 'section',
-        label: 'AI 服务配置',
+        label: '跳过片段',
         category: 'ai',
         items: [
             {
                 id: 'auto_skip',
                 type: 'checkbox',
-                label: '自动跳过广告',
-                tips: '通过 AI 识别视频中的广告片段并自动跳过。需要视频带有 AI 字幕 才能工作，无字幕时自动关闭。识别精度取决于所选 AI 模型，<a href="https://siliconflow.cn/pricing" target="_blank">查看计费</a>。API Key 请妥善保管，不要在公共设备上保存。',
-                defaultValue: false
-            },
-            {
-                id: 'ai_provider',
-                type: 'select',
-                label: 'AI 提供商',
-                options: [
-                    { value: 'siliconflow', label: '硅基流动' },
-                    { value: 'deepseek', label: 'DeepSeek 官方' },
-                    { value: 'kimi', label: 'Kimi（月之暗面）' },
-                    { value: 'zhipu', label: '智谱 AI' },
-                    { value: 'openai', label: 'OpenAI' }
-                ],
-                defaultValue: 'siliconflow',
-                visible: configs => !configs.use_custom_model,
-                tips: '选择 AI 服务提供商'
-            },
-            {
-                id: 'ai_apikey',
-                type: 'input',
-                label: 'AI API Key',
-                inputType: 'password',
-                placeholder: '请输入 API Key',
-                defaultValue: '',
-                visible: configs => !configs.use_custom_model,
-                hasValidateButton: true,
-                validateButtonText: '验证 Key'
-            },
-            {
-                id: 'ai_model',
-                type: 'select',
-                label: 'AI 模型',
-                options: [], // 动态加载
-                defaultValue: 'deepseek-ai/DeepSeek-V3',
-                visible: configs => !configs.use_custom_model,
-                hasRefreshButton: true,
-                refreshButtonText: '刷新列表'
-            },
-            {
-                id: 'use_custom_model',
-                type: 'checkbox',
-                label: '使用自定义模型',
-                defaultValue: false
-            },
-            {
-                id: 'custom_base_url',
-                type: 'input',
-                label: '自定义 API 地址',
-                placeholder: 'https://api.example.com/v1',
-                defaultValue: '',
-                visible: configs => !configs.use_custom_model && configs.ai_provider === 'custom'
-            },
-            {
-                id: 'custom_model_api_url',
-                type: 'input',
-                label: '自定义 API 地址',
-                placeholder: 'https://api.example.com/v1',
-                defaultValue: '',
-                visible: configs => configs.use_custom_model
-            },
-            {
-                id: 'custom_model_api_key',
-                type: 'input',
-                label: '自定义 API Key',
-                inputType: 'password',
-                placeholder: '请输入自定义 API Key',
-                defaultValue: '',
-                visible: configs => configs.use_custom_model,
-                hasValidateButton: true,
-                validateButtonText: '验证 Key'
-            },
-            {
-                id: 'custom_model_id',
-                type: 'input',
-                label: '自定义模型ID',
-                placeholder: '输入模型ID，如 deepseek-ai/DeepSeek-V3',
-                defaultValue: '',
-                visible: configs => configs.use_custom_model
+                label: '跳过片段',
+                tips: '总开关：进入播放页时自动应用该视频已有的跳过片段（手动添加的片头片尾、共享缓存、AI 识别结果）。关闭后完全不再跳过。片段数据可通过播放器侧边栏「管理」维护，与开关相互独立。',
+                defaultValue: false,
+                children: [
+                    {
+                        id: 'ai_auto_identify',
+                        type: 'checkbox',
+                        label: 'AI 自动识别广告',
+                        tips: '开启后，无缓存片段时会调用 AI 识别视频中的广告片段并自动跳过，需要视频带有 AI 字幕 才能工作，无字幕时自动跳过识别。识别精度取决于所选 AI 模型，<a href="https://siliconflow.cn/pricing" target="_blank">查看计费</a>。API Key 请妥善保管，不要在公共设备上保存。仅使用手动片段或共享缓存时无需开启，可保持关闭以节省流量与 Key 配额。',
+                        defaultValue: false,
+                        children: [
+                            {
+                                id: 'ai_provider',
+                                type: 'select',
+                                label: 'AI 提供商',
+                                options: [
+                                    { value: 'siliconflow', label: '硅基流动' },
+                                    { value: 'deepseek', label: 'DeepSeek 官方' },
+                                    { value: 'kimi', label: 'Kimi（月之暗面）' },
+                                    { value: 'zhipu', label: '智谱 AI' },
+                                    { value: 'openai', label: 'OpenAI' }
+                                ],
+                                defaultValue: 'siliconflow',
+                                visible: configs => !configs.use_custom_model,
+                                tips: '选择 AI 服务提供商'
+                            },
+                            {
+                                id: 'ai_apikey',
+                                type: 'input',
+                                label: 'AI API Key',
+                                inputType: 'password',
+                                placeholder: '请输入 API Key',
+                                defaultValue: '',
+                                visible: configs => !configs.use_custom_model,
+                                hasValidateButton: true,
+                                validateButtonText: '验证 Key'
+                            },
+                            {
+                                id: 'ai_model',
+                                type: 'select',
+                                label: 'AI 模型',
+                                options: [], // 动态加载
+                                defaultValue: 'deepseek-ai/DeepSeek-V3',
+                                visible: configs => !configs.use_custom_model,
+                                hasRefreshButton: true,
+                                refreshButtonText: '刷新列表'
+                            },
+                            {
+                                id: 'use_custom_model',
+                                type: 'checkbox',
+                                label: '使用自定义模型',
+                                defaultValue: false
+                            },
+                            {
+                                id: 'custom_base_url',
+                                type: 'input',
+                                label: '自定义 API 地址',
+                                placeholder: 'https://api.example.com/v1',
+                                defaultValue: '',
+                                visible: configs => !configs.use_custom_model && configs.ai_provider === 'custom'
+                            },
+                            {
+                                id: 'custom_model_api_url',
+                                type: 'input',
+                                label: '自定义 API 地址',
+                                placeholder: 'https://api.example.com/v1',
+                                defaultValue: '',
+                                visible: configs => configs.use_custom_model
+                            },
+                            {
+                                id: 'custom_model_api_key',
+                                type: 'input',
+                                label: '自定义 API Key',
+                                inputType: 'password',
+                                placeholder: '请输入自定义 API Key',
+                                defaultValue: '',
+                                visible: configs => configs.use_custom_model,
+                                hasValidateButton: true,
+                                validateButtonText: '验证 Key'
+                            },
+                            {
+                                id: 'custom_model_id',
+                                type: 'input',
+                                label: '自定义模型ID',
+                                placeholder: '输入模型ID，如 deepseek-ai/DeepSeek-V3',
+                                defaultValue: '',
+                                visible: configs => configs.use_custom_model
+                            }
+                        ]
+                    }
+                ]
             }
         ]
     },

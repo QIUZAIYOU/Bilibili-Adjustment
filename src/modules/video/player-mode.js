@@ -48,14 +48,15 @@ export const playerModeFeatures = {
             {
                 type: 'wide',
                 action: async () => {
-                    const playerModeWideEnterButton = elementSelectors.get('playerModeWideEnterButton')
+                    // 宽屏按钮可能晚于视频可播放事件渲染：同步取不到时等待其出现，避免点击落空后走失败重试
+                    const playerModeWideEnterButton = await elementSelectors.wait('playerModeWideEnterButton', 2000)
                     playerModeWideEnterButton?.click()
                 }
             },
             {
                 type: 'web',
                 action: async () => {
-                    const playerModeWebEnterButton = elementSelectors.get('playerModeWebEnterButton')
+                    const playerModeWebEnterButton = await elementSelectors.wait('playerModeWebEnterButton', 2000)
                     playerModeWebEnterButton?.click()
                 }
             },
@@ -67,7 +68,8 @@ export const playerModeFeatures = {
                 }
             }
         ]
-        selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode)?.action()
+        // 等待切换动作完成（按钮出现并点击）后再校验结果，避免校验先于点击导致误报失败
+        await selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode)?.action()
         await sleep(350)
         if (this.userConfigs.selected_player_mode !== 'normal') {
             const video = elementSelectors.get('video')
@@ -91,7 +93,7 @@ export const playerModeFeatures = {
         const targetMode = this.userConfigs.selected_player_mode
         if (playerContainer.getAttribute('data-screen') === targetMode) return
         const strategy = { wide: 'playerModeWideEnterButton', web: 'playerModeWebEnterButton' }
-        const btn = elementSelectors.get(strategy[targetMode])
+        const btn = await elementSelectors.wait(strategy[targetMode], 2000)
         if (!btn) return
         btn.click()
         await sleep(350)
@@ -199,7 +201,7 @@ export const playerModeFeatures = {
                     const scroller = document.scrollingElement || document.documentElement
                     const atBottom = window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
                     if (Math.abs(window.scrollY - (freshOffsetTop - freshTargetViewportTop)) < 50 || atBottom) {
-                        logger.debug(`自动定位丨第 ${retry + 1} 次验证已到位`)  
+                        logger.debug(`自动定位丨第 ${retry + 1} 次验证已到位`)
                         break
                     }
                     logger.debug(`自动定位丨第 ${retry + 1} 次验证未到位（当前 ${window.scrollY}，目标 ${freshOffsetTop - freshTargetViewportTop}），重试`)

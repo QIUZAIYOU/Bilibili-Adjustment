@@ -62,6 +62,7 @@ export const commonStyles = {
             position: relative;
             padding-left: 80px;
             padding-top: 22px;
+            color: var(--adj-text-content);
         }
         #bili-adjustment-user-avatar {
             position: absolute;

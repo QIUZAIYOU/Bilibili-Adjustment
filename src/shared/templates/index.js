@@ -1,5 +1,4 @@
 import { registerTemplates, recordTemplateUsage, getTemplate } from '../template-registry'
-
 import { buttonTemplates } from './buttons'
 import { videoSettingsTemplate } from './popovers/video-settings'
 import { dynamicSettingsTemplate } from './popovers/dynamic-settings'
@@ -9,7 +8,6 @@ import { upSpacePopupTemplate } from './popovers/up-space-popup'
 import { historyPopoverTemplate } from './popovers/history-popover'
 import { videoDescriptionTemplate } from './comments/video-description'
 import { subtitleSwitchTemplates } from './subtitle/subtitle-switch'
-
 const templates = {
     ...buttonTemplates,
     ...videoSettingsTemplate,
@@ -19,12 +17,10 @@ const templates = {
     ...upSpacePopupTemplate,
     ...historyPopoverTemplate,
     ...videoDescriptionTemplate,
-    ...subtitleSwitchTemplates,
+    ...subtitleSwitchTemplates
 }
-
 // 初始化注册所有模板到 TemplateRegistry
 registerTemplates(templates)
-
 const replaceTemplateKeywords = (template, variables) => {
     if (variables) {
         Object.entries(variables).forEach(([key, value]) => {
@@ -34,7 +30,6 @@ const replaceTemplateKeywords = (template, variables) => {
     }
     return template
 }
-
 export const getTemplates = new Proxy(templates, {
     get (target, prop) {
         if (prop === 'replace') {

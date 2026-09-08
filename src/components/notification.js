@@ -109,10 +109,8 @@ const NOTIFICATION_STYLES = `
     .ba-notification--warn .ba-notification__progress { background: var(--adj-warning); }
     .ba-notification--error .ba-notification__progress { background: var(--adj-danger); }
 `
-
 let _notificationContainer = null
 let _styleInjected = false
-
 const _ensureNotificationContainer = () => {
     if (_notificationContainer && _notificationContainer.isConnected) return _notificationContainer
     if (!_styleInjected) {
@@ -126,19 +124,16 @@ const _ensureNotificationContainer = () => {
     document.body.appendChild(_notificationContainer)
     return _notificationContainer
 }
-
 const _levelIcons = {
     info: '',
     warn: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="currentColor" d="M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896m0 192a58.432 58.432 0 0 0-58.24 63.744l23.36 256.384a35.072 35.072 0 0 0 69.76 0l23.296-256.384A58.432 58.432 0 0 0 512 256m0 512a51.2 51.2 0 1 0 0-102.4 51.2 51.2 0 0 0 0 102.4"/></svg>',
     error: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="currentColor" d="M512 64a448 448 0 1 1 0 896 448 448 0 0 1 0-896m0 393.664L407.936 353.6a38.4 38.4 0 1 0-54.336 54.336L457.664 512 353.6 616.064a38.4 38.4 0 1 0 54.336 54.336L512 566.336 616.064 670.4a38.4 38.4 0 1 0 54.336-54.336L566.336 512 670.4 407.936a38.4 38.4 0 1 0-54.336-54.336z"/></svg>'
 }
-
-const _dismiss = (el) => {
+const _dismiss = el => {
     if (!el || !el.parentNode) return
     el.classList.add('ba-dismiss')
     setTimeout(() => el.parentNode?.removeChild(el), 300)
 }
-
 export const notification = {
     /**
      * 显示一条通知
@@ -157,7 +152,7 @@ export const notification = {
         const el = document.createElement('div')
         el.className = `ba-notification ba-notification--${level}`
         el.innerHTML = `<span class="ba-notification__icon">${icon}</span><div class="ba-notification__group"><p class="ba-notification__title">${title}</p><div class="ba-notification__content">${message}</div></div><button class="ba-notification__close">×</button><div class="ba-notification__progress" style="width:100%"></div>`
-        el.querySelector('.ba-notification__close').addEventListener('click', (e) => {
+        el.querySelector('.ba-notification__close').addEventListener('click', e => {
             e.stopPropagation()
             _dismiss(el)
         })

@@ -25,7 +25,6 @@
  *   dialog.close() / dialog.destroy()
  */
 import { insertStyleToDocument, enablePopoverLightDismiss } from '@/utils/common'
-
 const DIALOG_CSS = `
     .adjustment-dialog {
         background: var(--adj-bg-page);
@@ -122,17 +121,14 @@ const DIALOG_CSS = `
         flex-shrink: 0;
     }
 `
-
 let dialogStyleInjected = false
 const ensureDialogStyle = () => {
     if (dialogStyleInjected) return
     insertStyleToDocument({ 'AdjustmentPopoverDialogStyle': DIALOG_CSS })
     dialogStyleInjected = true
 }
-
 // 单例弹窗注册表：key -> { instance, timer }
 const dialogInstances = new Map()
-
 export const openAdjustmentDialog = (options = {}) => {
     const {
         key = '',
@@ -148,7 +144,6 @@ export const openAdjustmentDialog = (options = {}) => {
         autoClose = 0,
         onClosed
     } = options
-
     // 同 key 单例：存活实例直接复用
     if (key && dialogInstances.has(key)) {
         const prevEntry = dialogInstances.get(key)
@@ -158,9 +153,7 @@ export const openAdjustmentDialog = (options = {}) => {
         }
         dialogInstances.delete(key)
     }
-
     ensureDialogStyle()
-
     const root = document.createElement('div')
     root.className = 'adjustment-dialog' + (className ? ' ' + className : '')
     if (typeof width === 'number') {
@@ -169,7 +162,6 @@ export const openAdjustmentDialog = (options = {}) => {
         root.style.width = width
     }
     root.setAttribute('popover', 'manual')
-
     // ---------- 骨架 ----------
     const header = document.createElement('div')
     header.className = 'adjustment-dialog-header'
@@ -202,7 +194,6 @@ export const openAdjustmentDialog = (options = {}) => {
         header.appendChild(textWrap)
     }
     root.appendChild(header)
-
     const body = document.createElement('div')
     body.className = 'adjustment-dialog-body'
     if (typeof content === 'function') {
@@ -213,7 +204,6 @@ export const openAdjustmentDialog = (options = {}) => {
         body.insertAdjacentHTML('beforeend', String(content))
     }
     root.appendChild(body)
-
     const footer = document.createElement('div')
     if (actions.length > 0) {
         footer.className = 'adjustment-dialog-footer'
@@ -229,7 +219,6 @@ export const openAdjustmentDialog = (options = {}) => {
         })
         root.appendChild(footer)
     }
-
     // 右上角关闭按钮与自定义头部内容（追加到 header 最右，关闭按钮置于最末）
     if (headerExtra) {
         if (headerExtra instanceof Node) header.appendChild(headerExtra)
@@ -247,15 +236,12 @@ export const openAdjustmentDialog = (options = {}) => {
         })
         header.appendChild(closeEl)
     }
-
     document.body.appendChild(root)
     root.__popoverDismissCleanup = enablePopoverLightDismiss(root)
-
     // ---------- 实例 ----------
     const entry = { instance: null, timer: null }
     let autoCloseTimer = null
     let destroyed = false
-
     const cancelAutoClose = () => {
         if (autoCloseTimer) {
             clearTimeout(autoCloseTimer)
@@ -271,7 +257,6 @@ export const openAdjustmentDialog = (options = {}) => {
             instance.destroy()
         }
     }
-
     const instance = {
         key,
         root,
@@ -300,13 +285,12 @@ export const openAdjustmentDialog = (options = {}) => {
             if (key && dialogInstances.get(key) === entry) dialogInstances.delete(key)
             root.__popoverDismissCleanup?.()
             root.__popoverDismissCleanup = null
-            try { root.hidePopover() } catch (_) {}
+            try { root.hidePopover() } catch { /* 忽略异常 */ }
             root.remove()
             onClosed?.()
         }
     }
     entry.instance = instance
-
     // 隐藏（toggle → closed）后的生命周期处理
     root.addEventListener('toggle', e => {
         if (e.newState !== 'closed' || destroyed) return
@@ -318,12 +302,10 @@ export const openAdjustmentDialog = (options = {}) => {
             instance.destroy()
         }
     })
-
     if (key) dialogInstances.set(key, entry)
     if (autoClose > 0) {
         autoCloseTimer = setTimeout(() => instance.close(), autoClose)
     }
-
     instance.open()
     return instance
 }

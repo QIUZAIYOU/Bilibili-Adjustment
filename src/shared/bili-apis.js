@@ -1,22 +1,18 @@
 import { LoggerService } from '@/services/logger.service'
-import { storageService } from '@/services/storage.service'
 import axios from 'axios'
 import MD5 from 'md5'
 const logger = new LoggerService('BiliApis')
-
 // ========== 全局请求队列 ==========
 // 所有 bilibili API 请求排队执行，避免并发触发 429
 const _requestQueue = []
 let _queueProcessing = false
 const QUEUE_DELAY = 300 // 每次请求间隔 300ms
-
 function _enqueueRequest (fn) {
     return new Promise((resolve, reject) => {
         _requestQueue.push({ fn, resolve, reject })
         _processQueue()
     })
 }
-
 async function _processQueue () {
     if (_queueProcessing) return
     _queueProcessing = true
@@ -35,7 +31,6 @@ async function _processQueue () {
     }
     _queueProcessing = false
 }
-
 // ========== 带重试的请求 ==========
 const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => {
     for (let i = 0; i <= retries; i++) {
@@ -54,17 +49,14 @@ const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => 
         }
     }
 }
-
 // ========== 统一的 API 请求入口 ==========
 // 所有 bilibili API 调用通过此函数，自动排队 + 重试
 async function _apiRequest (url, options = {}) {
     return _enqueueRequest(() => _fetchWithRetry(url, options))
 }
-
 // ========== 视频信息缓存（5 分钟） ==========
 const _videoInfoCache = new Map()
 const VIDEO_INFO_CACHE_TTL = 5 * 60 * 1000 // 5 分钟
-
 export const biliApis = {
     async getQueryWithWbi (originalParams) {
         const mixinKeyEncTab = [
@@ -89,10 +81,10 @@ export const biliApis = {
             const { data: { wbi_img: { img_url, sub_url }}} = res.data
             return {
                 img_key: img_url.slice(
-                    img_url.lastIndexOf('/') + 1,
+                    img_url.lastIndexOf('/') + 1
                 ),
                 sub_key: sub_url.slice(
-                    sub_url.lastIndexOf('/') + 1,
+                    sub_url.lastIndexOf('/') + 1
                 )
             }
         }
@@ -127,7 +119,7 @@ export const biliApis = {
                     const activeLink = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')].find(a => /(^|\s)(active|current|on|selected)(\s|$)/.test(a.className || ''))
                     const domEp = activeLink?.getAttribute('href')?.match(/ep(\d+)/)?.[1]
                     if (domEp) return String(domEp)
-                } catch (_) {}
+                } catch { /* 忽略异常 */ }
                 // 无法解析当前分集时，返回带 ss 前缀的季 id（调用方可走 season API）
                 return 'ss' + ssMatch[1]
             }
@@ -233,7 +225,7 @@ export const biliApis = {
     async getWebCreaterStatus (mid) {
         const url = `https://api.bilibili.com/x/web-interface/nav?mid=${mid}`
         try {
-            const { data: { code, data: { isLogin, uname, official, vip }} } = await _apiRequest(url)
+            const { data: { code, data: { isLogin, uname, official, vip }}} = await _apiRequest(url)
             if (code === 0) return { isLogin, uname, official, vip }
             else return null
         } catch {
@@ -243,7 +235,7 @@ export const biliApis = {
     async getWebCreaterPinInfo (mid) {
         const url = `https://api.bilibili.com/x/space/acc/info?mid=${mid}`
         try {
-            const { data: { code, data: { sign, birthday, sex, face }} } = await _apiRequest(url)
+            const { data: { code, data: { sign, birthday, sex, face }}} = await _apiRequest(url)
             if (code === 0) return { sign, birthday, sex, face }
             else return null
         } catch {
@@ -281,10 +273,9 @@ export const biliApis = {
         }
     },
     async getWebCreaterArcsDrawInfo (mid) {
-        const url = `https://api.bilibili.com/x/space/wbi/arc/search?mid=${mid}&ps=10&pn=1`
         try {
             const wbiUrl = `https://api.bilibili.com/x/space/arc/search?${await this.getQueryWithWbi({ mid, ps: 10, pn: 1 })}`
-            const { data: { code, data: { list: { vlist }}} = { data: {} } } = await _apiRequest(wbiUrl)
+            const { data: { code, data: { list: { vlist }}} = { data: {}}} = await _apiRequest(wbiUrl)
             if (code === 0) return vlist
             else return null
         } catch {

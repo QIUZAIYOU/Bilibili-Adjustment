@@ -8,6 +8,7 @@ import { initScrollbarHoverWidening } from '@/utils/scrollbar-hover'
 import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
 import { ThemeManager } from '@/shared/theme'
+import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
 import { EVENT_NAMES } from '@/shared/constants'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
@@ -121,6 +122,8 @@ if (window.self !== window.top && location.search.includes('bili-adjustment-popu
 }
 // 主题变量先于一切样式注入（样式字符串引用 var(--adj-*)），默认 night 兜底
 ThemeManager.init()
+// Stylus 夜间哔哩样式检测：开启时强制界面主题 night 并锁定内容文字色（实时跟随增删）
+initStylusNightFollowing()
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
 initScrollbarHoverWidening()
 initializeApp()

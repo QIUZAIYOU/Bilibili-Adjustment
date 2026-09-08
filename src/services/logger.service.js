@@ -1,5 +1,4 @@
 import { notification } from '@/components/notification'
-
 const getPageTypePrefix = () => {
     const { host, pathname, origin } = window.location
     const strategies = [

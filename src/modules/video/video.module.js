@@ -24,7 +24,7 @@ const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.26.0',
+    version: '3.30.0',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -98,12 +98,23 @@ export default {
             switch (key) {
                 case 'auto_skip':
                     if (value) {
-                        await this.identifyAdvertisementTimestamps()
+                        // 总开关开启：先应用该视频已有缓存片段（手动/共享），AI 识别子开关也开启时才补 AI 识别
+                        await this.loadCachedSkipSegments()
+                        if (this.userConfigs.ai_auto_identify) {
+                            await this.identifyAdvertisementTimestamps()
+                        }
                     } else if (this._adVideo && this._adTimeUpdateHandler) {
                         this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
                         this._adVideo = null
                         this._adTimeUpdateHandler = null
-                        logger.info('自动跳过广告丨已关闭')
+                        this._skipCacheApplied = false
+                        logger.info('跳过片段丨已关闭')
+                    }
+                    break
+                case 'ai_auto_identify':
+                    // 子开关开启：仅影响 AI 识别补全，不影响已有缓存片段的跳过
+                    if (value && this.userConfigs.auto_skip) {
+                        await this.identifyAdvertisementTimestamps()
                     }
                     break
                 case 'webfull_unlock':
@@ -193,7 +204,6 @@ export default {
             }))
         }
     },
-
     isVideoCanplaythrough (videoElement) {
         return new Promise(resolve => {
             if (!videoElement) {
@@ -309,6 +319,7 @@ export default {
         // 切换视频时重置画面旋转
         this._playerTitleCache = undefined
         this.advertisementIdentified = false
+        this._skipCacheApplied = false
         if (this._adVideo && this._adTimeUpdateHandler) {
             this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
             this._adVideo = null
@@ -351,8 +362,10 @@ export default {
         const deferredFunctions = [
             [this.unlockEpisodeSelector, !hasTitle],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
-            // 番剧页不执行AI广告识别，但加载缓存中的跳过片段（片头片尾等手动配置）
+            // 普通视频页：先应用缓存中的跳过片段（手动添加/共享缓存），再按需用 AI 识别补全缺失片段
+            [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type === 'video')],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && this.userConfigs.ai_auto_identify && !hasTitle && this.userConfigs.page_type === 'video')],
+            // 番剧页：不执行 AI 识别，仅加载缓存中的跳过片段（片头片尾等手动配置）
             [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && this.userConfigs.page_type === 'bangumi')]
         ]
         // 等待新视频可播放，最长 5 秒；超时也继续执行，避免视频加载异常时其余功能挂起
@@ -383,9 +396,10 @@ export default {
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
-            // 广告识别耗时较长且结果不阻塞其他功能，固定排最后执行
-            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type !== 'bangumi')],
-            // 番剧页不执行AI广告识别，但加载缓存中的跳过片段（片头片尾等手动配置）
+            // 普通视频页：先应用缓存中的跳过片段（手动添加/共享缓存），再按需用 AI 识别补全缺失片段
+            [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type === 'video')],
+            [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && this.userConfigs.ai_auto_identify && !hasTitle && this.userConfigs.page_type === 'video')],
+            // 番剧页：不执行 AI 识别，仅加载缓存中的跳过片段（片头片尾等手动配置）
             [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && this.userConfigs.page_type === 'bangumi')]
         ]
         executeFunctionsSequentially(functions, { onAfterChunk: () => retryQueue.drain() })

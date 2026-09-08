@@ -88,6 +88,10 @@ export const defaultColors = {
     'text-muted': '#888', // 图标/辅助（原 #888/#868686 归并）
     'text-disabled': '#666', // 禁用/占位
     'text-faint': '#555', // 更弱
+    // 页面内容正文（插入到 B 站页面的内容块，如评论区简介条目）：区别于自建 UI 高对比主文字，
+    // 夜间哔哩下用柔和灰；light/dark 对齐官方 text1/text2 档（见 themes.js 行内注释）
+    'text-content': '#969696', // 正文主文本
+    'text-content-secondary': '#666666', // 正文副文本/辅助文本
     // 边框
     'border-strong': '#424242', // 常规元素边框（theme.colors.border）
     'border': '#333', // 浅分隔/内嵌边

@@ -346,7 +346,6 @@ export const monitorHrefChange = callback => {
         hrefMonitorLastHref = location.href
     }
 }
-
 /**
  * 自定义确认弹窗（替代浏览器 confirm）
  * @param {string} message - 提示文字
@@ -370,8 +369,8 @@ export const adjustmentConfirm = (message, options = {}) => {
             </div>
         `
         overlay.querySelector('.adjustment-confirm-msg').textContent = message
-        const closeAndResolve = (value) => {
-            try { overlay.hidePopover() } catch (_) {}
+        const closeAndResolve = value => {
+            try { overlay.hidePopover() } catch { /* 忽略异常 */ }
             overlay.remove()
             resolve(value)
         }
@@ -381,7 +380,7 @@ export const adjustmentConfirm = (message, options = {}) => {
                 closeAndResolve(buttons ? key : key === 'ok')
             })
         })
-        overlay.addEventListener('click', (e) => {
+        overlay.addEventListener('click', e => {
             if (e.target === overlay) {
                 closeAndResolve(buttons ? 'cancel' : false)
             }
@@ -404,7 +403,6 @@ export const adjustmentConfirm = (message, options = {}) => {
         }
     })
 }
-
 // 自定义"点击外部关闭"：用真实 DOM 遮罩替代 ::backdrop（UA 的 backdrop 不接收指针事件，导致穿透）
 // 同时原生 light dismiss 在"弹窗内按下、弹窗外松开"（如拖选文字）时也会误关，
 // 改为遮罩元素拦截所有弹窗外交互——点击遮罩即关闭，拖选不受影响
@@ -566,7 +564,6 @@ export const generateMentionUserLinks = (username, desc_v2) => {
         ? `<a target="_blank" href="//space.bilibili.com/${matchedItem.biz_id}" class="mention-user" data-v-8ced1e78="">@${username} </a>`
         : `@${username}`
 }
-
 /**
  * 统一的弹窗管理器
  * 所有弹窗应使用此函数创建，以确保行为一致：
@@ -575,7 +572,6 @@ export const generateMentionUserLinks = (username, desc_v2) => {
  */
 export const createPopoverManager = () => {
     const popoverInstances = new Map()
-
     return {
         /**
          * 注册并管理一个弹窗
@@ -585,11 +581,10 @@ export const createPopoverManager = () => {
          * @param {Function} options.onClose - 弹窗关闭时的回调
          * @returns {Object} 弹窗控制对象
          */
-        register (id, options = {}) {
+        register (id) {
             if (popoverInstances.has(id)) {
                 return popoverInstances.get(id)
             }
-
             const instance = {
                 id,
                 element: null,
@@ -597,11 +592,9 @@ export const createPopoverManager = () => {
                 hidePopover: () => {},
                 destroy: () => {}
             }
-
             popoverInstances.set(id, instance)
             return instance
         },
-
         /**
          * 初始化弹窗元素并绑定事件
          * @param {string} id - 弹窗元素 ID
@@ -611,16 +604,13 @@ export const createPopoverManager = () => {
         init (id, element, options = {}) {
             const instance = popoverInstances.get(id)
             if (!instance) return
-
             instance.element = element
-
             // 绑定 toggle 事件：关闭时触发回调
             element.addEventListener('toggle', e => {
                 if (e.newState === 'closed') {
                     options.onClose?.()
                 }
             })
-
             // 提供统一的打开/关闭方法
             instance.showPopover = () => element.showPopover()
             instance.hidePopover = () => element.hidePopover()
@@ -630,7 +620,6 @@ export const createPopoverManager = () => {
                 popoverInstances.delete(id)
             }
         },
-
         /**
          * 显示弹窗
          * @param {string} id - 弹窗元素 ID
@@ -641,7 +630,6 @@ export const createPopoverManager = () => {
                 instance.element.showPopover()
             }
         },
-
         /**
          * 隐藏弹窗
          * @param {string} id - 弹窗元素 ID
@@ -652,7 +640,6 @@ export const createPopoverManager = () => {
                 instance.element.hidePopover()
             }
         },
-
         /**
          * 销毁弹窗
          * @param {string} id - 弹窗元素 ID
@@ -663,7 +650,6 @@ export const createPopoverManager = () => {
                 await instance.destroy()
             }
         },
-
         /**
          * 获取弹窗实例
          * @param {string} id - 弹窗元素 ID
@@ -674,6 +660,5 @@ export const createPopoverManager = () => {
         }
     }
 }
-
 // 导出全局弹窗管理器实例
 export const popoverManager = createPopoverManager()

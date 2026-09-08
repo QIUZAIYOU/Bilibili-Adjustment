@@ -84,8 +84,8 @@ export const uiButtonsFeatures = {
                     if (info?.owner?.mid) this._cachedMid = info.owner.mid
                 }).catch(() => {})
             }
-            // 插入跳过片段管理按钮
-            if (!existingSkipButton && this.userConfigs.auto_skip) {
+            // 插入跳过片段管理按钮（与开关解耦：用于维护手动/共享片段数据，随时可用）
+            if (!existingSkipButton) {
                 const skipButton = createElementAndInsert(getTemplates.replace('skipSegmentManagerButton', {
                     style: '',
                     dataV: dataV,
@@ -100,13 +100,13 @@ export const uiButtonsFeatures = {
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
-            if (!existingLocateButton) {                    locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
-                    class: 'bili-adjustment-icon locate',
-                    style: `style="${stylesV2.videoSettingsOpenButton}"`,
-                    dataV: dataV,
-                    text: '定位'
-                }), floatNav, 'append')
-                addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
+            if (!existingLocateButton) { locateButton = createElementAndInsert(getTemplates.replace('locateButton', {
+                class: 'bili-adjustment-icon locate',
+                style: `style="${stylesV2.videoSettingsOpenButton}"`,
+                dataV: dataV,
+                text: '定位'
+            }), floatNav, 'append')
+            addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = createElementAndInsert(getTemplates.replace('videoSettingsOpenButton', {

@@ -3,7 +3,6 @@
  * 提供统一的选择器注册、验证与查询功能
  */
 const selectorRegistry = new Map()
-
 /**
  * 注册选择器
  * @param {string} name - 选择器名称
@@ -29,7 +28,6 @@ export function registerSelector (name, selector, meta = {}) {
         description: meta.description || ''
     })
 }
-
 /**
  * 获取已注册的选择器 CSS 字符串
  * @param {string} name
@@ -39,7 +37,6 @@ export function getSelector (name) {
     const entry = selectorRegistry.get(name)
     return entry ? entry.selector : null
 }
-
 /**
  * 验证选择器是否已注册
  * @param {string} name
@@ -48,7 +45,6 @@ export function getSelector (name) {
 export function hasSelector (name) {
     return selectorRegistry.has(name)
 }
-
 /**
  * 模板关联（保留以兼容 template-registry.js，实际为空操作）
  */

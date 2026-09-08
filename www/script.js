@@ -7,7 +7,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     window.addEventListener('scroll', onScroll, { passive: true })
     onScroll()
-
     // ---- Smooth scroll ----
     document.querySelectorAll('a[href^="#"]').forEach(a => {
         a.addEventListener('click', e => {
@@ -16,16 +15,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
         })
     })
-
     // ---- Player mockup animation ----
     const demoFeats = document.querySelectorAll('.demo-feat')
-
     const runDemo = () => {
         demoFeats.forEach((el, i) => {
             setTimeout(() => el.classList.add('show'), i * 300)
         })
     }
-
     const heroVisual = document.querySelector('.hero-visual')
     if (heroVisual) {
         const demoObs = new IntersectionObserver(entries => {
@@ -38,13 +34,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }, { threshold: 0.3 })
         demoObs.observe(heroVisual)
     }
-
     // ---- Scroll reveal ----
     const revealTargets = document.querySelectorAll(
         '.feature-primary, .feature-card, .install-step, .changelog-item, .section-head, .cta'
     )
     revealTargets.forEach(el => el.setAttribute('data-reveal', ''))
-
     const revealObs = new IntersectionObserver(entries => {
         entries.forEach((entry, i) => {
             if (entry.isIntersecting) {
@@ -56,6 +50,5 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         })
     }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' })
-
     revealTargets.forEach(el => revealObs.observe(el))
 })

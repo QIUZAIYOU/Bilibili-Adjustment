@@ -65,6 +65,15 @@ export class ConfigService {
                 await this.setValue('ai_provider', 'siliconflow')
                 this.#logger.info('配置迁移丨已移除「自定义 OpenAI 格式」提供商，ai_provider 迁移为 siliconflow')
             }
+            // v3.30 起拆分「跳过片段」总开关与「AI 自动识别广告」子开关：
+            // 存量用户开启过 auto_skip（自动跳过广告）则让 ai_auto_identify 继承该值，升级后行为不变
+            const storedAutoSkip = await storageService.userGet('auto_skip')
+            const storedAiIdentify = await storageService.userGet('ai_auto_identify')
+            if (storedAutoSkip !== null && storedAutoSkip !== undefined && (storedAiIdentify === null || storedAiIdentify === undefined)) {
+                const inherited = Boolean(storedAutoSkip)
+                await this.setValue('ai_auto_identify', inherited)
+                this.#logger.info(`配置迁移丨拆分跳过片段开关：ai_auto_identify 继承 auto_skip = ${inherited}`)
+            }
         } catch (error) {
             this.#logger.warn('配置迁移失败', error)
         }
