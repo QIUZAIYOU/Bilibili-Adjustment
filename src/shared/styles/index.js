@@ -47,7 +47,7 @@ function generateBilibiliAdjustmentStyle () {
             margin: auto;
             box-sizing: border-box;
             padding: 0;
-            width: 560px;
+            width: 550px;
             max-height: 88vh;
             border: none;
             border-radius: 16px;

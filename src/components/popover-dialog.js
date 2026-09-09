@@ -196,8 +196,11 @@ export const openAdjustmentDialog = (options = {}) => {
     root.appendChild(header)
     const body = document.createElement('div')
     body.className = 'adjustment-dialog-body'
+    let contentCleanup = null
     if (typeof content === 'function') {
-        content(body)
+        // content(body) 可返回清理函数（如 Vue app.unmount），在弹窗销毁前执行
+        const result = content(body)
+        if (typeof result === 'function') contentCleanup = result
     } else if (content instanceof Node) {
         body.appendChild(content)
     } else if (content) {
@@ -283,6 +286,15 @@ export const openAdjustmentDialog = (options = {}) => {
             clearTimeout(entry.timer)
             entry.timer = null
             if (key && dialogInstances.get(key) === entry) dialogInstances.delete(key)
+            // 先执行内容清理（如 Vue unmount），再移除 DOM
+            if (typeof contentCleanup === 'function') {
+                try {
+                    contentCleanup()
+                } catch {
+                    // 清理失败不阻塞弹窗销毁
+                }
+                contentCleanup = null
+            }
             root.__popoverDismissCleanup?.()
             root.__popoverDismissCleanup = null
             try { root.hidePopover() } catch { /* 忽略异常 */ }

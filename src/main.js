@@ -9,6 +9,7 @@ import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
 import { ThemeManager } from '@/shared/theme'
 import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
+import { openVueSampleDialog } from '@/ui/vue-sample'
 import { EVENT_NAMES } from '@/shared/constants'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
@@ -125,5 +126,24 @@ ThemeManager.init()
 // Stylus 夜间哔哩样式检测：开启时强制界面主题 night 并锁定内容文字色（实时跟随增删）
 initStylusNightFollowing()
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
+// Vue 全链路探针（P2-a）：DEV 构建自动打开一次；任意构建按 Ctrl+Shift+Alt+V 打开，
+// 验证 SFC 挂载/主题/配置响应式。用快捷键而非页面全局变量，规避脚本管理器沙盒隔离
+// （如 ScriptCat/Tampermonkey 下 window 赋值不落页面全局）。
+if (import.meta.env.DEV) {
+    setTimeout(openVueSampleDialog, 2500)
+}
+try {
+    // 在共享 window 环境（部分管理器/无沙盒）下保留控制台入口
+    window.BAOpenVueProbe = openVueSampleDialog
+} catch {
+    // 沙盒受限时跳过全局暴露，快捷键仍可用
+}
+window.addEventListener('keydown', e => {
+    if (e.ctrlKey && e.shiftKey && e.altKey && (e.key === 'v' || e.key === 'V')) {
+        e.preventDefault()
+        if (document.readyState === 'complete') openVueSampleDialog()
+        else window.addEventListener('DOMContentLoaded', () => openVueSampleDialog(), { once: true })
+    }
+})
 initScrollbarHoverWidening()
 initializeApp()

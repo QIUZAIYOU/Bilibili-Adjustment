@@ -2,7 +2,7 @@ import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { STORAGE_KEYS } from '@/shared/constants'
-import { getTemplates } from '@/shared/templates'
+import { renderSubtitleButton } from '@/shared/templates/subtitle/subtitle-switch'
 import { createElementAndInsert, addEventListenerToElement, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
 export const subtitleFeatures = {
@@ -53,10 +53,10 @@ export const subtitleFeatures = {
             logger.debug('自动开启字幕开关丨已存在，跳过插入')
             return
         }
-        const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButton', {
+        const autoEnableSubtitleSwitchButton = createElementAndInsert(renderSubtitleButton('autoEnableSubtitleSwitchButton', {
             autoSubtitle: this.userConfigs.auto_subtitle
         }), playerDanmuSetting, 'after')
-        const autoEnableSubtitleTip = createElementAndInsert(getTemplates.replace('autoEnableSubtitleSwitchButtonTip', {
+        const autoEnableSubtitleTip = createElementAndInsert(renderSubtitleButton('autoEnableSubtitleSwitchButtonTip', {
             autoEnableSubtitleSwitchButtonTipText: this.userConfigs.auto_subtitle ? '关闭自动开启字幕' : '开启自动开启字幕'
         }), playerTooltipArea, 'append')
         const [AutoEnableSubtitleSwitchInput, AutoEnableSubtitleTooltipTitle] = await elementSelectors.batch(['AutoEnableSubtitleSwitchInput', 'AutoEnableSubtitleTooltipTitle'])

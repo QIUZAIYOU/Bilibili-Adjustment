@@ -11,6 +11,8 @@ import { updateService } from '@/services/update.service'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
+import { createApp } from 'vue'
+import DynamicSettingsForm from '@/ui/settings/DynamicSettingsForm.vue'
 import pkg from '../../package.json'
 const logger = new LoggerService('SettingsV2')
 /**
@@ -642,15 +644,18 @@ export class SettingsComponentV2 {
             existingSettings.remove()
         }
         this.renderer = new SettingsRenderer(dynamicSettingsConfig)
-        const formContent = this.renderer.render(this.userConfigs)
+        // 表单区由 Vue 组件渲染（设置 Vue 化试点·动态页分区），弹窗壳与生命周期保持既有实现
+        const formContent = '<div id="DynamicSettingsFormMount"></div>'
         const popoverHtml = this.renderer.renderDynamicPopover(
             '哔哩哔哩动态页设置',
             pkg.version,
             formContent
         )
         createElementAndInsert(popoverHtml, document.body)
-        // 原生 select 视觉替身：套自绘下拉（动态页暂无 select，预留一致性）
-        enhanceCustomSelects(document.getElementById('DynamicSettingsPopover'))
+        this._dynamicFormApp = createApp(DynamicSettingsForm, {
+            initial: String(this.userConfigs.dynamic_video_link || '')
+        })
+        this._dynamicFormApp.mount(document.getElementById('DynamicSettingsFormMount'))
     }
     async initDynamicSettingsEventListeners () {
         const popover = document.getElementById('DynamicSettingsPopover')
@@ -663,19 +668,16 @@ export class SettingsComponentV2 {
                 app.style.pointerEvents = 'auto'
                 popover.__popoverDismissCleanup?.()
                 popover.__popoverDismissCleanup = null
+                if (this._dynamicFormApp) {
+                    this._dynamicFormApp.unmount()
+                    this._dynamicFormApp = null
+                }
                 popover.remove()
             }
         })
         // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
         popover.__popoverDismissCleanup?.()
         popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
-        // 绑定动态页输入框事件
-        const inputs = popover.querySelectorAll('input[data-config-type="input"]')
-        inputs.forEach(input => {
-            addEventListenerToElement(input, 'change', async e => {
-                await this.saveConfig(e.target.id, e.target.value.trim())
-            })
-        })
         // 绑定保存按钮点击事件 — 配置已即时保存，点击仅关闭弹窗
         const saveBtn = document.getElementById('DynamicSettingsSaveButton')
         if (saveBtn) {

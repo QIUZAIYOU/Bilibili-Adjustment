@@ -4,7 +4,7 @@ import { LoggerService } from '@/services/logger.service'
 import { SettingsComponentV2 } from '@/components/settings-component-v2'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
-import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument, sleep } from '@/utils/common'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 import { stylesV2 } from '@/shared/styles'
@@ -69,18 +69,27 @@ export default {
             logger.info('动态页｜已切换至投稿视频')
         }
     },
-    async insertSidebarButtons (){
-        const dynamicSidebar = await elementSelectors.wait('dynamicSidebar')
-        if (!dynamicSidebar) {
-            logger.warn('动态页侧边栏未找到，跳过插入设置按钮')
-            return
+    async insertSidebarButtons () {
+        const insert = () => {
+            const dynamicSidebar = elementSelectors.get('dynamicSidebar')
+            if (!dynamicSidebar) return false
+            const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
+            const cleanup = addEventListenerToElement(dynamicSettingsOpenButton, 'click', async () => {
+                await settingsComponent.openSettings()
+            })
+            this._cleanup.push(cleanup)
+            logger.debug('侧边栏工具丨插入成功')
+            return true
         }
-        const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
-        const cleanup = addEventListenerToElement(dynamicSettingsOpenButton, 'click', async () => {
-            await settingsComponent.openSettings()
-        })
-        this._cleanup.push(cleanup)
-        logger.debug('侧边栏工具丨插入成功')
+        // 立即尝试一次；失败则等待并轮询重试（规避 wait 负缓存与页面渲染延迟导致的漏插）
+        if (insert()) return
+        await elementSelectors.wait('dynamicSidebar', 4000)
+        if (insert()) return
+        for (let i = 0; i < 6; i++) {
+            await sleep(1000)
+            if (insert()) return
+        }
+        logger.warn('动态页侧边栏未找到，跳过插入设置按钮')
     },
     handleExecuteFunctionsSequentially () {
         const functions = [

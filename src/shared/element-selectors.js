@@ -121,7 +121,8 @@ const CSS_MAP = {
     notChargeHighLevelCover: '.not-charge-high-level-cover',
     // 动态页
     dynamicListItem: '.bili-dyn-list__item',
-    dynamicSidebar: '.bili-dyn-sidebar',
+    // B 站动态改版后侧栏可能包在首页会员区内：兼容两种结构
+    dynamicSidebar: '.bili-dyn-home--member .bili-dyn-sidebar, .bili-dyn-sidebar',
     dynamicCommentLoadButton: '[data-type="comment"]:not(.active)',
     DynamicSettingsPopover: '#DynamicSettingsPopover',
     DynamicSettingSaveButton: '#DynamicSettingSaveButton',

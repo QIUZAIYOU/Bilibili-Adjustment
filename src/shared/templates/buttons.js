@@ -8,3 +8,13 @@ export const buttonTemplates = {
     indexRecommendVideoHistoryOpenButton: '<button id="indexRecommendVideoHistoryOpenButton" class="primary-btn roll-btn" bilibili-adjustment-element><span>历史记录</span></button>',
     bilibiliAdjustmentShowILocation: '<bilibili-adjustment-show-location bilibili-adjustment-element><style>bilibili-adjustment-show-location{font-size:13px;margin-left:auto;cursor:pointer;border:1px solid var(--adj-border-strong);padding:2px 5px;border-radius:4px}bilibili-adjustment-show-location:hover{color:var(--adj-brand);border-color:var(--adj-brand)}</style>显示评论归属地</bilibili-adjustment-show-location>'
 }
+/** 低层渲染：按 vars 将模板中的 [[UPPER_SNAKE]] 占位符替换为值（模板与注册常量同源，供调用方内联使用） */
+export const renderButton = (key, vars = {}) => {
+    const template = buttonTemplates[key]
+    if (!template) return ''
+    let out = template
+    for (const [name, value] of Object.entries(vars)) {
+        out = out.replaceAll(`[[${name.toUpperCase()}]]`, String(value))
+    }
+    return out
+}

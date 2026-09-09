@@ -10,5 +10,9 @@ export const dynamicPageStyles = {
         #DynamicSettingsPopover #DynamicSettingsPopoverTips {
             margin-top: var(--adj-space-sm);
         }
+
+        #DynamicSettingsFormMount {
+            padding: 0 28px 28px;
+        }
     `
 }

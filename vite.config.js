@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
 import monkey from 'vite-plugin-monkey'
 import pkg from './package.json' with { type: 'json' }
 import path from 'path'
@@ -37,6 +38,7 @@ export default defineConfig(({ mode }) => ({
         }
     },
     plugins: [
+        vue(),
         monkey({
             entry: 'src/main.js',
             build: {

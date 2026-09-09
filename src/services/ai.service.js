@@ -331,7 +331,8 @@ class OpenAIAdapter {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${apiKey}`
                 },
-                timeout: 60000
+                // 广告字幕可能很长，模型生成耗时高：放宽到 120s，降低偶发超时
+                timeout: 120000
             }
         )
         return response.data.choices[0].message.content
@@ -388,7 +389,16 @@ export class UnifiedAIService extends AIService {
                 { role: 'system', content: AD_DETECTION_PROMPT },
                 { role: 'user', content: subtitlesJsonString }
             ]
-            const content = await adapter.chat(apiKey, model, messages, useCustomModel)
+            let content
+            try {
+                content = await adapter.chat(apiKey, model, messages, useCustomModel)
+            } catch (error) {
+                // 网络/超时类失败自动重试一次，降低偶发超时导致的识别失败
+                const retriable = !error.response || error.code === 'ECONNABORTED' || String((error && error.message) || '').includes('timeout')
+                if (!retriable) throw error
+                this.#logger.warn('广告识别请求失败，自动重试一次：' + ((error && error.message) || error.code || 'unknown'))
+                content = await adapter.chat(apiKey, model, messages, useCustomModel)
+            }
             // 检查响应是否为空
             if (!content || !content.trim()) {
                 this.#logger.error('AI响应内容为空')
@@ -419,8 +429,9 @@ export class UnifiedAIService extends AIService {
                 }
                 this.#logger.debug('广告识别结果', result)
                 return result
-            } catch (error) {
-                this.#logger.error('AI响应JSON解析失败', error)
+            } catch {
+                this.#logger.error('AI响应JSON解析失败（内容摘要：' + String(jsonStr).slice(0, 200) + '）')
+                this.#logger.debug('AI响应原始内容（前 500 字符）', String(content).slice(0, 500))
                 return []
             }
         } catch (error) {
@@ -429,7 +440,8 @@ export class UnifiedAIService extends AIService {
                 const errorMessage = adapter.handleError(error.response.status)
                 this.#logger.error(errorMessage, error)
             } else {
-                this.#logger.error('字幕分析失败', error)
+                // 网络/超时类失败（已自动重试仍失败）：降噪为一次 warn，避免频繁刷错误堆栈
+                this.#logger.warn('字幕分析失败（已重试）：' + ((error && error.message) || error.code || error))
             }
             return []
         }
