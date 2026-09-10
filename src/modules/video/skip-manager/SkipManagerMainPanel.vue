@@ -5,10 +5,14 @@
         <div v-else-if="recognizeError" class="error">{{ recognizeError }}</div>
         <template v-else>
             <div v-if="cacheInfoVisible" class="cache-info">
-                <div class="cache-meta">上传者 UID: {{ metaUid }}</div>
-                <div class="cache-meta">更新时间: {{ metaTime }}</div>
-                <div class="cache-meta">版本: v{{ metaVersion }}</div>
-                <div v-if="lockVisible" class="cache-meta cache-lock-row">
+                <div class="cache-meta-line">
+                    <span>UID {{ metaUid }}</span>
+                    <span class="cache-dot">·</span>
+                    <span>更新于 {{ metaTime }}</span>
+                    <span class="cache-dot">·</span>
+                    <span>v{{ metaVersion }}</span>
+                </div>
+                <div v-if="lockVisible" class="cache-lock-row">
                     <span class="cache-lock-state">{{ lockText }}</span>
                     <div class="cache-lock-btn adjustment-button" :class="lockedView ? 'info' : 'danger'" @click.stop="toggleLock" :style="lockBusy ? 'pointer-events:none;opacity:.5' : ''">
                         {{ lockedView ? '解锁' : '锁定' }}
@@ -66,32 +70,35 @@
             </template>
         </template>
 
-        <!-- 手动添加表单 -->
+        <!-- 手动添加（新增片段）：独立手风琴容器，与片段行内编辑在视觉上区分 -->
         <div v-show="manualOpen" class="manual-entry-section">
+            <div class="manual-entry-head">
+                <span class="manual-entry-title">新增片段</span>
+            </div>
             <div class="manual-entry-form">
                 <div class="input-mode-toggle">
-                    <button class="input-mode-btn" type="button" title="切换输入模式" @click="toggleInputMode">
-                        {{ inputMode === 'start-end' ? '起止时间' : '起始+时长' }}
+                    <button class="input-mode-btn" type="button" title="切换输入模式" @click="toggleAddMode">
+                        {{ addMode === 'start-end' ? '起止时间' : '起始+时长' }}
                     </button>
                 </div>
-                <template v-if="inputMode === 'start-end'">
+                <template v-if="addMode === 'start-end'">
                     <div class="time-inputs">
-                        <div class="time-input-group"><label>开始</label><input v-model="startTime" type="text" class="time-input" placeholder="0:00"></div>
+                        <div class="time-input-group"><label>开始</label><input v-model="addStart" type="text" class="time-input" placeholder="0:00"></div>
                         <span class="time-separator">-</span>
-                        <div class="time-input-group"><label>结束</label><input v-model="endTime" type="text" class="time-input" placeholder="0:00"></div>
+                        <div class="time-input-group"><label>结束</label><input v-model="addEnd" type="text" class="time-input" placeholder="0:00"></div>
                     </div>
                 </template>
                 <template v-else>
                     <div class="time-inputs">
-                        <div class="time-input-group"><label>开始</label><input v-model="startTime" type="text" class="time-input" placeholder="0:00"></div>
+                        <div class="time-input-group"><label>开始</label><input v-model="addStart" type="text" class="time-input" placeholder="0:00"></div>
                         <span class="time-separator">+</span>
-                        <div class="time-input-group"><label>跳过</label><input v-model="duration" type="text" class="time-input" placeholder="30s"></div>
+                        <div class="time-input-group"><label>跳过</label><input v-model="addDuration" type="text" class="time-input" placeholder="30s"></div>
                     </div>
                 </template>
                 <!-- 备注（summary）：可选；.summary-field 让其独占一行 -->
                 <div class="time-input-group summary-field">
                     <label>备注</label>
-                    <input v-model="summaryText" type="text" class="time-input" maxlength="40" placeholder="可选，如「片头」「赞助」">
+                    <input v-model="addSummary" type="text" class="time-input" maxlength="40" placeholder="可选，如「片头」「赞助」">
                 </div>
                 <!-- 本区仅用于「新增」片段；编辑已有片段改为在片段行内展开（见 .segment-edit-card） -->
                 <div class="adjustment-button info manual-add-btn" @click="addPending">添加</div>
@@ -190,10 +197,17 @@ const identifying = ref(false)
 const editingExistingIndex = ref(-1)
 const messageText = ref('')
 const messageType = ref('')
+// —— 行内「编辑片段」表单状态（与下方「新增片段」完全独立，互不带值）——
 const startTime = ref('')
 const endTime = ref('')
 const duration = ref('')
 const summaryText = ref('')
+// —— 「新增片段」表单状态 ——
+const addMode = ref('start-end')
+const addStart = ref('')
+const addEnd = ref('')
+const addDuration = ref('')
+const addSummary = ref('')
 const overlay = ref(null)
 let overlayResolveFn = null
 // 通用二次确认层状态（危险操作复用，替代原生 confirm）
@@ -278,38 +292,52 @@ const toggleInputMode = () => {
     duration.value = ''
 }
 
-/**
- * 重置片段表单（手动添加与「行内编辑片段」共用同一组输入框）
- *
- * 两个入口在进入时都会重置，避免先编辑某个片段、再打开手动添加时把片段数据带进新增表单。
- */
-const resetSegmentForm = () => {
+/** 切换「新增片段」的输入模式（与行内编辑各自独立，互不影响） */
+const toggleAddMode = () => {
+    addMode.value = addMode.value === 'start-end' ? 'start-duration' : 'start-end'
+    addStart.value = ''
+    addEnd.value = ''
+    addDuration.value = ''
+}
+
+/** 重置行内「编辑片段」表单 */
+const resetEditForm = () => {
     inputMode.value = 'start-end'
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
     summaryText.value = ''
 }
-/** 展开/收起「手动添加」：展开前先重置表单，保证新增表单永远是干净的 */
+
+/** 重置「新增片段」表单 */
+const resetAddForm = () => {
+    addMode.value = 'start-end'
+    addStart.value = ''
+    addEnd.value = ''
+    addDuration.value = ''
+    addSummary.value = ''
+}
+
+/** 展开/收起「新增片段」：展开前先重置，保证新增表单永远是干净的 */
 const toggleManualOpen = () => {
     if (manualOpen.value) {
         manualOpen.value = false
         return
     }
-    resetSegmentForm()
+    resetAddForm()
     manualOpen.value = true
 }
 
 const addPending = () => {
     let start = null
     let end = null
-    if (inputMode.value === 'start-end') {
-        if (!startTime.value.trim() || !endTime.value.trim()) {
+    if (addMode.value === 'start-end') {
+        if (!addStart.value.trim() || !addEnd.value.trim()) {
             showMessage('请输入开始和结束时间', 'warn')
             return
         }
-        start = parseTime(startTime.value.trim())
-        end = parseTime(endTime.value.trim())
+        start = parseTime(addStart.value.trim())
+        end = parseTime(addEnd.value.trim())
         if (start === null || end === null) {
             showMessage('时间格式错误，请使用 M:SS 或秒数', 'warn')
             return
@@ -319,12 +347,12 @@ const addPending = () => {
             return
         }
     } else {
-        if (!startTime.value.trim() || !duration.value.trim()) {
+        if (!addStart.value.trim() || !addDuration.value.trim()) {
             showMessage('请输入开始时间和跳过时长', 'warn')
             return
         }
-        start = parseTime(startTime.value.trim())
-        const dur = parseDuration(duration.value.trim())
+        start = parseTime(addStart.value.trim())
+        const dur = parseDuration(addDuration.value.trim())
         if (start === null) {
             showMessage('开始时间格式错误，请使用 M:SS 或秒数', 'warn')
             return
@@ -341,13 +369,14 @@ const addPending = () => {
         showMessage(conflict, 'warn')
         return
     }
-    pendingSegments.push({ start, end, summary: summaryText.value.trim() || undefined })
+    pendingSegments.push({ start, end, summary: addSummary.value.trim() || undefined })
     pendingSegments.sort((a, b) => a.start - b.start)
     bump()
-    startTime.value = ''
-    endTime.value = ''
-    duration.value = ''
-    summaryText.value = ''
+    // 只清空「新增片段」的表单，不影响正在编辑的片段
+    addStart.value = ''
+    addEnd.value = ''
+    addDuration.value = ''
+    addSummary.value = ''
 }
 
 // 编辑已有片段：在片段行内展开编辑卡片（手风琴，同时只展开一个）
@@ -355,8 +384,8 @@ const editExisting = i => {
     if (i < 0 || i >= currentSegments.length) return
     const seg = currentSegments[i]
     editingExistingIndex.value = i
-    // 先重置再回填：保证与「手动添加」共用输入框时不残留上一次的输入
-    resetSegmentForm()
+    // 先重置再回填，保证编辑表单只包含该片段自己的数据
+    resetEditForm()
     startTime.value = formatTime(seg.start)
     endTime.value = formatTime(seg.end)
     // 回填备注，使已有片段的 summary 可编辑
@@ -383,21 +412,43 @@ const saveExistingEdit = () => {
         cancelExistingEdit()
         return
     }
-    const startStr = startTime.value.trim()
-    const endStr = endTime.value.trim()
-    if (!startStr || !endStr) {
-        showMessage('请输入开始和结束时间', 'warn')
-        return
-    }
-    const start = parseTime(startStr)
-    const end = parseTime(endStr)
-    if (start === null || end === null) {
-        showMessage('时间格式错误，请使用 M:SS 或秒数', 'warn')
-        return
-    }
-    if (start >= end) {
-        showMessage('开始时间必须小于结束时间', 'warn')
-        return
+    let start = null
+    let end = null
+    if (inputMode.value === 'start-duration') {
+        // 「起始+时长」模式：由开始 + 时长推导结束时间（此前漏处理，导致该模式下保存必失败）
+        const startStr = startTime.value.trim()
+        if (!startStr || !duration.value.trim()) {
+            showMessage('请输入开始时间和跳过时长', 'warn')
+            return
+        }
+        start = parseTime(startStr)
+        const dur = parseDuration(duration.value.trim())
+        if (start === null) {
+            showMessage('开始时间格式错误，请使用 M:SS 或秒数', 'warn')
+            return
+        }
+        if (dur === null || dur <= 0) {
+            showMessage('跳过时长格式错误，请输入正数（支持 30s, 1m30s, 90 等格式）', 'warn')
+            return
+        }
+        end = start + dur
+    } else {
+        const startStr = startTime.value.trim()
+        const endStr = endTime.value.trim()
+        if (!startStr || !endStr) {
+            showMessage('请输入开始和结束时间', 'warn')
+            return
+        }
+        start = parseTime(startStr)
+        end = parseTime(endStr)
+        if (start === null || end === null) {
+            showMessage('时间格式错误，请使用 M:SS 或秒数', 'warn')
+            return
+        }
+        if (start >= end) {
+            showMessage('开始时间必须小于结束时间', 'warn')
+            return
+        }
     }
     const others = currentSegments.filter((_, idx) => idx !== i)
     const conflict = validateSegment({ start, end }, others)

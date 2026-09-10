@@ -106,6 +106,9 @@ export class SettingsComponentV2 {
      */
     showPanelLoadFailure (error) {
         logger.error('Vue 设置面板不可用', error)
+        // 先卸载可能已存在的 Vue 实例：若「挂载后才抛错」，实例仍在而容器会被清空，
+        // 不卸载会导致实例残留与后续 patch 报错
+        this.unmountVuePanel()
         const mountEl = document.querySelector('#VideoSettingsFormMount, #DynamicSettingsFormMount')
         if (!mountEl) return
         mountEl.textContent = ''
@@ -116,7 +119,8 @@ export class SettingsComponentV2 {
         retry.className = 'adjustment-button secondary'
         retry.textContent = '重试'
         retry.addEventListener('click', () => {
-            this.render(this.pageType)
+            // 重试再失败则再次走兜底提示；catch 避免 unhandled rejection
+            Promise.resolve(this.render(this.pageType)).catch(err => this.showPanelLoadFailure(err))
         })
         mountEl.appendChild(tip)
         mountEl.appendChild(retry)

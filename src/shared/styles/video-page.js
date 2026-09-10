@@ -170,17 +170,38 @@ export const videoPageStyles = {
         .skip-manager-dialog .success { color: var(--adj-success); }
 
         .skip-manager-dialog .cache-info {
-            padding: 12px;
-            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px 12px;
+            padding: 8px 12px;
+            margin-bottom: 12px;
             background: rgba(var(--adj-brand-rgb), 0.08);
             border-radius: 8px;
             border: 1px solid rgba(var(--adj-brand-rgb), 0.15);
         }
 
-        .skip-manager-dialog .cache-meta {
-            font-size: 13px;
+        /* 缓存信息压成一行：UID · 更新于 … · vX.Y.Z（原先每项各占一行，占位过大） */
+        .skip-manager-dialog .cache-meta-line {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 6px;
+            font-size: 12px;
+            line-height: 1.5;
             color: var(--adj-text-muted);
-            line-height: 1.6;
+        }
+
+        .skip-manager-dialog .cache-dot {
+            opacity: 0.5;
+        }
+
+        .skip-manager-dialog .cache-lock-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin: 0;
         }
 
         .skip-manager-dialog .segment-count {
@@ -298,12 +319,29 @@ export const videoPageStyles = {
             background: rgba(var(--adj-danger-rgb), 0.15);
         }
 
+        /* 「新增片段」容器：与片段行内编辑卡片同款视觉（描边卡片 + 圆角），与「编辑片段」在视觉上区分 */
         .skip-manager-dialog .manual-entry-section {
-            padding: 12px 0 16px;
-            border-top: 1px solid var(--adj-border-strong);
             display: flex;
             flex-direction: column;
             gap: 10px;
+            margin-top: 4px;
+            padding: 12px 14px 14px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: 10px;
+            background: var(--adj-bg-surface);
+        }
+
+        .skip-manager-dialog .manual-entry-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .skip-manager-dialog .manual-entry-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--adj-text-strong);
         }
 
         .skip-manager-dialog .inline-msg {
