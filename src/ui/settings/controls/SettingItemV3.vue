@@ -52,6 +52,7 @@
                                 :id="item.id"
                                 data-config-type="select"
                                 :disabled="selectOptions.length === 0"
+                                @change="emit('change', item.id, $event.target.value)"
                             >
                                 <template v-if="selectOptions.length > 0">
                                     <option

@@ -183,22 +183,20 @@ export const adSkipFeatures = {
                 let disposed = false
                 // P0-1：Vue 运行时与面板组件在「用户真正打开管理弹窗」时才加载；
                 // 静态 import 会把 Vue 拖进视频模块的关键路径（未打开也会初始化）。
-                // 注意：动态导入的是 lazy-panels.js（命名导出桥），不能直接导入 .vue ——
-                // 产物以 SystemJS 承载模块，动态导入 .vue 的命名空间取不到 default。
+                // 说明：桥模块 lazy-panels.js 同时导出面板组件与**同源**的 createApp ——
+                // 产物按 chunk 分别压缩，import('vue') 与 SFC 依赖的 runtime-core 是两个运行时实例，
+                // 混用会导致面板响应式/事件不生效（面板不刷新、change 不触发）。
                 perfStart('skip:manager:open')
-                Promise.all([
-                    import('vue'),
-                    import('./skip-manager/lazy-panels')
-                ]).then(([{ createApp }, panels]) => {
+                import('./skip-manager/lazy-panels').then(panels => {
                     if (disposed) return
                     const Panel = isBangumi ? panels.BangumiSkipManager : panels.SkipManagerMainPanel
-                    if (!Panel) {
+                    if (!Panel || typeof panels.createApp !== 'function') {
                         logger.error('跳过片段管理丨面板组件解析失败（模块导出异常）')
                         loading.textContent = '面板加载失败，请刷新页面后重试'
                         return
                     }
                     loading.remove()
-                    app = createApp(Panel, { bvid: String(bvid), env })
+                    app = panels.createApp(Panel, { bvid: String(bvid), env })
                     app.mount(holder)
                     perfEnd('skip:manager:open')
                 }).catch(error => {

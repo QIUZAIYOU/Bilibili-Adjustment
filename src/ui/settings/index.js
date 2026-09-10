@@ -5,12 +5,14 @@
  * 宿主（settings-component-v2）在渲染弹窗壳后调用 mountVueSettingsPanel 挂载面板，
  * 并在弹窗关闭时调用返回的 unmount（否则 Vue 实例与响应式副作用会泄漏）。
  *
- * ⚠️ 数据代理约定（务必遵守，历史上踩过 Maximum call stack size exceeded）：
- * - `schema` 是静态配置（含函数与嵌套数组），一律 `markRaw`，**不做深度代理**；
- * - `configs` / `dynamicOptions` 以「普通对象快照 + 整体替换」方式传递，
- *   绝不让 Vue 深度代理面板内部的数组/嵌套对象（代理数组上迭代会形成代理递归）。
- *   宿主更新方式：`bridge.configs = { ...bridge.configs, [key]: value }`、
- *   `bridge.dynamicOptions = { ...bridge.dynamicOptions, ai_model: list }`。
+ * ⚠️ 两条务必遵守的约束：
+ * 1) **Vue API 与组件同源**：产物按 chunk 分别压缩，`import('vue')` 得到的是一份独立的
+ *    `vue.runtime.esm-bundler` chunk，与 SFC 依赖的 `runtime-core`/`runtime-dom` 是
+ *    **两个 Vue 运行时实例** → 响应式与事件系统不互通（面板不刷新、change 不触发）。
+ *    因此这里不再 `import('vue')`，而是从桥模块 `./lazy-panel.js` 取同一份 createApp/reactive/markRaw。
+ * 2) **数据源是宿主自身持有的对象**：`configs` / `dynamicOptions` 直接对它做 `reactive` 代理，
+ *    宿主就地写属性即触发面板重渲染；**不要拷贝对象**（拷贝后代理的目标与宿主写入目标不一致，
+ *    面板不会更新）。`schema` 静态，`markRaw` 不代理。
  */
 /**
  * 判断动态导入结果是否可作为 Vue 组件使用
@@ -26,8 +28,8 @@ const isComponent = value => {
  * @param {HTMLElement} mountEl 挂载点元素
  * @param {object} options
  * @param {Array} options.schema 设置项 schema（videoSettingsConfig / dynamicSettingsConfig）
- * @param {object} options.configs 配置值快照（扁平标量 map）
- * @param {object} [options.dynamicOptions] 动态选项快照（模型列表等）
+ * @param {object} options.configs 配置值 map（**宿主自身持有的对象**，扁平标量）
+ * @param {object} [options.dynamicOptions] 动态选项 map（**宿主自身持有的对象**，如模型列表）
  * @param {(key:string, value:any)=>void} [options.onChange] 配置变更回调
  * @param {(key:string)=>void} [options.onValidate] 校验按钮回调
  * @param {(key:string)=>void} [options.onRefresh] 刷新按钮回调
@@ -36,25 +38,23 @@ const isComponent = value => {
  */
 export const mountVueSettingsPanel = async (mountEl, options = {}) => {
     const { schema, configs, dynamicOptions = {}, onChange, onValidate, onRefresh, onError } = options
-    // 注意：动态导入的是 lazy-panel.js（内部静态 import SFC 并做命名导出），
-    // 而不是直接 import('./SettingsPanelV3.vue')：产物以 SystemJS 承载模块，
-    // 动态导入 .vue 得到的命名空间在运行时取不到 default（会导致 Vue mount 报 reading 'render'）。
-    const [{ createApp, shallowReactive, markRaw }, panelModule] = await Promise.all([
-        import('vue'),
-        import('./lazy-panel.js')
-    ])
-    const PanelComponent = panelModule?.SettingsPanelV3Component || panelModule?.default
+    // 桥模块只被动态 import（懒加载红线）；它同时导出组件与**同源**的 Vue API
+    const panelModule = await import('./lazy-panel.js')
+    const { SettingsPanelV3Component, createApp, reactive, markRaw } = panelModule || {}
+    const PanelComponent = SettingsPanelV3Component || panelModule?.default
     if (!isComponent(PanelComponent)) {
         const keys = panelModule ? Object.keys(panelModule).join(',') : '模块为空'
         throw new Error(`设置面板组件解析失败（模块导出：${keys}）`)
     }
-    // bridge：宿主 ↔ 组件 的浅层响应式桥。只有顶层属性（configs / dynamicOptions 的引用）
-    // 变化才触发面板重渲染；面板内部始终是普通数组/对象，从根本上避免代理递归爆栈。
-    const bridge = shallowReactive({
+    if (typeof createApp !== 'function' || typeof reactive !== 'function' || typeof markRaw !== 'function') {
+        throw new Error('设置面板运行时异常（桥模块未导出同源的 Vue API）')
+    }
+    // bridge：对宿主持有的同一批对象做代理（就地写入即触发面板更新）
+    const bridge = {
         schema: markRaw(schema),
-        configs: { ...configs },
-        dynamicOptions: { ...dynamicOptions }
-    })
+        configs: reactive(configs || {}),
+        dynamicOptions: reactive(dynamicOptions)
+    }
     if (!mountEl) return { bridge, unmount: () => {} }
     const app = createApp(PanelComponent, {
         schema: bridge.schema,

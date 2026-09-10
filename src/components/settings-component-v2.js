@@ -24,10 +24,14 @@ export class SettingsComponentV2 {
         this.renderer = null
         this.pageType = null
         this.tooltip = null
-        // Vue 设置面板（settings_panel = 'v3'）状态：bridge 为宿主↔组件的响应式桥，
-        // _vuePanel.unmount 在弹窗关闭/重建时调用（避免实例与响应式副作用泄漏）
+        // Vue 设置面板（settings_panel = 'v3'）状态：
+        // - _vuePanel：应用实例（关闭/重建时 unmount）
+        // - _vueConfigsProxy / _vueDynamicOptionsProxy：**Vue 响应式代理**，宿主所有写入都必须经它们
+        //   （写原始对象会绕过 Proxy 的 set trap，面板不会重渲染）
         this._vuePanel = null
         this._vueBridge = null
+        this._vueConfigsProxy = null
+        this._vueDynamicOptionsProxy = null
         this._activeSchema = null
     }
     /** 当前是否使用 Vue 版设置面板（settings_panel 默认为 v3，设为 v2 可回退经典渲染器） */
@@ -41,22 +45,19 @@ export class SettingsComponentV2 {
             this._vuePanel = null
         }
         this._vueBridge = null
+        this._vueConfigsProxy = null
+        this._vueDynamicOptionsProxy = null
     }
     /**
-     * 同步配置到 Vue 面板响应式桥（经典模式或面板未挂载时为空操作）
+     * 同步动态选项（模型列表等）到 Vue 面板
      *
-     * 注意：面板走「浅层响应式 + 普通对象快照」，因此这里必须**整体替换** configs：
-     * 直接写 `bridge.configs[key]` 不会触发重渲染，也不符合「面板内无代理」的约定。
+     * 必须写**代理**（`bridge.dynamicOptions`）：写原始对象不会触发 Vue 的更新。
+     * 代理与宿主对象共享同一 target，因此宿主侧读数也同步更新。
      */
-    syncVueBridge (key, value) {
-        if (!this._vueBridge) return
-        if (this._vueBridge.configs[key] === value) return
-        this._vueBridge.configs = { ...this._vueBridge.configs, [key]: value }
-    }
-    /** 同步动态选项（模型列表等）到 Vue 面板：整体替换，避免面板内部出现代理数组 */
     syncVueDynamicOptions (options) {
-        if (!this._vueBridge) return
-        this._vueBridge.dynamicOptions = { ...options }
+        const target = this._vueDynamicOptionsProxy
+        if (!target) return
+        Object.assign(target, options)
     }
     /**
      * 挂载 Vue 设置面板
@@ -69,13 +70,18 @@ export class SettingsComponentV2 {
         this._activeSchema = schema
         const mountEl = popover?.querySelector(`#${mountId}`)
         if (!mountEl) return null
+        // 动态选项对象必须与面板共享**同一引用**（面板对其做 reactive 代理，就地更新才触发重渲染）
+        const dynamicOptions = this._pendingModelOptions || (this.userConfigs.ai_model
+            ? { ai_model: [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }]}
+            : { ai_model: []})
+        this._pendingModelOptions = dynamicOptions
         try {
             const panel = await mountVueSettingsPanel(mountEl, {
                 schema,
+                // configs / dynamicOptions 传宿主自身持有的对象；面板据此建立**响应式代理**并回传，
+                // 宿主后续所有写入必须走 these proxy（见 saveConfig / syncVueDynamicOptions）
                 configs: this.userConfigs,
-                dynamicOptions: this._pendingModelOptions || (this.userConfigs.ai_model
-                    ? { ai_model: [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }]}
-                    : { ai_model: []}),
+                dynamicOptions,
                 onChange: (key, value) => this.handleVueConfigChange(key, value, popover),
                 onValidate: key => this.handleValidateClick(key, popover),
                 onRefresh: key => this.handleRefreshClick(key, popover),
@@ -84,6 +90,8 @@ export class SettingsComponentV2 {
             })
             this._vuePanel = panel
             this._vueBridge = panel.bridge
+            this._vueConfigsProxy = panel.bridge?.configs || null
+            this._vueDynamicOptionsProxy = panel.bridge?.dynamicOptions || null
             return panel
         } catch (error) {
             await this.fallbackToClassicPanel(error)
@@ -125,12 +133,8 @@ export class SettingsComponentV2 {
         } else if (item?.type === 'select') {
             await this.handleSpecialSelectChange(key, next, oldValue, popover)
         }
-        // 面板实现切换：立即重建弹窗并重新打开（无需刷新页面）
-        if (key === 'settings_panel') {
-            const popoverId = this.pageType === 'dynamic' ? 'DynamicSettingsPopover' : 'VideoSettingsPopover'
-            await this.render(this.pageType)
-            document.getElementById(popoverId)?.showPopover()
-        }
+        // 说明：`settings_panel`（面板实现）切换后的弹窗重建统一在 saveConfig 内完成，
+        // 以覆盖「Vue 面板回调」与「经典渲染器 DOM 事件」两条路径。
     }
     async init (userConfigs) {
         this.userConfigs = userConfigs
@@ -138,7 +142,12 @@ export class SettingsComponentV2 {
         // 订阅其他标签页的配置变更，实时同步设置弹窗状态（只订阅一次，SPA 导航重复 init 不重复订阅）
         if (!this._configSyncUnsubscribe) {
             this._configSyncUnsubscribe = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, async (_, { key, value }) => {
-                this.userConfigs[key] = value
+                // 跨标签同步同样要写 Vue 代理，否则面板（Vue 模式）不会刷新
+                if (this._vueConfigsProxy) {
+                    this._vueConfigsProxy[key] = value
+                } else {
+                    this.userConfigs[key] = value
+                }
                 this.syncConfigControl(key, value)
                 // 日志级别跨标签同步
                 if (key.startsWith('log_level_')) {
@@ -233,13 +242,13 @@ export class SettingsComponentV2 {
         // 异步获取完整模型列表并更新（不阻塞初始化流程）
         this.fetchDynamicOptions().then(options => {
             if (!options?.ai_model) return
-            this._pendingModelOptions = options
-            // Vue 面板：更新响应式桥的动态选项（等价于经典模式重建 select 选项）
+            // Vue 面板：就地合并到共享的动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
             if (this._vueBridge) {
-                this.syncVueDynamicOptions({ ...this._pendingModelOptions, ai_model: options.ai_model })
+                Object.assign(this._pendingModelOptions, options)
                 refreshCustomSelects(popover)
                 return
             }
+            this._pendingModelOptions = options
             const modelSelect = document.getElementById('ai_model')
             if (modelSelect) {
                 const currentValue = modelSelect.value
@@ -639,10 +648,9 @@ export class SettingsComponentV2 {
         const savedKey = await ConfigService.getValue(`ai_apikey_${newProvider}`)
         const savedModel = await ConfigService.getValue(`ai_model_${newProvider}`)
         await this.saveConfig('ai_apikey', savedKey || '')
-        // 同步 API Key 输入框显示：Vue 面板走响应式桥，经典模式直接写 DOM
-        if (this._vueBridge) {
-            this.syncVueBridge('ai_apikey', savedKey || '')
-        } else {
+        // 同步 API Key 输入框显示：Vue 面板的输入框由 props.configs 驱动（saveConfig 已写入同一对象，
+        // 面板自动重渲染），经典模式需直接写 DOM
+        if (!this._vueBridge) {
             const keyInput = popover?.querySelector('#ai_apikey')
             if (keyInput) keyInput.value = savedKey || ''
         }
@@ -675,8 +683,6 @@ export class SettingsComponentV2 {
                     const nextModel = keepCurrent ? currentModel : models[0].id
                     if (nextModel !== this.userConfigs.ai_model) {
                         await this.saveConfig('ai_model', nextModel)
-                    } else {
-                        this.syncVueBridge('ai_model', nextModel)
                     }
                 } else if (this.userConfigs.ai_model) {
                     // 无可用模型：清空选中值（组件渲染「暂无可用选项」占位）
@@ -882,20 +888,30 @@ export class SettingsComponentV2 {
      */
     async saveConfig (key, value) {
         await ConfigService.setValue(key, value)
-        this.userConfigs[key] = value
-        // 同步到 Vue 面板响应式桥（经典模式下为空操作）
-        this.syncVueBridge(key, value)
+        // 写 Vue 响应式代理（触发面板重渲染）；代理与 this.userConfigs 共享同一 target，读数同步。
+        // 若无代理（经典渲染器模式）则直接写 userConfigs。
+        if (this._vueConfigsProxy) {
+            this._vueConfigsProxy[key] = value
+        } else {
+            this.userConfigs[key] = value
+        }
         logger.debug(`配置已更新: ${key} = ${value}`)
+        // 面板实现切换（v3 ↔ v2）：无论从哪个模式的控件触发都立即重建弹窗。
+        // 放在 saveConfig 里是为了覆盖两条写入路径（Vue 面板回调 / 经典渲染器 DOM 事件）。
+        if (key === 'settings_panel') {
+            const popoverId = this.pageType === 'dynamic' ? 'DynamicSettingsPopover' : 'VideoSettingsPopover'
+            await this.render(this.pageType)
+            document.getElementById(popoverId)?.showPopover()
+        }
     }
     /**
      * 同步其他标签页写入的配置到本地设置弹窗控件
      */
     syncConfigControl (key, value) {
-        // Vue 面板模式：把值写进响应式桥即可（组件据此重渲染，无需操作 DOM）
+        // Vue 面板模式：写入 userConfigs 的同一对象即驱动面板重渲染（面板 props.configs 是它的代理），
+        // 因此这里只需处理「面板实现被其它标签页切换」的重建
         if (this._vueBridge) {
-            this.syncVueBridge(key, value)
             if (key === 'settings_panel') {
-                // 面板实现被其它标签页切换：重建本地弹窗，避免新旧实现混用
                 this.render(this.pageType).catch(() => {})
             }
             return
