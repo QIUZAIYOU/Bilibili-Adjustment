@@ -4,7 +4,7 @@ import { ConfigService } from '@/services/config.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
-import { detectivePageType, createElementAndInsert, addEventListenerToElement, escapeHtml, enablePopoverLightDismiss } from '@/utils/common'
+import { detectivePageType, createElementAndInsert, addEventListenerToElement, enablePopoverLightDismiss } from '@/utils/common'
 import { SettingsRenderer } from '@/components/settings-renderer'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
@@ -149,12 +149,7 @@ export class SettingsComponentV2 {
         if (!this._configSyncUnsubscribe) {
             this._configSyncUnsubscribe = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, async (_, { key, value }) => {
                 // 跨标签同步同样要写 Vue 代理，否则面板（Vue 模式）不会刷新
-                if (this._vueConfigsProxy) {
-                    this._vueConfigsProxy[key] = value
-                } else {
-                    this.userConfigs[key] = value
-                }
-                this.syncConfigControl(key, value)
+                this._vueConfigsProxy[key] = value
                 // 日志级别跨标签同步
                 if (key.startsWith('log_level_')) {
                     await LoggerService.updateLogLevelsFromConfig(this.userConfigs)
@@ -216,7 +211,7 @@ export class SettingsComponentV2 {
         // 不 await fetchDynamicOptions（fetchModels 有 10s 超时）：动态选项由 mountVuePanel
         // 内部从 _pendingModelOptions / 当前 ai_model 推导，面板挂载后再异步更新
         // 创建渲染器：只用于生成弹窗壳（表单由 Vue 面板 SettingsPanelV3 渲染）
-        this.renderer = new SettingsRenderer(videoSettingsConfig)
+        this.renderer = new SettingsRenderer()
         this._activeSchema = videoSettingsConfig
         // 挂载点本身即 .adjustment-form 容器：面板以多根 fragment 渲染，
         // 最终 DOM 与旧渲染器一致（.adjustment-popover > .adjustment-form > 各设置项）
@@ -244,20 +239,9 @@ export class SettingsComponentV2 {
         this.fetchDynamicOptions().then(options => {
             if (!options?.ai_model) return
             // Vue 面板：就地合并到共享的动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
-            if (this._vueBridge) {
-                Object.assign(this._pendingModelOptions, options)
-                refreshCustomSelects(popover)
-                return
-            }
-            this._pendingModelOptions = options
-            const modelSelect = document.getElementById('ai_model')
-            if (modelSelect) {
-                const currentValue = modelSelect.value
-                modelSelect.innerHTML = options.ai_model.map(m =>
-                    '<option value="' + m.value + '"' + (m.value === currentValue ? ' selected' : '') + '>' + m.label + '</option>').join('')
-                // 同步自绘下拉的选项与当前值显示
-                refreshCustomSelects(popover)
-            }
+            // 就地合并到共享的动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
+            Object.assign(this._pendingModelOptions, options)
+            refreshCustomSelects(popover)
         }).catch(() => {})
     }
     /**
@@ -313,14 +297,8 @@ export class SettingsComponentV2 {
         // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
         popover.__popoverDismissCleanup?.()
         popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
-        // Vue 面板模式下，表单交互（change/validate/refresh）由组件事件回调处理，
-        // 无需再绑定 DOM 事件；自绘下拉/tooltip 的增强仍走公共逻辑
-        if (!this._vueBridge) {
-            // 绑定所有设置项的 change 事件
-            this.bindConfigChangeEvents(popover)
-            // 绑定特殊按钮事件（验证、刷新等）
-            this.bindSpecialButtonEvents(popover)
-        }
+        // 表单交互（change/validate/refresh）全部由 Vue 面板的组件事件回调处理，
+        // 无需绑定 DOM 事件；自绘下拉/tooltip 的增强仍走公共逻辑
         // 绑定导入导出事件
         this.bindImportExportEvents(popover)
         this.bindVersionUpdateCheck(popover)
@@ -367,93 +345,8 @@ export class SettingsComponentV2 {
     /**
      * 绑定配置项变更事件
      */
-    bindConfigChangeEvents (popover) {
-        // 复选框
-        const checkboxes = popover.querySelectorAll('input[type="checkbox"][data-config-type="checkbox"]')
-        checkboxes.forEach(checkbox => {
-            addEventListenerToElement(checkbox, 'change', async e => {
-                if (!e.target) return
-                const configId = e.target.id
-                const value = Boolean(e.target.checked)
-                await this.saveConfig(configId, value)
-                // 更新开关样式
-                const switchBtn = e.target.closest('.adjustment-switch')
-                if (switchBtn) {
-                    switchBtn.classList.toggle('on', value)
-                }
-                // 处理特殊逻辑
-                await this.handleSpecialCheckboxChange(configId, value, popover)
-                // 刷新可见性
-                this.refreshVisibility(popover)
-            })
-        })
-        // 输入框
-        const inputs = popover.querySelectorAll('input[data-config-type="input"]')
-        inputs.forEach(input => {
-            addEventListenerToElement(input, 'change', async e => {
-                if (!e.target) return
-                const configId = e.target.id
-                const value = e.target.value.trim()
-                await this.saveConfig(configId, value)
-                // 处理特殊输入框变更
-                await this.handleSpecialInputChange(configId, value, popover)
-            })
-        })
-        // 下拉框
-        const selects = popover.querySelectorAll('select[data-config-type="select"]')
-        selects.forEach(select => {
-            addEventListenerToElement(select, 'change', async e => {
-                if (!e.target) return
-                const configId = e.target.id
-                const value = e.target.value
-                const oldValue = this.userConfigs[configId]
-                await this.saveConfig(configId, value)
-                // 处理特殊下拉框变更
-                await this.handleSpecialSelectChange(configId, value, oldValue, popover)
-            })
-        })
-        // 单选框
-        const radios = popover.querySelectorAll('input[data-config-type="radio"]')
-        radios.forEach(radio => {
-            addEventListenerToElement(radio, 'click', async e => {
-                if (!e.target) return
-                const name = e.target.name
-                const value = e.target.value
-                // 更新同组其他单选框状态
-                requestAnimationFrame(() => {
-                    const group = popover.querySelectorAll(`input[name="${name}"]`)
-                    group.forEach(r => {
-                        r.checked = false
-                        r.removeAttribute('checked')
-                    })
-                    if (e.target) {
-                        e.target.checked = true
-                        e.target.setAttribute('checked', 'true')
-                    }
-                })
-                await this.saveConfig(name, value)
-                // 刷新可见性（如 网页全屏模式解锁 仅在选择网页全屏时显示）
-                this.refreshVisibility(popover)
-            })
-        })
-    }
     /**
-     * 绑定特殊按钮事件（验证、刷新等）
-     */
-    bindSpecialButtonEvents (popover) {
-        // 验证按钮
-        const validateButtons = popover.querySelectorAll('[data-validate-for]')
-        validateButtons.forEach(button => {
-            addEventListenerToElement(button, 'click', () => this.handleValidateClick(button.dataset.validateFor, popover))
-        })
-        // 刷新按钮
-        const refreshButtons = popover.querySelectorAll('[data-refresh-for]')
-        refreshButtons.forEach(button => {
-            addEventListenerToElement(button, 'click', () => this.handleRefreshClick(button.dataset.refreshFor, popover))
-        })
-    }
-    /**
-     * 处理 API Key 验证按钮点击（经典模式由 DOM 事件调用，Vue 面板由 onValidate 回调调用）
+     * 处理 API Key 验证按钮点击（Vue 面板由 onValidate 回调调用）
      * @param {string} targetId 目标输入框 id（ai_apikey / custom_model_api_key）
      * @param {HTMLElement} popover 设置弹窗
      * @param {HTMLElement} [buttonEl] 按钮元素（缺省时按 targetId 查找，兼容 Vue 面板）
@@ -580,7 +473,6 @@ export class SettingsComponentV2 {
                 await this.refreshModelList(popover)
             }
             // 刷新可见性以显示/隐藏相关配置项
-            this.refreshVisibility(popover)
         }
         // 「AI 自动识别广告」开启时：拉取模型列表填充下拉（默认关闭状态下打开设置不会预取）
         if (configId === 'ai_auto_identify' && value && !this.userConfigs.use_custom_model) {
@@ -649,12 +541,7 @@ export class SettingsComponentV2 {
         const savedKey = await ConfigService.getValue(`ai_apikey_${newProvider}`)
         const savedModel = await ConfigService.getValue(`ai_model_${newProvider}`)
         await this.saveConfig('ai_apikey', savedKey || '')
-        // 同步 API Key 输入框显示：Vue 面板的输入框由 props.configs 驱动（saveConfig 已写入同一对象，
-        // 面板自动重渲染），经典模式需直接写 DOM
-        if (!this._vueBridge) {
-            const keyInput = popover?.querySelector('#ai_apikey')
-            if (keyInput) keyInput.value = savedKey || ''
-        }
+        // API Key 输入框由面板按 props.configs 自动重渲染（saveConfig 已写入同一对象），无需操作 DOM
         clearModelCache()
         await this.refreshModelList(popover, savedModel || '')
     }
@@ -664,9 +551,6 @@ export class SettingsComponentV2 {
      * @param {string} preferredModel - 优先选中的模型（供应商切换时传入，空则保留当前选中）
      */
     async refreshModelList (popover, preferredModel = '') {
-        const useVueBridge = Boolean(this._vueBridge)
-        const modelSelect = useVueBridge ? null : popover?.querySelector('#ai_model')
-        if (!useVueBridge && !modelSelect) return false
         clearModelCache()
         try {
             const models = await fetchModels(
@@ -674,47 +558,20 @@ export class SettingsComponentV2 {
                 this.userConfigs.ai_provider,
                 this.userConfigs.custom_base_url
             )
-            if (useVueBridge) {
-                // Vue 面板：更新响应式桥的模型选项与选中值（组件据此重渲染下拉）
-                const optionList = models.map(model => ({ value: model.id, label: model.label }))
-                this.syncVueDynamicOptions({ ai_model: optionList })
-                const currentModel = preferredModel || this.userConfigs.ai_model
-                if (models.length > 0) {
-                    const keepCurrent = currentModel && optionList.some(option => option.value === currentModel)
-                    const nextModel = keepCurrent ? currentModel : models[0].id
-                    if (nextModel !== this.userConfigs.ai_model) {
-                        await this.saveConfig('ai_model', nextModel)
-                    }
-                } else if (this.userConfigs.ai_model) {
-                    // 无可用模型：清空选中值（组件渲染「暂无可用选项」占位）
-                    await this.saveConfig('ai_model', '')
-                }
-                refreshCustomSelects(popover)
-                logger.info('模型列表已刷新')
-                return true
-            }
+            // 更新响应式桥的模型选项与选中值（面板据此重渲染下拉）
+            const optionList = models.map(model => ({ value: model.id, label: model.label }))
+            this.syncVueDynamicOptions({ ai_model: optionList })
+            const currentModel = preferredModel || this.userConfigs.ai_model
             if (models.length > 0) {
-                // 优先保留指定模型（供应商切换时），否则保留当前选中模型，避免刷新后跳回第一个模型
-                const currentModel = preferredModel || modelSelect.value
-                modelSelect.innerHTML = models.map(model => `
-                    <option value="${escapeHtml(model.id)}">${escapeHtml(model.label)}</option>
-                `).join('')
-                modelSelect.disabled = false
-                const keepCurrent = currentModel && Array.from(modelSelect.options).some(option => option.value === currentModel)
-                if (keepCurrent) {
-                    modelSelect.value = currentModel
-                    if (preferredModel) await this.saveConfig('ai_model', currentModel)
-                } else {
-                    modelSelect.value = models[0].id
-                    await this.saveConfig('ai_model', models[0].id)
+                const keepCurrent = currentModel && optionList.some(option => option.value === currentModel)
+                const nextModel = keepCurrent ? currentModel : models[0].id
+                if (nextModel !== this.userConfigs.ai_model) {
+                    await this.saveConfig('ai_model', nextModel)
                 }
-            } else {
-                // 无可用模型：显示占位符并禁用下拉，刷新出可选项后恢复
-                modelSelect.innerHTML = '<option value="" selected disabled>暂无可用选项</option>'
-                modelSelect.value = ''
-                modelSelect.disabled = true
+            } else if (this.userConfigs.ai_model) {
+                // 无可用模型：清空选中值（组件渲染「暂无可用选项」占位）
+                await this.saveConfig('ai_model', '')
             }
-            // 同步自绘下拉（模型列表已重建或禁用态变化）
             refreshCustomSelects(popover)
             logger.info('模型列表已刷新')
             return true
@@ -722,64 +579,6 @@ export class SettingsComponentV2 {
             logger.error('刷新模型列表失败', error)
             return false
         }
-    }
-    /**
-     * 刷新设置项可见性 —— 遍历所有配置项，重新评估 visible 条件
-     */
-    refreshVisibility (popover) {
-        // Vue 面板模式：可见性由组件按 configs 响应式派生（v-show），宿主不再操作 DOM，
-        // 否则会与组件渲染互相覆盖（显示/隐藏抖动）
-        if (this._vueBridge) return
-        const allItems = this.getAllConfigItems()
-        allItems.forEach(item => {
-            if (!item.visible) return // 没有 visible 条件的项不处理
-            const isVisible = typeof item.visible === 'function'
-                ? item.visible(this.userConfigs)
-                : Boolean(item.visible)
-            // 查找 DOM：先找 wrapper，再找 item 本身
-            let domItem = popover.querySelector(`.adjustment-setting-item-wrapper[data-config-id="${item.id}"]`)
-            if (!domItem) {
-                domItem = popover.querySelector(`[data-config-id="${item.id}"]`)
-            }
-            if (!domItem) return
-            domItem.style.display = isVisible ? 'block' : 'none'
-            logger.debug(`刷新可见性: ${item.id} = ${isVisible}`)
-        })
-        // 处理设置有子项的可见性（父开关关闭时隐藏子项）
-        this.handleChildrenVisibility(popover)
-    }
-    /**
-     * 处理父子设置项的可见性
-     * 容器可见条件：父 checkbox 开启 且 至少有一个子项满足自身 visible 条件
-     * 子项自身的 visible 条件（如 is_vip）作用于容器层而非单个子项 wrapper
-     */
-    handleChildrenVisibility (popover) {
-        // Vue 面板模式：children 容器显隐由组件按「父开关 + 子项 visible」派生，宿主跳过 DOM 操作
-        if (this._vueBridge) return
-        // 从配置 schema 派生所有含 children 的父项 id，新增子项无需手动维护列表
-        const parentIds = this.getAllConfigItems().filter(item => item.children?.length).map(item => item.id)
-        parentIds.forEach(parentId => {
-            const parentCheckbox = popover.querySelector(`#${parentId}`)
-            if (!parentCheckbox) return
-            const parentEnabled = parentCheckbox.checked
-            const parentConfig = this.findConfigItem(parentId)
-            if (!parentConfig?.children) return
-            // 检查是否有子项在当前配置下可见
-            const anyChildVisible = parentConfig.children.some(child => {
-                if (!child.visible) return true
-                if (typeof child.visible === 'function') return child.visible(this.userConfigs)
-                return Boolean(child.visible)
-            })
-            const containerVisible = parentEnabled && anyChildVisible
-            // 查找父项下的 .adjustment-setting-children 容器
-            const childrenContainer = popover.querySelector(
-                `.adjustment-setting-item[data-config-id="${parentId}"] > .adjustment-setting-children`
-            )
-            if (childrenContainer) {
-                childrenContainer.style.display = containerVisible ? 'flex' : 'none'
-                logger.debug(`刷新子项容器可见性: ${parentId} 容器 = ${containerVisible} (父=${parentEnabled}, 有子项可见=${anyChildVisible})`)
-            }
-        })
     }
     /**
      * 在配置中查找设置项
@@ -806,25 +605,6 @@ export class SettingsComponentV2 {
         if (found) return found
         return primary === videoSettingsConfig ? null : findInItems(videoSettingsConfig)
     }
-    /**
-     * 获取所有配置项（扁平化）
-     */
-    getAllConfigItems () {
-        const items = []
-        const collectItems = configItems => {
-            for (const item of configItems) {
-                items.push(item)
-                if (item.children) {
-                    collectItems(item.children)
-                }
-                if (item.items) {
-                    collectItems(item.items)
-                }
-            }
-        }
-        collectItems(videoSettingsConfig)
-        return items
-    }
     // ==================== 动态页设置 ====================
     async renderDynamicSettings () {
         const existingSettings = document.getElementById('DynamicSettingsPopover')
@@ -834,7 +614,7 @@ export class SettingsComponentV2 {
         }
         // 面板重建前先卸载旧的 Vue 实例（避免泄漏）
         this.unmountVuePanel()
-        this.renderer = new SettingsRenderer(dynamicSettingsConfig)
+        this.renderer = new SettingsRenderer()
         // 表单区由 Vue 面板（SettingsPanelV3）按 dynamicSettingsConfig 渲染；
         // 挂载点本身即 .adjustment-form 容器，DOM 结构与经典渲染器一致
         const formContent = '<div class="adjustment-form" id="DynamicSettingsFormMount"></div>'
@@ -891,75 +671,8 @@ export class SettingsComponentV2 {
         await ConfigService.setValue(key, value)
         // 写 Vue 响应式代理（触发面板重渲染）；代理与 this.userConfigs 共享同一 target，读数同步。
         // 若无代理（经典渲染器模式）则直接写 userConfigs。
-        if (this._vueConfigsProxy) {
-            this._vueConfigsProxy[key] = value
-        } else {
-            this.userConfigs[key] = value
-        }
+        this._vueConfigsProxy[key] = value
         logger.debug(`配置已更新: ${key} = ${value}`)
-    }
-    /**
-     * 同步其他标签页写入的配置到本地设置弹窗控件
-     */
-    syncConfigControl (key, value) {
-        // Vue 面板模式：写入 userConfigs 的同一对象即驱动面板重渲染（面板 props.configs 是它的代理），
-        // 因此这里只需处理「面板实现被其它标签页切换」的重建
-        if (this._vueBridge) {
-            if (key === 'settings_panel') {
-                this.render(this.pageType).catch(() => {})
-            }
-            return
-        }
-        const popover = document.getElementById('VideoSettingsPopover') || document.getElementById('DynamicSettingsPopover')
-        if (!popover) return
-        let found = false
-        // 复选框
-        const checkbox = popover.querySelector(`input[data-config-type="checkbox"]#${key}`)
-        if (checkbox) {
-            const boolValue = Boolean(value)
-            checkbox.checked = boolValue
-            checkbox.toggleAttribute('checked', boolValue)
-            const switchBtn = checkbox.closest('.adjustment-switch')
-            if (switchBtn) switchBtn.classList.toggle('on', boolValue)
-            found = true
-        }
-        // 单选框组（radio 无 id，按 name 匹配）
-        const radios = popover.querySelectorAll(`input[data-config-type="radio"][name="${key}"]`)
-        if (radios.length > 0) {
-            radios.forEach(radio => {
-                const isChecked = radio.value === value
-                radio.checked = isChecked
-                radio.toggleAttribute('checked', isChecked)
-            })
-            found = true
-        }
-        // 下拉框
-        const select = popover.querySelector(`select[data-config-type="select"]#${key}`)
-        if (select) {
-            const optionExists = Array.from(select.options).some(option => option.value === value)
-            if (!optionExists && value !== null && value !== undefined && value !== '') {
-                const option = document.createElement('option')
-                option.value = value
-                option.textContent = value
-                select.appendChild(option)
-                // 占位禁用状态下收到有效值，恢复下拉可用
-                select.disabled = false
-            }
-            select.value = value
-            // 同步自绘下拉显示（label / 禁用态）
-            refreshCustomSelects(popover)
-            found = true
-        }
-        // 输入框
-        const input = popover.querySelector(`input[data-config-type="input"]#${key}`)
-        if (input) {
-            input.value = value ?? ''
-            found = true
-        }
-        if (found) {
-            // 刷新依赖该配置项的可见性（如 is_vip、use_custom_model 等）
-            this.refreshVisibility(popover)
-        }
     }
     /**
      * 导出用户配置
