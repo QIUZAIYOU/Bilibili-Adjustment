@@ -108,12 +108,13 @@
         <!-- 按钮组（清空为危险操作，固定在最左，与其余按钮保持间距） -->
         <div class="adjustment-buttonGroup">
             <div v-if="clearableExisting" class="adjustment-button danger clear-existing-btn" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="clearExisting">清空已有片段</div>
-            <div class="adjustment-button secondary" @click="manualOpen = !manualOpen">手动添加</div>
+            <div class="adjustment-button secondary" @click="toggleManualOpen">手动添加</div>
             <div v-if="showReIdentify" class="adjustment-button secondary" :style="(busy || identifying) ? 'pointer-events:none;opacity:.6' : ''" @click="reIdentify">{{ identifying ? '正在识别...' : '重新识别' }}</div>
-            <div v-if="canSubmit" class="adjustment-button primary" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="appendUpdate">
+            <!-- 追加/覆盖更新只在「有待提交片段」时出现（手动添加或重新识别后产生），不再常驻占位 -->
+            <div v-if="canSubmit && pendingView.length > 0" class="adjustment-button primary" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="appendUpdate">
                 {{ busy ? '更新中...' : '追加更新' }}
             </div>
-            <div v-if="canSubmit" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="overwriteUpdate">
+            <div v-if="canSubmit && pendingView.length > 0" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="overwriteUpdate">
                 {{ busy ? '更新中...' : '覆盖更新' }}
             </div>
         </div>
@@ -277,6 +278,28 @@ const toggleInputMode = () => {
     duration.value = ''
 }
 
+/**
+ * 重置片段表单（手动添加与「行内编辑片段」共用同一组输入框）
+ *
+ * 两个入口在进入时都会重置，避免先编辑某个片段、再打开手动添加时把片段数据带进新增表单。
+ */
+const resetSegmentForm = () => {
+    inputMode.value = 'start-end'
+    startTime.value = ''
+    endTime.value = ''
+    duration.value = ''
+    summaryText.value = ''
+}
+/** 展开/收起「手动添加」：展开前先重置表单，保证新增表单永远是干净的 */
+const toggleManualOpen = () => {
+    if (manualOpen.value) {
+        manualOpen.value = false
+        return
+    }
+    resetSegmentForm()
+    manualOpen.value = true
+}
+
 const addPending = () => {
     let start = null
     let end = null
@@ -332,10 +355,10 @@ const editExisting = i => {
     if (i < 0 || i >= currentSegments.length) return
     const seg = currentSegments[i]
     editingExistingIndex.value = i
-    inputMode.value = 'start-end'
+    // 先重置再回填：保证与「手动添加」共用输入框时不残留上一次的输入
+    resetSegmentForm()
     startTime.value = formatTime(seg.start)
     endTime.value = formatTime(seg.end)
-    duration.value = ''
     // 回填备注，使已有片段的 summary 可编辑
     summaryText.value = seg.summary || ''
 }

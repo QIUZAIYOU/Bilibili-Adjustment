@@ -193,6 +193,8 @@ export const videoPageStyles = {
             display: flex;
             flex-direction: column;
             gap: 10px;
+            /* 与上方计数行、下方按钮组留出呼吸间隔 */
+            margin: 10px 0 16px;
         }
 
         .skip-manager-dialog .segment-item {
