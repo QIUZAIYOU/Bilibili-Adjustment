@@ -17,7 +17,8 @@
             </div>
             <template v-if="showNoData">
                 <div class="empty-result">暂无跳过片段数据</div>
-                <div class="empty-tip">可点击下方「手动添加」填写片头片尾等固定片段，或点击「重新识别」通过 AI 识别</div>
+                <!-- 无字幕（showReIdentify 为 false）时不提示「重新识别」入口，避免引导到不可用的操作 -->
+                <div class="empty-tip">可点击下方「手动添加」填写片头片尾等固定片段{{ showReIdentify ? '，或点击「重新识别」通过 AI 识别' : '' }}</div>
             </template>
             <template v-else-if="currentView.length === 0">
                 <div class="empty-result">未识别到需要跳过的片段</div>
