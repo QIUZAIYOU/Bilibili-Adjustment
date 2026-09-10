@@ -350,7 +350,8 @@ export const videoPageStyles = {
             padding-bottom: 8px;
         }
 
-        .skip-manager-dialog .manual-add-btn {
+        .skip-manager-dialog .manual-add-btn,
+        .skip-manager-dialog .cancel-edit-btn {
             padding: 8px 16px;
             white-space: nowrap;
             flex-shrink: 0;
@@ -770,8 +771,9 @@ export const videoPageStyles = {
             gap: 8px;
             font-size: 12px;
             color: var(--adj-text-muted);
-            margin-bottom: 6px;
-            padding-bottom: 4px;
+            /* 与下方片段卡片留出呼吸空间，避免标题的下边框看起来紧贴卡片 */
+            margin-bottom: 10px;
+            padding-bottom: 6px;
             border-bottom: 1px solid var(--adj-border-subtle);
         }
 

@@ -643,6 +643,14 @@ function generateBilibiliAdjustmentStyle () {
             bottom: 0;
         }
 
+        /* 统一本弹窗按钮组内按钮的高度基准：带边框的 danger/info 与无边框按钮相差 1px 边框，
+           会让个别按钮看起来偏一行（垂直未对齐），这里统一盒模型与高度并清掉额外外边距 */
+        .skip-manager-dialog .adjustment-buttonGroup .adjustment-button {
+            height: 32px;
+            box-sizing: border-box;
+            margin: 0;
+        }
+
         /* ========== 按钮 ========== */
         .adjustment-button {
             display: inline-flex;

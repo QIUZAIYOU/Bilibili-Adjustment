@@ -325,6 +325,8 @@ const cancelExistingEdit = () => {
     endTime.value = ''
     duration.value = ''
     summaryText.value = ''
+    // 取消编辑时同时收起录入区，避免留下空的编辑表单让人以为还在编辑
+    manualOpen.value = false
 }
 const saveExistingEdit = () => {
     const i = editingExistingIndex.value
