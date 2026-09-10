@@ -82,10 +82,11 @@ export default defineConfig(({ mode }) => ({
         }),
         // 混淆分级（报告 §4.5）：dev 构建不混淆（便于调试与体积对比）；
         // 生产保留字符串数组/自保护/控制流，但关闭 debugProtectionInterval（定时反调试会持续占用主线程）
-        // 并下调 deadCode 阈值，换取启动开销与产物体积的平衡
+        // 并下调 deadCode 阈值，换取启动开销与产物体积的平衡。
+        // 调试开关：`ADJ_NO_OBF=1 npm run build` 可产出「与生产同构但不混淆」的 bundle，便于定位运行时问题。
         VitePluginBundleObfuscator({
             excludes: [],
-            enable: mode !== 'development',
+            enable: mode !== 'development' && process.env.ADJ_NO_OBF !== '1',
             log: false,
             autoExcludeNodeModules: false,
             threadPool: true,

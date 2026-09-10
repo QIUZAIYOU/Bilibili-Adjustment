@@ -11,8 +11,7 @@ export const dynamicPageStyles = {
             margin-top: var(--adj-space-sm);
         }
 
-        #DynamicSettingsFormMount {
-            padding: 0 28px 28px;
-        }
+        /* 表单内边距由 .adjustment-form 统一提供（挂载点本身即该容器），
+           此处不要再给挂载点加 padding，否则会出现双重内边距 */
     `
 }

@@ -12,7 +12,7 @@
 | B | 首页推荐历史弹窗 | `home/history.js`：旧式 popover + `innerHTML` 渲染列表/搜索/清空 | 中 | 弹窗生命周期、列表点击委托、搜索过滤、批次排序、清空按钮 | ⏸ 决策：维持现状（成熟独立 popover、无状态机痛点；迁 dialog 壳需多轮 CSS 覆盖与真机，保真优先不迁；若需仍可执行） |
 | C | 字幕开关按钮（播放器） | `subtitle.js`：2 个 `[[…]]` 按钮模板 + 命令式显隐 | 小/低 | 按钮插入位置、tip、开关状态同步 | 内联函数化 |
 | D | 侧边栏/浮动按钮组 | `ui-buttons.js` + `buttons.js`：5 个 `[[…]]` 按钮 | 小/低 | 各按钮插入锚点、参数（style/dataV/text） | 内联函数化（去占位符） |
-| E | 播放页设置弹窗（视频/动态） | `settings-component-v2`：schema + 自研渲染器 + 命令式事件 | 大/高 | section/children 显隐、自绘下拉、验证/刷新按钮、tooltip、跨标签同步、主题变量 | 🔄 **V3 文件已就绪（未接线）**：`src/ui/settings/SettingsPanelV3.vue` + `controls/*` + `useSettingsPanel.js`；接线步骤与验收见 docs/settings-v3-migration.md |
+| E | 播放页设置弹窗（视频/动态） | `settings-component-v2` 宿主 + `SettingsPanelV3`（Vue 表单） | 大/高 | section/children 显隐、自绘下拉、验证/刷新按钮、tooltip、跨标签同步、主题变量 | ✅ **已接线生效**：表单由 `SettingsPanelV3.vue` 渲染（`settings_panel` 默认 `v3`），可用该设置项切回经典渲染器对比；详见 docs/settings-v3-migration.md |
 | F | UP 主空间弹窗 | 已组件化（openAdjustmentDialog + iframe + keepAlive），无字符串模板 | 无需迁移 | — | 核验即可 |
 
 ## 通用规则（迁移每批遵守）

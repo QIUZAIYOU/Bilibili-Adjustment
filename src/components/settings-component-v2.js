@@ -11,8 +11,7 @@ import { updateService } from '@/services/update.service'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
-import { createApp } from 'vue'
-import DynamicSettingsForm from '@/ui/settings/DynamicSettingsForm.vue'
+import { mountVueSettingsPanel } from '@/ui/settings'
 import pkg from '../../package.json'
 const logger = new LoggerService('SettingsV2')
 /**
@@ -25,6 +24,113 @@ export class SettingsComponentV2 {
         this.renderer = null
         this.pageType = null
         this.tooltip = null
+        // Vue 设置面板（settings_panel = 'v3'）状态：bridge 为宿主↔组件的响应式桥，
+        // _vuePanel.unmount 在弹窗关闭/重建时调用（避免实例与响应式副作用泄漏）
+        this._vuePanel = null
+        this._vueBridge = null
+        this._activeSchema = null
+    }
+    /** 当前是否使用 Vue 版设置面板（settings_panel 默认为 v3，设为 v2 可回退经典渲染器） */
+    usesVuePanel () {
+        return this.userConfigs.settings_panel !== 'v2'
+    }
+    /** 卸载 Vue 设置面板（幂等） */
+    unmountVuePanel () {
+        if (this._vuePanel) {
+            this._vuePanel.unmount()
+            this._vuePanel = null
+        }
+        this._vueBridge = null
+    }
+    /**
+     * 同步配置到 Vue 面板响应式桥（经典模式或面板未挂载时为空操作）
+     *
+     * 注意：面板走「浅层响应式 + 普通对象快照」，因此这里必须**整体替换** configs：
+     * 直接写 `bridge.configs[key]` 不会触发重渲染，也不符合「面板内无代理」的约定。
+     */
+    syncVueBridge (key, value) {
+        if (!this._vueBridge) return
+        if (this._vueBridge.configs[key] === value) return
+        this._vueBridge.configs = { ...this._vueBridge.configs, [key]: value }
+    }
+    /** 同步动态选项（模型列表等）到 Vue 面板：整体替换，避免面板内部出现代理数组 */
+    syncVueDynamicOptions (options) {
+        if (!this._vueBridge) return
+        this._vueBridge.dynamicOptions = { ...options }
+    }
+    /**
+     * 挂载 Vue 设置面板
+     * @param {HTMLElement} popover 设置弹窗根元素
+     * @param {string} mountId 挂载点元素 id
+     * @param {Array} schema 设置项 schema
+     */
+    async mountVuePanel (popover, mountId, schema) {
+        this.unmountVuePanel()
+        this._activeSchema = schema
+        const mountEl = popover?.querySelector(`#${mountId}`)
+        if (!mountEl) return null
+        try {
+            const panel = await mountVueSettingsPanel(mountEl, {
+                schema,
+                configs: this.userConfigs,
+                dynamicOptions: this._pendingModelOptions || (this.userConfigs.ai_model
+                    ? { ai_model: [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }]}
+                    : { ai_model: []}),
+                onChange: (key, value) => this.handleVueConfigChange(key, value, popover),
+                onValidate: key => this.handleValidateClick(key, popover),
+                onRefresh: key => this.handleRefreshClick(key, popover),
+                // 渲染期错误（如响应式/渲染函数异常）也回退经典渲染器，避免面板空白卡死
+                onError: error => this.fallbackToClassicPanel(error)
+            })
+            this._vuePanel = panel
+            this._vueBridge = panel.bridge
+            return panel
+        } catch (error) {
+            await this.fallbackToClassicPanel(error)
+            return null
+        }
+    }
+    /**
+     * 回退到经典渲染器（V3 加载/渲染失败时调用）
+     * 写入 settings_panel=v2 并重建弹窗，保证用户始终能修改设置
+     */
+    async fallbackToClassicPanel (error) {
+        if (this._fallingBack) return
+        this._fallingBack = true
+        try {
+            logger.error('Vue 设置面板不可用，已回退经典渲染器', error)
+            this.userConfigs.settings_panel = 'v2'
+            await ConfigService.setValue('settings_panel', 'v2').catch(() => {})
+            this.unmountVuePanel()
+            await this.render(this.pageType)
+        } finally {
+            this._fallingBack = false
+        }
+    }
+    /**
+     * Vue 面板配置变更统一处理（等价于经典模式 bindConfigChangeEvents 的链路）
+     */
+    async handleVueConfigChange (key, value, popover) {
+        const item = this.findConfigItem(key)
+        const oldValue = this.userConfigs[key]
+        let next = value
+        if (item?.type === 'input') next = String(value ?? '').trim()
+        if (item?.type === 'checkbox') next = Boolean(value)
+        await this.saveConfig(key, next)
+        // 复用经典模式的特殊联动逻辑（AI 凭证、日志级别、字幕开关、自定义模型等）
+        if (item?.type === 'checkbox') {
+            await this.handleSpecialCheckboxChange(key, next, popover)
+        } else if (item?.type === 'input') {
+            await this.handleSpecialInputChange(key, next, popover)
+        } else if (item?.type === 'select') {
+            await this.handleSpecialSelectChange(key, next, oldValue, popover)
+        }
+        // 面板实现切换：立即重建弹窗并重新打开（无需刷新页面）
+        if (key === 'settings_panel') {
+            const popoverId = this.pageType === 'dynamic' ? 'DynamicSettingsPopover' : 'VideoSettingsPopover'
+            await this.render(this.pageType)
+            document.getElementById(popoverId)?.showPopover()
+        }
     }
     async init (userConfigs) {
         this.userConfigs = userConfigs
@@ -69,7 +175,7 @@ export class SettingsComponentV2 {
                     await this.initVideoSettingsEventListeners()
                     break
                 case 'dynamic':
-                    this.renderDynamicSettings()
+                    await this.renderDynamicSettings()
                     await this.initDynamicSettingsEventListeners()
                     break
                 default:
@@ -88,13 +194,21 @@ export class SettingsComponentV2 {
             existingSettings.__popoverDismissCleanup?.()
             existingSettings.remove()
         }
+        // 面板重建前先卸载旧的 Vue 实例（避免泄漏）
+        this.unmountVuePanel()
         // 销毁旧的 tooltip
         destroyTooltip()
         // 不 await fetchDynamicOptions（fetchModels 有 10s 超时），用当前模型作为 fallback 立即渲染
         const dynamicOptions = this._pendingModelOptions || { ai_model: this.userConfigs.ai_model ? [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }] : []}
-        // 创建渲染器并渲染
+        const useVue = this.usesVuePanel()
+        // 创建渲染器：Vue 模式下仅用于生成弹窗壳（表单由 SettingsPanelV3 渲染）
         this.renderer = new SettingsRenderer(videoSettingsConfig)
-        const formContent = this.renderer.render(this.userConfigs, dynamicOptions)
+        this._activeSchema = videoSettingsConfig
+        const formContent = useVue
+            // 挂载点本身即 .adjustment-form 容器：面板以多根 fragment 渲染，
+            // 最终 DOM 与经典渲染器一致（.adjustment-popover > .adjustment-form > 各设置项）
+            ? '<div class="adjustment-form" id="VideoSettingsFormMount"></div>'
+            : this.renderer.render(this.userConfigs, dynamicOptions)
         // 生成完整弹窗
         const popoverHtml = this.renderer.renderPopover(
             '哔哩哔哩播放页设置',
@@ -104,6 +218,11 @@ export class SettingsComponentV2 {
         createElementAndInsert(popoverHtml, document.body)
         // 获取 popover DOM 元素（需要等 DOM 插入后才能获取）
         const popover = document.getElementById('VideoSettingsPopover')
+        // Vue 面板挂载（懒加载 Vue 运行时 + SFC）；挂载完成后再做自绘下拉与 tooltip 增强，
+        // 因为对应 DOM（select/输入框）由组件渲染
+        if (useVue) {
+            await this.mountVuePanel(popover, 'VideoSettingsFormMount', videoSettingsConfig)
+        }
         // 原生 select 视觉替身：套自绘下拉（trigger+菜单），数据/事件仍走原生 select
         enhanceCustomSelects(popover)
         // 初始化 tooltip 并将 tooltip 元素插入 popover 内，避免被 popover 的顶层(top layer)遮挡
@@ -111,18 +230,23 @@ export class SettingsComponentV2 {
         requestAnimationFrame(() => {
             bindTooltipIcons()
         })
-        // 异步获取完整模型列表并更新 DOM（不阻塞初始化流程）
+        // 异步获取完整模型列表并更新（不阻塞初始化流程）
         this.fetchDynamicOptions().then(options => {
-            if (options?.ai_model) {
-                this._pendingModelOptions = options
-                const modelSelect = document.getElementById('ai_model')
-                if (modelSelect) {
-                    const currentValue = modelSelect.value
-                    modelSelect.innerHTML = options.ai_model.map(m =>
-                        '<option value="' + m.value + '"' + (m.value === currentValue ? ' selected' : '') + '>' + m.label + '</option>').join('')
-                    // 同步自绘下拉的选项与当前值显示
-                    refreshCustomSelects(popover)
-                }
+            if (!options?.ai_model) return
+            this._pendingModelOptions = options
+            // Vue 面板：更新响应式桥的动态选项（等价于经典模式重建 select 选项）
+            if (this._vueBridge) {
+                this.syncVueDynamicOptions({ ...this._pendingModelOptions, ai_model: options.ai_model })
+                refreshCustomSelects(popover)
+                return
+            }
+            const modelSelect = document.getElementById('ai_model')
+            if (modelSelect) {
+                const currentValue = modelSelect.value
+                modelSelect.innerHTML = options.ai_model.map(m =>
+                    '<option value="' + m.value + '"' + (m.value === currentValue ? ' selected' : '') + '>' + m.label + '</option>').join('')
+                // 同步自绘下拉的选项与当前值显示
+                refreshCustomSelects(popover)
             }
         }).catch(() => {})
     }
@@ -171,16 +295,22 @@ export class SettingsComponentV2 {
                 popover.__popoverDismissCleanup?.()
                 popover.__popoverDismissCleanup = null
                 destroyTooltip()
+                // 关闭即卸载 Vue 面板（容器随后被移除，不卸载会残留实例与响应式副作用）
+                this.unmountVuePanel()
                 popover.remove()
             }
         })
         // 自定义外部点击关闭：原生 light dismiss 在弹窗内按下、弹窗外松开（拖选文字）时也会误关
         popover.__popoverDismissCleanup?.()
         popover.__popoverDismissCleanup = enablePopoverLightDismiss(popover)
-        // 绑定所有设置项的 change 事件
-        this.bindConfigChangeEvents(popover)
-        // 绑定特殊按钮事件（验证、刷新等）
-        this.bindSpecialButtonEvents(popover)
+        // Vue 面板模式下，表单交互（change/validate/refresh）由组件事件回调处理，
+        // 无需再绑定 DOM 事件；自绘下拉/tooltip 的增强仍走公共逻辑
+        if (!this._vueBridge) {
+            // 绑定所有设置项的 change 事件
+            this.bindConfigChangeEvents(popover)
+            // 绑定特殊按钮事件（验证、刷新等）
+            this.bindSpecialButtonEvents(popover)
+        }
         // 绑定导入导出事件
         this.bindImportExportEvents(popover)
         this.bindVersionUpdateCheck(popover)
@@ -304,67 +434,83 @@ export class SettingsComponentV2 {
         // 验证按钮
         const validateButtons = popover.querySelectorAll('[data-validate-for]')
         validateButtons.forEach(button => {
-            addEventListenerToElement(button, 'click', async () => {
-                const targetId = button.dataset.validateFor
-                const input = popover.querySelector(`#${targetId}`)
-                const apiKey = input?.value?.trim()
-                // 反馈期内重复点击时保留更早记录的原始文字
-                if (button._feedbackOriginalText === undefined) {
-                    button._feedbackOriginalText = button.textContent
-                }
-                if (!apiKey) {
-                    this.setButtonFeedback(button, false, '', '验证失败')
-                    return
-                }
-                button.textContent = '验证中...'
-                button.style.opacity = '0.7'
-                button.style.borderColor = ''
-                button.style.color = ''
-                try {
-                    let result
-                    if (targetId === 'ai_apikey') {
-                        result = await validateApiKey(apiKey, this.userConfigs.ai_provider, this.userConfigs.custom_base_url)
-                    } else if (targetId === 'custom_model_api_key') {
-                        const apiUrl = popover.querySelector('#custom_model_api_url')?.value?.trim()
-                        if (!apiUrl) {
-                            this.setButtonFeedback(button, false, '', '验证失败')
-                            return
-                        }
-                        result = await validateApiKey(apiKey, 'custom', apiUrl)
-                    }
-                    this.setButtonFeedback(button, result?.valid, '验证成功', '验证失败')
-                } catch (error) {
-                    logger.error('API Key 验证失败', error)
-                    this.setButtonFeedback(button, false, '', '验证失败')
-                } finally {
-                    button.style.opacity = '1'
-                }
-            })
+            addEventListenerToElement(button, 'click', () => this.handleValidateClick(button.dataset.validateFor, popover))
         })
         // 刷新按钮
         const refreshButtons = popover.querySelectorAll('[data-refresh-for]')
         refreshButtons.forEach(button => {
-            addEventListenerToElement(button, 'click', async () => {
-                const targetId = button.dataset.refreshFor
-                if (targetId !== 'ai_model') return
-                if (button._feedbackOriginalText === undefined) {
-                    button._feedbackOriginalText = button.textContent
-                }
-                button.textContent = '刷新中...'
-                button.style.opacity = '0.7'
-                button.style.borderColor = ''
-                button.style.color = ''
-                try {
-                    const success = await this.refreshModelList(popover)
-                    this.setButtonFeedback(button, success, '刷新成功', '刷新失败')
-                } catch (error) {
-                    logger.error('刷新模型列表失败', error)
-                    this.setButtonFeedback(button, false, '', '刷新失败')
-                } finally {
-                    button.style.opacity = '1'
-                }
-            })
+            addEventListenerToElement(button, 'click', () => this.handleRefreshClick(button.dataset.refreshFor, popover))
         })
+    }
+    /**
+     * 处理 API Key 验证按钮点击（经典模式由 DOM 事件调用，Vue 面板由 onValidate 回调调用）
+     * @param {string} targetId 目标输入框 id（ai_apikey / custom_model_api_key）
+     * @param {HTMLElement} popover 设置弹窗
+     * @param {HTMLElement} [buttonEl] 按钮元素（缺省时按 targetId 查找，兼容 Vue 面板）
+     */
+    async handleValidateClick (targetId, popover, buttonEl = null) {
+        const button = buttonEl || popover?.querySelector(`[data-validate-for="${targetId}"]`)
+        if (!button) return
+        const input = popover.querySelector(`#${targetId}`)
+        const apiKey = input?.value?.trim()
+        // 反馈期内重复点击时保留更早记录的原始文字
+        if (button._feedbackOriginalText === undefined) {
+            button._feedbackOriginalText = button.textContent
+        }
+        if (!apiKey) {
+            this.setButtonFeedback(button, false, '', '验证失败')
+            return
+        }
+        button.textContent = '验证中...'
+        button.style.opacity = '0.7'
+        button.style.borderColor = ''
+        button.style.color = ''
+        try {
+            let result
+            if (targetId === 'ai_apikey') {
+                result = await validateApiKey(apiKey, this.userConfigs.ai_provider, this.userConfigs.custom_base_url)
+            } else if (targetId === 'custom_model_api_key') {
+                const apiUrl = popover.querySelector('#custom_model_api_url')?.value?.trim()
+                if (!apiUrl) {
+                    this.setButtonFeedback(button, false, '', '验证失败')
+                    return
+                }
+                result = await validateApiKey(apiKey, 'custom', apiUrl)
+            }
+            this.setButtonFeedback(button, result?.valid, '验证成功', '验证失败')
+        } catch (error) {
+            logger.error('API Key 验证失败', error)
+            this.setButtonFeedback(button, false, '', '验证失败')
+        } finally {
+            button.style.opacity = '1'
+        }
+    }
+    /**
+     * 处理模型列表刷新按钮点击（经典模式由 DOM 事件调用，Vue 面板由 onRefresh 回调调用）
+     * @param {string} targetId 目标下拉 id（当前仅支持 ai_model）
+     * @param {HTMLElement} popover 设置弹窗
+     * @param {HTMLElement} [buttonEl] 按钮元素（缺省时按 targetId 查找，兼容 Vue 面板）
+     */
+    async handleRefreshClick (targetId, popover, buttonEl = null) {
+        if (targetId !== 'ai_model') return
+        const button = buttonEl || popover?.querySelector(`[data-refresh-for="${targetId}"]`)
+        if (!button) return
+        if (button._feedbackOriginalText === undefined) {
+            button._feedbackOriginalText = button.textContent
+        }
+        button.textContent = '刷新中...'
+        button.style.opacity = '0.7'
+        button.style.borderColor = ''
+        button.style.color = ''
+        try {
+            const success = await this.refreshModelList(popover)
+            this.setButtonFeedback(button, success, '刷新成功', '刷新失败')
+        } catch (error) {
+            logger.error('刷新模型列表失败', error)
+            this.setButtonFeedback(button, false, '', '刷新失败')
+        } finally {
+            button.style.opacity = '1'
+        }
     }
     /**
      * 设置按钮结果反馈：成功绿色/失败红色边框与文字，3 秒后恢复默认样式
@@ -493,9 +639,13 @@ export class SettingsComponentV2 {
         const savedKey = await ConfigService.getValue(`ai_apikey_${newProvider}`)
         const savedModel = await ConfigService.getValue(`ai_model_${newProvider}`)
         await this.saveConfig('ai_apikey', savedKey || '')
-        // 同步设置弹窗中 API Key 输入框显示
-        const keyInput = popover?.querySelector('#ai_apikey')
-        if (keyInput) keyInput.value = savedKey || ''
+        // 同步 API Key 输入框显示：Vue 面板走响应式桥，经典模式直接写 DOM
+        if (this._vueBridge) {
+            this.syncVueBridge('ai_apikey', savedKey || '')
+        } else {
+            const keyInput = popover?.querySelector('#ai_apikey')
+            if (keyInput) keyInput.value = savedKey || ''
+        }
         clearModelCache()
         await this.refreshModelList(popover, savedModel || '')
     }
@@ -505,8 +655,9 @@ export class SettingsComponentV2 {
      * @param {string} preferredModel - 优先选中的模型（供应商切换时传入，空则保留当前选中）
      */
     async refreshModelList (popover, preferredModel = '') {
-        const modelSelect = popover.querySelector('#ai_model')
-        if (!modelSelect) return false
+        const useVueBridge = Boolean(this._vueBridge)
+        const modelSelect = useVueBridge ? null : popover?.querySelector('#ai_model')
+        if (!useVueBridge && !modelSelect) return false
         clearModelCache()
         try {
             const models = await fetchModels(
@@ -514,6 +665,27 @@ export class SettingsComponentV2 {
                 this.userConfigs.ai_provider,
                 this.userConfigs.custom_base_url
             )
+            if (useVueBridge) {
+                // Vue 面板：更新响应式桥的模型选项与选中值（组件据此重渲染下拉）
+                const optionList = models.map(model => ({ value: model.id, label: model.label }))
+                this.syncVueDynamicOptions({ ai_model: optionList })
+                const currentModel = preferredModel || this.userConfigs.ai_model
+                if (models.length > 0) {
+                    const keepCurrent = currentModel && optionList.some(option => option.value === currentModel)
+                    const nextModel = keepCurrent ? currentModel : models[0].id
+                    if (nextModel !== this.userConfigs.ai_model) {
+                        await this.saveConfig('ai_model', nextModel)
+                    } else {
+                        this.syncVueBridge('ai_model', nextModel)
+                    }
+                } else if (this.userConfigs.ai_model) {
+                    // 无可用模型：清空选中值（组件渲染「暂无可用选项」占位）
+                    await this.saveConfig('ai_model', '')
+                }
+                refreshCustomSelects(popover)
+                logger.info('模型列表已刷新')
+                return true
+            }
             if (models.length > 0) {
                 // 优先保留指定模型（供应商切换时），否则保留当前选中模型，避免刷新后跳回第一个模型
                 const currentModel = preferredModel || modelSelect.value
@@ -548,6 +720,9 @@ export class SettingsComponentV2 {
      * 刷新设置项可见性 —— 遍历所有配置项，重新评估 visible 条件
      */
     refreshVisibility (popover) {
+        // Vue 面板模式：可见性由组件按 configs 响应式派生（v-show），宿主不再操作 DOM，
+        // 否则会与组件渲染互相覆盖（显示/隐藏抖动）
+        if (this._vueBridge) return
         const allItems = this.getAllConfigItems()
         allItems.forEach(item => {
             if (!item.visible) return // 没有 visible 条件的项不处理
@@ -572,6 +747,8 @@ export class SettingsComponentV2 {
      * 子项自身的 visible 条件（如 is_vip）作用于容器层而非单个子项 wrapper
      */
     handleChildrenVisibility (popover) {
+        // Vue 面板模式：children 容器显隐由组件按「父开关 + 子项 visible」派生，宿主跳过 DOM 操作
+        if (this._vueBridge) return
         // 从配置 schema 派生所有含 children 的父项 id，新增子项无需手动维护列表
         const parentIds = this.getAllConfigItems().filter(item => item.children?.length).map(item => item.id)
         parentIds.forEach(parentId => {
@@ -615,7 +792,12 @@ export class SettingsComponentV2 {
             }
             return null
         }
-        return findInItems(videoSettingsConfig)
+        // 优先在「当前面板使用的 schema」中查找（动态页为 dynamicSettingsConfig），
+        // 再回退 videoSettingsConfig，保证两类页面的事件归一逻辑都能拿到设置项定义
+        const primary = this._activeSchema || videoSettingsConfig
+        const found = findInItems(primary)
+        if (found) return found
+        return primary === videoSettingsConfig ? null : findInItems(videoSettingsConfig)
     }
     /**
      * 获取所有配置项（扁平化）
@@ -637,25 +819,34 @@ export class SettingsComponentV2 {
         return items
     }
     // ==================== 动态页设置 ====================
-    renderDynamicSettings () {
+    async renderDynamicSettings () {
         const existingSettings = document.getElementById('DynamicSettingsPopover')
         if (existingSettings) {
             existingSettings.__popoverDismissCleanup?.()
             existingSettings.remove()
         }
+        // 面板重建前先卸载旧的 Vue 实例（避免泄漏）
+        this.unmountVuePanel()
         this.renderer = new SettingsRenderer(dynamicSettingsConfig)
-        // 表单区由 Vue 组件渲染（设置 Vue 化试点·动态页分区），弹窗壳与生命周期保持既有实现
-        const formContent = '<div id="DynamicSettingsFormMount"></div>'
+        // 表单区由 Vue 面板（SettingsPanelV3）按 dynamicSettingsConfig 渲染；
+        // 挂载点本身即 .adjustment-form 容器，DOM 结构与经典渲染器一致
+        const formContent = '<div class="adjustment-form" id="DynamicSettingsFormMount"></div>'
         const popoverHtml = this.renderer.renderDynamicPopover(
             '哔哩哔哩动态页设置',
             pkg.version,
             formContent
         )
         createElementAndInsert(popoverHtml, document.body)
-        this._dynamicFormApp = createApp(DynamicSettingsForm, {
-            initial: String(this.userConfigs.dynamic_video_link || '')
-        })
-        this._dynamicFormApp.mount(document.getElementById('DynamicSettingsFormMount'))
+        const popover = document.getElementById('DynamicSettingsPopover')
+        const panel = await this.mountVuePanel(popover, 'DynamicSettingsFormMount', dynamicSettingsConfig)
+        if (panel) {
+            // 表单 DOM 就绪后应用自绘下拉与 tooltip 增强
+            enhanceCustomSelects(popover)
+            this.tooltip = initTooltip({ delay: 300, hideDelay: 100, container: popover })
+            requestAnimationFrame(() => {
+                bindTooltipIcons()
+            })
+        }
     }
     async initDynamicSettingsEventListeners () {
         const popover = document.getElementById('DynamicSettingsPopover')
@@ -668,10 +859,9 @@ export class SettingsComponentV2 {
                 app.style.pointerEvents = 'auto'
                 popover.__popoverDismissCleanup?.()
                 popover.__popoverDismissCleanup = null
-                if (this._dynamicFormApp) {
-                    this._dynamicFormApp.unmount()
-                    this._dynamicFormApp = null
-                }
+                destroyTooltip()
+                // 关闭即卸载 Vue 面板（容器随后被移除）
+                this.unmountVuePanel()
                 popover.remove()
             }
         })
@@ -693,12 +883,23 @@ export class SettingsComponentV2 {
     async saveConfig (key, value) {
         await ConfigService.setValue(key, value)
         this.userConfigs[key] = value
+        // 同步到 Vue 面板响应式桥（经典模式下为空操作）
+        this.syncVueBridge(key, value)
         logger.debug(`配置已更新: ${key} = ${value}`)
     }
     /**
      * 同步其他标签页写入的配置到本地设置弹窗控件
      */
     syncConfigControl (key, value) {
+        // Vue 面板模式：把值写进响应式桥即可（组件据此重渲染，无需操作 DOM）
+        if (this._vueBridge) {
+            this.syncVueBridge(key, value)
+            if (key === 'settings_panel') {
+                // 面板实现被其它标签页切换：重建本地弹窗，避免新旧实现混用
+                this.render(this.pageType).catch(() => {})
+            }
+            return
+        }
         const popover = document.getElementById('VideoSettingsPopover') || document.getElementById('DynamicSettingsPopover')
         if (!popover) return
         let found = false
