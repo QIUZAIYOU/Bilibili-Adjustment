@@ -299,11 +299,13 @@ export class UpdateService {
      * 弹窗外壳/标题/按钮/a11y 仍由 openAdjustmentDialog 提供，class 契约保持不变，
      * 故 src/shared/styles/index.js 中的更新弹窗样式无需改动。
      */
-    #showUpdatePopover (currentVersion, latestVersion, updateItems) {
+    #showUpdatePopover (currentVersion, latestVersion, updateItems, options = {}) {
+        // isLatest：手动检查「已是最新版本」时的反馈弹窗（不展示更新列表，也不需要「更新」按钮）
+        const isLatest = options.isLatest === true
         openAdjustmentDialog({
             key: 'update-notice',
-            title: '哔哩哔哩调整 · 有新版本',
-            subtitle: '（点击更新按钮安装最新版）',
+            title: isLatest ? '哔哩哔哩调整 · 已是最新版本' : '哔哩哔哩调整 · 有新版本',
+            subtitle: isLatest ? '（当前已是最新版本，无需更新）' : '（点击更新按钮安装最新版）',
             className: 'update-dialog',
             content: body => {
                 const holder = document.createElement('div')
@@ -311,7 +313,7 @@ export class UpdateService {
                 let handle = null
                 let disposed = false
                 // 面板懒加载：加载完成后挂载；若期间弹窗已关闭则立即卸载，避免实例泄漏
-                mountUpdateNoticePanel(holder, { currentVersion, latestVersion, items: updateItems })
+                mountUpdateNoticePanel(holder, { currentVersion, latestVersion, items: updateItems, isLatest })
                     .then(created => {
                         if (disposed) created.unmount()
                         else handle = created
@@ -328,17 +330,19 @@ export class UpdateService {
                     holder.remove()
                 }
             },
-            actions: [
-                { text: '关闭', type: 'info', onClick: d => d.close() },
-                {
-                    text: '更新',
-                    type: 'primary',
-                    onClick: d => {
-                        window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
-                        d.close()
+            actions: isLatest
+                ? [{ text: '关闭', type: 'info', onClick: d => d.close() }]
+                : [
+                    { text: '关闭', type: 'info', onClick: d => d.close() },
+                    {
+                        text: '更新',
+                        type: 'primary',
+                        onClick: d => {
+                            window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+                            d.close()
+                        }
                     }
-                }
-            ]
+                ]
         })
     }
     // 获取最新版本信息：GitHub 优先，失败回退脚本内容提取
@@ -362,6 +366,9 @@ export class UpdateService {
             const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
             logger.info(`手动检查更新，当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
             if (!this.compareVersions(currentVersion, latestVersion)) {
+                // 已是最新：手动检查同样弹出反馈弹窗（与「发现新版本」的反馈保持一致）；
+                // 自动检查（checkForUpdates）在已最新时仍静默返回，不打扰用户
+                this.#showUpdatePopover(currentVersion, latestVersion, [], { isLatest: true })
                 return { type: 'latest', latestVersion }
             }
             const updateItems = parseUpdateItems(latestUpdates || localUpdates)

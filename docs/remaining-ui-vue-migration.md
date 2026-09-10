@@ -13,7 +13,8 @@
 | C | 字幕开关按钮（播放器） | `subtitle.js`：2 个 `[[…]]` 按钮模板 + 命令式显隐 | 小/低 | 按钮插入位置、tip、开关状态同步 | 内联函数化 |
 | D | 侧边栏/浮动按钮组 | `ui-buttons.js` + `buttons.js`：5 个 `[[…]]` 按钮 | 小/低 | 各按钮插入锚点、参数（style/dataV/text） | 内联函数化（去占位符） |
 | E | 播放页设置弹窗（视频/动态） | `settings-component-v2` 宿主 + `SettingsPanelV3`（Vue 表单） | 大/高 | section/children 显隐、自绘下拉、验证/刷新按钮、tooltip、跨标签同步、主题变量 | ✅ **已接线生效**：表单由 `SettingsPanelV3.vue` 渲染（`settings_panel` 默认 `v3`），可用该设置项切回经典渲染器对比；详见 docs/settings-v3-migration.md |
-| F | UP 主空间弹窗 | 已组件化（openAdjustmentDialog + iframe + keepAlive），无字符串模板 | 无需迁移 | — | 核验即可 |
+| F | 更新通知弹窗 | 宿主 `update.service.js`（版本检查/代理/缓存）+ `UpdateNoticePanel.vue`（版本信息 + 更新条目） | 小 | 弹窗外壳由 `openAdjustmentDialog` 提供、`updates` 按 `;` 分割与版本号正则、首条高亮、关闭即销毁 | ✅ **已 Vue 化**：内容区由 `src/ui/update/UpdateNoticePanel.vue` 渲染，解析逻辑抽为 `src/utils/update-items.js`；手动检查「已是最新」时同样弹窗反馈（`isLatest`） |
+| G | UP 主空间弹窗 | 已组件化（openAdjustmentDialog + 单个复用 iframe + keepAlive） | 无需迁移 | keepAlive（关闭不销毁、10 分钟后销毁）与 iframe 复用 | ⏹️ **不迁移**：无字符串模板/命令式 innerHTML，内容体是复用 iframe；改 Vue 会破坏 keepAlive 与 iframe 复用，收益为负 |
 
 ## 通用规则（迁移每批遵守）
 

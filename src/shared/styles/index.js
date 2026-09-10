@@ -94,7 +94,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         /* popover 关闭态的隐藏依赖 UA 样式 [popover]:not(:popover-open) { display: none }，
-        该规则无 !important，任何作者级 display 设置（如 #UpSpacePopover 的 display: flex）
+        该规则无 !important，任何作者级 display 设置（例如弹窗元素上直接写 display: flex）
         都会覆盖它导致关闭后弹窗仍可见；必须以 !important 显式兜底，
         弹窗元素上切勿再直接设置 display，如确需 flex 布局应改用内部容器 */
         .adjustment-popover:not(:popover-open) {

@@ -22,6 +22,7 @@ export const mountUpdateNoticePanel = async (mountEl, options = {}) => {
     const currentVersion = options.currentVersion || ''
     const latestVersion = options.latestVersion || ''
     const items = Array.isArray(options.items) ? options.items : []
+    const isLatest = options.isLatest === true
     const panelModule = await import('./lazy-panel.js')
     const { UpdateNoticePanelComponent, createApp } = panelModule || {}
     if (!isComponent(UpdateNoticePanelComponent)) {
@@ -36,7 +37,8 @@ export const mountUpdateNoticePanel = async (mountEl, options = {}) => {
     const app = createApp(UpdateNoticePanelComponent, {
         currentVersion: String(currentVersion ?? ''),
         latestVersion: String(latestVersion ?? ''),
-        items: Array.isArray(items) ? items : []
+        items: Array.isArray(items) ? items : [],
+        isLatest
     })
     app.mount(mountEl)
     let unmounted = false
