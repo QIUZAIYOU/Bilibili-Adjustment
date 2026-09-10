@@ -650,7 +650,7 @@ onMounted(async () => {
 .skip-ow-overlay {
     position: fixed;
     inset: 0;
-    z-index: 2147483000;
+    z-index: var(--adj-z-overlay);
     display: flex;
     align-items: center;
     justify-content: center;

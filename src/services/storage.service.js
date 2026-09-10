@@ -89,6 +89,10 @@ export class StorageService {
     userSet (key, value) { return this.set('user', key, value) }
     userGet (key) { return this.get('user', key) }
     userRemove (key) { return this.remove('user', key) }
+    /** 单事务批量读取用户配置（P0-3：替代 N 次 userGet） */
+    userBatchGet (keys) { return this.batchGet('user', keys) }
+    /** 单事务批量写入用户配置（P0-3：替代 N 次 userSet） */
+    userBatchSet (entries) { return this.batchSet('user', entries) }
     adCacheGet (key) { return this.get('adCache', key) }
     adCacheSet (key, value) { return this.set('adCache', key, value) }
     async getAll (dbName, indexName, queryRange, pageSize) {
@@ -110,11 +114,17 @@ export class StorageService {
         return this.getAll(dbName, 'by_timestamp', range, pageSize)
     }
     async batchSet (dbName, configsArray) {
+        if (!configsArray || configsArray.length === 0) return 0
         const db = this.#dbs.get(dbName)
-        for (const config of configsArray) {
-            const { key, value } = config
-            await db.update('keyval', { key, value, timestamp: Date.now() })
-        }
+        // P0-3：单事务批量写入，替代逐条 update（每键一次事务往返）
+        const timestamp = Date.now()
+        const records = configsArray.map(({ key, value }) => ({ key, value, timestamp }))
+        return db.batchUpdate('keyval', records)
+    }
+    async batchGet (dbName, keys) {
+        if (!keys || keys.length === 0) return {}
+        const db = this.#dbs.get(dbName)
+        return db.batchGet('keyval', keys)
     }
     async clear (dbName) {
         const db = this.#dbs.get(dbName)

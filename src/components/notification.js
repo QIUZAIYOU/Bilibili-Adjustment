@@ -14,7 +14,7 @@ const NOTIFICATION_STYLES = `
         position: fixed;
         top: 20px;
         right: 16px;
-        z-index: 999999;
+        z-index: var(--adj-z-notification);
         display: flex;
         flex-direction: column;
         gap: 12px;

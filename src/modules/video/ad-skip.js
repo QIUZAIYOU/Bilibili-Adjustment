@@ -4,10 +4,8 @@ import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
-import { createApp } from 'vue'
-import SkipManagerMainPanel from './skip-manager/SkipManagerMainPanel.vue'
-import BangumiSkipManager from './skip-manager/BangumiSkipManager.vue'
-import { SKIP_CACHE_API, createCacheEntry, getCurrentUid, mergeSegments } from './skip-manager/pure'
+import { SKIP_CACHE_API, createCacheEntry, getCurrentUid, createSkipMatcher, sanitizeSegments } from './skip-manager/pure'
+import { perfStart, perfEnd } from '@/shared/perf'
 const logger = new LoggerService('VideoModule')
 export const adSkipFeatures = {
     async identifyAdvertisementTimestamps () {
@@ -82,8 +80,15 @@ export const adSkipFeatures = {
         const subtitlesJsonString = JSON.stringify(formattedSubtitles)
         try {
             await initializeAIService()
-            const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
-            const adSegments = timestamps || []
+            perfStart('skip:identify')
+            let timestamps
+            try {
+                timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
+            } finally {
+                perfEnd('skip:identify')
+            }
+            // 缓存/上传前统一归一（合并重叠、丢弃非法项），避免脏数据进入共享缓存（报告 §4.6）
+            const adSegments = sanitizeSegments(timestamps || [])
             if (adSegments.length === 0) {
                 logger.info('自动跳过广告丨无广告时间段落，功能已关闭')
             }
@@ -117,29 +122,17 @@ export const adSkipFeatures = {
         if (!advertisementSegments || advertisementSegments.length === 0) return
         const video = elementSelectors.get('video')
         if (!video) return
-        const sortedSegments = mergeSegments(advertisementSegments)
-        const processedSegments = new Set()
+        // P0-2：窗口 + 单调状态 + 回跳重置匹配（替代原 Math.floor(currentTime) === start 的整数等值判断）
+        const matcher = createSkipMatcher(advertisementSegments)
+        if (matcher.sortedSegments.length === 0) return
         const handleTimeUpdate = () => {
-            const currentTime = Math.floor(video.currentTime)
-            for (const segment of sortedSegments) {
-                const { start, end } = segment
-                const segmentKey = `${start}-${end}`
-                if (!processedSegments.has(segmentKey)) {
-                    if (currentTime === start) {
-                        logger.info(`自动跳过广告丨从 ${start}s 跳转到 ${end}s`)
-                        video.currentTime = end
-                        processedSegments.add(segmentKey)
-                        break
-                    }
-                    if (currentTime > start && currentTime < end) {
-                        logger.info(`自动跳过广告丨当前在广告时间段 ${start}s-${end}s 内，跳转到 ${end}s`)
-                        video.currentTime = end
-                        processedSegments.add(segmentKey)
-                        break
-                    }
-                }
+            const currentTime = video.currentTime
+            const target = matcher.match(currentTime)
+            if (target) {
+                logger.info(`自动跳过广告丨从 ${currentTime.toFixed(1)}s 跳转到 ${target.end}s`)
+                video.currentTime = target.skipTo
             }
-            if (processedSegments.size === sortedSegments.length) {
+            if (matcher.isFinishedAt(video.currentTime)) {
                 video.removeEventListener('timeupdate', handleTimeUpdate)
                 logger.info('自动跳过广告丨所有广告已处理完成，移除事件监听器')
             }
@@ -147,7 +140,7 @@ export const adSkipFeatures = {
         this._adVideo = video
         this._adTimeUpdateHandler = handleTimeUpdate
         video.addEventListener('timeupdate', handleTimeUpdate)
-        logger.info('自动跳过广告丨已启动，共检测到', sortedSegments.length, '个广告时间段', sortedSegments)
+        logger.info('自动跳过广告丨已启动，共检测到', matcher.sortedSegments.length, '个广告时间段', matcher.sortedSegments)
         handleTimeUpdate()
     },
     // Vue 版「跳过片段管理」入口（对外契约保持 showSkipSegmentManager(bvid)，内部按页面类型分发组件）
@@ -173,7 +166,6 @@ export const adSkipFeatures = {
                 await this.identifyAdvertisementTimestamps().catch(() => {})
             }
         }
-        const Panel = isBangumi ? BangumiSkipManager : SkipManagerMainPanel
         const dialog = openAdjustmentDialog({
             key: 'skip-manager',
             title: '跳过片段管理',
@@ -183,10 +175,33 @@ export const adSkipFeatures = {
             content: bodyEl => {
                 const holder = document.createElement('div')
                 bodyEl.appendChild(holder)
-                const app = createApp(Panel, { bvid: String(bvid), env })
-                app.mount(holder)
+                const loading = document.createElement('div')
+                loading.className = 'loading'
+                loading.textContent = '正在加载管理面板...'
+                holder.appendChild(loading)
+                let app = null
+                let disposed = false
+                // P0-1：Vue 运行时与面板组件在「用户真正打开管理弹窗」时才加载；
+                // 静态 import 会把 Vue 拖进视频模块的关键路径（未打开也会初始化）。
+                perfStart('skip:manager:open')
+                Promise.all([
+                    import('vue'),
+                    isBangumi
+                        ? import('./skip-manager/BangumiSkipManager.vue')
+                        : import('./skip-manager/SkipManagerMainPanel.vue')
+                ]).then(([{ createApp }, panel]) => {
+                    if (disposed) return
+                    loading.remove()
+                    app = createApp(panel.default, { bvid: String(bvid), env })
+                    app.mount(holder)
+                    perfEnd('skip:manager:open')
+                }).catch(error => {
+                    logger.error('跳过片段管理丨面板加载失败', error)
+                    loading.textContent = '面板加载失败，请刷新页面后重试'
+                })
                 return () => {
-                    app.unmount()
+                    disposed = true
+                    app?.unmount()
                     holder.remove()
                 }
             }
@@ -273,8 +288,14 @@ export const adSkipFeatures = {
         const subtitlesJsonString = JSON.stringify(formattedSubtitles)
         try {
             await initializeAIService()
-            const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
-            result.segments = timestamps || []
+            perfStart('skip:identify')
+            try {
+                const timestamps = await aiService.identifyAdvertisementSegments(subtitlesJsonString)
+                // 结果归一后再交给管理面板（与缓存/上传链路保持一致）
+                result.segments = sanitizeSegments(timestamps || [])
+            } finally {
+                perfEnd('skip:identify')
+            }
         } catch (error) {
             logger.error('跳过片段管理丨AI服务初始化失败:', error)
             result.error = 'AI服务不可用，请检查配置'

@@ -18,7 +18,7 @@ export class TooltipComponent {
         this.tooltip.className = 'adjustment-tooltip'
         this.tooltip.style.cssText = `
             position: fixed;
-            z-index: 9999999;
+            z-index: var(--adj-z-tooltip);
             opacity: 0;
             transform: translateY(4px);
             transition: opacity 0.2s ease, transform 0.2s ease;

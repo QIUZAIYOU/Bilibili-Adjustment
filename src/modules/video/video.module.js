@@ -1,4 +1,3 @@
-/* global _ */
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
@@ -7,6 +6,7 @@ import { destroyTooltip } from '@/components/tooltip-component'
 import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { sleep, executeFunctionsSequentially, isTabActive, monitorHrefChange, insertStyleToDocument } from '@/utils/common'
+import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
 import { stylesV2 } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
@@ -150,10 +150,10 @@ export default {
         this._cleanup.push(eventBus.on(EVENT_NAMES.LOGGER_SHOW, (_, { type, message }) => {
             logger[type]?.(message)
         }))
-        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_CANPLAYTHROUGH, _.debounce(() => this.autoSelectPlayerMode(), 0, { 'leading': true, 'trailing': false })))
-        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, _.debounce(() => this.autoLocateToPlayer(), 0, { 'leading': true, 'trailing': false })))
-        this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS, _.debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false })))
-        this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_WEBFULL_PLAYER_MODE_UNLOCK, _.debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_CANPLAYTHROUGH, debounce(() => this.autoSelectPlayerMode(), 0, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, debounce(() => this.autoLocateToPlayer(), 0, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS, debounce(this.handleExecuteFunctionsSequentially, 500, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_WEBFULL_PLAYER_MODE_UNLOCK, debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false })))
         this.autoReapplyUnlockOnFullscreenExit()
         // 监听播放器模式变化，记录用户手动切换的模式
         this._lastPlayerMode = this.userConfigs?.selected_player_mode || 'normal'

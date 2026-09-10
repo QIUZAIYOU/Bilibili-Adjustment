@@ -1,5 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
-import axios from 'axios'
+import { httpGet } from '@/utils/http'
 import MD5 from 'md5'
 const logger = new LoggerService('BiliApis')
 // ========== 全局请求队列 ==========
@@ -35,7 +35,7 @@ async function _processQueue () {
 const _fetchWithRetry = async (url, options = {}, retries = 2, delay = 1000) => {
     for (let i = 0; i <= retries; i++) {
         try {
-            return await axios.get(url, { withCredentials: true, timeout: 15000, ...options })
+            return await httpGet(url, { withCredentials: true, timeout: 15000, ...options })
         } catch (err) {
             const isTimeout = err?.code === 'ECONNABORTED'
             const is429 = err?.response?.status === 429

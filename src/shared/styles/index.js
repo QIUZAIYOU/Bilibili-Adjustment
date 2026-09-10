@@ -91,7 +91,7 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-popover-overlay {
             position: fixed;
             inset: 0;
-            z-index: 9;
+            z-index: var(--adj-z-overlay);
             background: var(--adj-bg-scrim);
             backdrop-filter: blur(2px);
             -webkit-backdrop-filter: blur(2px);
@@ -105,14 +105,14 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-popover {
-            z-index: 10;
+            z-index: var(--adj-z-popover);
         }
 
         /* ========== 弹窗头部 ========== */
         .adjustment-popover-header {
             position: sticky;
             top: 0;
-            z-index: 100;
+            z-index: var(--adj-z-header);
             padding: 24px 28px 20px;
             background: var(--adj-bg-page);
             border-bottom: 1px solid var(--adj-border);
@@ -573,7 +573,7 @@ function generateBilibiliAdjustmentStyle () {
         /* ========== Tooltip ========== */
         .adjustment-tooltip {
             position: fixed;
-            z-index: 999999;
+            z-index: var(--adj-z-tooltip);
             pointer-events: none;
             opacity: 0;
             transform: translateY(4px);
@@ -800,7 +800,7 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-confirm-overlay {
             position: fixed;
             inset: 0;
-            z-index: 99999;
+            z-index: var(--adj-z-overlay);
             background: var(--adj-bg-scrim);
             backdrop-filter: blur(2px);
             display: flex;

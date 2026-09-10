@@ -109,13 +109,27 @@ export class ConfigService {
             await this.#migrateDeprecatedModel()
             // 清理废弃配置项
             await this.#cleanupDeprecatedConfigs()
+            // P0-3：单事务读取全部默认键，缺失项再单事务批量写入。
+            // 原实现逐键 userGet + setValue（每键两次事务），冷启动往返次数随配置项线性增长。
+            const keys = Array.from(this.DEFAULT_VALUES.keys())
+            const stored = await storageService.userBatchGet(keys)
+            const missing = []
             for (const [key, defaultValue] of this.DEFAULT_VALUES.entries()) {
-                const currentValue = await storageService.userGet(key)
-                if (currentValue === null || currentValue === undefined) {
-                    await this.setValue(key, defaultValue)
+                if (stored[key] === undefined || stored[key] === null) {
+                    missing.push({ key, value: defaultValue })
+                } else {
+                    this.#cache.set(key, stored[key])
                 }
             }
-            this.#logger.debug('默认配置初始化完成')
+            if (missing.length > 0) {
+                await storageService.userBatchSet(missing)
+                for (const { key, value } of missing) {
+                    this.#cache.set(key, value)
+                }
+                this.#logger.debug(`默认配置初始化完成（单事务写入 ${missing.length} 项）`)
+            } else {
+                this.#logger.debug('默认配置初始化完成（无需写入）')
+            }
         } catch (error) {
             this.#logger.error('默认配置初始化失败', error)
             throw error
@@ -187,13 +201,11 @@ export class ConfigService {
             }
             const value = await storageService.userGet(name)
             if (value === null || value === undefined) {
+                // P0-3：读配置不写库 —— 默认值只在内存覆盖（缓存并返回），
+                // 是否持久化交给 initializeDefaults 的一次性批量补齐或用户显式 setValue。
                 const defaultValue = this.DEFAULT_VALUES.get(name)
                 if (defaultValue !== undefined) {
-                    try {
-                        await this.setValue(name, defaultValue)
-                    } catch (setError) {
-                        this.#logger.warn(`配置 ${name} 写入默认值失败，返回默认值但不缓存`, setError)
-                    }
+                    this.#cache.set(name, defaultValue)
                     return defaultValue
                 }
                 return null
@@ -230,6 +242,37 @@ export class ConfigService {
             this.#logger.error('配置删除失败', error)
             throw error
         }
+    }
+    /**
+     * 批量写入配置（P0-3）
+     * 一次事务写全部键 + 一次跨标签广播，替代逐键 setValue 的 N 次事务往返。
+     * @param {Array<{key:string,value:any}>} entries
+     * @returns {Promise<number>} 写入条数
+     */
+    static async setValues (entries) {
+        const records = (entries || []).filter(entry => entry && entry.key !== undefined)
+        if (records.length === 0) return 0
+        await storageService.userBatchSet(records)
+        this.#ensureSyncChannel()
+        for (const { key, value } of records) {
+            this.#cache.set(key, value)
+            // 主题等运行时即时生效项依赖该事件（与 setValue 保持一致）
+            if (key === 'theme') {
+                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value })
+            }
+            this.#syncChannel?.postMessage({ key, value })
+        }
+        return records.length
+    }
+    /**
+     * 关闭跨标签页同步通道
+     * BroadcastChannel 会保持事件循环活跃，非浏览器环境（Node 单测）与卸载场景需显式关闭
+     */
+    static closeSyncChannel () {
+        try {
+            this.#syncChannel?.close()
+        } catch { /* 忽略关闭异常 */ }
+        this.#syncChannel = null
     }
 }
 export const ConfigServiceStatic = ConfigService

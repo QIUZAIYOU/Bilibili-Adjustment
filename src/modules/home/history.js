@@ -1,10 +1,10 @@
-/* global _ */
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { biliApis } from '@/shared/bili-apis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
 import { createElementAndInsert, addEventListenerToElement, escapeHtml, sanitizeHttpUrl, enablePopoverLightDismiss } from '@/utils/common'
+import { chunk } from '@/utils/lodash-lite'
 const logger = new LoggerService('HomeModule')
 export const homeHistoryFeatures = {
     async setRecordRecommendVideoHistory () {
@@ -30,7 +30,7 @@ export const homeHistoryFeatures = {
         this._recordingPromise = (async () => {
             try {
                 // 分批并发获取视频信息，替代串行请求解决记录滞后
-                for (const batch of _.chunk(recordRecommendVideos, 4)) {
+                for (const batch of chunk(recordRecommendVideos, 4)) {
                     await Promise.allSettled(batch.map(async ({ video, order }) => {
                         const url = video.querySelector('a')?.href
                         const title = video.querySelector('h3')?.title

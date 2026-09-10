@@ -1,7 +1,7 @@
-/* global _ */
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { STORAGE_KEYS } from '@/shared/constants'
+import { throttle } from '@/utils/lodash-lite'
 const logger = new LoggerService('VideoModule')
 // 播放进度记忆（完全独立于官方进度记忆，官方记录异常时仍可恢复）
 const PLAYBACK_STORE_LIMIT = 50
@@ -21,7 +21,7 @@ export const progressMemoryFeatures = {
         this._playbackSeekSaveTimer = null
         this._playbackRestoredKey = null
         this._playbackSeekedKey = null
-        this._playbackSaveThrottled = _.throttle(this.savePlaybackPosition.bind(this), 10000)
+        this._playbackSaveThrottled = throttle(this.savePlaybackPosition.bind(this), 10000)
         const isMainVideo = event => event.target instanceof HTMLVideoElement &&
                                      event.target.matches('#bilibili-player video')
         const diagLog = (type, event) => {

@@ -1,14 +1,14 @@
-/* global _ */
 import { LoggerService } from '@/services/logger.service'
 import { biliApis } from '@/shared/bili-apis'
 import { escapeHtml } from '@/utils/common'
+import { chunk } from '@/utils/lodash-lite'
 const logger = new LoggerService('HomeModule')
 export const homePaidMarkFeatures = {
     async markRecommendVideoPaidStatus () {
         const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
         const cards = [...allCards].filter(card => !card.querySelector('[class*="-ad"]'))
         // 分批并发查询，避免串行请求拖慢整批标记
-        for (const batch of _.chunk(cards, 4)) {
+        for (const batch of chunk(cards, 4)) {
             await Promise.allSettled(batch.map(async video => {
                 const url = video.querySelector('a')?.href
                 const title = video.querySelector('h3')?.title

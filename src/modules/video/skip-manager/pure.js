@@ -109,3 +109,81 @@ export const parseDuration = str => {
     const num = parseFloat(str)
     return isNaN(num) ? null : num
 }
+/** 片段起点容差（秒）：timeupdate 约 4Hz + 倍速/丢帧，等值比较必然漏跳（P0-2） */
+export const SKIP_EPSILON = 0.25
+/**
+ * 创建跳过片段匹配器（P0-2）
+ *
+ * 替代 `Math.floor(currentTime) === start` 的整数等值判断：
+ * 1) 窗口匹配：`t + epsilon >= start && t < end`，容忍小数起点与 seek 落在 start 之后；
+ * 2) 单调状态：同一片段只跳一次（lastSkippedKey），跳过后时间轴前移，不会重复触发；
+ * 3) 回跳重置：用户把进度拖回上一个已跳片段之前时，允许再次触发（避免"拖回去就不跳了"）；
+ * 4) 倍速/丢帧安全：只要时间戳仍落在段内就会命中，不依赖恰好命中 start 的那一帧。
+ *
+ * 纯函数 + 闭包状态，可在 Node 环境单测（见 test/skip-matcher.test.js）。
+ * @param {Array<{start:number,end:number}>} segments 片段（内部会 mergeSegments 归一）
+ * @param {{epsilon?:number}} [options]
+ */
+export const createSkipMatcher = (segments, options = {}) => {
+    const epsilon = typeof options.epsilon === 'number' ? options.epsilon : SKIP_EPSILON
+    const skipBackTolerance = typeof options.skipBackTolerance === 'number' ? options.skipBackTolerance : 1
+    const sortedSegments = mergeSegments(segments || [])
+    const lastEnd = sortedSegments.length ? sortedSegments[sortedSegments.length - 1].end : 0
+    let lastSkippedKey = null
+    let lastSkippedStart = -1
+    const reset = () => {
+        lastSkippedKey = null
+        lastSkippedStart = -1
+    }
+    return {
+        sortedSegments,
+        lastEnd,
+        /**
+         * 求当前时刻应跳转的目标
+         * @param {number} currentTime 当前播放时间（秒，可为小数）
+         * @returns {{start:number,end:number,skipTo:number,key:string}|null}
+         */
+        match (currentTime) {
+            if (!sortedSegments.length) return null
+            // 用户把进度拖回「本次已跳片段起点」之前 → 解除已跳过状态，允许再次触发；
+            // 用起点（而非终点）判定，避免段内小幅回退导致重复 seek
+            if (lastSkippedStart >= 0 && currentTime < lastSkippedStart - skipBackTolerance) {
+                reset()
+            }
+            for (const segment of sortedSegments) {
+                const key = `${segment.start}-${segment.end}`
+                if (key === lastSkippedKey) continue
+                if (currentTime + epsilon >= segment.start && currentTime < segment.end) {
+                    lastSkippedKey = key
+                    lastSkippedStart = segment.start
+                    return { start: segment.start, end: segment.end, skipTo: segment.end, key }
+                }
+            }
+            return null
+        },
+        /** 时间轴已越过最后一个片段：调用方据此移除监听 */
+        isFinishedAt (currentTime) {
+            return sortedSegments.length > 0 && currentTime > lastEnd
+        },
+        /** 已跳过的片段 key 列表（诊断用） */
+        get skippedKey () {
+            return lastSkippedKey
+        }
+    }
+}
+/**
+ * 归一化 AI / 用户输入的片段集合（报告 §4.6：结果经校验后再缓存与上传）
+ *
+ * 1) 丢弃非对象、缺字段、非数值、end <= start 的非法项；
+ * 2) 数值统一为 Number（AI 偶尔返回字符串）；
+ * 3) 合并重叠/相邻片段，保证缓存与上传数据干净。
+ * @param {Array<{start:any,end:any,summary?:string}>} segments
+ * @returns {Array<{start:number,end:number,summary?:string}>}
+ */
+export const sanitizeSegments = segments => {
+    const valid = (Array.isArray(segments) ? segments : [])
+        .filter(seg => seg && Number.isFinite(Number(seg.start)) && Number.isFinite(Number(seg.end)))
+        .map(seg => ({ ...seg, start: Number(seg.start), end: Number(seg.end) }))
+        .filter(seg => seg.end > seg.start)
+    return mergeSegments(valid)
+}

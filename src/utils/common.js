@@ -1,5 +1,5 @@
-/* global _ */
 import { LoggerService } from '@/services/logger.service'
+import { chunk as chunkArray, pick, reduce, snakeCase } from '@/utils/lodash-lite'
 const logger = new LoggerService('Common')
 export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms))
 export const detectivePageType = () => {
@@ -162,12 +162,12 @@ export const getElementOffsetToDocument = element => {
 export const getElementComputedStyle = (element, propertyName) => {
     const style = window.getComputedStyle(element)
     if (Array.isArray(propertyName)) {
-        return _.pick(style, propertyName)
+        return pick(style, propertyName)
     }
     if (typeof propertyName === 'string') {
         return style.getPropertyValue(propertyName)
     }
-    return _.reduce(style, (obj, property) => {
+    return reduce(style, (obj, property) => {
         obj[property] = style.getPropertyValue(property)
         return obj
     }, {})
@@ -227,7 +227,7 @@ export const executeFunctionsSequentially = async (
     options = { concurrency: 1, continueOnError: false, onAfterChunk: null }
 ) => {
     const { concurrency, continueOnError, onAfterChunk } = options
-    const chunks = _.chunk(functionsArray, concurrency)
+    const chunks = chunkArray(functionsArray, concurrency)
     const results = []
     for (const chunk of chunks) {
         const chunkResults = await Promise.allSettled(
@@ -523,7 +523,7 @@ export const initializeCheckbox = (elements, userConfigs, configKey) => {
     const elementList = Array.isArray(elements) ? elements : [elements]
     elementList.forEach(element => {
         if (!(element instanceof HTMLInputElement)) return
-        const key = configKey || _.snakeCase(element.id).replace(/_(\d)_k/g, '$1k')
+        const key = configKey || snakeCase(element.id).replace(/_(\d)_k/g, '$1k')
         if (!(key in userConfigs)) {
             logger.warn(`配置键 "${key}" 不存在于用户配置中`)
             return

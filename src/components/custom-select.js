@@ -435,11 +435,16 @@ export const enhanceCustomSelects = root => {
         })
         observer.observe(container, { attributes: true, attributeFilter: ['class']})
         container.__adjSelectObserver = observer
-        // 原生 select 被移除时兜底清理
-        container.addEventListener('DOMNodeRemoved', () => {
+        // 原生 select 被移除时兜底清理：DOMNodeRemoved 已废弃且开销高，
+        // 改为观察父节点 childList（父节点不可用时退回 body 子树），断开即释放
+        const removalObserver = new MutationObserver(() => {
+            if (container.isConnected) return
+            removalObserver.disconnect()
             observer.disconnect()
             closeMenu(container)
         })
+        const removalRoot = container.parentNode
+        if (removalRoot) removalObserver.observe(removalRoot, { childList: true })
         // 初始化视觉
         refreshHost(container)
     })

@@ -1,4 +1,3 @@
-import _ from 'lodash'
 import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
@@ -9,11 +8,11 @@ import { updateService } from '@/services/update.service'
 import { stylesV2 } from '@/shared/styles'
 import { ThemeManager } from '@/shared/theme'
 import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
-import { openVueSampleDialog } from '@/ui/vue-sample'
+import { debounce } from '@/utils/lodash-lite'
+import { perfStart, perfEnd, perfMark } from '@/shared/perf'
 import { EVENT_NAMES } from '@/shared/constants'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
-window._ = _
 const moduleCache = new Map()
 let currentModuleType = null
 const moduleMap = {
@@ -46,7 +45,38 @@ const detectAndLoadModule = async () => {
     logger.debug(`缓存模块: ${newModuleType}`)
     return newModuleType
 }
+/**
+ * P0-5：更新检查不再阻塞 APP_READY
+ * 1) 空闲（或 3s 后）执行，避免与首屏渲染/模块初始化抢主线程与网络；
+ * 2) 跨会话门控由 update.service 依据 update_check_frequency + 上次检查时间决定；
+ * 3) 失败只 warn，不进入初始化 error 链路（用户可在设置里手动检查）。
+ */
+const scheduleUpdateCheck = () => {
+    const run = () => {
+        ConfigService.getValue('auto_check_update').then(async autoCheckUpdate => {
+            if (!autoCheckUpdate) {
+                logger.info('自动检查更新已被用户禁用')
+                return
+            }
+            perfStart('update:check')
+            try {
+                await updateService.checkForUpdates(pkg.version, pkg.updates)
+            } catch (error) {
+                logger.warn('检查更新失败（已忽略，不影响使用）', error?.message || error)
+            } finally {
+                perfEnd('update:check')
+            }
+        }).catch(error => logger.warn('读取自动检查更新配置失败', error?.message || error))
+    }
+    const idleCallback = window.requestIdleCallback
+    if (typeof idleCallback === 'function') {
+        idleCallback(run, { timeout: 8000 })
+    } else {
+        setTimeout(run, 3000)
+    }
+}
 const initializeApp = async () => {
+    perfStart('app:init')
     try {
         await ConfigService.initialize()
         // config 就绪后按持久化主题切换（默认 night 已顶部注入，无闪烁）
@@ -62,10 +92,12 @@ const initializeApp = async () => {
         if (currentModuleType === 'other') return
         await moduleSystem.init()
         logger.info('应用初始化完成')
-        await eventBus.emit(EVENT_NAMES.APP_READY)
+        perfEnd('app:ready')
+        await eventBus.emitMeasured(EVENT_NAMES.APP_READY)
+        scheduleUpdateCheck()
         let isProcessingUrlChange = false
         let lastUrl = location.href
-        const handleUrlChange = _.debounce(async () => {
+        const handleUrlChange = debounce(async () => {
             if (isProcessingUrlChange) {
                 logger.debug('URL变化处理中，跳过重复触发')
                 return
@@ -77,6 +109,7 @@ const initializeApp = async () => {
             }
             lastUrl = currentUrl
             isProcessingUrlChange = true
+            perfMark('spa:navigate')
             try {
                 const nextModuleType = await detectivePageType()
                 if (nextModuleType === currentModuleType) {
@@ -90,7 +123,8 @@ const initializeApp = async () => {
                 if (currentModuleType === 'other') return
                 await moduleSystem.init()
                 logger.info('模块系统重新初始化完成')
-                await eventBus.emit(EVENT_NAMES.APP_READY)
+                perfEnd('app:ready')
+                await eventBus.emitMeasured(EVENT_NAMES.APP_READY)
             } catch (error) {
                 logger.error('URL变化处理失败', error)
             } finally {
@@ -98,16 +132,6 @@ const initializeApp = async () => {
             }
         }, 500, { 'leading': true, 'trailing': false })
         monitorHrefChange(handleUrlChange)
-        try {
-            const autoCheckUpdate = await ConfigService.getValue('auto_check_update')
-            if (autoCheckUpdate) {
-                await updateService.checkForUpdates(pkg.version, pkg.updates)
-            } else {
-                logger.info('自动检查更新已被用户禁用')
-            }
-        } catch (error) {
-            logger.error('检查更新失败', error)
-        }
     } catch (error) {
         logger.error('应用初始化失败', error)
     }
@@ -126,9 +150,20 @@ ThemeManager.init()
 // Stylus 夜间哔哩样式检测：开启时强制界面主题 night 并锁定内容文字色（实时跟随增删）
 initStylusNightFollowing()
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
-// Vue 全链路探针（P2-a）：DEV 构建自动打开一次；任意构建按 Ctrl+Shift+Alt+V 打开，
-// 验证 SFC 挂载/主题/配置响应式。用快捷键而非页面全局变量，规避脚本管理器沙盒隔离
-// （如 ScriptCat/Tampermonkey 下 window 赋值不落页面全局）。
+// Vue 全链路探针（P2-a）：P0-1 起必须懒加载 —— 静态 import 会把 Vue 运行时拖进首屏关键路径。
+// 只有在 DEV 自动打开、或用户按 Ctrl+Shift+Alt+V 时才真正加载 vue + SFC。
+// 用快捷键而非页面全局变量，规避脚本管理器沙盒隔离（如 ScriptCat/Tampermonkey 下 window 赋值不落页面全局）。
+const openVueSampleDialog = async () => {
+    try {
+        perfStart('vue:probe:load')
+        const mod = await import('@/ui/vue-sample')
+        perfEnd('vue:probe:load')
+        return mod.openVueSampleDialog()
+    } catch (error) {
+        logger.warn('Vue 探针加载失败', error)
+        return null
+    }
+}
 if (import.meta.env.DEV) {
     setTimeout(openVueSampleDialog, 2500)
 }

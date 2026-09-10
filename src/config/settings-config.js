@@ -414,7 +414,8 @@ export const videoSettingsConfig = [
                 label: '调试',
                 inline: true,
                 // 开发模式默认开启调试日志，生产默认关闭
-                defaultValue: () => import.meta.env.DEV
+                // 用可选链访问 import.meta.env：Node（单测环境）下 import.meta.env 为 undefined 时不抛错
+                defaultValue: () => Boolean(import.meta.env?.DEV)
             }
         ]
     },

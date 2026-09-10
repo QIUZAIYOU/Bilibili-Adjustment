@@ -1,6 +1,7 @@
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
+import { perfStart, perfEnd } from '@/shared/perf'
 import { EVENT_NAMES } from '@/shared/constants'
 export class ModuleSystem {
     static #instance
@@ -39,19 +40,23 @@ export class ModuleSystem {
     async init () {
         await ConfigService.initializeDefaults()
         const startTime = Date.now()
-        eventBus.emit(EVENT_NAMES.SYSTEM_INIT_START, { timestamp: startTime })
+        // P1-4.2：模块系统初始化耗时同时进 Performance API（adj:system:init）
+        perfStart('system:init')
+        eventBus.emitMeasured(EVENT_NAMES.SYSTEM_INIT_START, { timestamp: startTime })
         try {
             const moduleNames = Array.from(this.#modules.keys())
             this.#logger.debug(`正在初始化模块: ${moduleNames.join(', ')}`)
             await this.#initializeModules(moduleNames)
-            eventBus.emit(EVENT_NAMES.SYSTEM_INIT_SUCCESS, {
+            eventBus.emitMeasured(EVENT_NAMES.SYSTEM_INIT_SUCCESS, {
                 duration: Date.now() - startTime,
                 moduleCount: this.#modules.size
             })
             this.#logger.debug(`模块初始化完成，耗时: ${Date.now() - startTime} 毫秒`)
         } catch (error) {
-            eventBus.emit(EVENT_NAMES.SYSTEM_INIT_FAIL, { error })
+            eventBus.emitMeasured(EVENT_NAMES.SYSTEM_INIT_FAIL, { error })
             throw this.#enhanceError(error, '系统初始化失败')
+        } finally {
+            perfEnd('system:init', { modules: this.#modules.size })
         }
     }
     getModule (name) {
@@ -96,16 +101,21 @@ export class ModuleSystem {
         this.#logger.debug('所有模块已清空')
     }
     async #initializeModule (moduleMeta) {
+        const moduleName = moduleMeta.definition.name
+        // P1-4.2：每模块初始化耗时（adj:module:init:<name>）
+        perfStart(`module:init:${moduleName}`)
         try {
             moduleMeta.instance = this.#createModuleInstance(moduleMeta.definition)
             if (typeof moduleMeta.instance.install === 'function') {
                 await moduleMeta.instance.install()
             }
             moduleMeta.status = 'active'
-            this.#logger.debug(`模块初始化成功: ${moduleMeta.definition.name}`)
+            this.#logger.debug(`模块初始化成功: ${moduleName}`)
         } catch (error) {
             moduleMeta.status = 'error'
-            this.#handleError(error, 'critical', { module: moduleMeta.definition.name, error })
+            this.#handleError(error, 'critical', { module: moduleName, error })
+        } finally {
+            perfEnd(`module:init:${moduleName}`)
         }
     }
     async #initializeModules (moduleNames) {

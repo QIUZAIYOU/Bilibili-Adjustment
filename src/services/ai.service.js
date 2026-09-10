@@ -1,7 +1,16 @@
 import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
-import axios from 'axios'
+import { httpGet, httpPost } from '@/utils/http'
 import { AD_DETECTION_PROMPT } from '@/shared/ad-detection-prompt'
+// 当前进行中的 AI 请求控制器：供 UI「取消识别」使用（P1-4.6）
+let currentRequestController = null
+/** 取消进行中的 AI 识别请求（若存在） */
+export const cancelAIRequest = () => {
+    if (!currentRequestController) return false
+    currentRequestController.abort()
+    currentRequestController = null
+    return true
+}
 // ========== 提供商配置（均为 OpenAI 兼容协议） ==========
 const PROVIDER_CONFIGS = {
     siliconflow: {
@@ -52,6 +61,8 @@ let cachedModels = null
 let cachedModelsKey = ''
 let lastFetchTime = 0
 const CACHE_DURATION = 5 * 60 * 1000
+// 广告识别输出的 token 上限（P1-4.6）：结果为 JSON 数组，限长可减少超长生成与超时/截断
+const MAX_RESPONSE_TOKENS = 2048
 // ========== API Key 验证 ==========
 /**
  * 验证 API Key 是否有效
@@ -67,7 +78,7 @@ export async function validateApiKey (apiKey, provider = 'siliconflow', baseURL 
         return { valid: false, message: 'API Key 未配置' }
     }
     try {
-        await axios.get(
+        await httpGet(
             `${effectiveBaseURL}/models`,
             {
                 headers: {
@@ -112,13 +123,14 @@ export async function fetchModels (apiKey, provider = 'siliconflow', baseURL = '
             logger.warn('API Key 未配置，无法获取模型列表')
             return getFallbackModels(provider)
         }
-        const response = await axios.get(
+        const response = await httpGet(
             `${effectiveBaseURL}/models`,
             {
                 headers: {
                     'Authorization': `Bearer ${apiKey}`
                 },
-                timeout: 10000
+                timeout: 10000,
+                retries: 1
             }
         )
         if (response.data && Array.isArray(response.data.data)) {
@@ -316,26 +328,37 @@ class OpenAIAdapter {
         const requestBody = {
             model,
             messages,
-            stream: false
+            stream: false,
+            // P1-4.6：收紧生成参数 —— 期望输出为 JSON 数组，限制长度并降低随机性以减少截断/格式漂移
+            temperature: 0.1,
+            max_tokens: MAX_RESPONSE_TOKENS
         }
         // 自定义模型时，根据模型ID判断是否添加 DeepSeek 特定参数
         if (useCustomModel && model.includes('deepseek')) {
             requestBody.thinking = { type: 'enabled' }
             requestBody.reasoning_effort = 'high'
         }
-        const response = await axios.post(
-            `${this.#baseURL}/chat/completions`,
-            requestBody,
-            {
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${apiKey}`
-                },
-                // 广告字幕可能很长，模型生成耗时高：放宽到 120s，降低偶发超时
-                timeout: 120000
-            }
-        )
-        return response.data.choices[0].message.content
+        // 记录当前请求控制器：UI 可通过 cancelAIRequest() 取消进行中的识别
+        const controller = new AbortController()
+        currentRequestController = controller
+        try {
+            const response = await httpPost(
+                `${this.#baseURL}/chat/completions`,
+                requestBody,
+                {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    // 广告字幕可能很长，模型生成耗时高：放宽到 120s，降低偶发超时
+                    timeout: 120000,
+                    signal: controller.signal
+                }
+            )
+            return response.data.choices[0].message.content
+        } finally {
+            if (currentRequestController === controller) currentRequestController = null
+        }
     }
     handleError (status) {
         const messages = {
@@ -393,8 +416,13 @@ export class UnifiedAIService extends AIService {
             try {
                 content = await adapter.chat(apiKey, model, messages, useCustomModel)
             } catch (error) {
+                // 用户主动取消（P1-4.6）：不重试、不报错
+                if (error.code === 'ERR_CANCELED') {
+                    this.#logger.info('广告识别已取消（用户中断）')
+                    return []
+                }
                 // 网络/超时类失败自动重试一次，降低偶发超时导致的识别失败
-                const retriable = !error.response || error.code === 'ECONNABORTED' || String((error && error.message) || '').includes('timeout')
+                const retriable = !error.response || error.code === 'ECONNABORTED' || error.code === 'ERR_NETWORK' || String((error && error.message) || '').includes('timeout')
                 if (!retriable) throw error
                 this.#logger.warn('广告识别请求失败，自动重试一次：' + ((error && error.message) || error.code || 'unknown'))
                 content = await adapter.chat(apiKey, model, messages, useCustomModel)
@@ -435,6 +463,10 @@ export class UnifiedAIService extends AIService {
                 return []
             }
         } catch (error) {
+            if (error.code === 'ERR_CANCELED') {
+                this.#logger.info('广告识别已取消（用户中断）')
+                return []
+            }
             if (error.response) {
                 const adapter = await this.#getAdapter()
                 const errorMessage = adapter.handleError(error.response.status)

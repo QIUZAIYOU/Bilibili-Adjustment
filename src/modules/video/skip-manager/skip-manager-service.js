@@ -107,12 +107,22 @@ export const commitCache = async (env, bvid, previousCached, finalSegments) => {
     await env.storage.adCacheSet(bvid, entry)
     env.log?.info('跳过片段管理丨已更新本地缓存')
     try {
-        await env.fetchImpl(env.apiUrl, {
+        const resp = await env.fetchImpl(env.apiUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(entry)
         })
-        env.log?.info('跳过片段管理丨已更新远程缓存')
+        if (resp && resp.ok === false) {
+            // 服务端拒绝（423 锁定 / 409 版本冲突）：本地已保存，远程未同步，留可定位日志
+            let detail = ''
+            try {
+                const payload = await resp.json()
+                detail = payload && payload.error ? `：${payload.error}` : ''
+            } catch { /* 响应非 JSON，忽略解析 */ }
+            env.log?.warn(`跳过片段管理丨远程缓存未更新（HTTP ${resp.status}${detail}），本地已保存`)
+        } else {
+            env.log?.info('跳过片段管理丨已更新远程缓存')
+        }
     } catch (error) {
         env.log?.debug('跳过片段管理丨远程缓存上传失败', error)
     }

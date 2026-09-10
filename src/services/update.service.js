@@ -399,6 +399,12 @@ export class UpdateService {
         } catch (error) {
             logger.warn('获取跳过更新检查设置失败，继续检查更新:', error.message)
         }
+        // P0-5：跨会话门控 —— 距上次自动检查不足 update_check_frequency 小时则跳过，
+        // 避免每次打开视频页都触发代理请求（手动检查不受此限制）
+        if (await this.#shouldSkipByFrequency()) {
+            logger.debug('距上次检查更新未超过设置频率，跳过')
+            return
+        }
         logger.info('检查更新')
         try {
             const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
@@ -443,7 +449,33 @@ export class UpdateService {
         } catch (error) {
             logger.error('检查更新失败:', error.message)
             this.#showUpdateFailedHint()
+        } finally {
+            // P0-5：记录本次自动检查时间（成功/失败都记），作为跨会话门控依据，避免失败后反复请求
+            UpdateService.#recordCheckTime()
         }
+    }
+    /** 上次自动检查更新时间（localStorage，跨会话持久） */
+    static #lastCheckAtKey = 'bili-adjustment-last-update-check-at'
+    /**
+     * 是否因检查频率门控而跳过（P0-5）
+     * 频率取自 update_check_frequency（小时，默认 6）；无记录或已超时则返回 false（继续检查）
+     */
+    async #shouldSkipByFrequency () {
+        try {
+            const hours = await ConfigService.getValue('update_check_frequency')
+            const frequencyMs = (typeof hours === 'number' && hours > 0 ? hours : 6) * 60 * 60 * 1000
+            const lastCheckAt = Number(localStorage.getItem(UpdateService.#lastCheckAtKey) || 0)
+            if (!lastCheckAt) return false
+            return Date.now() - lastCheckAt < frequencyMs
+        } catch (error) {
+            logger.warn('读取更新检查频率失败，继续检查更新:', error?.message || error)
+            return false
+        }
+    }
+    static #recordCheckTime () {
+        try {
+            localStorage.setItem(UpdateService.#lastCheckAtKey, String(Date.now()))
+        } catch { /* localStorage 不可用时忽略 */ }
     }
     // 显示检查更新失败的轻量提示
     #showUpdateFailedHint () {
@@ -452,7 +484,7 @@ export class UpdateService {
         const hint = document.createElement('div')
         hint.id = 'updateCheckFailedHint'
         hint.textContent = '检查更新失败，请稍后重试'
-        hint.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:999999;padding:10px 14px;border-radius:8px;background:var(--adj-bg-tooltip);color:var(--adj-text-primary);font-size:13px;border:1px solid var(--adj-border);box-shadow:var(--adj-shadow-float);'
+        hint.style.cssText = 'position:fixed;right:16px;bottom:16px;z-index:var(--adj-z-notification);padding:10px 14px;border-radius:8px;background:var(--adj-bg-tooltip);color:var(--adj-text-primary);font-size:13px;border:1px solid var(--adj-border);box-shadow:var(--adj-shadow-float);'
         document.body.appendChild(hint)
         setTimeout(() => hint.remove(), 5000)
     }

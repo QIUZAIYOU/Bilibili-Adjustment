@@ -53,6 +53,53 @@ class IndexedDBService {
     async update (storeName, data) {
         return this._execute(storeName, 'readwrite', store => store.put(data))
     }
+    /**
+     * 单事务批量写入（P0-3）
+     * 逐条 update 会为每个键开一次事务（N 次往返），批量初始化/批量提交必须走这里。
+     * @param {string} storeName
+     * @param {Array<object>} records 待写入记录（含 keyPath 字段）
+     * @returns {Promise<number>} 写入条数
+     */
+    async batchUpdate (storeName, records) {
+        if (!records || records.length === 0) return 0
+        await this.connect()
+        this._updateLastOperation()
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(storeName, 'readwrite')
+            const store = tx.objectStore(storeName)
+            for (const record of records) store.put(record)
+            tx.oncomplete = () => resolve(records.length)
+            tx.onerror = event => reject(event.target.error)
+            tx.onabort = () => reject(tx.error || new Error('IndexedDB 批量写入事务已中止'))
+        })
+    }
+    /**
+     * 单事务批量读取（同一事务内并发取键，避免 N 次事务）
+     * @param {string} storeName
+     * @param {Array<string>} keys
+     * @returns {Promise<object>} 键值映射；不存在的键不会出现在结果中
+     */
+    async batchGet (storeName, keys) {
+        if (!keys || keys.length === 0) return {}
+        await this.connect()
+        this._updateLastOperation()
+        return new Promise((resolve, reject) => {
+            const tx = this.db.transaction(storeName, 'readonly')
+            const store = tx.objectStore(storeName)
+            const result = {}
+            for (const key of keys) {
+                const request = store.get(key)
+                request.onsuccess = () => {
+                    if (request.result !== undefined) {
+                        result[key] = request.result.value
+                    }
+                }
+            }
+            tx.oncomplete = () => resolve(result)
+            tx.onerror = event => reject(event.target.error)
+            tx.onabort = () => reject(tx.error || new Error('IndexedDB 批量读取事务已中止'))
+        })
+    }
     async delete (storeName, key) {
         return this._execute(storeName, 'readwrite', store => store.delete(key))
     }

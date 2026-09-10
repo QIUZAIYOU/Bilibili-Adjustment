@@ -25,6 +25,9 @@
  *   dialog.close() / dialog.destroy()
  */
 import { insertStyleToDocument, enablePopoverLightDismiss } from '@/utils/common'
+import { applyDialogA11y } from '@/utils/dialog-a11y'
+// 标题元素 id 序号：供 aria-labelledby 关联（P1 / 报告 §5）
+let dialogSeq = 0
 const DIALOG_CSS = `
     .adjustment-dialog {
         background: var(--adj-bg-page);
@@ -162,6 +165,9 @@ export const openAdjustmentDialog = (options = {}) => {
         root.style.width = width
     }
     root.setAttribute('popover', 'manual')
+    // 标题 id：无障碍关联（aria-labelledby）
+    const titleId = title ? `adj-dialog-title-${++dialogSeq}` : ''
+    if (titleId) root.setAttribute('aria-labelledby', titleId)
     // ---------- 骨架 ----------
     const header = document.createElement('div')
     header.className = 'adjustment-dialog-header'
@@ -174,6 +180,7 @@ export const openAdjustmentDialog = (options = {}) => {
             if (title) {
                 const titleEl = document.createElement('div')
                 titleEl.className = 'adjustment-dialog-title'
+                titleEl.id = titleId
                 titleEl.textContent = title
                 titleRow.appendChild(titleEl)
             }
@@ -260,6 +267,20 @@ export const openAdjustmentDialog = (options = {}) => {
             instance.destroy()
         }
     }
+    // 可访问性生命周期：打开时启用（focus trap / Esc / 滚动锁），关闭或销毁时清理并归还焦点
+    let a11yCleanup = null
+    const setupDialogA11y = () => {
+        if (a11yCleanup || destroyed) return
+        a11yCleanup = applyDialogA11y(root, {
+            labelledBy: titleId || null,
+            onEscape: () => instance.close()
+        })
+    }
+    const teardownDialogA11y = () => {
+        if (!a11yCleanup) return
+        a11yCleanup()
+        a11yCleanup = null
+    }
     const instance = {
         key,
         root,
@@ -272,6 +293,7 @@ export const openAdjustmentDialog = (options = {}) => {
             clearTimeout(entry.timer)
             entry.timer = null
             if (typeof root.showPopover === 'function' && !root.matches(':popover-open')) root.showPopover()
+            setupDialogA11y()
         },
         close: () => {
             if (destroyed) return
@@ -295,6 +317,7 @@ export const openAdjustmentDialog = (options = {}) => {
                 }
                 contentCleanup = null
             }
+            teardownDialogA11y()
             root.__popoverDismissCleanup?.()
             root.__popoverDismissCleanup = null
             try { root.hidePopover() } catch { /* 忽略异常 */ }
@@ -306,6 +329,8 @@ export const openAdjustmentDialog = (options = {}) => {
     // 隐藏（toggle → closed）后的生命周期处理
     root.addEventListener('toggle', e => {
         if (e.newState !== 'closed' || destroyed) return
+        // 关闭即释放焦点陷阱与滚动锁（keepAlive 缓存期不销毁 DOM，但不应继续锁滚动）
+        teardownDialogA11y()
         clearTimeout(entry.timer)
         entry.timer = null
         if (keepAliveMs > 0) {

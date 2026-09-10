@@ -4,7 +4,8 @@ import { LoggerService } from '@/services/logger.service'
 import { SettingsComponentV2 } from '@/components/settings-component-v2'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
-import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument, sleep } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
+import { waitForCondition } from '@/utils/dom-wait'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
 import { stylesV2 } from '@/shared/styles'
@@ -71,6 +72,7 @@ export default {
     },
     async insertSidebarButtons () {
         const insert = () => {
+            if (this._dynamicSidebarButtonInserted) return true
             const dynamicSidebar = elementSelectors.get('dynamicSidebar')
             if (!dynamicSidebar) return false
             const dynamicSettingsOpenButton = createElementAndInsert(getTemplates.dynamicSettingsOpenButton, dynamicSidebar, 'prepend')
@@ -78,18 +80,22 @@ export default {
                 await settingsComponent.openSettings()
             })
             this._cleanup.push(cleanup)
+            this._dynamicSidebarButtonInserted = true
             logger.debug('侧边栏工具丨插入成功')
             return true
         }
-        // 立即尝试一次；失败则等待并轮询重试（规避 wait 负缓存与页面渲染延迟导致的漏插）
+        // 立即尝试一次；未命中则条件等待（选择器 wait + Observer 兜底），
+        // 替代原先「wait(4s) + 6 次 sleep(1000)」的粗放轮询（P1-4.4）
         if (insert()) return
         await elementSelectors.wait('dynamicSidebar', 4000)
         if (insert()) return
-        for (let i = 0; i < 6; i++) {
-            await sleep(1000)
-            if (insert()) return
-        }
-        logger.warn('动态页侧边栏未找到，跳过插入设置按钮')
+        const stopWaiting = waitForCondition({
+            probe: () => elementSelectors.get('dynamicSidebar'),
+            onFound: () => insert(),
+            timeout: 10000
+        })
+        this._cleanup.push(stopWaiting)
+        logger.debug('动态页侧边栏未就绪，已挂起等待（最长 10s）')
     },
     handleExecuteFunctionsSequentially () {
         const functions = [
