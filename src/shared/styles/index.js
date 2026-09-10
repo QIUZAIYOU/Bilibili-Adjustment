@@ -706,43 +706,6 @@ function generateBilibiliAdjustmentStyle () {
             background: rgba(var(--adj-danger-rgb), 0.25);
         }
 
-        /* ========== 更新弹窗专用样式 ========== */
-        #UpdatePopover .adjustment-popover-title {
-            font-size: 24px;
-            text-align: center;
-            padding: 20px;
-        }
-
-        #UpdatePopover .adjustment-popover-subtitle {
-            font-size: 16px;
-            color: var(--adj-text-muted);
-            margin-top: 4px;
-        }
-
-        #UpdatePopover .adjustment-version {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 16px;
-            padding: 12px 16px;
-            background: var(--adj-bg-surface);
-            border-radius: 8px;
-            font-size: 13px;
-            color: var(--adj-text-muted);
-        }
-
-        #UpdatePopover .adjustment-version div:first-child {
-            color: var(--adj-text-soft);
-        }
-
-        #UpdatePopover .adjustment-version div:last-child {
-            color: var(--adj-brand);
-            font-weight: 500;
-        }
-
-        #UpdatePopover {
-            overflow: hidden;
-        }
-
         /* 更新说明内容（update 弹窗组件作用域）：版本徽章 + 内容卡片 */
         .update-dialog .adjustment-update-contents {
             list-style: none;
@@ -795,35 +758,6 @@ function generateBilibiliAdjustmentStyle () {
             line-height: 1.7;
             color: var(--adj-text-secondary);
             word-break: break-word;
-        }
-
-        #UpdatePopover .adjustment-update-more {
-            text-align: center;
-            padding-top: 12px;
-            margin-top: 12px;
-            border-top: 1px solid var(--adj-border);
-        }
-
-        #UpdatePopover .adjustment-update-more a {
-            color: var(--adj-brand);
-            text-decoration: none;
-            font-size: 13px;
-            font-weight: 500;
-        }
-
-        #UpdatePopover .adjustment-update-more a:hover {
-            color: var(--adj-brand-hover);
-            text-decoration: underline;
-        }
-
-        #UpdatePopover .adjustment-button-group {
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            gap: 12px;
-            padding-top: 16px;
-            margin-top: 16px;
-            border-top: 1px solid var(--adj-border);
         }
 
         /* ========== 自定义确认弹窗 ========== */
