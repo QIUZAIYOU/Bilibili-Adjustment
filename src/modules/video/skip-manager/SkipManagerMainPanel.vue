@@ -60,7 +60,8 @@
                     </div>
                 </template>
                 <!-- 备注（summary）：可选，编辑已有片段时会回填 -->
-                <div class="time-input-group">
+                <!-- 备注（summary）：可选，编辑已有片段时会回填；.summary-field 让其独占一行 -->
+                <div class="time-input-group summary-field">
                     <label>备注</label>
                     <input v-model="summaryText" type="text" class="time-input" maxlength="40" placeholder="可选，如「片头」「赞助」">
                 </div>
@@ -76,8 +77,9 @@
             </div>
         </div>
 
-        <!-- 按钮组 -->
+        <!-- 按钮组（清空为危险操作，固定在最左，与其余按钮保持间距） -->
         <div class="adjustment-buttonGroup">
+            <div v-if="clearableExisting" class="adjustment-button danger clear-existing-btn" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="clearExisting">清空已有片段</div>
             <div class="adjustment-button secondary" @click="manualOpen = !manualOpen">手动添加</div>
             <div v-if="showReIdentify" class="adjustment-button secondary" :style="(busy || identifying) ? 'pointer-events:none;opacity:.6' : ''" @click="reIdentify">{{ identifying ? '正在识别...' : '重新识别' }}</div>
             <div v-if="canSubmit" class="adjustment-button primary" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="appendUpdate">
@@ -86,8 +88,6 @@
             <div v-if="canSubmit" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="overwriteUpdate">
                 {{ busy ? '更新中...' : '覆盖更新' }}
             </div>
-            <!-- 清空与追加/覆盖同组；点击后走自定义二次确认层（替换原生 confirm） -->
-            <div v-if="clearableExisting" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="clearExisting">清空已有片段</div>
         </div>
 
         <!-- 内联消息 -->

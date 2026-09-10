@@ -85,8 +85,8 @@ export class SettingsComponentV2 {
                 onChange: (key, value) => this.handleVueConfigChange(key, value, popover),
                 onValidate: key => this.handleValidateClick(key, popover),
                 onRefresh: key => this.handleRefreshClick(key, popover),
-                // 渲染期错误（如响应式/渲染函数异常）也回退经典渲染器，避免面板空白卡死
-                onError: error => this.fallbackToClassicPanel(error)
+                // 渲染期错误（如响应式/渲染函数异常）改为轻量提示，避免面板空白卡死
+                onError: error => this.showPanelLoadFailure(error)
             })
             this._vuePanel = panel
             this._vueBridge = panel.bridge
@@ -94,26 +94,32 @@ export class SettingsComponentV2 {
             this._vueDynamicOptionsProxy = panel.bridge?.dynamicOptions || null
             return panel
         } catch (error) {
-            await this.fallbackToClassicPanel(error)
+            this.showPanelLoadFailure(error)
             return null
         }
     }
     /**
-     * 回退到经典渲染器（V3 加载/渲染失败时调用）
-     * 写入 settings_panel=v2 并重建弹窗，保证用户始终能修改设置
+     * Vue 面板不可用时的兜底提示（加载/渲染失败）
+     *
+     * 不再回退到经典渲染器（该路径已移除），只在挂载点内显示轻量提示 + 重试按钮，
+     * 保证用户能看见发生了什么并可自行重试；不会写库、不会改变任何配置。
      */
-    async fallbackToClassicPanel (error) {
-        if (this._fallingBack) return
-        this._fallingBack = true
-        try {
-            logger.error('Vue 设置面板不可用，已回退经典渲染器', error)
-            this.userConfigs.settings_panel = 'v2'
-            await ConfigService.setValue('settings_panel', 'v2').catch(() => {})
-            this.unmountVuePanel()
-            await this.render(this.pageType)
-        } finally {
-            this._fallingBack = false
-        }
+    showPanelLoadFailure (error) {
+        logger.error('Vue 设置面板不可用', error)
+        const mountEl = document.querySelector('#VideoSettingsFormMount, #DynamicSettingsFormMount')
+        if (!mountEl) return
+        mountEl.textContent = ''
+        const tip = document.createElement('div')
+        tip.className = 'adjustment-panel-fallback'
+        tip.textContent = '设置面板加载失败，请重试或刷新页面'
+        const retry = document.createElement('div')
+        retry.className = 'adjustment-button secondary'
+        retry.textContent = '重试'
+        retry.addEventListener('click', () => {
+            this.render(this.pageType)
+        })
+        mountEl.appendChild(tip)
+        mountEl.appendChild(retry)
     }
     /**
      * Vue 面板配置变更统一处理（等价于经典模式 bindConfigChangeEvents 的链路）

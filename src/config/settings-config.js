@@ -426,18 +426,6 @@ export const videoSettingsConfig = [
         tips: '（不建议开启）若脚本执行失败是否自动刷新页面重试，开启后可能会对使用体验起到一定改善作用，但若是因为B站页面改版导致脚本失效，则会陷入页面无限刷新的情况，此时则必须在页面加载时看准时机关闭此项才能恢复正常，请自行选择是否开启',
         category: 'basic',
         defaultValue: false
-    },
-    {
-        id: 'settings_panel',
-        type: 'radio',
-        label: '设置面板实现',
-        options: [
-            { value: 'v3', label: '新版（Vue）' },
-            { value: 'v2', label: '经典渲染器' }
-        ],
-        tips: '新版设置面板由 Vue 组件按 schema 渲染；若新版出现异常可切回经典渲染器对比排查，切换后设置面板会立即重建，无需刷新页面',
-        category: 'basic',
-        defaultValue: 'v3'
     }
 ]
 // 动态页设置配置

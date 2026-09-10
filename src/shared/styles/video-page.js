@@ -299,6 +299,13 @@ export const videoPageStyles = {
             display: flex;
             align-items: flex-end;
             gap: 10px;
+            /* 允许换行：备注（.summary-field）独占一行，避免与时间输入挤在同一行 */
+            flex-wrap: wrap;
+        }
+
+        /* 备注输入：强制独占一行 */
+        .skip-manager-dialog .manual-entry-form .summary-field {
+            flex-basis: 100%;
         }
 
         .skip-manager-dialog .time-inputs {
