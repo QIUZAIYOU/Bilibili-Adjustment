@@ -207,17 +207,14 @@ export class SettingsComponentV2 {
         this.unmountVuePanel()
         // 销毁旧的 tooltip
         destroyTooltip()
-        // 不 await fetchDynamicOptions（fetchModels 有 10s 超时），用当前模型作为 fallback 立即渲染
-        const dynamicOptions = this._pendingModelOptions || { ai_model: this.userConfigs.ai_model ? [{ value: this.userConfigs.ai_model, label: this.userConfigs.ai_model }] : []}
-        const useVue = this.usesVuePanel()
-        // 创建渲染器：Vue 模式下仅用于生成弹窗壳（表单由 SettingsPanelV3 渲染）
+        // 不 await fetchDynamicOptions（fetchModels 有 10s 超时）：动态选项由 mountVuePanel
+        // 内部从 _pendingModelOptions / 当前 ai_model 推导，面板挂载后再异步更新
+        // 创建渲染器：只用于生成弹窗壳（表单由 Vue 面板 SettingsPanelV3 渲染）
         this.renderer = new SettingsRenderer(videoSettingsConfig)
         this._activeSchema = videoSettingsConfig
-        const formContent = useVue
-            // 挂载点本身即 .adjustment-form 容器：面板以多根 fragment 渲染，
-            // 最终 DOM 与经典渲染器一致（.adjustment-popover > .adjustment-form > 各设置项）
-            ? '<div class="adjustment-form" id="VideoSettingsFormMount"></div>'
-            : this.renderer.render(this.userConfigs, dynamicOptions)
+        // 挂载点本身即 .adjustment-form 容器：面板以多根 fragment 渲染，
+        // 最终 DOM 与旧渲染器一致（.adjustment-popover > .adjustment-form > 各设置项）
+        const formContent = '<div class="adjustment-form" id="VideoSettingsFormMount"></div>'
         // 生成完整弹窗
         const popoverHtml = this.renderer.renderPopover(
             '哔哩哔哩播放页设置',
@@ -229,9 +226,7 @@ export class SettingsComponentV2 {
         const popover = document.getElementById('VideoSettingsPopover')
         // Vue 面板挂载（懒加载 Vue 运行时 + SFC）；挂载完成后再做自绘下拉与 tooltip 增强，
         // 因为对应 DOM（select/输入框）由组件渲染
-        if (useVue) {
-            await this.mountVuePanel(popover, 'VideoSettingsFormMount', videoSettingsConfig)
-        }
+        await this.mountVuePanel(popover, 'VideoSettingsFormMount', videoSettingsConfig)
         // 原生 select 视觉替身：套自绘下拉（trigger+菜单），数据/事件仍走原生 select
         enhanceCustomSelects(popover)
         // 初始化 tooltip 并将 tooltip 元素插入 popover 内，避免被 popover 的顶层(top layer)遮挡

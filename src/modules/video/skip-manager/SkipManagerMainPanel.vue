@@ -34,7 +34,6 @@
                         <div class="segment-delete" title="删除" @click="removeSegment(i)">×</div>
                     </div>
                 </div>
-                <div v-if="clearableExisting" class="adjustment-button danger clear-existing-btn" @click="clearExisting">清空已有片段</div>
             </template>
         </template>
 
@@ -60,12 +59,18 @@
                         <div class="time-input-group"><label>跳过</label><input v-model="duration" type="text" class="time-input" placeholder="30s"></div>
                     </div>
                 </template>
+                <!-- 备注（summary）：可选，编辑已有片段时会回填 -->
+                <div class="time-input-group">
+                    <label>备注</label>
+                    <input v-model="summaryText" type="text" class="time-input" maxlength="40" placeholder="可选，如「片头」「赞助」">
+                </div>
                 <div class="adjustment-button info manual-add-btn" @click="addOrSave">{{ editingExistingIndex >= 0 ? '保存修改' : '添加' }}</div>
                 <div v-if="editingExistingIndex >= 0" class="adjustment-button secondary cancel-edit-btn" @click="cancelExistingEdit">取消编辑</div>
             </div>
             <div v-if="pendingView.length > 0" class="pending-list">
                 <div v-for="(seg, i) in pendingView" :key="'p' + i" class="pending-item">
                     <span class="segment-time">{{ formatTime(seg.start) }} - {{ formatTime(seg.end) }}</span>
+                    <span v-if="seg.summary" class="segment-summary" :title="seg.summary">{{ seg.summary }}</span>
                     <div class="pending-delete" title="移除" @click="removePending(i)">×</div>
                 </div>
             </div>
@@ -81,10 +86,23 @@
             <div v-if="canSubmit" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="overwriteUpdate">
                 {{ busy ? '更新中...' : '覆盖更新' }}
             </div>
+            <!-- 清空与追加/覆盖同组；点击后走自定义二次确认层（替换原生 confirm） -->
+            <div v-if="clearableExisting" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="clearExisting">清空已有片段</div>
         </div>
 
         <!-- 内联消息 -->
         <div v-show="messageText" class="inline-msg" :class="messageType">{{ messageText }}</div>
+
+        <!-- 通用二次确认层（复用覆盖选择层的样式） -->
+        <div v-if="confirmState" class="skip-ow-overlay" @click.self="confirmResolve(false)">
+            <div class="adjustment-confirm-dialog">
+                <div class="adjustment-confirm-msg">{{ confirmState.text }}</div>
+                <div class="adjustment-confirm-btns">
+                    <div class="adjustment-button secondary" @click="confirmResolve(false)">取消</div>
+                    <div class="adjustment-button danger" @click="confirmResolve(true)">{{ confirmState.okText }}</div>
+                </div>
+            </div>
+        </div>
 
         <!-- 覆盖选择层 -->
         <div v-if="overlay" class="skip-ow-overlay" @click.self="overlayResolve(null)">
@@ -146,8 +164,28 @@ const messageType = ref('')
 const startTime = ref('')
 const endTime = ref('')
 const duration = ref('')
+const summaryText = ref('')
 const overlay = ref(null)
 let overlayResolveFn = null
+// 通用二次确认层状态（危险操作复用，替代原生 confirm）
+const confirmState = ref(null)
+let confirmResolveFn = null
+/**
+ * 弹出二次确认，返回 Promise<boolean>
+ * @param {string} text 确认文案
+ * @param {string} [okText] 确认按钮文案
+ */
+const confirmAction = (text, okText = '确定') => new Promise(resolve => {
+    confirmResolveFn = resolve
+    confirmState.value = { text, okText }
+})
+/** 关闭确认层并回传结果（遮罩点击 / 取消 / 确认都走这里，避免 Promise 悬挂） */
+const confirmResolve = ok => {
+    confirmState.value = null
+    const resolve = confirmResolveFn
+    confirmResolveFn = null
+    if (resolve) resolve(Boolean(ok))
+}
 
 // —— 渲染视图 ——
 const currentView = computed(() => { void tick.value; return currentSegments })
@@ -252,12 +290,13 @@ const addPending = () => {
         showMessage(conflict, 'warn')
         return
     }
-    pendingSegments.push({ start, end })
+    pendingSegments.push({ start, end, summary: summaryText.value.trim() || undefined })
     pendingSegments.sort((a, b) => a.start - b.start)
     bump()
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
+    summaryText.value = ''
 }
 
 // 表单统一入口：编辑已有片段时进入「保存修改」，否则走手动添加
@@ -277,12 +316,15 @@ const editExisting = i => {
     startTime.value = formatTime(seg.start)
     endTime.value = formatTime(seg.end)
     duration.value = ''
+    // 回填备注，使已有片段的 summary 可编辑
+    summaryText.value = seg.summary || ''
 }
 const cancelExistingEdit = () => {
     editingExistingIndex.value = -1
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
+    summaryText.value = ''
 }
 const saveExistingEdit = () => {
     const i = editingExistingIndex.value
@@ -313,18 +355,21 @@ const saveExistingEdit = () => {
         return
     }
     const next = [...currentSegments]
-    next[i] = { start, end }
+    next[i] = { start, end, summary: summaryText.value.trim() || undefined }
     const final = mergeSegments(next)
     editingExistingIndex.value = -1
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
+    summaryText.value = ''
     // keepPending=true：编辑已有片段不影响待提交列表；识别预览则一并落库（identifyPreview 在 commit 内清除）
     commit(final, '缓存已更新（修改片段）', true)
 }
 const clearExisting = async () => {
     if (!clearableExisting.value) return
-    if (!window.confirm('确定要清空全部已有片段吗？此操作不可撤销。')) return
+    // 二次确认：走自定义确认层（样式与覆盖选择层一致），不再使用原生 confirm
+    const ok = await confirmAction('确定要清空全部已有片段吗？此操作不可撤销。', '清空')
+    if (!ok) return
     await commit([], '已清空已有片段', true)
 }
 

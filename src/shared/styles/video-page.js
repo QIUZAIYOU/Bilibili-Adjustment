@@ -263,7 +263,7 @@ export const videoPageStyles = {
         }
 
         .skip-manager-dialog .manual-entry-section {
-            padding: 12px 20px 16px;
+            padding: 12px 0 16px;
             border-top: 1px solid var(--adj-border-strong);
             display: flex;
             flex-direction: column;

@@ -1,282 +1,22 @@
-import { LoggerService } from '@/services/logger.service'
-import { initTooltip } from '@/components/tooltip-component'
-const logger = new LoggerService('SettingsRenderer')
 /**
- * 设置项渲染器
- * 根据配置定义动态生成设置面板 HTML
+ * 设置弹窗外壳渲染器
+ *
+ * Vue 化后表单内容全部由 Vue 面板（SettingsPanelV3.vue）渲染，本类只负责生成弹窗「壳」HTML：
+ * 标题、版本号、推荐样式表、底部按钮组，以及由调用方传入的表单挂载点（formContent）。
+ *
+ * 原先的命令式表单渲染方法（render / renderItem / renderSection / renderCheckbox / renderInput /
+ * renderSelect / renderRadio / renderTipsIcon / isVisible / resolveTips / escapeHtml / toPascalCase）
+ * 已随经典渲染器一并移除：DOM 结构与 class 契约现由 Vue 组件保证
+ * （见 src/ui/settings/SettingsPanelV3.vue 与 docs/settings-v3-migration.md）。
  */
 export class SettingsRenderer {
-    constructor (config) {
-        this.config = config
-        this.tooltip = null
-    }
     /**
-     * 初始化 tooltip
-     */
-    initTooltip () {
-        if (!this.tooltip) {
-            this.tooltip = initTooltip({ delay: 300, hideDelay: 100 })
-        }
-    }
-    /**
-     * 渲染完整设置表单
-     * @param {Object} userConfigs - 当前用户配置值
-     * @param {Object} dynamicOptions - 动态选项（如模型列表）
-     * @returns {string} HTML 字符串
-     */
-    render (userConfigs, dynamicOptions = {}) {
-        const items = this.config.map(item => this.renderItem(item, userConfigs, dynamicOptions)).join('')
-        return `<div class="adjustment-form">${items}</div>`
-    }
-    /**
-     * 渲染单个设置项 - 始终渲染，只是设置 display 样式
-     */
-    renderItem (item, userConfigs, dynamicOptions = {}) {
-        // 计算可见性
-        const isVisible = this.isVisible(item, userConfigs)
-        const displayStyle = isVisible ? 'block' : 'none'
-        // 获取内容
-        let content = ''
-        switch (item.type) {
-            case 'section':
-                content = this.renderSection(item, userConfigs, dynamicOptions)
-                break
-            case 'checkbox':
-                content = this.renderCheckbox(item, userConfigs, dynamicOptions)
-                break
-            case 'input':
-                content = this.renderInput(item, userConfigs)
-                break
-            case 'select':
-                content = this.renderSelect(item, userConfigs, dynamicOptions)
-                break
-            case 'radio':
-                content = this.renderRadio(item, userConfigs)
-                break
-            default:
-                logger.warn(`未知的设置项类型: ${item.type}`)
-                return ''
-        }
-        // 如果是普通设置项（非section），包裹并设置 display
-        if (item.id && item.type !== 'section') {
-            return `<div class="adjustment-setting-item-wrapper" data-config-id="${item.id}" style="display: ${displayStyle};">${content}</div>`
-        }
-        return content
-    }
-    /**
-     * 渲染区域（section）
-     */
-    renderSection (item, userConfigs, dynamicOptions) {
-        // 检测是否所有子项都是 inline checkbox，如果是则使用紧凑网格布局
-        const allInline = item.items?.every(subItem => subItem.inline && subItem.type === 'checkbox')
-        const layoutClass = allInline ? 'adjustment-section-content compact-grid' : 'adjustment-section-content'
-        const content = item.items
-            .map(subItem => this.renderItem(subItem, userConfigs, dynamicOptions))
-            .join('')
-        return `
-            <div class="adjustment-section ${item.id}">
-                <div class="adjustment-section-title">${item.label}</div>
-                <div class="${layoutClass}">
-                    ${content}
-                </div>
-            </div>
-        `.trim()
-    }
-    /**
-     * 生成提示图标 HTML - 使用 SVG
-     */
-    renderTipsIcon (item, userConfigs) {
-        if (!item.tips) return ''
-        const tipsContent = this.resolveTips(item.tips, userConfigs)
-        // 转义 HTML 特殊字符，但保留换行符用于后续转换
-        const escapedContent = tipsContent
-            .replace(/&/g, '&amp;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/\n/g, '<br>')
-        return `<span class="adjustment-tips-icon" data-tooltip="${escapedContent}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg></span>`
-    }
-    /**
-     * 渲染复选框 - 新布局
-     */
-    renderCheckbox (item, userConfigs, dynamicOptions = {}) {
-        const value = userConfigs[item.id] ?? false
-        const children = item.children
-            ?.map(child => this.renderItem(child, userConfigs, dynamicOptions))
-            .join('') || ''
-        const switchClass = value ? 'on' : ''
-        const hasChildren = item.children && item.children.length > 0
-        // 子项布局：全为纯 checkbox 小开关时横向排列（如自动定位的 video/bangumi 子项）；
-        // 含 input/select 等完整设置行（如 AI 自动识别的提供商/Key/模型配置）时改为纵向堆叠，避免横向挤压滚动
-        const isRowLayout = item.children?.length > 0 && item.children.every(child => child.type === 'checkbox' && !child.children?.length && !child.items?.length)
-        // 容器可见条件：父开关开启 且 至少有一个子项满足自身 visible 条件
-        const anyChildVisible = item.children?.some(child => {
-            if (!child.visible) return true
-            if (typeof child.visible === 'function') return child.visible(userConfigs)
-            return Boolean(child.visible)
-        }) ?? true
-        const childrenDisplayStyle = (value && anyChildVisible) ? 'flex' : 'none'
-        // 纵向布局（含 input/select 等完整设置行的子项）：容器底色/边框/圆角/内衬沿用与
-        // 「自动选择最高画质」等内嵌选项组一致的主题样式，仅改为纵向堆叠避免横向挤压；
-        // 子项经 .adjustment-setting-item-wrapper 隔层，横向规则的 flex/min-width 不作用于卡片本身
-        const childrenInlineLayout = isRowLayout ? '' : ' flex-direction: column; align-items: stretch; overflow-x: visible;'
-        const childrenStyle = `display: ${childrenDisplayStyle};${childrenInlineLayout}`
-        const tipsIcon = this.renderTipsIcon(item, userConfigs)
-        // 日志配置等inline项：紧凑布局，一行多个
-        if (item.inline) {
-            return `
-                <div class="adjustment-setting-item inline-checkbox" data-config-id="${item.id}">
-                    <div class="adjustment-setting-label">${item.label}${tipsIcon}</div>
-                    <div class="adjustment-switch ${switchClass}">
-                        <input type="checkbox" id="${item.id}" ${value ? 'checked' : ''} class="adjustment-checkbox checkbox" data-config-type="checkbox">
-                        <div class="adjustment-switch-knob"></div>
-                    </div>
-                </div>
-            `.trim()
-        }
-        // 普通项：标签+开关横向，子项在下方紧凑排列
-        return `
-            <div class="adjustment-setting-item" data-config-id="${item.id}">
-                <div class="adjustment-setting-main">
-                    <div class="adjustment-setting-info">
-                        <div class="adjustment-setting-label">${item.label}${tipsIcon}</div>
-                        ${item.description ? `<div class="adjustment-setting-desc">${item.description}</div>` : ''}
-                    </div>
-                    <div class="adjustment-setting-control">
-                        <div class="adjustment-switch ${switchClass}">
-                            <input type="checkbox" id="${item.id}" ${value ? 'checked' : ''} class="adjustment-checkbox checkbox" data-config-type="checkbox">
-                            <div class="adjustment-switch-knob"></div>
-                        </div>
-                    </div>
-                </div>
-                ${hasChildren ? `<div class="adjustment-setting-children" style="${childrenStyle}">${children}</div>` : ''}
-            </div>
-        `.trim()
-    }
-    /**
-     * 渲染输入框 - 新布局
-     */
-    renderInput (item, userConfigs) {
-        const value = userConfigs[item.id] ?? ''
-        const inputType = item.inputType || 'text'
-        const placeholder = this.escapeHtml(item.placeholder || '')
-        const validateButton = item.hasValidateButton
-            ? `<div id="Validate${this.toPascalCase(item.id)}" class="adjustment-button secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;height:32px;" data-validate-for="${item.id}">${item.validateButtonText}</div>`
-            : ''
-        const tipsIcon = this.renderTipsIcon(item, userConfigs)
-        return `
-            <div class="adjustment-setting-item" data-config-id="${item.id}">
-                <div class="adjustment-setting-main">
-                    <div class="adjustment-setting-info">
-                        <div class="adjustment-setting-label">${item.label}${tipsIcon}</div>
-                        ${item.description ? `<div class="adjustment-setting-desc">${item.description}</div>` : ''}
-                    </div>
-                    <div class="adjustment-setting-control">
-                        <input id="${item.id}" class="adjustment-input" type="${inputType}" value="${this.escapeHtml(value)}" placeholder="${placeholder}" data-config-type="input">
-                        ${validateButton}
-                    </div>
-                </div>
-            </div>
-        `.trim()
-    }
-    /**
-     * 渲染下拉选择框 - 新布局
-     */
-    renderSelect (item, userConfigs, dynamicOptions = {}) {
-        const value = userConfigs[item.id] ?? ''
-        const options = dynamicOptions[item.id] || item.options || []
-        // 无可用选项时显示占位符并禁用下拉，刷新出可选项后恢复
-        const hasOptions = options.length > 0
-        const optionsHtml = hasOptions
-            ? options.map(opt => `
-                <option value="${this.escapeHtml(opt.value)}" ${String(opt.value) === String(value) ? 'selected' : ''}>${this.escapeHtml(opt.label)}</option>
-            `).join('')
-            : '<option value="" selected disabled>暂无可用选项</option>'
-        const refreshButton = item.hasRefreshButton
-            ? `<div id="Refresh${this.toPascalCase(item.id)}" class="adjustment-button secondary" style="padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;height:32px;" data-refresh-for="${item.id}">${item.refreshButtonText}</div>`
-            : ''
-        const tipsIcon = this.renderTipsIcon(item, userConfigs)
-        return `
-            <div class="adjustment-setting-item" data-config-id="${item.id}">
-                <div class="adjustment-setting-main">
-                    <div class="adjustment-setting-info">
-                        <div class="adjustment-setting-label">${item.label}${tipsIcon}</div>
-                        ${item.description ? `<div class="adjustment-setting-desc">${item.description}</div>` : ''}
-                    </div>
-                    <div class="adjustment-setting-control">
-                        <div class="adjustment-select">
-                            <select id="${item.id}" data-config-type="select" ${hasOptions ? '' : 'disabled'}>${optionsHtml}</select>
-                        </div>
-                        ${refreshButton}
-                    </div>
-                </div>
-            </div>
-        `.trim()
-    }
-    /**
-     * 渲染单选框组 - 新布局
-     */
-    renderRadio (item, userConfigs) {
-        const value = userConfigs[item.id] ?? ''
-        const optionsHtml = item.options?.map(opt => `
-            <label class="adjustment-radio-item">
-                <input class="radio" type="radio" name="${item.id}" value="${this.escapeHtml(opt.value)}" ${value === opt.value ? 'checked' : ''} data-config-type="radio">
-                <span>${this.escapeHtml(opt.label)}</span>
-            </label>
-        `).join('') || ''
-        const tipsIcon = this.renderTipsIcon(item, userConfigs)
-        return `
-            <div class="adjustment-setting-item" data-config-id="${item.id}">
-                <div class="adjustment-setting-main">
-                    <div class="adjustment-setting-info">
-                        <div class="adjustment-setting-label">${item.label}${tipsIcon}</div>
-                        ${item.description ? `<div class="adjustment-setting-desc">${item.description}</div>` : ''}
-                    </div>
-                    <div class="adjustment-setting-control">
-                        <div class="adjustment-radio-group">${optionsHtml}</div>
-                    </div>
-                </div>
-            </div>
-        `.trim()
-    }
-    /**
-     * 检查设置项是否可见
-     */
-    isVisible (item, userConfigs) {
-        if (!item.visible) return true
-        if (typeof item.visible === 'function') {
-            return item.visible(userConfigs)
-        }
-        return Boolean(item.visible)
-    }
-    /**
-     * 解析提示文本（支持函数和字符串）
-     */
-    resolveTips (tips, userConfigs) {
-        if (typeof tips === 'function') {
-            return tips(userConfigs)
-        }
-        return tips
-    }
-    /**
-     * HTML 转义
-     */
-    escapeHtml (text) {
-        if (typeof text !== 'string') return text
-        const div = document.createElement('div')
-        div.textContent = text
-        return div.innerHTML
-    }
-    /**
-     * 转换为 PascalCase（用于生成按钮 ID）
-     */
-    toPascalCase (str) {
-        return str.replace(/(^|_)([a-z])/g, (_, __, letter) => letter.toUpperCase())
-    }
-    /**
-     * 生成完整弹窗 HTML
+     * 生成播放页设置弹窗 HTML
+     * @param {string} title 标题
+     * @param {string} version 版本号
+     * @param {string} formContent 表单挂载点 HTML（由调用方提供，如 <div class="adjustment-form" id="VideoSettingsFormMount"></div>）
+     * @param {string} [extraButtons] 额外按钮 HTML
+     * @returns {string} 弹窗 HTML
      */
     renderPopover (title, version, formContent, extraButtons = '') {
         return `
@@ -306,6 +46,10 @@ export class SettingsRenderer {
     }
     /**
      * 生成动态页设置弹窗 HTML
+     * @param {string} title 标题
+     * @param {string} version 版本号
+     * @param {string} formContent 表单挂载点 HTML
+     * @returns {string} 弹窗 HTML
      */
     renderDynamicPopover (title, version, formContent) {
         return `
