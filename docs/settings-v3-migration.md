@@ -43,7 +43,8 @@
 
 ## 2.1 已知坑（务必遵守）
 
-1. **SystemJS 下动态导入 SFC 取不到 `default`**：产物以 SystemJS（`@require systemjs` + `named-register`）承载模块，
+1. **`terser.mangle.properties` 会摧毁 Vue（最重要的坑）**：产物按 chunk 分别压缩，`mangle.properties`（历史配置 `regex: /^_/`）会把同名属性在各 chunk 压成不同名字 → Vue 内部属性（`_component`/`_props`/`__v_*`/`__vccOpts`）跨 chunk 不一致 → **所有 Vue 弹窗 mount 抛 `reading 'render'`**。已在 `vite.config.js` 移除该配置；排查可用 jsdom + `System.registerRegistry` 复现（见提交记录）。
+2. **SystemJS 下动态导入 SFC 的 `default` 形状不可依赖**：产物以 SystemJS（`@require systemjs` + `named-register`）承载模块，
    `await import('*.vue')` 得到的模块命名空间里 `default === undefined`，`createApp(mod.default)` 会在 Vue mount 阶段抛
    `Cannot read properties of undefined (reading 'render')`。**解决**：动态导入 `src/ui/settings/lazy-panel.js`
    （内部 `import SettingsPanelV3 from './SettingsPanelV3.vue'` + `export const SettingsPanelV3Component = ...`），

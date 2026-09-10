@@ -20,13 +20,14 @@ export default defineConfig(({ mode }) => ({
                 comments: false,
                 ecma: 5,
                 wrap_iife: true
-            },
-            mangle: {
-                properties: {
-                    regex: /^_/,
-                    reserved: ['$super', '_']
-                }
             }
+            // ⚠️ 严禁启用 mangle.properties（历史配置为 regex: /^_/）：
+            // 产物按 chunk 分别交给 terser，同名属性在不同 chunk 会被压成不同名字，
+            // 从而破坏跨模块的属性协议 —— Vue 内部属性（_component/_props/_container）、
+            // VNode/组件标记（__v_*、__vccOpts）等读不到正确值，
+            // 表现为所有 Vue 弹窗在 mount 时抛
+            // "TypeError: Cannot read properties of undefined (reading 'render')"。
+            // 收益（每属性几个字节）与风险完全不成比例。
         }
     },
     esbuild: {

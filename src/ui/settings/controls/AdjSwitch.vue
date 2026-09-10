@@ -1,5 +1,6 @@
 <template>
-    <div class="adjustment-switch" :class="{ on: modelValue }">
+    <!-- class 与 V2 逐字符一致（V2 模板为 `adjustment-switch ${switchClass}`，未选中时带尾随空格） -->
+    <div :class="'adjustment-switch ' + (modelValue ? 'on' : '')">
         <input
             :id="inputId"
             class="adjustment-checkbox checkbox"

@@ -1,7 +1,7 @@
 <template>
     <!-- wrapper 的 display 与经典渲染器逐字符一致（block / none），不依赖 CSS 回落 -->
     <div class="adjustment-setting-item-wrapper" :data-config-id="item.id" :style="visibleStyle">
-        <!-- inline 开关：与 V2 一致的紧凑布局（标签 + 开关一行，无 info/control 分区） -->
+        <!-- inline 开关：与 V2 一致的紧凑布局（标签 + 开关一行，无 info/control 分区，无 children） -->
         <div v-if="item.inline" class="adjustment-setting-item inline-checkbox" :data-config-id="item.id">
             <div class="adjustment-setting-label">{{ item.label }}<AdjTips v-if="tipsText" :text="tipsText" /></div>
             <AdjSwitch
@@ -10,6 +10,7 @@
                 @update:model-value="value => emit('change', item.id, value)"
             />
         </div>
+        <!-- 普通项：.adjustment-setting-item 内部 = main + children（与 V2 renderCheckbox 结构完全一致） -->
         <div v-else class="adjustment-setting-item" :data-config-id="item.id">
             <div class="adjustment-setting-main">
                 <div class="adjustment-setting-info">
@@ -89,24 +90,24 @@
                     </div>
                 </div>
             </div>
-        </div>
-        <!-- 子项：全为纯开关时横向排列，否则纵向堆叠（与 V2 renderCheckbox 布局规则一致） -->
-        <div
-            v-if="childItems.length > 0"
-            class="adjustment-setting-children"
-            :style="childrenStyle"
-        >
-            <SettingItemV3
-                v-for="child in childItems"
-                :key="child.id || child.label"
-                :item="child"
-                :configs="configs"
-                :dynamic-options="dynamicOptions"
-                :depth="depth + 1"
-                @change="(key, value) => emit('change', key, value)"
-                @validate="key => emit('validate', key)"
-                @refresh="key => emit('refresh', key)"
-            />
+            <!-- 子项：全为纯开关时横向排列，否则纵向堆叠（与 V2 renderCheckbox 布局规则一致） -->
+            <div
+                v-if="childItems.length > 0"
+                class="adjustment-setting-children"
+                :style="childrenStyle"
+            >
+                <SettingItemV3
+                    v-for="child in childItems"
+                    :key="child.id || child.label"
+                    :item="child"
+                    :configs="configs"
+                    :dynamic-options="dynamicOptions"
+                    :depth="depth + 1"
+                    @change="(key, value) => emit('change', key, value)"
+                    @validate="key => emit('validate', key)"
+                    @refresh="key => emit('refresh', key)"
+                />
+            </div>
         </div>
     </div>
 </template>
@@ -117,10 +118,11 @@
  * 与经典渲染器（settings-renderer.js）的等价性要点：
  * - wrapper 显式 `display: block|none`（与 V2 逐字符一致，不依赖 CSS 回落）；
  * - 内层 `.adjustment-setting-item[data-config-id]` 带同款属性，保证既有 CSS 选择器全部命中；
+ * - **children 容器位于 `.adjustment-setting-item` 内部**（main 之后），与 V2 renderCheckbox 一致；
  * - 校验/刷新按钮 id（`ValidateXxx` / `RefreshXxx`）与 V2 一致；
  * - select 用 option 的 `selected` 表达选中（与 V2 相同），避免依赖 select.value 的时序；
  * - children 容器可见条件 = 父开关开启 && 至少一个子项自身可见（同 V2 anyChildVisible）；
- * - inline 开关使用 `.inline-checkbox` 紧凑布局；tips 复刻 `data-tooltip` 结构；
+ * - inline 开关使用 `.inline-checkbox` 紧凑布局（V2 的 inline 项同样不渲染 children）；
  * - `depth` 限制递归渲染层数：即使 schema 出现异常自引用也不会渲染溢出（防御性约束）。
  */
 import { computed } from 'vue'
@@ -149,19 +151,17 @@ const isVisible = computed(() => {
     return Boolean(props.item.visible)
 })
 const visibleStyle = computed(() => `display: ${isVisible.value ? 'block' : 'none'};`)
-/** 与 V2 renderTipsIcon 一致：先转义 HTML 特殊字符，再把换行转 <br>（tooltip 以 innerHTML 渲染） */
-const escapeTip = value => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/\n/g, '<br>')
+/**
+ * 提示文案：与经典渲染器的「最终效果」一致 —— 换行转 `<br>`，其余字符原样。
+ * 说明：V2 把文案写入 HTML 属性时做了实体转义，浏览器解析后 `dataset.tooltip` 得到的是
+ * 未转义文本（`<br>`/`<a>` 生效，tooltip 以 innerHTML 渲染）；Vue 的 setAttribute 不做 HTML 转义，
+ * 因此这里**只做换行转换**即可得到与 V2 完全相同的属性值。
+ */
 const tipsText = computed(() => {
     const { tips } = props.item
     if (!tips) return ''
     const raw = typeof tips === 'function' ? tips(props.configs) : tips
-    return escapeTip(raw)
+    return String(raw ?? '').replace(/\n/g, '<br>')
 })
 const selectOptions = computed(() => props.dynamicOptions[props.item.id] || props.item.options || [])
 const childItems = computed(() => {
