@@ -1,7 +1,8 @@
 import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
-import { escapeHtml } from '@/utils/common'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
+import { mountUpdateNoticePanel } from '@/ui/update'
+import { parseUpdateItems } from '@/utils/update-items'
 const logger = new LoggerService('UpdateService')
 export class UpdateService {
     static #cacheKey = 'latestScriptCache'
@@ -293,50 +294,40 @@ export class UpdateService {
         }
         return false
     }
-    // 生成更新内容列表 HTML
-    generateUpdateList (changelog) {
-        if (!changelog) return '<div class="adjustment-update-contents">暂无更新说明</div>'
-        // 解析为列表（字符串按分号/换行分隔）
-        let items = changelog
-        if (typeof changelog === 'string') {
-            items = changelog
-                .split(';')
-                .map(item => item.trim())
-                .filter(item => item)
-            if (items.length <= 1) {
-                items = changelog
-                    .split(/\n/)
-                    .map(item => item.trim())
-                    .filter(item => item && !item.match(/^[-=]+$/))
-            }
-        }
-        if (!Array.isArray(items) || items.length === 0) {
-            return '<div class="adjustment-update-contents">暂无更新说明</div>'
-        }
-        // 每条格式为「版本号：描述」，渲染为版本徽章 + 内容的结构化条目（首条最新高亮）
-        const liHtml = items.map((item, index) => {
-            const match = String(item).match(/^(\d+\.\d+\.\d+)\s*[：:]\s*([\s\S]*)$/)
-            if (match) {
-                const ver = escapeHtml(match[1])
-                const desc = escapeHtml(match[2].trim())
-                return `<li class="adj-update-item${index === 0 ? ' is-latest' : ''}"><span class="adj-update-ver">${ver}</span><span class="adj-update-desc">${desc}</span></li>`
-            }
-            return `<li class="adj-update-item"><span class="adj-update-desc">${escapeHtml(String(item))}</span></li>`
-        }).join('')
-        return `
-            <ul class="adjustment-update-contents">
-                ${liHtml}
-            </ul>
-        `.replace(/\n\s+/g, '').trim()
-    }
-    // 显示更新弹窗
-    #showUpdatePopover (currentVersion, latestVersion, updateContentsHtml) {
+    /**
+     * 显示更新弹窗。内容区改由 Vue 面板（UpdateNoticePanel.vue）渲染并经懒加载挂载，
+     * 弹窗外壳/标题/按钮/a11y 仍由 openAdjustmentDialog 提供，class 契约保持不变，
+     * 故 src/shared/styles/index.js 中的更新弹窗样式无需改动。
+     */
+    #showUpdatePopover (currentVersion, latestVersion, updateItems) {
         openAdjustmentDialog({
             key: 'update-notice',
             title: '哔哩哔哩调整 · 有新版本',
             subtitle: '（点击更新按钮安装最新版）',
             className: 'update-dialog',
-            content: '<div class="adjustment-form"><div class="adjustment-form-item"><div class="adjustment-version"><div>当前版本: ' + escapeHtml(currentVersion) + '</div><div>最新版本: ' + escapeHtml(latestVersion) + '</div></div>' + updateContentsHtml + '</div></div>',
+            content: body => {
+                const holder = document.createElement('div')
+                body.appendChild(holder)
+                let handle = null
+                let disposed = false
+                // 面板懒加载：加载完成后挂载；若期间弹窗已关闭则立即卸载，避免实例泄漏
+                mountUpdateNoticePanel(holder, { currentVersion, latestVersion, items: updateItems })
+                    .then(created => {
+                        if (disposed) created.unmount()
+                        else handle = created
+                    })
+                    .catch(error => {
+                        logger.error('更新提示｜面板加载失败', error)
+                    })
+                return () => {
+                    disposed = true
+                    if (handle) {
+                        handle.unmount()
+                        handle = null
+                    }
+                    holder.remove()
+                }
+            },
             actions: [
                 { text: '关闭', type: 'info', onClick: d => d.close() },
                 {
@@ -373,8 +364,8 @@ export class UpdateService {
             if (!this.compareVersions(currentVersion, latestVersion)) {
                 return { type: 'latest', latestVersion }
             }
-            const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
-            this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
+            const updateItems = parseUpdateItems(latestUpdates || localUpdates)
+            this.#showUpdatePopover(currentVersion, latestVersion, updateItems)
             return { type: 'update', latestVersion }
         } catch (error) {
             logger.error('手动检查更新失败:', error.message)
@@ -415,7 +406,7 @@ export class UpdateService {
                 return
             }
             // 优先使用远程的更新内容，其次使用本地 package.json 的 updates
-            const updateContentsHtml = this.generateUpdateList(latestUpdates || localUpdates)
+            const updateItems = parseUpdateItems(latestUpdates || localUpdates)
             // 检查是否启用自动更新
             let autoUpdateEnabled = false
             try {
@@ -433,18 +424,18 @@ export class UpdateService {
                         logger.info('脚本下载成功，准备更新')
                         // 由于浏览器安全限制，自动更新可能需要用户交互
                         // 因此这里我们仍然显示更新弹窗，但默认选择自动更新
-                        this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
+                        this.#showUpdatePopover(currentVersion, latestVersion, updateItems)
                     } else {
                         throw new Error(`下载脚本失败: ${response.status}`)
                     }
                 } catch (error) {
                     logger.error('自动更新失败，显示手动更新弹窗:', error.message)
                     // 自动更新失败，显示手动更新弹窗
-                    this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
+                    this.#showUpdatePopover(currentVersion, latestVersion, updateItems)
                 }
             } else {
                 // 显示手动更新弹窗
-                this.#showUpdatePopover(currentVersion, latestVersion, updateContentsHtml)
+                this.#showUpdatePopover(currentVersion, latestVersion, updateItems)
             }
         } catch (error) {
             logger.error('检查更新失败:', error.message)
