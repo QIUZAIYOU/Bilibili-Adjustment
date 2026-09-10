@@ -210,6 +210,40 @@ export const videoPageStyles = {
             background: var(--adj-bg-hover);
         }
 
+        /* 正在编辑的片段：品牌色描边 + 轻微品牌色底（不使用左侧色条），
+           下圆角去掉以便与下方的行内编辑卡片拼成一体 */
+        .skip-manager-dialog .segment-item.editing {
+            border-color: var(--adj-brand);
+            border-radius: 8px 8px 0 0;
+            background: rgba(var(--adj-brand-rgb), 0.06);
+        }
+
+        /* 行内编辑卡片：负 margin 抵消 .segment-list 的 10px 间距，与所属片段无缝拼接 */
+        .skip-manager-dialog .segment-edit-card {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: -10px;
+            padding: 12px 14px;
+            border: 1px solid var(--adj-brand);
+            border-top: none;
+            border-radius: 0 0 8px 8px;
+            background: var(--adj-bg-surface);
+        }
+
+        .skip-manager-dialog .segment-edit-card .edit-card-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+
+        .skip-manager-dialog .segment-edit-card .edit-card-title {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--adj-brand);
+        }
+
         .skip-manager-dialog .segment-index {
             color: var(--adj-brand);
             font-weight: 600;

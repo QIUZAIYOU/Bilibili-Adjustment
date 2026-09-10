@@ -26,13 +26,42 @@
             <template v-else>
                 <div class="segment-count">共 {{ currentView.length }} 个片段：</div>
                 <div class="segment-list">
-                    <div v-for="(seg, i) in currentView" :key="seg.start + '-' + seg.end" class="segment-item">
-                        <span class="segment-index">{{ i + 1 }}.</span>
-                        <span class="segment-time">{{ formatTime(seg.start) }} - {{ formatTime(seg.end) }}</span>
-                        <span v-if="seg.summary" class="segment-summary" :title="seg.summary">{{ seg.summary }}</span>
-                        <span v-if="segmentEditable" class="segment-edit" title="编辑" @click="editExisting(i)">✎</span>
-                        <div class="segment-delete" title="删除" @click="removeSegment(i)">×</div>
-                    </div>
+                    <template v-for="(seg, i) in currentView" :key="seg.start + '-' + seg.end">
+                        <div class="segment-item" :class="{ editing: editingExistingIndex === i }">
+                            <span class="segment-index">{{ i + 1 }}.</span>
+                            <span class="segment-time">{{ formatTime(seg.start) }} - {{ formatTime(seg.end) }}</span>
+                            <span v-if="seg.summary" class="segment-summary" :title="seg.summary">{{ seg.summary }}</span>
+                            <span v-if="segmentEditable" class="segment-edit" :title="editingExistingIndex === i ? '收起编辑' : '编辑'" @click="toggleExistingEdit(i)">✎</span>
+                            <div class="segment-delete" title="删除" @click="removeSegment(i)">×</div>
+                        </div>
+                        <!-- 行内编辑卡片：紧跟所属片段，与上方片段拼成一体（手风琴，同时只展开一个） -->
+                        <div v-if="editingExistingIndex === i" class="segment-edit-card">
+                            <div class="edit-card-head">
+                                <span class="edit-card-title">正在编辑第 {{ i + 1 }} 个片段</span>
+                                <button class="input-mode-btn" type="button" title="切换输入模式" @click="toggleInputMode">
+                                    {{ inputMode === 'start-end' ? '起止时间' : '起始+时长' }}
+                                </button>
+                            </div>
+                            <div v-if="inputMode === 'start-end'" class="time-inputs">
+                                <div class="time-input-group"><label>开始</label><input v-model="startTime" type="text" class="time-input" placeholder="0:00"></div>
+                                <span class="time-separator">-</span>
+                                <div class="time-input-group"><label>结束</label><input v-model="endTime" type="text" class="time-input" placeholder="0:00"></div>
+                            </div>
+                            <div v-else class="time-inputs">
+                                <div class="time-input-group"><label>开始</label><input v-model="startTime" type="text" class="time-input" placeholder="0:00"></div>
+                                <span class="time-separator">+</span>
+                                <div class="time-input-group"><label>跳过</label><input v-model="duration" type="text" class="time-input" placeholder="30s"></div>
+                            </div>
+                            <div class="time-input-group">
+                                <label>备注</label>
+                                <input v-model="summaryText" type="text" class="time-input" maxlength="40" placeholder="可选，如「片头」「赞助」">
+                            </div>
+                            <div class="form-actions">
+                                <div class="adjustment-button secondary" @click="cancelExistingEdit">取消</div>
+                                <div class="adjustment-button primary" @click="saveExistingEdit">保存修改</div>
+                            </div>
+                        </div>
+                    </template>
                 </div>
             </template>
         </template>
@@ -59,14 +88,13 @@
                         <div class="time-input-group"><label>跳过</label><input v-model="duration" type="text" class="time-input" placeholder="30s"></div>
                     </div>
                 </template>
-                <!-- 备注（summary）：可选，编辑已有片段时会回填 -->
-                <!-- 备注（summary）：可选，编辑已有片段时会回填；.summary-field 让其独占一行 -->
+                <!-- 备注（summary）：可选；.summary-field 让其独占一行 -->
                 <div class="time-input-group summary-field">
                     <label>备注</label>
                     <input v-model="summaryText" type="text" class="time-input" maxlength="40" placeholder="可选，如「片头」「赞助」">
                 </div>
-                <div class="adjustment-button info manual-add-btn" @click="addOrSave">{{ editingExistingIndex >= 0 ? '保存修改' : '添加' }}</div>
-                <div v-if="editingExistingIndex >= 0" class="adjustment-button secondary cancel-edit-btn" @click="cancelExistingEdit">取消编辑</div>
+                <!-- 本区仅用于「新增」片段；编辑已有片段改为在片段行内展开（见 .segment-edit-card） -->
+                <div class="adjustment-button info manual-add-btn" @click="addPending">添加</div>
             </div>
             <div v-if="pendingView.length > 0" class="pending-list">
                 <div v-for="(seg, i) in pendingView" :key="'p' + i" class="pending-item">
@@ -299,19 +327,11 @@ const addPending = () => {
     summaryText.value = ''
 }
 
-// 表单统一入口：编辑已有片段时进入「保存修改」，否则走手动添加
-const addOrSave = () => {
-    if (editingExistingIndex.value >= 0) {
-        saveExistingEdit()
-        return
-    }
-    addPending()
-}
+// 编辑已有片段：在片段行内展开编辑卡片（手风琴，同时只展开一个）
 const editExisting = i => {
     if (i < 0 || i >= currentSegments.length) return
     const seg = currentSegments[i]
     editingExistingIndex.value = i
-    manualOpen.value = true
     inputMode.value = 'start-end'
     startTime.value = formatTime(seg.start)
     endTime.value = formatTime(seg.end)
@@ -319,14 +339,20 @@ const editExisting = i => {
     // 回填备注，使已有片段的 summary 可编辑
     summaryText.value = seg.summary || ''
 }
+/** 点击片段行 ✎：已在编辑该行则收起，否则切换为编辑该行 */
+const toggleExistingEdit = i => {
+    if (editingExistingIndex.value === i) {
+        cancelExistingEdit()
+        return
+    }
+    editExisting(i)
+}
 const cancelExistingEdit = () => {
     editingExistingIndex.value = -1
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
     summaryText.value = ''
-    // 取消编辑时同时收起录入区，避免留下空的编辑表单让人以为还在编辑
-    manualOpen.value = false
 }
 const saveExistingEdit = () => {
     const i = editingExistingIndex.value
