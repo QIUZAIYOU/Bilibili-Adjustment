@@ -104,6 +104,13 @@ export const homePageStyles = {
             color: var(--adj-brand);
             border-color: var(--adj-brand)40;
         }
+        /* Vue 面板的挂载点：display: contents 让挂载点不生成盒子，
+           使面板根 .history-body 重新成为弹窗的直接 flex 子项。
+           否则多出的这层 div 会切断高度链（.history-body 的 flex:1 依赖父为 flex 容器，
+           列表 #indexRecommendVideoHistoryList 的 overflow-y:auto 随之失效 → 无法滚动）。 */
+        #indexRecommendVideoHistoryPanelMount {
+            display: contents;
+        }
         .history-body {
             display: flex;
             flex: 1;

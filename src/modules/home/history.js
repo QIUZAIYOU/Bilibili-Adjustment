@@ -6,6 +6,7 @@ import { getTemplates } from '@/shared/templates'
 import { createElementAndInsert, addEventListenerToElement, enablePopoverLightDismiss } from '@/utils/common'
 import { chunk } from '@/utils/lodash-lite'
 import { mountHomeHistoryPanel } from '@/ui/home'
+import { sortAndDedupeHistoryRecords } from './history-records'
 const logger = new LoggerService('HomeModule')
 export const homeHistoryFeatures = {
     async setRecordRecommendVideoHistory () {
@@ -122,49 +123,48 @@ export const homeHistoryFeatures = {
         }
     },
     /**
-     * 渲染弹窗内容：宿主负责读库、排序与标题计数（沿用原逻辑），
-     * 列表区（分类栏 + 视频列表 + 搜索过滤 + 分页懒加载 + 列表点击）交给 Vue 面板
-     * HomeHistoryPanel.vue —— 结构与 #id/.class 契约保持不变，故既有样式无需改动。
+     * 渲染弹窗内容：宿主负责读库、排序去重与标题计数，列表区（分类栏 + 视频列表 +
+     * 搜索过滤 + 分页懒加载 + 列表点击）交给 Vue 面板 HomeHistoryPanel.vue ——
+     * 结构与 #id/.class 契约保持不变，故既有样式无需改动。
      */
     async generatorIndexRecommendVideoHistoryContents () {
-        // 弹窗 DOM 还未创建时直接跳过（如点击"换一换"触发了渲染但弹窗未打开）
+        // 弹窗 DOM 还未创建时直接跳过（如点击"换一换"触发了渲染但弹窗未打开）。
+        // 二次渲染（「换一换」）时模板里的列表节点已被移除，故以挂载点是否存在判断。
+        const popoverEl = document.getElementById('indexRecommendVideoHistoryPopover')
         const listAnchor = document.getElementById('indexRecommendVideoHistoryList')
-        if (!listAnchor) return
+        const existingMount = document.getElementById('indexRecommendVideoHistoryPanelMount')
+        if (!popoverEl || (!listAnchor && !existingMount)) return
         const indexRecommendVideoHistoriesRaw = await storageService.getAllRaw('index')
-        const totalCount = indexRecommendVideoHistoriesRaw.length
         const [titleEl, searchInput] = await elementSelectors.batch([
             'indexRecommendVideoHistoryPopoverTitle',
             'indexRecommendVideoHistorySearchInput'
         ])
-        // 先按批次时间倒序（最新批次排最前），批次内按页面顺序升序（与旧实现一致）
-        const records = indexRecommendVideoHistoriesRaw
-            .map(item => ({
-                ...item.value,
-                _key: item.key,
-                _order: item.value.order ?? 0,
-                _sessionTimestamp: item.value.sessionTimestamp ?? 0
-            }))
-            .sort((a, b) => b._sessionTimestamp - a._sessionTimestamp || a._order - b._order)
-        // 更新标题中的数量（沿用原实现：写入标题内的 span）
+        // 排序 + 去重（同一视频只保留最新批次的一条，详见 sortAndDedupeHistoryRecords）
+        const records = sortAndDedupeHistoryRecords(indexRecommendVideoHistoriesRaw)
+        const totalCount = records.length
+        // 更新标题中的数量（沿用原实现：写入标题内的 span；此处为去重后的数量）
         const titleSpan = titleEl?.querySelector('span')
         if (titleSpan) {
             titleSpan.innerText = `首页视频推荐历史记录(${totalCount})`
         }
-        // 清理旧实现遗留的包裹层/分类栏，把挂载点放在原列表位置：
-        // 面板自身会渲染 .history-body 与同名 id，保证既有样式（按 id/结构选择器书写）继续命中
-        document.querySelector('#indexRecommendVideoHistoryPopover .history-body')?.remove()
+        // 清理旧实现遗留的包裹层/分类栏，把挂载点放在原列表位置。
+        // 关键：挂载点在样式里为 display: contents（不生成盒子），面板根仍是 .history-body，
+        // 从而保持「.adjustment-popover > .history-body > 分类栏/列表」的高度链与滚动行为。
+        document.querySelector('#indexRecommendVideoHistoryPopover > .history-body')?.remove()
         document.getElementById('indexRecommendVideoHistoryCategoryV2')?.remove()
-        let mountEl = document.getElementById('indexRecommendVideoHistoryPanelMount')
+        let mountEl = existingMount
         if (!mountEl) {
             mountEl = document.createElement('div')
             mountEl.id = 'indexRecommendVideoHistoryPanelMount'
-            listAnchor.after(mountEl)
+            if (listAnchor) listAnchor.after(mountEl)
+            else popoverEl.appendChild(mountEl)
         }
-        listAnchor.remove()
+        listAnchor?.remove()
         // 重新渲染（如点击「换一换」）时先卸载旧面板，避免实例与观察器残留
         this._historyPanel?.unmount()
         this._historyPanel = null
-        // 兼容旧卸载路径：搜索监听已迁入 Vue 面板，保留空清理函数，避免旧调用点报错
+        // 兼容旧调用点（如 home.module.js 的卸载路径）：搜索监听与列表点击委托已迁入
+        // Vue 面板，这里保留空清理函数与哨兵，避免旧代码调用时报错
         this._historySearchCleanup = () => {}
         this._historyListClickBound = true
         try {

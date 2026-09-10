@@ -78,6 +78,21 @@ function generateBilibiliAdjustmentStyle () {
             outline: none;
         }
 
+        /* 浏览器自动填充会以内建 UA 样式覆盖输入框背景与文字色
+           （input:-internal-autofill-selected { background-color: … !important }），
+           与主题配色冲突。用 inset box-shadow 顶掉背景 + 超长 transition 延缓背景重绘，
+           并显式设置文字填充色，使自动填充后的输入框仍遵循主题。 */
+        input:-webkit-autofill,
+        input:-webkit-autofill:hover,
+        input:-webkit-autofill:focus,
+        input:-webkit-autofill:active {
+            -webkit-box-shadow: 0 0 0 1000px var(--adj-bg-surface) inset !important;
+            box-shadow: 0 0 0 1000px var(--adj-bg-surface) inset !important;
+            -webkit-text-fill-color: var(--adj-text-primary) !important;
+            caret-color: var(--adj-text-primary);
+            transition: background-color 9999s ease-in-out 0s !important;
+        }
+
         /* popover 关闭态的隐藏依赖 UA 样式 [popover]:not(:popover-open) { display: none }，
         该规则无 !important，任何作者级 display 设置（如 #UpSpacePopover 的 display: flex）
         都会覆盖它导致关闭后弹窗仍可见；必须以 !important 显式兜底，
