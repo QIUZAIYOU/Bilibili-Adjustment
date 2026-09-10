@@ -41,10 +41,10 @@ export const homeHistoryFeatures = {
                         } catch { /* 获取失败则仅记录 DOM 基础信息，保证不丢记录 */ }
                         let category = ''
                         if (videoInfo) {
-                            try {
-                                const detail = await biliApis.getVideoDetail(videoInfo.aid, videoInfo.tid_v2)
-                                category = detail?.pid_name_v2 || ''
-                            } catch { /* 忽略分类获取失败 */ }
+                            // 分类名直接取自视频信息（tname_v2 为二级分区，优先）。
+                            // 原实现调用不存在的 biliApis.getVideoDetail(...) → 每次都抛错并被吞掉，
+                            // 导致 category 恒为空、分类栏只剩「全部」（分类筛选形同失效）。
+                            category = videoInfo.tname_v2 || videoInfo.tname || ''
                         }
                         const historyKey = `${videoInfo?.bvid || videoInfo?.aid || url}::${sessionTimestamp}`
                         await storageService.set('index', historyKey, {
