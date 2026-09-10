@@ -34,10 +34,6 @@ export class SettingsComponentV2 {
         this._vueDynamicOptionsProxy = null
         this._activeSchema = null
     }
-    /** 当前是否使用 Vue 版设置面板（settings_panel 默认为 v3，设为 v2 可回退经典渲染器） */
-    usesVuePanel () {
-        return this.userConfigs.settings_panel !== 'v2'
-    }
     /** 卸载 Vue 设置面板（幂等） */
     unmountVuePanel () {
         if (this._vuePanel) {
@@ -901,13 +897,6 @@ export class SettingsComponentV2 {
             this.userConfigs[key] = value
         }
         logger.debug(`配置已更新: ${key} = ${value}`)
-        // 面板实现切换（v3 ↔ v2）：无论从哪个模式的控件触发都立即重建弹窗。
-        // 放在 saveConfig 里是为了覆盖两条写入路径（Vue 面板回调 / 经典渲染器 DOM 事件）。
-        if (key === 'settings_panel') {
-            const popoverId = this.pageType === 'dynamic' ? 'DynamicSettingsPopover' : 'VideoSettingsPopover'
-            await this.render(this.pageType)
-            document.getElementById(popoverId)?.showPopover()
-        }
     }
     /**
      * 同步其他标签页写入的配置到本地设置弹窗控件

@@ -424,8 +424,7 @@ export const videoPageStyles = {
             padding-bottom: 8px;
         }
 
-        .skip-manager-dialog .manual-add-btn,
-        .skip-manager-dialog .cancel-edit-btn {
+        .skip-manager-dialog .manual-add-btn {
             padding: 8px 16px;
             white-space: nowrap;
             flex-shrink: 0;

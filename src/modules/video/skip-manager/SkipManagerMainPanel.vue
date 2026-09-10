@@ -42,11 +42,11 @@
                         <div v-if="editingExistingIndex === i" class="segment-edit-card">
                             <div class="edit-card-head">
                                 <span class="edit-card-title">正在编辑第 {{ i + 1 }} 个片段</span>
-                                <button class="input-mode-btn" type="button" title="切换输入模式" @click="toggleInputMode">
-                                    {{ inputMode === 'start-end' ? '起止时间' : '起始+时长' }}
+                                <button class="input-mode-btn" type="button" title="切换输入模式" @click="toggleEditMode">
+                                    {{ editMode === 'start-end' ? '起止时间' : '起始+时长' }}
                                 </button>
                             </div>
-                            <div v-if="inputMode === 'start-end'" class="time-inputs">
+                            <div v-if="editMode === 'start-end'" class="time-inputs">
                                 <div class="time-input-group"><label>开始</label><input v-model="startTime" type="text" class="time-input" placeholder="0:00"></div>
                                 <span class="time-separator">-</span>
                                 <div class="time-input-group"><label>结束</label><input v-model="endTime" type="text" class="time-input" placeholder="0:00"></div>
@@ -185,7 +185,7 @@ let cached = null // 缓存条目（普通对象）
 let currentSegments = [] // 合并后的展示片段（普通数组）
 let pendingSegments = [] // 待提交片段（普通数组）
 let canUpdate = true
-const inputMode = ref('start-end')
+const editMode = ref('start-end')
 const loading = ref(true)
 const recognizeError = ref('')
 const manualOpen = ref(false)
@@ -218,10 +218,15 @@ let confirmResolveFn = null
  * @param {string} text 确认文案
  * @param {string} [okText] 确认按钮文案
  */
-const confirmAction = (text, okText = '确定') => new Promise(resolve => {
-    confirmResolveFn = resolve
-    confirmState.value = { text, okText }
-})
+const confirmAction = (text, okText = '确定') => {
+    // 重入保护：已有确认层时直接返回 false（不覆盖 confirmResolveFn），
+    // 否则上一个 await 的 Promise 永不 settle（Promise 泄漏）
+    if (confirmState.value) return Promise.resolve(false)
+    return new Promise(resolve => {
+        confirmResolveFn = resolve
+        confirmState.value = { text, okText }
+    })
+}
 /** 关闭确认层并回传结果（遮罩点击 / 取消 / 确认都走这里，避免 Promise 悬挂） */
 const confirmResolve = ok => {
     confirmState.value = null
@@ -285,8 +290,9 @@ const load = async () => {
     }
 }
 
-const toggleInputMode = () => {
-    inputMode.value = inputMode.value === 'start-end' ? 'start-duration' : 'start-end'
+/** 切换「编辑片段」的输入模式（与「新增片段」各自独立，互不影响） */
+const toggleEditMode = () => {
+    editMode.value = editMode.value === 'start-end' ? 'start-duration' : 'start-end'
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
@@ -302,7 +308,7 @@ const toggleAddMode = () => {
 
 /** 重置行内「编辑片段」表单 */
 const resetEditForm = () => {
-    inputMode.value = 'start-end'
+    editMode.value = 'start-end'
     startTime.value = ''
     endTime.value = ''
     duration.value = ''
@@ -414,7 +420,7 @@ const saveExistingEdit = () => {
     }
     let start = null
     let end = null
-    if (inputMode.value === 'start-duration') {
+    if (editMode.value === 'start-duration') {
         // 「起始+时长」模式：由开始 + 时长推导结束时间（此前漏处理，导致该模式下保存必失败）
         const startStr = startTime.value.trim()
         if (!startStr || !duration.value.trim()) {
