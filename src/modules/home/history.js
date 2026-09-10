@@ -3,8 +3,9 @@ import { storageService } from '@/services/storage.service'
 import { biliApis } from '@/shared/bili-apis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
-import { createElementAndInsert, addEventListenerToElement, escapeHtml, sanitizeHttpUrl, enablePopoverLightDismiss } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, enablePopoverLightDismiss } from '@/utils/common'
 import { chunk } from '@/utils/lodash-lite'
+import { mountHomeHistoryPanel } from '@/ui/home'
 const logger = new LoggerService('HomeModule')
 export const homeHistoryFeatures = {
     async setRecordRecommendVideoHistory () {
@@ -92,6 +93,9 @@ export const homeHistoryFeatures = {
                     if (e.newState === 'closed') {
                         popover.__popoverDismissCleanup?.()
                         popover.__popoverDismissCleanup = null
+                        // 卸载 Vue 列表面板（容器随后移除，不卸载会残留实例与观察器）
+                        this._historyPanel?.unmount()
+                        this._historyPanel = null
                         popover.remove()
                     }
                 })
@@ -117,183 +121,56 @@ export const homeHistoryFeatures = {
             popover.hidePopover()
         }
     },
+    /**
+     * 渲染弹窗内容：宿主负责读库、排序与标题计数（沿用原逻辑），
+     * 列表区（分类栏 + 视频列表 + 搜索过滤 + 分页懒加载 + 列表点击）交给 Vue 面板
+     * HomeHistoryPanel.vue —— 结构与 #id/.class 契约保持不变，故既有样式无需改动。
+     */
     async generatorIndexRecommendVideoHistoryContents () {
         // 弹窗 DOM 还未创建时直接跳过（如点击"换一换"触发了渲染但弹窗未打开）
-        if (!document.getElementById('indexRecommendVideoHistoryList')) return
+        const listAnchor = document.getElementById('indexRecommendVideoHistoryList')
+        if (!listAnchor) return
         const indexRecommendVideoHistoriesRaw = await storageService.getAllRaw('index')
-        const indexRecommendVideoHistories = {}
-        for (const item of indexRecommendVideoHistoriesRaw) {
-            indexRecommendVideoHistories[item.key] = {
-                ...item.value,
-                timestamp: item.timestamp
-            }
-        }
         const totalCount = indexRecommendVideoHistoriesRaw.length
-        const batchSelectors = ['indexRecommendVideoHistoryPopoverTitle', 'indexRecommendVideoHistoryList', 'indexRecommendVideoHistorySearchInput']
-        const [indexRecommendVideoHistoryPopoverTitle, indexRecommendVideoHistoryList, indexRecommendVideoHistorySearchInput] = await elementSelectors.batch(batchSelectors)
-        indexRecommendVideoHistoryList.innerHTML = ''
-        // 列表点击事件委托：点击任意列表项打开视频（仅绑定一次，链接目标存于 li data-url）
-        if (!this._historyListClickBound) {
-            this._historyListClickBound = true
-            addEventListenerToElement(indexRecommendVideoHistoryList, 'click', event => {
-                const li = event.target.closest('li')
-                if (!li || event.target.closest('a')) return
-                const url = li.dataset.url
-                if (url) window.open(url, '_blank', 'noopener')
-            })
-        }
-        // 更新标题中的数量
-        const titleSpan = indexRecommendVideoHistoryPopoverTitle.querySelector('span')
+        const [titleEl, searchInput] = await elementSelectors.batch([
+            'indexRecommendVideoHistoryPopoverTitle',
+            'indexRecommendVideoHistorySearchInput'
+        ])
+        // 先按批次时间倒序（最新批次排最前），批次内按页面顺序升序（与旧实现一致）
+        const records = indexRecommendVideoHistoriesRaw
+            .map(item => ({
+                ...item.value,
+                _key: item.key,
+                _order: item.value.order ?? 0,
+                _sessionTimestamp: item.value.sessionTimestamp ?? 0
+            }))
+            .sort((a, b) => b._sessionTimestamp - a._sessionTimestamp || a._order - b._order)
+        // 更新标题中的数量（沿用原实现：写入标题内的 span）
+        const titleSpan = titleEl?.querySelector('span')
         if (titleSpan) {
             titleSpan.innerText = `首页视频推荐历史记录(${totalCount})`
         }
-        // 先按批次时间倒序（最新批次排最前），批次内按页面顺序升序
-        const videoList = Object.entries(indexRecommendVideoHistories)
-            .map(([key, value]) => ({ ...value, _key: key, _order: value.order ?? 0, _sessionTimestamp: value.sessionTimestamp ?? 0 }))
-            .sort((a, b) => b._sessionTimestamp - a._sessionTimestamp || a._order - b._order)
-        // 收集所有视频的分类名，去重后生成分类按钮
-        const allTags = [...new Set(videoList.flatMap(v => v.category ? [v.category] : []))].sort()
-        let selectedTag = ''
-        // 创建分类按钮栏（如果已存在则复用）
-        let categoryBar = document.getElementById('indexRecommendVideoHistoryCategoryV2')
-        let historyBody = document.querySelector('.history-body')
-        if (!historyBody) {
-            historyBody = document.createElement('div')
-            historyBody.className = 'history-body'
-            // 将 categoryBar 和 videoList 包裹起来
-            indexRecommendVideoHistoryList.after(historyBody)
-            historyBody.appendChild(categoryBar || document.createElement('ul'))
-            historyBody.appendChild(indexRecommendVideoHistoryList)
+        // 清理旧实现遗留的包裹层/分类栏，把挂载点放在原列表位置：
+        // 面板自身会渲染 .history-body 与同名 id，保证既有样式（按 id/结构选择器书写）继续命中
+        document.querySelector('#indexRecommendVideoHistoryPopover .history-body')?.remove()
+        document.getElementById('indexRecommendVideoHistoryCategoryV2')?.remove()
+        let mountEl = document.getElementById('indexRecommendVideoHistoryPanelMount')
+        if (!mountEl) {
+            mountEl = document.createElement('div')
+            mountEl.id = 'indexRecommendVideoHistoryPanelMount'
+            listAnchor.after(mountEl)
         }
-        if (!categoryBar) {
-            categoryBar = document.createElement('ul')
-            categoryBar.id = 'indexRecommendVideoHistoryCategoryV2'
-            historyBody.prepend(categoryBar)
+        listAnchor.remove()
+        // 重新渲染（如点击「换一换」）时先卸载旧面板，避免实例与观察器残留
+        this._historyPanel?.unmount()
+        this._historyPanel = null
+        // 兼容旧卸载路径：搜索监听已迁入 Vue 面板，保留空清理函数，避免旧调用点报错
+        this._historySearchCleanup = () => {}
+        this._historyListClickBound = true
+        try {
+            this._historyPanel = await mountHomeHistoryPanel(mountEl, { records, searchInput })
+        } catch (error) {
+            logger.error('首页推荐历史｜列表面板加载失败', error)
         }
-        categoryBar.innerHTML = '<li class="all_v2 active">全部</li>' + allTags.map(t => `<li>${escapeHtml(t)}</li>`).join('')
-        // 分类按钮点击筛选
-        categoryBar.querySelectorAll('li').forEach(li => {
-            addEventListenerToElement(li, 'click', () => {
-                categoryBar.querySelectorAll('li').forEach(l => l.classList.remove('active'))
-                li.classList.add('active')
-                selectedTag = li.classList.contains('all_v2') ? '' : li.textContent
-                filterAndDisplayVideos(document.getElementById('indexRecommendVideoHistorySearchInput')?.value || '')
-            })
-        })
-        // 懒加载配置
-        const PAGE_SIZE = 50
-        let currentPage = 0
-        let filteredList = videoList
-        let isLoading = false
-        let observer = null
-        // 移除旧的 loading 指示器
-        const removeLoadingIndicator = () => {
-            const loadingEl = document.getElementById('indexHistoryLoading')
-            if (loadingEl) loadingEl.remove()
-        }
-        // 显示 loading 指示器
-        const showLoadingIndicator = () => {
-            removeLoadingIndicator()
-            if (filteredList.length > (currentPage + 1) * PAGE_SIZE) {
-                const loadingEl = document.createElement('div')
-                loadingEl.id = 'indexHistoryLoading'
-                loadingEl.className = 'loading-state'
-                loadingEl.innerHTML = '<div class="loading-spinner"></div><span>加载中...</span>'
-                indexRecommendVideoHistoryList.appendChild(loadingEl)
-                return true
-            }
-            return false
-        }
-        // 加载一页数据（批量拼接 HTML 一次插入，减少重排）
-        const loadPage = () => {
-            const start = currentPage * PAGE_SIZE
-            const end = start + PAGE_SIZE
-            const pageData = filteredList.slice(start, end)
-            const html = pageData.map(video => {
-                const title = escapeHtml(video.title || '未知标题')
-                const author = escapeHtml(video.author || '未知作者')
-                const rawUrl = sanitizeHttpUrl(video.url)
-                const url = escapeHtml(rawUrl)
-                const pic = escapeHtml(sanitizeHttpUrl(video.pic))
-                return `
-                    <li data-url="${url}">
-                        <span><img src="${pic}" loading="lazy" alt="${title}"></span>
-                        <div class="video-info">
-                            <a href="${url}" target="_blank" rel="noopener noreferrer" title="${title}">${title}</a>
-                            <div class="video-author">UP: ${author}</div>
-                        </div>
-                    </li>
-                `
-            }).join('')
-            indexRecommendVideoHistoryList.insertAdjacentHTML('beforeend', html)
-            currentPage++
-        }
-        // 搜索并显示视频
-        const filterAndDisplayVideos = (searchKeyword = '') => {
-            // 清理旧的 observer
-            if (observer) {
-                observer.disconnect()
-                observer = null
-            }
-            indexRecommendVideoHistoryList.innerHTML = ''
-            currentPage = 0
-            const keyword = searchKeyword.toLowerCase().trim()
-            filteredList = videoList.filter(video => {
-                // 分类筛选
-                if (selectedTag && video.category !== selectedTag) return false
-                // 关键字搜索
-                if (keyword &&
-                    !(video.title && video.title.toLowerCase().includes(keyword)) &&
-                    !(video.author && video.author.toLowerCase().includes(keyword))) return false
-                return true
-            })
-            if (filteredList.length === 0) {
-                indexRecommendVideoHistoryList.innerHTML = '<div class="empty-state">没有找到匹配的视频</div>'
-                return
-            }
-            // 加载第一页
-            loadPage()
-            // 如果还有更多数据，设置 IntersectionObserver
-            if (filteredList.length > PAGE_SIZE) {
-                const sentinel = document.createElement('div')
-                sentinel.id = 'indexHistorySentinel'
-                sentinel.className = 'sentinel'
-                indexRecommendVideoHistoryList.appendChild(sentinel)
-                observer = new IntersectionObserver(entries => {
-                    if (entries[0].isIntersecting && !isLoading) {
-                        isLoading = true
-                        if (showLoadingIndicator()) {
-                            // 模拟延迟加载效果
-                            setTimeout(() => {
-                                loadPage()
-                                removeLoadingIndicator()
-                                if (filteredList.length <= currentPage * PAGE_SIZE) {
-                                    sentinel.remove()
-                                }
-                                isLoading = false
-                            }, 100)
-                        } else {
-                            sentinel.remove()
-                            isLoading = false
-                        }
-                    }
-                }, {
-                    root: indexRecommendVideoHistoryList,
-                    rootMargin: '100px'
-                })
-                observer.observe(sentinel)
-            }
-        }
-        // 监听搜索输入（每次渲染重新绑定，跟随最新状态闭包；旧监听先移除避免叠加）
-        this._historySearchCleanup?.()
-        let searchTimeout
-        this._historySearchCleanup = addEventListenerToElement(indexRecommendVideoHistorySearchInput, 'input', event => {
-            clearTimeout(searchTimeout)
-            searchTimeout = setTimeout(() => {
-                filterAndDisplayVideos(event.target.value)
-            }, 300)
-        })
-        // 初始显示第一页视频
-        filterAndDisplayVideos()
     }
 }

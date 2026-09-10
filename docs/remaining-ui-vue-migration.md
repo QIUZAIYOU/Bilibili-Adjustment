@@ -9,7 +9,7 @@
 | # | UI | 现状 | 规模/风险 | 等价矩阵关键点 | 建议批次 |
 |---|---|---|---|---|---|
 | A | 评论区简介（插入评论区条目 + 简介区替换） | `comment.js` + shadow 富文本模板 | 中 | shadow 容器注入、时间锚点 seek、SPA 重渲染防重插、简介区 `.desc-info-text` 替换、截断判定 | ✅ 已完成（函数化） |
-| B | 首页推荐历史弹窗 | `home/history.js`：旧式 popover + `innerHTML` 渲染列表/搜索/清空 | 中 | 弹窗生命周期、列表点击委托、搜索过滤、批次排序、清空按钮 | ⏸ 决策：维持现状（成熟独立 popover、无状态机痛点；迁 dialog 壳需多轮 CSS 覆盖与真机，保真优先不迁；若需仍可执行） |
+| B | 首页推荐历史弹窗 | 宿主 `home/history.js`（popover 壳/读库/排序/标题计数）+ `HomeHistoryPanel.vue`（分类栏/列表/搜索/懒加载） | 中 | 弹窗生命周期、列表点击委托、搜索过滤、批次排序、清空按钮 | ✅ **已 Vue 化**：列表区由 `src/ui/home/HomeHistoryPanel.vue` 渲染（懒加载 + 同源 Vue API 桥），保留既有 `#id/.class` 契约与样式；分类筛选顺带修复（此前调用不存在的 API 导致分类恒空） |
 | C | 字幕开关按钮（播放器） | `subtitle.js`：2 个 `[[…]]` 按钮模板 + 命令式显隐 | 小/低 | 按钮插入位置、tip、开关状态同步 | 内联函数化 |
 | D | 侧边栏/浮动按钮组 | `ui-buttons.js` + `buttons.js`：5 个 `[[…]]` 按钮 | 小/低 | 各按钮插入锚点、参数（style/dataV/text） | 内联函数化（去占位符） |
 | E | 播放页设置弹窗（视频/动态） | `settings-component-v2` 宿主 + `SettingsPanelV3`（Vue 表单） | 大/高 | section/children 显隐、自绘下拉、验证/刷新按钮、tooltip、跨标签同步、主题变量 | ✅ **已接线生效**：表单由 `SettingsPanelV3.vue` 渲染（`settings_panel` 默认 `v3`），可用该设置项切回经典渲染器对比；详见 docs/settings-v3-migration.md |
