@@ -24,9 +24,9 @@ export const adSkipFeatures = {
         }, 30000)
         // 缓存片段已由 loadCachedSkipSegments 应用过，避免重复绑定跳过监听
         if (this._skipCacheApplied) return
-        const bvid = biliApis.getCurrentVideoID(window.location.href)
-        // ss/季链接无法确定具体分集，跳过自动识别（可在片段管理弹窗内按集手动操作）
-        if (!bvid || bvid === 'error' || (typeof bvid === 'string' && bvid.startsWith('ss'))) return
+        // ss 链接也会尝试解析出当前分集（解析失败才放弃，见 resolveSkipTargetId）
+        const bvid = await this.resolveSkipTargetId()
+        if (!bvid) return
         try {
             const cached = await storageService.adCacheGet(bvid)
             if (cached) {
@@ -146,6 +146,11 @@ export const adSkipFeatures = {
     // Vue 版「跳过片段管理」入口（对外契约保持 showSkipSegmentManager(bvid)，内部按页面类型分发组件）
     async showSkipSegmentManager (bvid) {
         const isBangumi = this.userConfigs?.page_type === 'bangumi'
+        // ss（季）链接先解析为具体分集再交给面板：season API 用 ep_id 查询同样返回整季剧集，
+        // 这样面板能列出全部剧集，且「当前集」可正确定位（否则 ss 页会显示为全部无片段）
+        const targetId = isBangumi
+            ? (await this.resolveSkipTargetId()) || String(bvid)
+            : String(bvid)
         const env = {
             storage: storageService,
             fetchImpl: fetch,
@@ -196,7 +201,7 @@ export const adSkipFeatures = {
                         return
                     }
                     loading.remove()
-                    app = panels.createApp(Panel, { bvid: String(bvid), env })
+                    app = panels.createApp(Panel, { bvid: targetId, env })
                     app.mount(holder)
                     perfEnd('skip:manager:open')
                 }).catch(error => {
@@ -212,13 +217,41 @@ export const adSkipFeatures = {
         })
         return dialog
     },
+    /**
+     * 解析本次要处理的视频/分集 id
+     * - 普通视频：BV 号
+     * - 番剧 ep 链接：ep 数字
+     * - 番剧 ss（季）链接：优先用 getCurrentVideoID 从页面状态/DOM 解析当前分集；
+     *   解析不到时回退 season API 取「当前播放集（ep.now）」或首集 ——
+     *   否则整类 ss 页面会既不自动跳过、也不写/读缓存（历史行为）。
+     * @returns {Promise<string|null>}
+     */
+    async resolveSkipTargetId () {
+        const id = biliApis.getCurrentVideoID(window.location.href)
+        if (!id || id === 'error') return null
+        if (typeof id !== 'string' || !id.startsWith('ss')) return id
+        try {
+            const seasonInfo = await biliApis.getVideoInformation('bangumi', id)
+            const episodes = Array.isArray(seasonInfo?.episodes) ? seasonInfo.episodes : []
+            const current = episodes.find(ep => ep && (ep.now === true || ep.now === 1)) || episodes[0]
+            const epId = current && (current.ep_id !== null && current.ep_id !== undefined ? current.ep_id : current.id)
+            if (epId) {
+                logger.info('跳过片段丨ss 链接已解析为当前分集 ep' + epId)
+                return String(epId)
+            }
+            logger.info('跳过片段丨ss 链接未解析到分集，跳过自动处理')
+        } catch (error) {
+            logger.debug('跳过片段丨ss 链接解析当前分集失败', error)
+        }
+        return null
+    },
     // 番剧页专用：仅从缓存加载跳过片段（片头片尾等），不执行AI识别
     async loadCachedSkipSegments () {
         if (!this.userConfigs.auto_skip) return
         if (this._skipCacheApplied) return
-        const bvid = biliApis.getCurrentVideoID(window.location.href)
-        // ss/季链接无法确定具体分集，跳过自动识别（可在片段管理弹窗内按集手动操作）
-        if (!bvid || bvid === 'error' || (typeof bvid === 'string' && bvid.startsWith('ss'))) return
+        // ss 链接也会尝试解析出当前分集（解析失败才放弃，见 resolveSkipTargetId）
+        const bvid = await this.resolveSkipTargetId()
+        if (!bvid) return
         // 先查本地缓存
         try {
             const cached = await storageService.adCacheGet(bvid)

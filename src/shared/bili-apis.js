@@ -115,8 +115,17 @@ export const biliApis = {
                     const epId = state?.epInfo?.id
                         || (Array.isArray(state?.epList) && state.epList.find(ep => ep && (ep.now === true || ep.now === 1) && ep.id)?.id)
                     if (epId) return String(epId)
-                    // DOM 兜底：高亮的当前集链接
-                    const activeLink = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')].find(a => /(^|\s)(active|current|on|selected)(\s|$)/.test(a.className || ''))
+                    // DOM 兜底：高亮的当前集链接（B 站番剧选集列表的激活态类名/属性并不统一，
+                    // 同时检查链接自身、其父级列表项以及 aria-current）
+                    const epLinks = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')]
+                    const isActiveLink = a => {
+                        const activeRe = /(^|\s)(active|current|on|selected|playing)(\s|$)/
+                        if (activeRe.test(a.className || '')) return true
+                        if (a.getAttribute('aria-current') === 'true') return true
+                        const parent = a.closest('li, div')
+                        return parent ? activeRe.test(parent.className || '') : false
+                    }
+                    const activeLink = epLinks.find(isActiveLink)
                     const domEp = activeLink?.getAttribute('href')?.match(/ep(\d+)/)?.[1]
                     if (domEp) return String(domEp)
                 } catch { /* 忽略异常 */ }

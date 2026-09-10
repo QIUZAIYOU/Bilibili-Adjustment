@@ -50,6 +50,27 @@ export const loadEpisodesCache = async (env, episodeIds) => {
             result.set(id, null)
         }
     }))
+    // 本地缺失的剧集回退「远程共享缓存」（并发 4，命中写回本地便于下次秒开）。
+    // 此前只查本地，导致「同系列其它剧集」只要本地没存过就一律显示为无片段。
+    const missing = episodeIds.filter(id => {
+        const cached = result.get(id)
+        return !(cached && Array.isArray(cached.segments) && cached.segments.length > 0)
+    })
+    for (let i = 0; i < missing.length; i += 4) {
+        await Promise.all(missing.slice(i, i + 4).map(async id => {
+            try {
+                const resp = await env.fetchImpl(`${env.apiUrl}?bvid=${id}`)
+                if (!resp || !resp.ok) return
+                const payload = await resp.json()
+                const data = payload && payload.ok ? payload.data : null
+                if (data && Array.isArray(data.segments) && data.segments.length > 0) {
+                    await env.storage.adCacheSet(id, data).catch(() => {})
+                    result.set(id, data)
+                    env.log?.debug?.(`跳过片段管理丨剧集 ${id} 命中远程缓存`)
+                }
+            } catch { /* 单集失败不影响其它剧集 */ }
+        }))
+    }
     return result
 }
 /**
