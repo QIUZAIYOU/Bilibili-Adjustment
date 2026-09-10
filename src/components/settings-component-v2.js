@@ -968,22 +968,6 @@ export class SettingsComponentV2 {
         }
     }
     /**
-     * 显示输入框验证状态（边框颜色反馈，3 秒后恢复默认）
-     */
-    showInputValidationStatus (input, isSuccess) {
-        if (!input) return
-        input.style.borderColor = isSuccess ? 'var(--adj-success)' : 'var(--adj-danger)'
-        input.style.boxShadow = isSuccess
-            ? '0 0 0 3px rgba(var(--adj-success-rgb), 0.15)'
-            : '0 0 0 3px rgba(var(--adj-danger-rgb), 0.15)'
-        setTimeout(() => {
-            if (input) {
-                input.style.borderColor = ''
-                input.style.boxShadow = ''
-            }
-        }, 3000)
-    }
-    /**
      * 导出用户配置
      * 合并已存储的配置与默认值，确保所有已知配置项都被导出
      */

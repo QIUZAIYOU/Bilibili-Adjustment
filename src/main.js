@@ -150,35 +150,5 @@ ThemeManager.init()
 // Stylus 夜间哔哩样式检测：开启时强制界面主题 night 并锁定内容文字色（实时跟随增删）
 initStylusNightFollowing()
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': stylesV2.BilibiliAdjustment })
-// Vue 全链路探针（P2-a）：P0-1 起必须懒加载 —— 静态 import 会把 Vue 运行时拖进首屏关键路径。
-// 只有在 DEV 自动打开、或用户按 Ctrl+Shift+Alt+V 时才真正加载 vue + SFC。
-// 用快捷键而非页面全局变量，规避脚本管理器沙盒隔离（如 ScriptCat/Tampermonkey 下 window 赋值不落页面全局）。
-const openVueSampleDialog = async () => {
-    try {
-        perfStart('vue:probe:load')
-        const mod = await import('@/ui/vue-sample')
-        perfEnd('vue:probe:load')
-        return mod.openVueSampleDialog()
-    } catch (error) {
-        logger.warn('Vue 探针加载失败', error)
-        return null
-    }
-}
-if (import.meta.env.DEV) {
-    setTimeout(openVueSampleDialog, 2500)
-}
-try {
-    // 在共享 window 环境（部分管理器/无沙盒）下保留控制台入口
-    window.BAOpenVueProbe = openVueSampleDialog
-} catch {
-    // 沙盒受限时跳过全局暴露，快捷键仍可用
-}
-window.addEventListener('keydown', e => {
-    if (e.ctrlKey && e.shiftKey && e.altKey && (e.key === 'v' || e.key === 'V')) {
-        e.preventDefault()
-        if (document.readyState === 'complete') openVueSampleDialog()
-        else window.addEventListener('DOMContentLoaded', () => openVueSampleDialog(), { once: true })
-    }
-})
 initScrollbarHoverWidening()
 initializeApp()
