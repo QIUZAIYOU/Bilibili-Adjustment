@@ -132,12 +132,15 @@ export const playerModeFeatures = {
         this._autoLocating = true
         try {
             insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
-            if (this.userConfigs.webfull_unlock || this.userConfigs.page_type === 'web') {
+            // 「网页全屏解锁」或「默认播放器模式＝网页全屏」时不执行定位：
+            // 播放器占满视口，定位锁定无意义且会阻止解锁所需的页面滚动。
+            // 注意：这里此前误写为 page_type === 'web'（page_type 只可能是 video/bangumi/dynamic），恒不成立。
+            if (this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode === 'web') {
                 eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
             }
             if (!this.userConfigs.auto_locate) {
-                logger.info('自动定位丨功能已关闭')
+                logger.info('自动定位丨功能已关闭（设置项「自动定位至播放器」为关，可在播放页设置中开启）')
                 eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
             }

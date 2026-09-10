@@ -63,6 +63,21 @@ function generateBilibiliAdjustmentStyle () {
             animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
+        /* 弹窗内不出现浏览器默认聚焦轮廓（深色底上呈白边）：
+           脚本为建立焦点陷阱会主动 focus 弹窗容器（tabindex=-1），此时浏览器可能绘制
+           默认 outline；统一去掉容器与内部可聚焦元素的 outline。
+           脚本自绘的焦点样式（如自绘下拉的品牌色 ring、输入框的校验边框）不受影响。 */
+        .adjustment-popover:focus,
+        .adjustment-popover:focus-visible,
+        .adjustment-popover *:focus,
+        .adjustment-popover *:focus-visible,
+        .adjustment-dialog:focus,
+        .adjustment-dialog:focus-visible,
+        .adjustment-dialog *:focus,
+        .adjustment-dialog *:focus-visible {
+            outline: none;
+        }
+
         /* popover 关闭态的隐藏依赖 UA 样式 [popover]:not(:popover-open) { display: none }，
         该规则无 !important，任何作者级 display 设置（如 #UpSpacePopover 的 display: flex）
         都会覆盖它导致关闭后弹窗仍可见；必须以 !important 显式兜底，
