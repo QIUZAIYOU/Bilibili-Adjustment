@@ -97,7 +97,8 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     position: sticky;
     top: 0;
     z-index: 50;
-    transition: all var(--dur) var(--ease);
+    /* 只过渡需要的属性：all 会连带盒模型属性一起过渡，滚动瞬间产生 1px 抖动与边框闪白 */
+    transition: background var(--dur) var(--ease), box-shadow var(--dur) var(--ease);
 }
 .nav-inner {
     width: min(1120px, 92vw);
@@ -113,7 +114,10 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     background: rgba(10, 13, 18, 0.78);
     backdrop-filter: blur(14px);
     -webkit-backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--line);
+    /* 用 box-shadow 代替 border-bottom：border 会让导航高度 +1px，
+       切换瞬间整页内容下移、背景层露出，形成「一闪而过的白边」。
+       阴影不占布局，且可参与过渡，滚动时不产生任何位移。 */
+    box-shadow: 0 1px 0 var(--line);
 }
 .nav-brand { display: inline-flex; align-items: center; gap: 10px; }
 .brand-mark {
@@ -437,6 +441,9 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 }
 
 /* ---- 大卡片：交替布局（图左文右）与间距 ---- */
+/* 交替：默认文案在左（1.1fr）图在右（0.9fr）；--reverse 连同列宽一起镜像，
+   否则仅 exchange order 会让文案落到窄列，视觉上仍是「文案在左」 */
+.feature-primary--reverse { grid-template-columns: 0.9fr 1.1fr; }
 .feature-primary--reverse .feature-primary-text { order: 2; }
 .feature-primary--reverse .feature-primary-visual { order: 1; }
 .feature-primary + .feature-primary { margin-top: 24px; }
