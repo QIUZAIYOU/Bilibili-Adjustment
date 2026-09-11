@@ -98,6 +98,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .feature-icon-lg,
 .brand-version,
 .step-tags span,
+.demo-player-chrome,
 .demo-feat,
 .btn { position: relative; }
 .feature-primary::after,
@@ -107,6 +108,8 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .feature-icon-lg::after,
 .brand-version::after,
 .step-tags span::after,
+.demo-player-full::after,
+.demo-player-chrome::after,
 .demo-feat::after,
 .btn::after {
     content: "";
@@ -131,6 +134,8 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .feature-icon-lg.is-lit::after,
 .brand-version.is-lit::after,
 .step-tags span.is-lit::after,
+.demo-player-full.is-lit::after,
+.demo-player-chrome.is-lit::after,
 .demo-feat.is-lit::after,
 .btn.is-lit::after { opacity: 1; }
 
@@ -269,6 +274,9 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 /* ---------- 播放器演示 ---------- */
 .hero-visual { position: relative; }
 .demo-player-full {
+    /* 作为 .demo-player-controls（absolute bottom:0）与边缘光 ::after 的定位上下文。
+       缺了它，进度条/控件会以更外层的 .hero-visual 为参照而跑到播放器之外 */
+    position: relative;
     border-radius: 16px;
     overflow: hidden;
     border: 1px solid var(--line);

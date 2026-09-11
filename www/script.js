@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- 卡片边缘光：光标靠近卡片即可点亮（无需进入卡片内部） ----
     // 光点坐标允许落在卡片之外：径向渐变中心在卡外时，最靠近光标的那段边框最亮，
     // 观感就是光源从外侧扫到卡片边缘。屏幕级监听 + 距离阈值，只处理附近的卡片
-    const LIT_SELECTOR = '.feature-primary, .feature-card, .install-step, .visual-card, .feature-icon-lg, .brand-version, .step-tags span, .demo-feat, .btn'
+    const LIT_SELECTOR = '.feature-primary, .feature-card, .install-step, .visual-card, .feature-icon-lg, .brand-version, .step-tags span, .demo-feat, .btn, .demo-player-full, .demo-player-chrome'
     if (window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
         !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const litEls = [...document.querySelectorAll(LIT_SELECTOR)]
