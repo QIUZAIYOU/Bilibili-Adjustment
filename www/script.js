@@ -104,20 +104,43 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('blur', hide)
     }
 
-    // ---- 卡片边缘光：光标进入卡片时点亮它 1px 的边框 ----
-    // 光点位置按光标在卡片内的相对坐标写入 --px/--py，光感跟着指针走（对应鸿蒙 lightEffect）；
-    // 监听挂在每张卡片自身上，所以只有被指向的那张卡片才产生计算
+    // ---- 卡片边缘光：光标靠近卡片即可点亮（无需进入卡片内部） ----
+    // 光点坐标允许落在卡片之外：径向渐变中心在卡外时，最靠近光标的那段边框最亮，
+    // 观感就是光源从外侧扫到卡片边缘。屏幕级监听 + 距离阈值，只处理附近的卡片
     const LIT_SELECTOR = '.feature-primary, .feature-card, .install-step'
     if (window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
         !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-        document.querySelectorAll(LIT_SELECTOR).forEach(el => {
-            el.addEventListener('pointermove', e => {
+        const litEls = [...document.querySelectorAll(LIT_SELECTOR)]
+        const NEAR = 80      // 距离小于此值即点亮（px）
+        const FAR = 140      // 超过此值完全熄灭，中间留出过渡带避免闪烁
+        let pending = false
+        let lastX = -1e4
+        let lastY = -1e4
+        const apply = () => {
+            pending = false
+            for (const el of litEls) {
                 const r = el.getBoundingClientRect()
-                el.style.setProperty('--px', (e.clientX - r.left).toFixed(1) + 'px')
-                el.style.setProperty('--py', (e.clientY - r.top).toFixed(1) + 'px')
-                el.classList.add('is-lit')
-            }, { passive: true })
-            el.addEventListener('pointerleave', () => el.classList.remove('is-lit'))
-        })
+                // 点到矩形的最近距离（在矩形内部为 0）
+                const dx = Math.max(r.left - lastX, 0, lastX - r.right)
+                const dy = Math.max(r.top - lastY, 0, lastY - r.bottom)
+                const dist = Math.sqrt(dx * dx + dy * dy)
+                if (dist <= NEAR) {
+                    el.style.setProperty('--px', (lastX - r.left).toFixed(1) + 'px')
+                    el.style.setProperty('--py', (lastY - r.top).toFixed(1) + 'px')
+                    el.classList.add('is-lit')
+                } else if (dist > FAR) {
+                    el.classList.remove('is-lit')
+                }
+            }
+        }
+        window.addEventListener('pointermove', e => {
+            lastX = e.clientX
+            lastY = e.clientY
+            if (!pending) {
+                pending = true
+                requestAnimationFrame(apply)
+            }
+        }, { passive: true })
+        window.addEventListener('blur', () => litEls.forEach(el => el.classList.remove('is-lit')))
     }
 })

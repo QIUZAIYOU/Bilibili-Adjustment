@@ -61,13 +61,13 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(53, 200, 245, 0.34) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(53, 200, 245, 0.34) 1px, transparent 1px);
+        linear-gradient(rgba(53, 200, 245, 0.14) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(53, 200, 245, 0.14) 1px, transparent 1px);
     background-size: 44px 44px;
     /* vibrancy：提饱和度+亮度，让被照到的网格显色更「透」而不是发白 */
     filter: saturate(1.5) brightness(1.08);
-    -webkit-mask-image: radial-gradient(circle 132px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 74%);
-    mask-image: radial-gradient(circle 132px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 74%);
+    -webkit-mask-image: radial-gradient(circle 106px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.32) 60%, transparent 100%);
+    mask-image: radial-gradient(circle 106px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.32) 60%, transparent 100%);
     opacity: var(--glow-opacity, 0);
     pointer-events: none;
 }
@@ -112,37 +112,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .feature-primary.is-lit::after,
 .feature-card.is-lit::after,
 .install-step.is-lit::after { opacity: 1; }
-/* 网格的透过特性（vibrancy）：只提升透过网格的饱和度与亮度，
-   不再绘制任何圆形光斑——指针反馈交由卡片边缘光承担 */
-.bg-glass {
-    position: fixed;
-    inset: 0;
-    z-index: -2;
-    pointer-events: none;
-    opacity: var(--glow-opacity, 0);
-    -webkit-backdrop-filter: saturate(1.45) brightness(1.06);
-    backdrop-filter: saturate(1.45) brightness(1.06);
-    -webkit-mask-image: radial-gradient(circle 152px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 84%);
-    mask-image: radial-gradient(circle 152px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 84%);
-}
-/* 折射层：同款网格以光标为 transform-origin 做极轻微缩放，
-   越靠外与底层网格错位越大，在光照边缘形成「隔着玻璃看网格」的轻微形变 */
-.bg-grid::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background-image:
-        linear-gradient(rgba(251, 114, 153, 0.20) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(251, 114, 153, 0.20) 1px, transparent 1px);
-    background-size: 44px 44px;
-    /* 伪折射：以光标为原点缩放背景网格，越靠外错位越大（鸿蒙应用层同款做法） */
-    transform: scale(0.966);
-    transform-origin: var(--mx, -400px) var(--my, -400px);
-    -webkit-mask-image: radial-gradient(circle 156px at var(--mx, -400px) var(--my, -400px), rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.38) 52%, transparent 80%);
-    mask-image: radial-gradient(circle 156px at var(--mx, -400px) var(--my, -400px), rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.38) 52%, transparent 80%);
-    opacity: var(--glow-opacity, 0);
-    pointer-events: none;
-}
+
 
 .bg-glow {
     position: fixed;
