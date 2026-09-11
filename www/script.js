@@ -64,13 +64,30 @@ document.addEventListener('DOMContentLoaded', () => {
         let curX = IDLE
         let curY = IDLE
         let rafId = null
+        // 光效强度：光标落在内容元素上时衰减——这些元素本就在网格层之上，
+        // 衰减后看起来就像光被挡在卡片后面（模拟遮挡而不是把光糊在卡片上）
+        const OCCLUDERS = '.feature-card, .feature-primary, .install-step, .changelog-item, .nav, .cta, .hero, .hero-visual, .visual-card, .footer, .section-head'
+        let strength = 0
+        let targetStrength = 1
+        let hitX = -1e4
+        let hitY = -1e4
         const tick = () => {
-            // 缓动跟随：光斑平滑追上光标，避免生硬跳变
+            // 缓动跟随：光斑平滑追上光标，带一点迟滞，像光线而不是贴纸
             curX += (targetX - curX) * 0.16
             curY += (targetY - curY) * 0.16
+            // 位移超过 6px 才重新做命中测试（elementFromPoint 有成本，避免每帧调用）
+            if (Math.abs(targetX - hitX) > 6 || Math.abs(targetY - hitY) > 6) {
+                hitX = targetX
+                hitY = targetY
+                const hit = document.elementFromPoint(targetX, targetY)
+                targetStrength = hit && hit.closest(OCCLUDERS) ? 0.32 : 1
+            }
+            strength += (targetStrength - strength) * 0.12
             gridLayer.style.setProperty('--mx', curX.toFixed(1) + 'px')
             gridLayer.style.setProperty('--my', curY.toFixed(1) + 'px')
-            if (Math.abs(targetX - curX) < 0.5 && Math.abs(targetY - curY) < 0.5) {
+            gridLayer.style.setProperty('--glow-opacity', strength.toFixed(3))
+            const settled = Math.abs(targetX - curX) < 0.5 && Math.abs(targetY - curY) < 0.5
+            if (settled && Math.abs(targetStrength - strength) < 0.01) {
                 rafId = null
                 return
             }
@@ -79,12 +96,10 @@ document.addEventListener('DOMContentLoaded', () => {
         window.addEventListener('pointermove', e => {
             targetX = e.clientX
             targetY = e.clientY
-            if (!document.body.classList.contains('pointer-glow')) {
-                document.body.classList.add('pointer-glow')
-            }
             if (rafId === null) rafId = requestAnimationFrame(tick)
         }, { passive: true })
-        const hide = () => document.body.classList.remove('pointer-glow')
+        // 移出窗口或失焦：强度归零，光效平滑淡出（而非瞬间消失）
+        const hide = () => { targetStrength = 0 }
         document.addEventListener('pointerleave', hide)
         window.addEventListener('blur', hide)
     }

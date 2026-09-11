@@ -53,23 +53,39 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 78%);
 }
 
-/* 指针光照：叠加同一张网格、换成更亮的品牌蓝，用径向 mask 限制在光标附近，
-   形成「网格线被照亮」的真实观感（外层还会被 .bg-grid 自身的顶部渐隐 mask 收边） */
+/* 指针光照：同一张网格换成更亮的品牌蓝，用径向 mask 收在光标附近，
+   观感是「光打在网格线上」而非浮一层光斑；强度由 JS 写入 --glow-opacity
+   （经过卡片时衰减，配合卡片本身在网格之上，视觉上就像光被挡在卡片后面） */
 .bg-grid::after {
     content: "";
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(53, 200, 245, 0.38) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(53, 200, 245, 0.38) 1px, transparent 1px);
+        linear-gradient(rgba(53, 200, 245, 0.34) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(53, 200, 245, 0.34) 1px, transparent 1px);
     background-size: 44px 44px;
-    -webkit-mask-image: radial-gradient(circle 200px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.6) 42%, transparent 72%);
-    mask-image: radial-gradient(circle 200px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.6) 42%, transparent 72%);
-    opacity: 0;
-    transition: opacity 0.4s var(--ease);
+    -webkit-mask-image: radial-gradient(circle 132px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 74%);
+    mask-image: radial-gradient(circle 132px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 74%);
+    opacity: var(--glow-opacity, 0);
     pointer-events: none;
 }
-body.pointer-glow .bg-grid::after { opacity: 1; }
+/* 折射层：同款网格以光标为 transform-origin 做极轻微缩放，
+   越靠外与底层网格错位越大，在光照边缘形成「隔着玻璃看网格」的轻微形变 */
+.bg-grid::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(53, 200, 245, 0.16) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(53, 200, 245, 0.16) 1px, transparent 1px);
+    background-size: 44px 44px;
+    transform: scale(0.982);
+    transform-origin: var(--mx, -400px) var(--my, -400px);
+    -webkit-mask-image: radial-gradient(circle 156px at var(--mx, -400px) var(--my, -400px), rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.38) 52%, transparent 80%);
+    mask-image: radial-gradient(circle 156px at var(--mx, -400px) var(--my, -400px), rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.38) 52%, transparent 80%);
+    opacity: var(--glow-opacity, 0);
+    pointer-events: none;
+}
 
 .bg-glow {
     position: fixed;
