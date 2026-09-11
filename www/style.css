@@ -358,9 +358,9 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .demo-features {
     position: absolute;
     right: -18px;
-    /* 控件栏约 34px + 其上进度条 4px（合计约 38px），60px 再留约 22px 呼吸空间：
+    /* 控件栏约 34px + 其上进度条 4px（合计约 38px），58px 再留约 20px 呼吸空间：
        不遮挡控件栏按钮，也不紧贴进度条 */
-    bottom: 60px;
+    bottom: 58px;
     display: flex;
     flex-direction: column;
     gap: 8px;
