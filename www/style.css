@@ -320,7 +320,9 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     color: rgba(255, 255, 255, 0.82);
 }
 .demo-ctrl-tag--active { background: var(--blue); border-color: var(--blue); color: #fff; }
-.demo-player-progress { position: relative; height: 4px; background: rgba(255, 255, 255, 0.14); }
+/* 控件栏是 flex + space-between，进度条作为中间项撑满剩余宽度，
+   否则在 flex 行里宽度会塌成 0（旧结构把它放在控件栏之外，才会跑到视口底部） */
+.demo-player-progress { position: relative; flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); }
 .demo-pp-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 21.5%; background: linear-gradient(90deg, var(--blue), var(--blue-bright)); }
 .demo-pp-dot { position: absolute; left: 21.5%; top: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px rgba(0, 174, 236, 0.9); }
 
