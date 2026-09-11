@@ -1,0 +1,39 @@
+其他页调整 17:26:42 应用初始化完成 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:42 首页模块｜已加载 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:42 标签页｜已激活 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:42 函数执行失败: Error: Target must be a valid DOM node
+    lt moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:74
+    insertIndexRecommendVideoHistoryPopover moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:180
+    handleExecuteFunctionsSequentially moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:180
+    n moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:74
+    Yn moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:74
+    handleExecuteFunctionsSequentially moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:180
+    preFunctions moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:180
+    install moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:180
+    emit moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:74
+    execute moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:74
+    execute moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:74
+    r moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    v moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    v moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    v moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    C moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    promise callback*p moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    import moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    promise callback*window["__f__mtvftzlu.69a"]/</I.import moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    import moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:5
+    window["__f__mtvftzlu.69a"]/< moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:295
+    At https://www.bilibili.com/index.html:10
+    window["__f__mtvftzlu.69a"]/< moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:1
+    "__f__mtvftzlu.69a" moz-extension://5765470c-5a5d-4ec4-8c75-f10b9743823a/userscripts/哔哩哔哩（bilibili.com）调整.user.js?id=25f583cd-03ae-4d3d-a8c1-3a5fdfcf6bae:1
+    At https://www.bilibili.com/index.html:10
+    r https://www.bilibili.com/index.html:91
+    <anonymous> https://www.bilibili.com/index.html:94
+    _ https://www.bilibili.com/index.html:22
+哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:42 首页视频推荐历史｜已记录 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:42 首页视频付费标记｜已完成 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:42 检查更新 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:43 通过 GitHub API 获取最新版本信息: 3.31.0 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:43 当前版本: 3.31.0, 最新版本: 3.31.0 哔哩哔哩（bilibili.com）调整.user.js:74:78522
+其他页调整 17:26:43 当前已是最新版本，无需更新 哔哩哔哩（bilibili.com）调整.user.js:74:78522

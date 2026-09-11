@@ -48,10 +48,15 @@
                     <!-- select：原生 select 作为数据与事件中枢（与 V2 过渡方案一致） -->
                     <template v-else-if="item.type === 'select'">
                         <div class="adjustment-select">
+                            <!-- 值必须绑在 <select> 上（:value → 写 DOM property）：
+                                 只在 <option> 上绑 :selected 时，Vue 动态更新 selected 属性
+                                 无法可靠改变 <select> 的当前值，导致「外部来源改配置后控件不刷新
+                                 （如 Stylus 夜间样式自动切换主题），关掉弹窗重开才正确」 -->
                             <select
                                 :id="item.id"
                                 data-config-type="select"
                                 :disabled="selectOptions.length === 0"
+                                :value="String(configs[item.id] ?? '')"
                                 @change="emit('change', item.id, $event.target.value)"
                             >
                                 <template v-if="selectOptions.length > 0">
@@ -59,10 +64,9 @@
                                         v-for="opt in selectOptions"
                                         :key="opt.value"
                                         :value="opt.value"
-                                        :selected="String(configs[item.id] ?? '') === String(opt.value)"
                                     >{{ opt.label }}</option>
                                 </template>
-                                <option v-else value="" disabled selected>暂无可用选项</option>
+                                <option v-else value="" disabled>暂无可用选项</option>
                             </select>
                         </div>
                         <div

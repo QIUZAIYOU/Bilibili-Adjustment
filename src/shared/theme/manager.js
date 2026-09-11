@@ -20,8 +20,6 @@ const ATTR = 'data-adj-theme'
 export const DEFAULT_THEME = 'night'
 /** 设置项取值：跟随B站 */
 export const FOLLOW_THEME = 'follow'
-/** B 站官方深色模式标记：<html class="night-mode"> */
-const OFFICIAL_DARK_CLASS = 'night-mode'
 const listeners = new Set()
 let followObserver = null
 let isFollowing = false
@@ -80,9 +78,20 @@ export const getThemeCssVariables = themeId => {
     const theme = THEMES[themeId]
     return theme ? buildThemeBlock(theme) : ''
 }
-/** 依 B 站官方标记解析应应用的主题：html.night-mode → dark，否则 light */
-const resolveOfficialTheme = () =>
-    document.documentElement.classList.contains(OFFICIAL_DARK_CLASS) ? 'dark' : 'light'
+/**
+ * 依 B 站官方标记解析应应用的主题
+ *
+ * B 站官方深色模式的标记发生过变更：旧版为 `night-mode`，现版本为 `bili_dark`
+ * （`<html class="bili_dark">`）。两者都要识别，否则「跟随B站」会失效。
+ * 注意：不要把通用的 `dark` 计入判据——很多站点/扩展都会加 `dark`，会导致误判为深色。
+ */
+const OFFICIAL_DARK_CLASSES = ['bili_dark', 'night-mode']
+const resolveOfficialTheme = () => {
+    // 只看 class：B 站用 class 标记深色。不要额外检查 data-theme 等属性——
+    // 那些属性可能被其它脚本/扩展写入，会造成误判为深色。
+    const html = document.documentElement
+    return OFFICIAL_DARK_CLASSES.some(cls => html.classList.contains(cls)) ? 'dark' : 'light'
+}
 const applyThemeAttribute = id => {
     document.documentElement.setAttribute(ATTR, id)
 }

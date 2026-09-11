@@ -1,7 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { httpGet } from '@/utils/http'
 import MD5 from 'md5'
-const logger = new LoggerService('BiliApis')
+const logger = new LoggerService('BiliApis', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
 // ========== 全局请求队列 ==========
 // 所有 bilibili API 请求排队执行，避免并发触发 429
 const _requestQueue = []

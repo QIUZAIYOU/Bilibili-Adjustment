@@ -410,7 +410,10 @@ const getCurrentPageType = () => {
     const path = location.pathname
     if (path.startsWith('/bangumi/')) _currentPageType = 'bangumi'
     else if (path.startsWith('/video/')) _currentPageType = 'video'
-    else if (path === '/' || path.startsWith('/home')) _currentPageType = 'home'
+    // 首页：B 站首页可能是 `/`、`/home`，也可能是 `/index.html`（Firefox 下用户从
+    // 历史记录/index.html 进入很常见）；漏判会让 home 专属选择器被页型门控直接拦成 null，
+    // 导致首页历史记录按钮插入失败（Target must be a valid DOM node）
+    else if (path === '/' || path === '' || path.startsWith('/home') || path.endsWith('/index.html')) _currentPageType = 'home'
     else if (path.startsWith('/dynamic')) _currentPageType = 'dynamic'
     else _currentPageType = 'other'
     return _currentPageType

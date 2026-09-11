@@ -76,10 +76,17 @@ export const homeHistoryFeatures = {
         await this._recordingPromise
     },
     async insertIndexRecommendVideoHistoryPopover () {
-        const indexRecommendVideoRollButtonWrapper = await elementSelectors.wait('indexRecommendVideoRollButtonWrapper')
-        const indexRecommendVideoHistoryOpenButtonTemplate = getTemplates.indexRecommendVideoHistoryOpenButton
-        createElementAndInsert(indexRecommendVideoHistoryOpenButtonTemplate, indexRecommendVideoRollButtonWrapper)
-        const indexRecommendVideoHistoryOpenButton = await elementSelectors.wait('indexRecommendVideoHistoryOpenButton')
+        // 幂等：已经插过按钮就不再重复插入
+        if (document.getElementById('indexRecommendVideoHistoryOpenButton')) return
+        // 锚点逐级兜底：首页变体/改版可能没有 .feed-roll-btn，锚点缺失时绝不能抛错
+        //（createElementAndInsert 对 null 会抛 Target must be a valid DOM node，进而中断首页功能链）
+        const anchor = await elementSelectors.wait('indexRecommendVideoRollButtonWrapper')
+            || document.querySelector('.recommended-container_floor-aside .feed-roll-btn')
+            || document.querySelector('.recommended-container_floor-aside')
+            || document.body
+        createElementAndInsert(getTemplates.indexRecommendVideoHistoryOpenButton, anchor)
+        const indexRecommendVideoHistoryOpenButton = document.getElementById('indexRecommendVideoHistoryOpenButton')
+        if (!indexRecommendVideoHistoryOpenButton) return
         // 点击打开按钮时创建并显示弹窗
         const cleanup = addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
             // 检查是否已存在弹窗，避免重复创建

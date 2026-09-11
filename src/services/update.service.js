@@ -3,7 +3,7 @@ import { ConfigService } from '@/services/config.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { mountUpdateNoticePanel } from '@/ui/update'
 import { parseUpdateItems } from '@/utils/update-items'
-const logger = new LoggerService('UpdateService')
+const logger = new LoggerService('UpdateService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
 export class UpdateService {
     static #cacheKey = 'latestScriptCache'
     static #proxyStatusKey = 'proxyStatus'
@@ -349,7 +349,7 @@ export class UpdateService {
     async #fetchLatestVersionInfo () {
         try {
             const pkgInfo = await this.#fetchGitHubPackageInfo()
-            logger.info('通过 GitHub API 获取最新版本信息:', pkgInfo.version)
+            logger.debug('通过 GitHub API 获取最新版本信息:', pkgInfo.version)
             return { latestVersion: pkgInfo.version, latestUpdates: pkgInfo.updates }
         } catch (error) {
             logger.warn('GitHub 获取最新版本信息失败，改用脚本内容提取:', error.message)
@@ -364,13 +364,14 @@ export class UpdateService {
     async checkForUpdatesManually (currentVersion, localUpdates) {
         try {
             const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
-            logger.info(`手动检查更新，当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
             if (!this.compareVersions(currentVersion, latestVersion)) {
+                logger.info(`检查更新丨当前 v${currentVersion} 已是最新版本（远程 v${latestVersion}）`)
                 // 已是最新：手动检查同样弹出反馈弹窗（与「发现新版本」的反馈保持一致）；
                 // 自动检查（checkForUpdates）在已最新时仍静默返回，不打扰用户
                 this.#showUpdatePopover(currentVersion, latestVersion, [], { isLatest: true })
                 return { type: 'latest', latestVersion }
             }
+            logger.info(`检查更新丨发现新版本 v${latestVersion}（当前 v${currentVersion}）`)
             const updateItems = parseUpdateItems(latestUpdates || localUpdates)
             this.#showUpdatePopover(currentVersion, latestVersion, updateItems)
             return { type: 'update', latestVersion }
@@ -403,15 +404,14 @@ export class UpdateService {
             logger.debug('距上次检查更新未超过设置频率，跳过')
             return
         }
-        logger.info('检查更新')
         try {
             const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
-            logger.info(`当前版本: ${currentVersion}, 最新版本: ${latestVersion}`)
-            // 如果最新版本 <= 当前版本，不显示更新弹窗
+            // 整个自动检查流程只输出一条有效日志：已最新时降到 debug（避免每次打开页面刷屏）
             if (!this.compareVersions(currentVersion, latestVersion)) {
-                logger.info('当前已是最新版本，无需更新')
+                logger.debug(`检查更新丨当前 v${currentVersion} 已是最新版本（远程 v${latestVersion}）`)
                 return
             }
+            logger.info(`检查更新丨发现新版本 v${latestVersion}（当前 v${currentVersion}）`)
             // 优先使用远程的更新内容，其次使用本地 package.json 的 updates
             const updateItems = parseUpdateItems(latestUpdates || localUpdates)
             // 检查是否启用自动更新

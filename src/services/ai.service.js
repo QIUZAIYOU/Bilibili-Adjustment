@@ -110,7 +110,7 @@ export async function validateApiKey (apiKey, provider = 'siliconflow', baseURL 
  * @returns {Promise<Array>} 模型列表
  */
 export async function fetchModels (apiKey, provider = 'siliconflow', baseURL = '') {
-    const logger = new LoggerService('AIService')
+    const logger = new LoggerService('AIService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
     const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.siliconflow
     const effectiveBaseURL = (provider === 'custom' && baseURL ? baseURL : config.baseURL).replace(/\/$/, '')
     const cacheKey = `${provider}|${effectiveBaseURL}`
@@ -244,7 +244,7 @@ export function clearModelCache () {
 // ========== AI 服务基类 ==========
 export class AIService {
     static #instance = null
-    #logger = new LoggerService('AIService')
+    #logger = new LoggerService('AIService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
     #initialized = false
     constructor () {
         if (AIService.#instance) {
@@ -377,7 +377,7 @@ class OpenAIAdapter {
 }
 // ========== 统一的 AI 服务实现 ==========
 export class UnifiedAIService extends AIService {
-    #logger = new LoggerService('UnifiedAIService')
+    #logger = new LoggerService('UnifiedAIService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
     #adapter = null
     #adapterKey = ''
     async #getAdapter () {

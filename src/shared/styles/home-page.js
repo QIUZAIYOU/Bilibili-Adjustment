@@ -20,9 +20,6 @@ export const homePageStyles = {
             display: flex;
             flex-direction: column;
         }
-        .adjustment-history-popover::backdrop {
-            background: var(--adj-bg-scrim);
-        }
         #indexRecommendVideoHistoryPopover #indexRecommendVideoHistoryPopoverTitle {
             display: flex;
             box-sizing: border-box;

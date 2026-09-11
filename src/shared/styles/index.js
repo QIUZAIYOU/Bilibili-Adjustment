@@ -40,6 +40,14 @@ function generateBilibiliAdjustmentStyle () {
             background: transparent !important;
         }
 
+        /* Firefox 不支持 ::-webkit-scrollbar，用标准属性提供同等配色（Firefox 128+ 支持）；
+           scrollbar-color 会被弹窗内所有滚动容器继承，因此只作用于脚本自己的弹窗，不影响 B 站页面 */
+        .adjustment-popover,
+        .adjustment-dialog {
+            scrollbar-width: thin;
+            scrollbar-color: var(--adj-scrollbar-thumb) transparent;
+        }
+
         /* ========== 弹窗容器 ========== */
         .adjustment-popover {
             position: fixed;

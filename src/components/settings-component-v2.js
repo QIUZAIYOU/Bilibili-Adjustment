@@ -144,12 +144,31 @@ export class SettingsComponentV2 {
     }
     async init (userConfigs) {
         this.userConfigs = userConfigs
+        // 弹窗重建时重新读取最新配置：Stylus「夜间哔哩」样式、其它标签页等**外部来源**
+        // 会在设置弹窗关闭期间直接改存储，仅靠内存里的 userConfigs 会显示旧值
+        //（主题二态自动切换依赖这里拿到 follow/night 的最新值）
+        try {
+            const latest = await storageService.getAll('user')
+            if (latest && typeof latest === 'object') Object.assign(this.userConfigs, latest)
+        } catch { /* 读取失败时沿用已有配置 */ }
         this.pageType = await detectivePageType()
         // 订阅其他标签页的配置变更，实时同步设置弹窗状态（只订阅一次，SPA 导航重复 init 不重复订阅）
         if (!this._configSyncUnsubscribe) {
             this._configSyncUnsubscribe = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, async (_, { key, value }) => {
-                // 跨标签同步同样要写 Vue 代理，否则面板（Vue 模式）不会刷新
-                this._vueConfigsProxy[key] = value
+                // 写 Vue 响应式代理才会驱动面板刷新；但面板未挂载时（如设置弹窗关闭状态下
+                // 由 Stylus 夜间样式、跨标签页等外部来源改配置）代理为 null，
+                // 此时必须回退写宿主对象，否则既会抛错又丢失配置
+                if (this._vueConfigsProxy) {
+                    this._vueConfigsProxy[key] = value
+                } else {
+                    this.userConfigs[key] = value
+                }
+                // 自绘下拉替身需显式刷新：它包裹原生 select、不监听其 value 变化，
+                // 外部来源改配置（如主题跟随 Stylus 夜间样式）时替身文本会停在旧值
+                {
+                    const popover = document.getElementById('VideoSettingsPopover') || document.getElementById('DynamicSettingsPopover')
+                    if (popover) refreshCustomSelects(popover)
+                }
                 // 日志级别跨标签同步
                 if (key.startsWith('log_level_')) {
                     await LoggerService.updateLogLevelsFromConfig(this.userConfigs)
@@ -670,8 +689,12 @@ export class SettingsComponentV2 {
     async saveConfig (key, value) {
         await ConfigService.setValue(key, value)
         // 写 Vue 响应式代理（触发面板重渲染）；代理与 this.userConfigs 共享同一 target，读数同步。
-        // 若无代理（经典渲染器模式）则直接写 userConfigs。
-        this._vueConfigsProxy[key] = value
+        // 面板未挂载时代理为 null，必须回退写宿主对象，否则会抛错且配置丢失
+        if (this._vueConfigsProxy) {
+            this._vueConfigsProxy[key] = value
+        } else {
+            this.userConfigs[key] = value
+        }
         logger.debug(`配置已更新: ${key} = ${value}`)
     }
     /**

@@ -12,7 +12,16 @@ const MIN_THUMB_LENGTH = 20
 const HOVER_ATTRIBUTE = 'data-adjustment-scrollbar-hover'
 const PAGE_SCROLLBAR = Symbol('page-scrollbar')
 const easeOutCubic = t => 1 - Math.pow(1 - t, 3)
+/**
+ * 本模块的滚动条加宽完全依赖 Chromium 的 ::-webkit-scrollbar（Firefox 不支持，
+ * 相关样式会静默失效）。Firefox 下直接跳过，避免白跑一轮观察器与逐帧重排。
+ */
+const isWebkitScrollbarSupported = () => !/firefox/i.test(navigator.userAgent)
 export const initScrollbarHoverWidening = () => {
+    if (!isWebkitScrollbarSupported()) {
+        logger.info('滚动条悬停加宽丨Firefox 不支持 ::-webkit-scrollbar，已跳过')
+        return
+    }
     const styleElement = document.createElement('style')
     document.head.appendChild(styleElement)
     const active = { el: null, width: SCROLLBAR_BASE_WIDTH, to: SCROLLBAR_BASE_WIDTH, raf: 0, start: 0, from: 0 }
