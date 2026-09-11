@@ -91,9 +91,24 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 }
 /* 边缘光：光标进入卡片时点亮它 1px 宽的边框（对应鸿蒙的触点光感反馈 lightEffect）。
    用 mask-composite 把径向光只留在 border 区域，避免糊到卡片内容上 */
+/* 边缘光宿主（凡是页面上带可见边框的元素都纳入）：
+   已有定位上下文的三个由玻璃卡片组提供，其余在此补齐 position: relative，
+   否则它们的 ::after 会相对最近的定位祖先绘制、跑到别处去 */
+.visual-card,
+.feature-icon-lg,
+.brand-version,
+.step-tags span,
+.demo-feat,
+.btn { position: relative; }
 .feature-primary::after,
 .feature-card::after,
-.install-step::after {
+.install-step::after,
+.visual-card::after,
+.feature-icon-lg::after,
+.brand-version::after,
+.step-tags span::after,
+.demo-feat::after,
+.btn::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -111,7 +126,13 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 }
 .feature-primary.is-lit::after,
 .feature-card.is-lit::after,
-.install-step.is-lit::after { opacity: 1; }
+.install-step.is-lit::after,
+.visual-card.is-lit::after,
+.feature-icon-lg.is-lit::after,
+.brand-version.is-lit::after,
+.step-tags span.is-lit::after,
+.demo-feat.is-lit::after,
+.btn.is-lit::after { opacity: 1; }
 
 
 .bg-glow {
