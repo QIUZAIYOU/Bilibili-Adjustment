@@ -80,14 +80,34 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .feature-card,
 .install-step {
     position: relative;
-    background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
-    -webkit-backdrop-filter: blur(10px) saturate(1.18);
-    backdrop-filter: blur(10px) saturate(1.18);
-    border-color: rgba(255, 255, 255, 0.10);
+    /* glassFill：三段式明暗，顶面受光、底部沉下去，比两段式更像有厚度的玻璃 */
+    background: linear-gradient(180deg,
+        rgba(255, 255, 255, 0.085) 0%,
+        rgba(255, 255, 255, 0.030) 38%,
+        rgba(255, 255, 255, 0.012) 100%);
+    /* 更厚的玻璃：模糊更强、饱和度更高，透出的背景更有材质感 */
+    -webkit-backdrop-filter: blur(16px) saturate(1.32);
+    backdrop-filter: blur(16px) saturate(1.32);
+    border-color: rgba(255, 255, 255, 0.13);
     box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.10),
-        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
-        0 10px 28px rgba(0, 0, 0, 0.26);
+        inset 0 1px 0 rgba(255, 255, 255, 0.17),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.30),
+        inset 0 0 36px rgba(255, 255, 255, 0.022),
+        0 14px 36px rgba(0, 0, 0, 0.32);
+}
+/* 玻璃表面反光：左上角一道极淡的斜向高光，模拟玻璃反射环境光 */
+.feature-primary::before,
+.feature-card::before,
+.install-step::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.075) 0%,
+        rgba(255, 255, 255, 0.022) 24%,
+        transparent 48%);
+    pointer-events: none;
 }
 /* 边缘光：光标进入卡片时点亮它 1px 宽的边框（对应鸿蒙的触点光感反馈 lightEffect）。
    用 mask-composite 把径向光只留在 border 区域，避免糊到卡片内容上 */
@@ -320,9 +340,18 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     color: rgba(255, 255, 255, 0.82);
 }
 .demo-ctrl-tag--active { background: var(--blue); border-color: var(--blue); color: #fff; }
-/* 控件栏是 flex + space-between，进度条作为中间项撑满剩余宽度，
-   否则在 flex 行里宽度会塌成 0（旧结构把它放在控件栏之外，才会跑到视口底部） */
-.demo-player-progress { position: relative; flex: 1; height: 4px; border-radius: 2px; background: rgba(255, 255, 255, 0.14); }
+/* 进度条贴在控件栏的上边框（真实播放器的位置）：
+   控件栏是 absolute，因此 bottom: 100% 正好压在它的上沿，全宽铺满 */
+.demo-player-progress {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: 4px;
+    border-radius: 2px 2px 0 0;
+    background: rgba(255, 255, 255, 0.14);
+}
+.demo-player-progress .demo-pp-fill { border-radius: 2px 0 0 0; }
 .demo-pp-fill { position: absolute; left: 0; top: 0; bottom: 0; width: 21.5%; background: linear-gradient(90deg, var(--blue), var(--blue-bright)); }
 .demo-pp-dot { position: absolute; left: 21.5%; top: 50%; transform: translate(-50%, -50%); width: 10px; height: 10px; border-radius: 50%; background: #fff; box-shadow: 0 0 8px rgba(0, 174, 236, 0.9); }
 
