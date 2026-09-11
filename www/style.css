@@ -436,8 +436,26 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     .nav-links > a:not(.nav-github) { display: none; }
 }
 
+/* ---- 大卡片：交替布局（图左文右）与间距 ---- */
+.feature-primary--reverse .feature-primary-text { order: 2; }
+.feature-primary--reverse .feature-primary-visual { order: 1; }
+.feature-primary + .feature-primary { margin-top: 24px; }
+/* ---- 可视化卡片：入场后各行依次点亮（一次性，不循环，仅辅助阅读） ---- */
+[data-reveal].visible .visual-row { animation: adjRowIn 0.5s var(--ease) both; }
+[data-reveal].visible .visual-row:nth-child(2) { animation-delay: 0.10s; }
+[data-reveal].visible .visual-row:nth-child(3) { animation-delay: 0.18s; }
+[data-reveal].visible .visual-row:nth-child(4) { animation-delay: 0.26s; }
+[data-reveal].visible .visual-row:nth-child(5) { animation-delay: 0.34s; }
+@keyframes adjRowIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+/* ---- 功能图标悬停轻微上浮：只做反馈，不做夸张位移 ---- */
+.feature-card-icon { transition: transform var(--dur) var(--ease); }
+.feature-card:hover .feature-card-icon { transform: translateY(-2px); }
 @media (prefers-reduced-motion: reduce) {
     * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     html { scroll-behavior: auto; }
     [data-reveal], .demo-feat { opacity: 1; transform: none; }
+    [data-reveal].visible .visual-row { animation: none; }
 }

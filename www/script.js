@@ -40,14 +40,14 @@ document.addEventListener('DOMContentLoaded', () => {
     )
     revealTargets.forEach(el => el.setAttribute('data-reveal', ''))
     const revealObs = new IntersectionObserver(entries => {
-        entries.forEach((entry, i) => {
-            if (entry.isIntersecting) {
-                // Stagger within each group
-                setTimeout(() => {
-                    entry.target.classList.add('visible')
-                }, i * 60)
-                revealObs.unobserve(entry.target)
-            }
+        entries.forEach(entry => {
+            if (!entry.isIntersecting) return
+            // 按同父元素内的次序错峰（而非本次回调批次），顺序更自然；上限 5 档避免长尾
+            const siblings = [...(entry.target.parentElement?.children || [])]
+                .filter(el => el.hasAttribute('data-reveal'))
+            const order = Math.max(0, siblings.indexOf(entry.target))
+            setTimeout(() => entry.target.classList.add('visible'), Math.min(order, 5) * 70)
+            revealObs.unobserve(entry.target)
         })
     }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' })
     revealTargets.forEach(el => revealObs.observe(el))
