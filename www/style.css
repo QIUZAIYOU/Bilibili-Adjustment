@@ -458,7 +458,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     background: var(--panel);
     transition: all var(--dur) var(--ease);
 }
-.install-step:hover { border-color: var(--line-strong); }
+/* hover 不做任何变化：亮边统一交给边缘光，避免两套反馈互相干扰 */
 .step-num { font-size: 15px; color: var(--blue-bright); font-weight: 700; margin-bottom: 14px; }
 .step-body h4 { font-size: 16px; font-weight: 650; }
 .step-body p { margin: 8px 0 14px; font-size: 13.5px; color: var(--text-soft); }
