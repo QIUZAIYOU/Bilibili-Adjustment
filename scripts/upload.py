@@ -89,7 +89,9 @@ def upload_with_check(scp_cmd, ssh_cmd, local_dir, files, remote_dir, user, host
             continue
         local_size = os.path.getsize(local_path)
         remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-        if local_size != remote_size:
+        # 注意：这里按大小比对，会漏掉「改了字符但字节数不变」的编辑（例如 60px -> 58px）。
+        # 需要强制全部上传时，设置环境变量 UPLOAD_FORCE=1。
+        if local_size != remote_size or os.environ.get('UPLOAD_FORCE') == '1':
             needs_upload.append((local_path, remote_path, name, local_size))
             print(f'检测到变更 {name}（本地 {local_size} vs 远程 {remote_size}）')
         else:
