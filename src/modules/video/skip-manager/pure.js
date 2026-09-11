@@ -50,30 +50,51 @@ export const validateSegment = (newSeg, existingSegments) => {
     }
     return null
 }
-/** 合并重叠或相邻的片段 */
+/**
+ * 合并重叠或相邻的片段。
+ *
+ * 两个关键点（都曾是 bug）：
+ *   1. **备注不能丢**：旧实现合并时只更新 end，直接丢弃 curr.summary。
+ *      于是"重新识别出的带备注片段"与已有（备注为空/较旧）的重叠片段合并后，
+ *      备注会消失——用户看到的就是"覆盖更新后已有片段仍不显示 summary"。
+ *      现在合并时保留更完整的备注（非空优先，其次取更长的）。
+ *   2. **不得污染入参**：合并会改写对象，必须先浅拷贝，
+ *      否则调用方传入的数组元素会被就地修改。
+ */
 export const mergeSegments = segments => {
     if (!Array.isArray(segments)) return []
-    if (segments.length <= 1) return segments
+    if (segments.length <= 1) return segments.map(seg => ({ ...seg }))
     const sorted = [...segments].sort((a, b) => a.start - b.start)
-    const merged = [sorted[0]]
+    const merged = [{ ...sorted[0] }]
     for (let i = 1; i < sorted.length; i++) {
         const last = merged[merged.length - 1]
         const curr = sorted[i]
         if (curr.start <= last.end) {
             last.end = Math.max(last.end, curr.end)
+            // 合并时保留更完整的备注，避免新识别出的 summary 被旧片段覆盖掉
+            if (!last.summary && curr.summary) {
+                last.summary = curr.summary
+            } else if (curr.summary && last.summary && String(curr.summary).length > String(last.summary).length) {
+                last.summary = curr.summary
+            }
         } else {
-            merged.push(curr)
+            merged.push({ ...curr })
         }
     }
     return merged
 }
-/** 判断是否有权限更新缓存 */
-export const canUpdateCache = (cached, currentUid) => {
+/**
+ * 判断是否有权限更新缓存。
+ *
+ * 唯一保护机制是 locked（与服务端 ad-cache.php 一致：仅当 locked=1 且提交者不是上传者时才 423）。
+ * 旧实现额外要求"必须是本人上传"，导致**他人上传但未锁定**的片段连编辑按钮都不显示——
+ * 这与锁定功能的设计意图矛盾（未锁定的数据本就应人人可改，改后 version 自增）。
+ *
+ * 参数 currentUid 保留以兼容既有调用方。
+ */
+export const canUpdateCache = (cached, currentUid) => { // eslint-disable-line no-unused-vars
     if (!cached) return true
-    if (cached.locked) return false
-    if (!currentUid) return true
-    if (cached.uploader_uid === currentUid) return true
-    return false
+    return !cached.locked
 }
 /** 格式化时间为 M:SS */
 export const formatTime = seconds => {

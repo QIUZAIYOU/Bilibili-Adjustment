@@ -1,0 +1,5 @@
+[permissions]
+allow = []
+
+[sandbox]
+allow_write = ["D:\\Github\\Bilibili-Adplatform\\core", "D:\\Github\\Bilibili-Adplatform\\rules", "D:\\Github\\Bilibili-Adplatform\\worker", "D:\\Github\\Bilibili-Adplatform\\app", "D:\\Github\\Bilibili-Adplatform"]

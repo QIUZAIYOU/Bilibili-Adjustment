@@ -13,9 +13,12 @@ import {
 test('mergeSegments：空数组返回空数组', () => {
     assert.deepEqual(mergeSegments([]), [])
 })
-test('mergeSegments：单片段原样返回', () => {
+test('mergeSegments：单片段值不变（实现会浅拷贝，避免污染入参）', () => {
     const segs = [{ start: 1, end: 5 }]
-    assert.equal(mergeSegments(segs), segs)
+    const out = mergeSegments(segs)
+    assert.deepEqual(out, segs) // 值相同
+    assert.notEqual(out, segs) // 但不是同一引用：防止调用方数组被就地改写
+    assert.notEqual(out[0], segs[0])
 })
 test('mergeSegments：重叠片段合并', () => {
     const merged = mergeSegments([{ start: 10, end: 20 }, { start: 15, end: 30 }])
@@ -75,8 +78,13 @@ test('canUpdateCache：未登录可更新', () => {
 test('canUpdateCache：本人可更新', () => {
     assert.equal(canUpdateCache({ locked: false, uploader_uid: 5 }, 5), true)
 })
-test('canUpdateCache：他人不可更新', () => {
-    assert.equal(canUpdateCache({ locked: false, uploader_uid: 5 }, 6), false)
+test('canUpdateCache：他人可更新（locked 才是唯一保护机制）', () => {
+    // 旧行为要求"必须是本人上传"，导致他人上传但未锁定的片段连编辑按钮都不显示，
+    // 与锁定功能的设计意图矛盾。现在未锁定即人人可改（提交时 version 自增）。
+    assert.equal(canUpdateCache({ locked: false, uploader_uid: 5 }, 6), true)
+})
+test('canUpdateCache：未锁定时上传者未知也可更新', () => {
+    assert.equal(canUpdateCache({ locked: false, uploader_uid: null }, 6), true)
 })
 // ============ createCacheEntry ============
 test('createCacheEntry：结构完整', () => {
@@ -87,4 +95,36 @@ test('createCacheEntry：结构完整', () => {
     assert.equal(entry.version, 1)
     assert.equal(entry.locked, false)
     assert.equal(entry.last_updated > 0, true)
+})
+// ============ mergeSegments：备注保留与入参隔离 ============
+test('mergeSegments：合并重叠时保留备注（新片段的 summary 不应被丢弃）', () => {
+    // 复现该 bug：已有片段无备注，新识别出的片段有备注，二者重叠
+    const out = mergeSegments([
+        { start: 29, end: 54 },
+        { start: 52, end: 74, summary: '徐师傅流量卡与内裤推广' }
+    ])
+    assert.equal(out.length, 1)
+    assert.equal(out[0].start, 29)
+    assert.equal(out[0].end, 74)
+    assert.equal(out[0].summary, '徐师傅流量卡与内裤推广')
+})
+test('mergeSegments：两段都有备注时取更长的', () => {
+    const out = mergeSegments([
+        { start: 0, end: 10, summary: '推广' },
+        { start: 5, end: 20, summary: '某品牌推广，附优惠码' }
+    ])
+    assert.equal(out[0].summary, '某品牌推广，附优惠码')
+})
+test('mergeSegments：已有备注非空时不被空备注覆盖', () => {
+    const out = mergeSegments([
+        { start: 0, end: 10, summary: '保留这条' },
+        { start: 5, end: 20 }
+    ])
+    assert.equal(out[0].summary, '保留这条')
+})
+test('mergeSegments：不污染传入数组（就地改写 bug 的回归保护）', () => {
+    const input = [{ start: 0, end: 10 }, { start: 5, end: 20 }]
+    const snapshot = JSON.stringify(input)
+    mergeSegments(input)
+    assert.equal(JSON.stringify(input), snapshot)
 })

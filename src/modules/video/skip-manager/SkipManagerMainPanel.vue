@@ -103,11 +103,31 @@
                 <!-- 本区仅用于「新增」片段；编辑已有片段改为在片段行内展开（见 .segment-edit-card） -->
                 <div class="adjustment-button info manual-add-btn" @click="addPending">添加</div>
             </div>
-            <div v-if="pendingView.length > 0" class="pending-list">
+        </div>
+
+        <!-- 待提交结果：独立区块（不放在「手动添加」容器内，否则手动区收起时就看不到识别结果）。
+             追加/覆盖按钮也放在这里，与结果展示在一起，不再挤占下方原有按钮。 -->
+        <div v-if="pendingView.length > 0" class="pending-block">
+            <div class="pending-head">
+                <span class="pending-title">{{ pendingSourceText }}</span>
+                <span class="pending-count">共 {{ pendingView.length }} 段</span>
+            </div>
+            <div class="pending-list">
                 <div v-for="(seg, i) in pendingView" :key="'p' + i" class="pending-item">
                     <span class="segment-time">{{ formatTime(seg.start) }} - {{ formatTime(seg.end) }}</span>
                     <span v-if="seg.summary" class="segment-summary" :title="seg.summary">{{ seg.summary }}</span>
                     <div class="pending-delete" title="移除" @click="removePending(i)">×</div>
+                </div>
+            </div>
+            <div class="pending-actions">
+                <div class="adjustment-button primary" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="appendUpdate">
+                    {{ busy ? '更新中...' : '追加更新' }}
+                </div>
+                <div class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="overwriteUpdate">
+                    {{ busy ? '更新中...' : '覆盖更新' }}
+                </div>
+                <div class="adjustment-button secondary" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="clearPending">
+                    放弃本次
                 </div>
             </div>
         </div>
@@ -117,13 +137,6 @@
             <div v-if="clearableExisting" class="adjustment-button danger clear-existing-btn" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="clearExisting">清空已有片段</div>
             <div class="adjustment-button secondary" @click="toggleManualOpen">手动添加</div>
             <div v-if="showReIdentify" class="adjustment-button secondary" :style="(busy || identifying) ? 'pointer-events:none;opacity:.6' : ''" @click="reIdentify">{{ identifying ? '正在识别...' : '重新识别' }}</div>
-            <!-- 追加/覆盖更新只在「有待提交片段」时出现（手动添加或重新识别后产生），不再常驻占位 -->
-            <div v-if="canSubmit && pendingView.length > 0" class="adjustment-button primary" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="appendUpdate">
-                {{ busy ? '更新中...' : '追加更新' }}
-            </div>
-            <div v-if="canSubmit && pendingView.length > 0" class="adjustment-button danger" :style="busy ? 'pointer-events:none;opacity:.6' : ''" @click="overwriteUpdate">
-                {{ busy ? '更新中...' : '覆盖更新' }}
-            </div>
         </div>
 
         <!-- 内联消息 -->
@@ -237,6 +250,19 @@ const confirmResolve = ok => {
 
 // —— 渲染视图 ——
 const currentView = computed(() => { void tick.value; return currentSegments })
+// 待提交内容的来源：识别结果 / 手动添加。用于在独立区块里说明"这批内容是哪来的"
+let pendingSource = 'manual'
+const pendingSourceText = computed(() => {
+    void tick.value
+    if (pendingSegments.length === 0) return '待提交'
+    return pendingSource === 'identify' ? '识别结果（待提交）' : '手动添加（待提交）'
+})
+/** 放弃本次待提交内容（识别或手动添加的结果），不影响已有片段 */
+const clearPending = () => {
+    pendingSegments = []
+    identifyPreview.value = false
+    bump()
+}
 const pendingView = computed(() => { void tick.value; return pendingSegments })
 const cacheInfoVisible = computed(() => { void tick.value; return Boolean(cached) || identifyPreview.value })
 const metaUid = computed(() => { void tick.value; return (cached ? cached.uploader_uid : uid()) || '未知' })
@@ -335,6 +361,7 @@ const toggleManualOpen = () => {
 }
 
 const addPending = () => {
+    pendingSource = 'manual'
     let start = null
     let end = null
     if (addMode.value === 'start-end') {
@@ -588,9 +615,13 @@ const reIdentify = async () => {
             return
         }
         const segments = result && result.segments ? result.segments : []
-        currentSegments = mergeSegments(segments)
-        identifyPreview.value = true
-        showMessage('重新识别完成，共 ' + currentSegments.length + ' 段，可点击「覆盖更新」或「追加更新」生效', 'success', 5000)
+        // 识别结果放进「待提交列表」：这样下方才会出现「追加更新 / 覆盖更新」按钮。
+        // 旧实现放进 currentSegments，而按钮的显示条件是 pendingView.length > 0，
+        // 导致提示写着"可点击覆盖/追加"，按钮却始终不出现。
+        pendingSegments = mergeSegments(segments)
+        pendingSource = 'identify'
+        identifyPreview.value = false
+        showMessage('重新识别完成，共 ' + pendingSegments.length + ' 段，可点击「覆盖更新」或「追加更新」生效', 'success', 5000)
         bump()
     } catch (error) {
         recognizeError.value = '识别失败: ' + (error && error.message ? error.message : '未知错误')

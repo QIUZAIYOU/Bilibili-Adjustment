@@ -430,6 +430,31 @@ export const videoPageStyles = {
             flex-shrink: 0;
         }
 
+                /* 待提交结果独立区块：标题 + 列表 + 操作按钮成组展示，
+           与「手动添加」容器分离，避免手动区收起时看不到识别结果 */
+        .skip-manager-dialog .pending-block {
+            margin-top: 10px;
+            padding: 10px 12px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: 8px;
+            background: var(--adj-bg-surface);
+        }
+        .skip-manager-dialog .pending-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 8px;
+        }
+        .skip-manager-dialog .pending-title { font-weight: 600; }
+        .skip-manager-dialog .pending-count { color: var(--adj-text-secondary); font-size: 12px; }
+        .skip-manager-dialog .pending-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+            /* 按钮靠右排列，与上方的结果列表左对齐形成层次 */
+            justify-content: flex-end;
+        }
         .skip-manager-dialog .pending-list {
             display: flex;
             flex-direction: column;

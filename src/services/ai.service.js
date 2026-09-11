@@ -2,6 +2,7 @@ import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import { httpGet, httpPost } from '@/utils/http'
 import { AD_DETECTION_PROMPT } from '@/shared/ad-detection-prompt'
+import { extractJsonArray, sanitizeJsonText, repairTruncated } from '@/utils/ai-json'
 // 当前进行中的 AI 请求控制器：供 UI「取消识别」使用（P1-4.6）
 let currentRequestController = null
 /** 取消进行中的 AI 识别请求（若存在） */
@@ -442,26 +443,40 @@ export class UnifiedAIService extends AIService {
                 this.#logger.error('AI响应内容为空')
                 return []
             }
-            const match = normalizedContent.match(/\[[\s\S]*\]/)
-            const jsonStr = match ? match[0] : normalizedContent
-            // 检查JSON字符串是否为空
-            if (!jsonStr || !jsonStr.trim()) {
-                this.#logger.error('AI响应中未找到有效JSON')
-                return []
-            }
-            try {
-                const result = JSON.parse(jsonStr)
-                if (!Array.isArray(result)) {
-                    this.#logger.error('AI响应格式错误，预期数组格式')
-                    return []
+            // 渐进式解析：先按原样，再括号配平提取，最后做常见格式修复与截断补全。
+            // 每一步失败都继续下一策略，只有全部失败才算真的解析不出来。
+            const jsonStr = extractJsonArray(normalizedContent) || normalizedContent
+            const candidates = [
+                jsonStr,
+                repairTruncated(jsonStr),
+                sanitizeJsonText(jsonStr),
+                repairTruncated(sanitizeJsonText(jsonStr))
+            ]
+            let parsed = null
+            let lastError = null
+            for (const candidate of candidates) {
+                try {
+                    const attempt = JSON.parse(candidate)
+                    if (Array.isArray(attempt)) {
+                        parsed = attempt
+                        break
+                    }
+                    lastError = lastError || new Error('解析结果不是数组')
+                } catch (error) {
+                    lastError = error
                 }
-                this.#logger.debug('广告识别结果', result)
-                return result
-            } catch {
-                this.#logger.error('AI响应JSON解析失败（内容摘要：' + String(jsonStr).slice(0, 200) + '）')
-                this.#logger.debug('AI响应原始内容（前 500 字符）', String(content).slice(0, 500))
-                return []
             }
+            if (parsed) {
+                this.#logger.debug('广告识别结果', parsed)
+                return parsed
+            }
+            // 彻底失败时打印**完整**内容与真实报错位置，否则只截 200 字符根本看不出问题
+            this.#logger.error(
+                'AI响应JSON解析失败：' + ((lastError && lastError.message) || '未知错误'),
+                '| 内容长度 ' + normalizedContent.length,
+                '| 原始内容：', normalizedContent
+            )
+            return []
         } catch (error) {
             if (error.code === 'ERR_CANCELED') {
                 this.#logger.info('广告识别已取消（用户中断）')
