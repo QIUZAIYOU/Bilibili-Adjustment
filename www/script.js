@@ -66,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let rafId = null
         // 光效强度：光标落在内容元素上时衰减——这些元素本就在网格层之上，
         // 衰减后看起来就像光被挡在卡片后面（模拟遮挡而不是把光糊在卡片上）
-        const OCCLUDERS = '.feature-card, .feature-primary, .install-step, .changelog-item, .nav, .cta, .hero, .hero-visual, .visual-card, .footer, .section-head'
+        const OCCLUDERS = '.feature-card, .feature-primary, .install-step, .nav, .cta, .hero, .hero-visual, .visual-card, .footer, .section-head'
         let strength = 0
         let targetStrength = 1
         let hitX = -1e4
@@ -107,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // ---- 卡片边缘光：光标进入卡片时点亮它 1px 的边框 ----
     // 光点位置按光标在卡片内的相对坐标写入 --px/--py，光感跟着指针走（对应鸿蒙 lightEffect）；
     // 监听挂在每张卡片自身上，所以只有被指向的那张卡片才产生计算
-    const LIT_SELECTOR = '.feature-primary, .feature-card, .install-step, .changelog-item'
+    const LIT_SELECTOR = '.feature-primary, .feature-card, .install-step'
     if (window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
         !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         document.querySelectorAll(LIT_SELECTOR).forEach(el => {

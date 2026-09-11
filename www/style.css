@@ -78,8 +78,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
    投影用低透明度环境光遮蔽，而不是把卡片压成实心方块 */
 .feature-primary,
 .feature-card,
-.install-step,
-.changelog-item {
+.install-step {
     position: relative;
     background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
     -webkit-backdrop-filter: blur(10px) saturate(1.18);
@@ -94,8 +93,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
    用 mask-composite 把径向光只留在 border 区域，避免糊到卡片内容上 */
 .feature-primary::after,
 .feature-card::after,
-.install-step::after,
-.changelog-item::after {
+.install-step::after {
     content: "";
     position: absolute;
     inset: 0;
@@ -113,8 +111,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 }
 .feature-primary.is-lit::after,
 .feature-card.is-lit::after,
-.install-step.is-lit::after,
-.changelog-item.is-lit::after { opacity: 1; }
+.install-step.is-lit::after { opacity: 1; }
 /* 网格的透过特性（vibrancy）：只提升透过网格的饱和度与亮度，
    不再绘制任何圆形光斑——指针反馈交由卡片边缘光承担 */
 .bg-glass {
@@ -449,7 +446,8 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     background: var(--panel);
     transition: all var(--dur) var(--ease);
 }
-.feature-card:hover { transform: translateY(-3px); border-color: var(--line-strong); background: var(--panel-hover); }
+/* hover 只保留轻微上浮：边框变亮交给「边缘光」，两者叠加会显得脏 */
+.feature-card:hover { transform: translateY(-3px); }
 .feature-card-icon {
     width: 42px; height: 42px;
     display: inline-flex; align-items: center; justify-content: center;
