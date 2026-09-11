@@ -51,7 +51,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' })
     revealTargets.forEach(el => revealObs.observe(el))
-
     // ---- 指针光照：光标附近的网格被照亮 ----
     // 仅精确指针设备启用；尊重 prefers-reduced-motion；缓动跟随，静止后停止 rAF 不空转
     const gridLayer = document.querySelector('.bg-grid')
@@ -103,7 +102,6 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('pointerleave', hide)
         window.addEventListener('blur', hide)
     }
-
     // ---- 卡片边缘光：光标靠近卡片即可点亮（无需进入卡片内部） ----
     // 光点坐标允许落在卡片之外：径向渐变中心在卡外时，最靠近光标的那段边框最亮，
     // 观感就是光源从外侧扫到卡片边缘。屏幕级监听 + 距离阈值，只处理附近的卡片
@@ -111,8 +109,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
         !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
         const litEls = [...document.querySelectorAll(LIT_SELECTOR)]
-        const NEAR = 80      // 距离小于此值即点亮（px）
-        const FAR = 140      // 超过此值完全熄灭，中间留出过渡带避免闪烁
+        const NEAR = 80 // 距离小于此值即点亮（px）
+        const FAR = 140 // 超过此值完全熄灭，中间留出过渡带避免闪烁
         let pending = false
         let lastX = -1e4
         let lastY = -1e4

@@ -10,7 +10,7 @@ import { homePaidMarkFeatures } from './paid-mark'
 const logger = new LoggerService('HomeModule')
 export default {
     name: 'home',
-    version: '3.32.2',
+    version: '3.33.0',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
     async install () {

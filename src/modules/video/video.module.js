@@ -20,11 +20,12 @@ import { webfullFeatures } from './webfull'
 import { uiButtonsFeatures } from './ui-buttons'
 import { upSpacePopupFeatures } from './up-space-popup'
 import { videoRotateFeatures } from './video-rotate'
+import { initProgressSegmentTint } from './progress-segments'
 const logger = new LoggerService('VideoModule')
 const settingsComponent = new SettingsComponentV2()
 export default {
     name: 'video',
-    version: '3.32.2',
+    version: '3.33.0',
     async install () {
         this._cleanup = []
         this._modeObservers = []
@@ -86,6 +87,8 @@ export default {
         }
         await this.registSettings()
         await this.initEventListeners()
+        // 官方进度条上给「跳过片段」区间染色（等待进度条出现后自行挂载，幂等）
+        initProgressSegmentTint()
         this.initMonitors()
         this.initRemoteConfigSync()
         this.initPlaybackMemory()

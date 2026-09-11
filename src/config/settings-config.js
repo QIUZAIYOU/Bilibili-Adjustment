@@ -240,6 +240,13 @@ export const videoSettingsConfig = [
         category: 'ai',
         items: [
             {
+                id: 'progress_segment_tint',
+                type: 'checkbox',
+                label: '进度条片段染色',
+                tips: '在官方进度条上把跳过片段的区间染成深一档的蓝色，便于看出哪些部分会被跳过（不影响官方进度条本身的拖拽）',
+                defaultValue: true
+            },
+            {
                 id: 'auto_skip',
                 type: 'checkbox',
                 label: '跳过片段',

@@ -29,6 +29,8 @@ export const light = {
     colors: {
         // 品牌：brand_blue → Lb5_u；hover 取官方更亮一阶 Lb4_u（官方无 hover token）
         brand: '#00AEEC', // light_u.css --Lb5_u
+        // 进度条片段染色：官方蓝色系更深一档（浅色下仍保证可辨识）
+        'progress-tint': '#008AC5',
         'brand-hover': '#40C5F1', // light_u.css --Lb4_u
         'brand-rgb': '0,174,236', // light_u.css --Lb5_u_rgb
         'on-brand': '#FFFFFF', // map.css text_white → Wh0_u（恒白）
@@ -96,6 +98,8 @@ export const dark = {
     colors: {
         // 品牌：brand_blue → Lb5；hover 取官方更亮一阶 Lb6（官方无 hover token）
         brand: '#0087BD', // dark.css --Lb5
+        // 进度条片段染色：官方蓝色系更深一档
+        'progress-tint': '#00699D',
         'brand-hover': '#2C9CC8', // dark.css --Lb6
         'brand-rgb': '0,135,189', // dark.css --Lb5_rgb
         'on-brand': '#FFFFFF', // map.css text_white（恒白）

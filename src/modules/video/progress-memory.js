@@ -103,7 +103,14 @@ export const progressMemoryFeatures = {
         // 长按连发会不断重置计时，松开后统一保存一次
         this._playbackKeyboardSeekHandler = event => {
             if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return
-            if (!(event.target instanceof HTMLVideoElement) || !event.target.matches('#bilibili-player video')) return
+            // 旧实现要求 event.target 必须是 #bilibili-player 内的 <video>：
+            // 但 B 站播放器的方向键多由外层容器接收、焦点并不在 video 上，
+            // 条件几乎永不成立，导致连续快速按方向键时只能靠 timeupdate（10s 节流）被动跟随。
+            // 现在只要页面里存在播放器 video 即视为 seek，同时排除输入控件内的方向键。
+            if (!elementSelectors.get('video')) return
+            const target = event.target
+            const tag = target && target.tagName
+            if ((target && target.isContentEditable) || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return
             this._playbackSeekedKey = this._playbackKey
             clearTimeout(this._playbackSeekSaveTimer)
             this._playbackSeekSaveTimer = setTimeout(() => {

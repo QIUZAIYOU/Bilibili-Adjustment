@@ -55,6 +55,8 @@ export const sharedTokens = {
 export const defaultColors = {
     // 品牌
     brand: '#00a1d6',
+    // 进度条片段染色：沿用官方蓝色系、取更深的一档（官方进度条蓝 #00AEEC 同色系加深）
+    'progress-tint': '#006996',
     'brand-hover': '#00b8e6',
     'brand-rgb': '0, 161, 214',
     'on-brand': '#fff',
