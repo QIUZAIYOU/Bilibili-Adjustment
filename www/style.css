@@ -95,22 +95,14 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
    已有定位上下文的三个由玻璃卡片组提供，其余在此补齐 position: relative，
    否则它们的 ::after 会相对最近的定位祖先绘制、跑到别处去 */
 .visual-card,
-.feature-icon-lg,
-.brand-version,
-.step-tags span,
 .demo-player-chrome,
-.demo-feat,
 .btn { position: relative; }
 .feature-primary::after,
 .feature-card::after,
 .install-step::after,
 .visual-card::after,
-.feature-icon-lg::after,
-.brand-version::after,
-.step-tags span::after,
 .demo-player-full::after,
 .demo-player-chrome::after,
-.demo-feat::after,
 .btn::after {
     content: "";
     position: absolute;
@@ -131,12 +123,8 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .feature-card.is-lit::after,
 .install-step.is-lit::after,
 .visual-card.is-lit::after,
-.feature-icon-lg.is-lit::after,
-.brand-version.is-lit::after,
-.step-tags span.is-lit::after,
 .demo-player-full.is-lit::after,
 .demo-player-chrome.is-lit::after,
-.demo-feat.is-lit::after,
 .btn.is-lit::after { opacity: 1; }
 
 
@@ -446,7 +434,7 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     transition: all var(--dur) var(--ease);
 }
 /* hover 只保留轻微上浮：边框变亮交给「边缘光」，两者叠加会显得脏 */
-.feature-card:hover { transform: translateY(-3px); }
+/* hover 不做任何变化：亮边统一交给边缘光，避免两套反馈互相干扰 */
 .feature-card-icon {
     width: 42px; height: 42px;
     display: inline-flex; align-items: center; justify-content: center;
@@ -544,8 +532,6 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     to { opacity: 1; transform: translateX(0); }
 }
 /* ---- 功能图标悬停轻微上浮：只做反馈，不做夸张位移 ---- */
-.feature-card-icon { transition: transform var(--dur) var(--ease); }
-.feature-card:hover .feature-card-icon { transform: translateY(-2px); }
 @media (prefers-reduced-motion: reduce) {
     * { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
     html { scroll-behavior: auto; }
