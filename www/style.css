@@ -64,10 +64,47 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
         linear-gradient(rgba(53, 200, 245, 0.34) 1px, transparent 1px),
         linear-gradient(90deg, rgba(53, 200, 245, 0.34) 1px, transparent 1px);
     background-size: 44px 44px;
+    /* vibrancy：提饱和度+亮度，让被照到的网格显色更「透」而不是发白 */
+    filter: saturate(1.5) brightness(1.08);
     -webkit-mask-image: radial-gradient(circle 132px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 74%);
     mask-image: radial-gradient(circle 132px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 45%, transparent 74%);
     opacity: var(--glow-opacity, 0);
     pointer-events: none;
+}
+/* 玻璃材质层（借鉴鸿蒙「沉浸光感」的分层思路）：
+   玻璃体 = 边缘光学高光 glassBorder + 微弱白色漫反射高光（暗色下不把玻璃「染黑」）
+   + 伪折射（缩放背景网格）+ 色散镶边（粉色折射层 / 蓝色光照层）+ vibrancy 饱和度提升 */
+.bg-glass {
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    opacity: var(--glow-opacity, 0);
+    /* 三层叠加：边缘高光环 → 左上镜面反射点 → 中心冷色浸润 */
+    background:
+        radial-gradient(circle 138px at var(--mx, -400px) var(--my, -400px),
+            transparent 0%, rgba(53, 200, 245, 0.02) 44%,
+            rgba(255, 255, 255, 0.11) 64%, rgba(53, 200, 245, 0.16) 75%,
+            rgba(255, 255, 255, 0.05) 84%, transparent 95%),
+        radial-gradient(circle 46px at calc(var(--mx, -400px) - 30px) calc(var(--my, -400px) - 26px),
+            rgba(255, 255, 255, 0.16), transparent 72%),
+        radial-gradient(circle 120px at var(--mx, -400px) var(--my, -400px),
+            rgba(53, 200, 245, 0.10), rgba(53, 200, 245, 0.03) 58%, transparent 78%);
+    /* 玻璃体自身的透过特性：提升饱和度与亮度（vibrancy），而不是刷一层白 */
+    -webkit-backdrop-filter: saturate(1.45) brightness(1.06);
+    backdrop-filter: saturate(1.45) brightness(1.06);
+    -webkit-mask-image: radial-gradient(circle 152px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 84%);
+    mask-image: radial-gradient(circle 152px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.55) 55%, transparent 84%);
+}
+/* 厚度感：玻璃体上一道对角冷光带（边缘走到玻璃边缘时的内部反射） */
+.bg-glass::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: linear-gradient(135deg,
+        rgba(255, 255, 255, 0.07) 0%, transparent 34%,
+        transparent 62%, rgba(255, 255, 255, 0.05) 100%);
 }
 /* 折射层：同款网格以光标为 transform-origin 做极轻微缩放，
    越靠外与底层网格错位越大，在光照边缘形成「隔着玻璃看网格」的轻微形变 */
@@ -76,10 +113,11 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     position: absolute;
     inset: 0;
     background-image:
-        linear-gradient(rgba(53, 200, 245, 0.16) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(53, 200, 245, 0.16) 1px, transparent 1px);
+        linear-gradient(rgba(251, 114, 153, 0.20) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(251, 114, 153, 0.20) 1px, transparent 1px);
     background-size: 44px 44px;
-    transform: scale(0.982);
+    /* 伪折射：以光标为原点缩放背景网格，越靠外错位越大（鸿蒙应用层同款做法） */
+    transform: scale(0.966);
     transform-origin: var(--mx, -400px) var(--my, -400px);
     -webkit-mask-image: radial-gradient(circle 156px at var(--mx, -400px) var(--my, -400px), rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.38) 52%, transparent 80%);
     mask-image: radial-gradient(circle 156px at var(--mx, -400px) var(--my, -400px), rgba(0, 0, 0, 0.85) 0%, rgba(0, 0, 0, 0.38) 52%, transparent 80%);

@@ -83,9 +83,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 targetStrength = hit && hit.closest(OCCLUDERS) ? 0.32 : 1
             }
             strength += (targetStrength - strength) * 0.12
-            gridLayer.style.setProperty('--mx', curX.toFixed(1) + 'px')
-            gridLayer.style.setProperty('--my', curY.toFixed(1) + 'px')
-            gridLayer.style.setProperty('--glow-opacity', strength.toFixed(3))
+            document.documentElement.style.setProperty('--mx', curX.toFixed(1) + 'px')
+            document.documentElement.style.setProperty('--my', curY.toFixed(1) + 'px')
+            document.documentElement.style.setProperty('--glow-opacity', strength.toFixed(3))
             const settled = Math.abs(targetX - curX) < 0.5 && Math.abs(targetY - curY) < 0.5
             if (settled && Math.abs(targetStrength - strength) < 0.01) {
                 rafId = null
