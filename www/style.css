@@ -53,6 +53,24 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     -webkit-mask-image: radial-gradient(ellipse 90% 70% at 50% 0%, #000 30%, transparent 78%);
 }
 
+/* 指针光照：叠加同一张网格、换成更亮的品牌蓝，用径向 mask 限制在光标附近，
+   形成「网格线被照亮」的真实观感（外层还会被 .bg-grid 自身的顶部渐隐 mask 收边） */
+.bg-grid::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image:
+        linear-gradient(rgba(53, 200, 245, 0.38) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(53, 200, 245, 0.38) 1px, transparent 1px);
+    background-size: 44px 44px;
+    -webkit-mask-image: radial-gradient(circle 200px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.6) 42%, transparent 72%);
+    mask-image: radial-gradient(circle 200px at var(--mx, -400px) var(--my, -400px), #000 0%, rgba(0, 0, 0, 0.6) 42%, transparent 72%);
+    opacity: 0;
+    transition: opacity 0.4s var(--ease);
+    pointer-events: none;
+}
+body.pointer-glow .bg-grid::after { opacity: 1; }
+
 .bg-glow {
     position: fixed;
     z-index: -2;
@@ -441,11 +459,6 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 }
 
 /* ---- 大卡片：交替布局（图左文右）与间距 ---- */
-/* 交替：默认文案在左（1.1fr）图在右（0.9fr）；--reverse 连同列宽一起镜像，
-   否则仅 exchange order 会让文案落到窄列，视觉上仍是「文案在左」 */
-.feature-primary--reverse { grid-template-columns: 0.9fr 1.1fr; }
-.feature-primary--reverse .feature-primary-text { order: 2; }
-.feature-primary--reverse .feature-primary-visual { order: 1; }
 .feature-primary + .feature-primary { margin-top: 24px; }
 /* ---- 可视化卡片：入场后各行依次点亮（一次性，不循环，仅辅助阅读） ---- */
 [data-reveal].visible .visual-row { animation: adjRowIn 0.5s var(--ease) both; }

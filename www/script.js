@@ -51,4 +51,41 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' })
     revealTargets.forEach(el => revealObs.observe(el))
+
+    // ---- 指针光照：光标附近的网格被照亮 ----
+    // 仅精确指针设备启用；尊重 prefers-reduced-motion；缓动跟随，静止后停止 rAF 不空转
+    const gridLayer = document.querySelector('.bg-grid')
+    const finePointer = window.matchMedia('(hover: hover) and (pointer: fine)').matches
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (gridLayer && finePointer && !reduced) {
+        const IDLE = -400
+        let targetX = IDLE
+        let targetY = IDLE
+        let curX = IDLE
+        let curY = IDLE
+        let rafId = null
+        const tick = () => {
+            // 缓动跟随：光斑平滑追上光标，避免生硬跳变
+            curX += (targetX - curX) * 0.16
+            curY += (targetY - curY) * 0.16
+            gridLayer.style.setProperty('--mx', curX.toFixed(1) + 'px')
+            gridLayer.style.setProperty('--my', curY.toFixed(1) + 'px')
+            if (Math.abs(targetX - curX) < 0.5 && Math.abs(targetY - curY) < 0.5) {
+                rafId = null
+                return
+            }
+            rafId = requestAnimationFrame(tick)
+        }
+        window.addEventListener('pointermove', e => {
+            targetX = e.clientX
+            targetY = e.clientY
+            if (!document.body.classList.contains('pointer-glow')) {
+                document.body.classList.add('pointer-glow')
+            }
+            if (rafId === null) rafId = requestAnimationFrame(tick)
+        }, { passive: true })
+        const hide = () => document.body.classList.remove('pointer-glow')
+        document.addEventListener('pointerleave', hide)
+        window.addEventListener('blur', hide)
+    }
 })
