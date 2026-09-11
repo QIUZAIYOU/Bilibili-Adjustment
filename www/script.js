@@ -103,4 +103,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('pointerleave', hide)
         window.addEventListener('blur', hide)
     }
+
+    // ---- 卡片边缘光：光标进入卡片时点亮它 1px 的边框 ----
+    // 光点位置按光标在卡片内的相对坐标写入 --px/--py，光感跟着指针走（对应鸿蒙 lightEffect）；
+    // 监听挂在每张卡片自身上，所以只有被指向的那张卡片才产生计算
+    const LIT_SELECTOR = '.feature-primary, .feature-card, .install-step, .changelog-item'
+    if (window.matchMedia('(hover: hover) and (pointer: fine)').matches &&
+        !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+        document.querySelectorAll(LIT_SELECTOR).forEach(el => {
+            el.addEventListener('pointermove', e => {
+                const r = el.getBoundingClientRect()
+                el.style.setProperty('--px', (e.clientX - r.left).toFixed(1) + 'px')
+                el.style.setProperty('--py', (e.clientY - r.top).toFixed(1) + 'px')
+                el.classList.add('is-lit')
+            }, { passive: true })
+            el.addEventListener('pointerleave', () => el.classList.remove('is-lit'))
+        })
+    }
 })

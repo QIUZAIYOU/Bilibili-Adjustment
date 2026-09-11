@@ -71,6 +71,50 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
     opacity: var(--glow-opacity, 0);
     pointer-events: none;
 }
+/* ============ 玻璃卡片（借鉴鸿蒙 ImmersiveMaterial 的 glassFill / glassBorder）============ */
+/* glassFill：上亮下暗的极淡填充，而非纯色块；
+   glassBorder：顶边光学高光 + 底边内阴影表达玻璃厚度；
+   backdrop-filter 提供「透过背景」的材质感；
+   投影用低透明度环境光遮蔽，而不是把卡片压成实心方块 */
+.feature-primary,
+.feature-card,
+.install-step,
+.changelog-item {
+    position: relative;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.055), rgba(255, 255, 255, 0.018));
+    -webkit-backdrop-filter: blur(10px) saturate(1.18);
+    backdrop-filter: blur(10px) saturate(1.18);
+    border-color: rgba(255, 255, 255, 0.10);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.10),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.22),
+        0 10px 28px rgba(0, 0, 0, 0.26);
+}
+/* 边缘光：光标进入卡片时点亮它 1px 宽的边框（对应鸿蒙的触点光感反馈 lightEffect）。
+   用 mask-composite 把径向光只留在 border 区域，避免糊到卡片内容上 */
+.feature-primary::after,
+.feature-card::after,
+.install-step::after,
+.changelog-item::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: radial-gradient(200px circle at var(--px, 50%) var(--py, 0%),
+        rgba(53, 200, 245, 0.55), rgba(255, 255, 255, 0.18) 42%, transparent 72%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 0.35s var(--ease);
+    pointer-events: none;
+}
+.feature-primary.is-lit::after,
+.feature-card.is-lit::after,
+.install-step.is-lit::after,
+.changelog-item.is-lit::after { opacity: 1; }
 /* 玻璃材质层（借鉴鸿蒙「沉浸光感」的分层思路）：
    玻璃体 = 边缘光学高光 glassBorder + 微弱白色漫反射高光（暗色下不把玻璃「染黑」）
    + 伪折射（缩放背景网格）+ 色散镶边（粉色折射层 / 蓝色光照层）+ vibrancy 饱和度提升 */
