@@ -190,6 +190,12 @@ function generateBilibiliAdjustmentStyle () {
             border-color: var(--adj-border-hover);
         }
 
+        /* 有新版本时常驻提示：用主题成功色（绿）区别于「检查中/已是最新」等临时状态 */
+        .adjustment-popover-version-status.has-update {
+            color: var(--adj-success);
+            font-weight: 500;
+        }
+
         .adjustment-popover-version-status {
             position: absolute;
             top: 100%;

@@ -405,17 +405,27 @@ export class UpdateService {
             logger.info(`检查更新丨发现新版本 v${latestVersion}（当前 v${currentVersion}）`)
             // 无论哪种模式都把「有新版本」暴露给设置面板：手动模式唯一的提示途径就是版本号处
             this.#setPendingUpdateVersion(latestVersion)
-            if (await this.#getUpdateMode() === 'manual') {
+            const mode = await this.#getUpdateMode()
+            if (mode === 'manual') {
                 logger.info(`更新方式为「手动」：v${latestVersion} 仅在设置面板版本号处提示，不弹窗`)
                 return
             }
-            // 自动模式：同一新版本只弹一次。版本号处会一直提示，所以不会漏提醒（issue #27）
-            if (UpdateService.#getLastNotifiedVersion() === latestVersion) {
+            // 自动模式：同一「更新方式 + 版本」只弹一次。去重键带上方式，用户在设置里把
+            // 更新方式切到「自动」后，同一版本会重新弹一次（符合"选了自动就该看到弹窗"的直觉）。
+            // 版本号处始终提示，所以不会漏提醒（issue #27）。
+            const notifyKey = mode + ':' + latestVersion
+            if (UpdateService.#getLastNotifiedVersion() === notifyKey) {
                 logger.debug(`新版本 v${latestVersion} 已弹窗提示过，仅保留版本号处提示`)
                 return
             }
-            UpdateService.#setLastNotifiedVersion(latestVersion)
-            this.#showUpdatePopover(currentVersion, latestVersion, parseUpdateItems(latestUpdates || localUpdates))
+            // 必须在弹窗真正显示之后才记录：否则弹窗构造失败也会被标记为「已提示」，
+            // 导致之后永远不再弹窗（只剩版本号处提示）。
+            try {
+                this.#showUpdatePopover(currentVersion, latestVersion, parseUpdateItems(latestUpdates || localUpdates))
+                UpdateService.#setLastNotifiedVersion(notifyKey)
+            } catch (error) {
+                logger.error('显示更新弹窗失败，本次不记录已提示:', (error instanceof Error ? error.message : String(error)))
+            }
         } catch (error) {
             // 自动检查失败静默处理：用户没有主动请求，不该被打扰（需要手动反馈时用户会点版本号）
             logger.warn('检查更新失败（已忽略，不影响使用）:', (error instanceof Error ? error.message : String(error)))

@@ -481,7 +481,7 @@ export class SettingsComponentV2 {
             const pending = updateService.getPendingUpdateVersion()
             if (!pending) return
             clearTimeout(hideTimer ?? undefined)
-            statusEl.className = 'adjustment-popover-version-status'
+            statusEl.className = 'adjustment-popover-version-status has-update'
             statusEl.textContent = `有新版本 v${pending}，点击查看`
         }
         showPendingUpdate()
