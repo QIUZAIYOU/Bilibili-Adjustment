@@ -17,11 +17,19 @@ jobs:
         with:
           github-token: "${{ secrets.GITHUB_TOKEN }}"
 
-      - name: 自动合并安全更新（patch 和 minor）
-        if: ${{ steps.metadata.outputs.update-type == 'version-update:semver-patch' || steps.metadata.outputs.update-type == 'version-update:semver-minor' }}
+      # 条件判断「非 major」而非「是 patch / minor」：dependabot.yml 已开启分组，
+      # 分组 PR 的 update-type 可能为空，旧条件（== semver-patch || == semver-minor）
+      # 永不成立 → step 被 skipped → PR 无人合并。
+      # major 已在 dependabot.yml 里 ignore，不会出现在分组 PR 中，故「非 major」即可合并。
+      - name: 自动合并（跳过 major）
+        if: ${{ steps.metadata.outputs.update-type != 'version-update:semver-major' }}
         run: |
-          gh pr review --approve "$PR_URL"
-          gh pr merge --auto --squash "$PR_URL"
+          # 审批失败不阻断合并（自有仓库通常无需审批）
+          gh pr review --approve "$PR_URL" || true
+          # main 未设置必需状态检查，PR 处于 clean 状态可直接合并；此时 `gh pr merge --auto`
+          # 会被 GitHub 拒绝（enablePullRequestAutoMerge -> "Pull request is in clean status"），
+          # 因此 --auto 失败时回退为直接 squash 合并。
+          gh pr merge --auto --squash "$PR_URL" || gh pr merge --squash "$PR_URL"
         env:
           PR_URL: ${{ github.event.pull_request.html_url }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
