@@ -7,12 +7,10 @@
         </svg>
     </span>
 </template>
-<script setup>
+<script setup lang="ts">
 /**
  * 设置项提示图标（V3）
  * data-tooltip 与 V2 保持一致：沿用全局 tooltip 组件（initTooltip）的事件委托，无需额外接线。
  */
-defineProps({
-    text: { type: String, default: '' }
-})
+withDefaults(defineProps<{ text?: string }>(), { text: '' })
 </script>

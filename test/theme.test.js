@@ -1,9 +1,9 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 // 注：test hooks 不支持目录导入（vite 可解析目录 index，node hook 只补 .js），故显式 /index.js
-import { THEMES, THEME_LIST, DEFAULT_THEME } from '@/shared/theme/index.js'
-import { colorTokenKeys } from '@/shared/theme/index.js'
-import { generateThemeVariables } from '@/shared/theme/index.js'
+import { THEMES, THEME_LIST, DEFAULT_THEME } from '@/shared/theme/index'
+import { colorTokenKeys } from '@/shared/theme/index'
+import { generateThemeVariables } from '@/shared/theme/index'
 test('主题系统：注册三主题（night/light/dark），默认 night', () => {
     assert.deepEqual(Object.keys(THEMES).sort(), ['dark', 'light', 'night'])
     assert.equal(THEME_LIST.length, 3)

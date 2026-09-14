@@ -41,7 +41,7 @@ export default defineConfig(({ mode }) => ({
     plugins: [
         vue(),
         monkey({
-            entry: 'src/main.js',
+            entry: 'src/main.ts',
             build: {
                 fileName: mode === 'development' ? `${pkg.name}-dev.user.js` : `${pkg.name}.user.js`,
                 metaFileName: true

@@ -21,7 +21,7 @@
         </div>
     </div>
 </template>
-<script setup>
+<script setup lang="ts">
 /**
  * 更新通知弹窗内容面板
  *
@@ -35,14 +35,20 @@
  * - 无更新说明时渲染的是 div.adjustment-update-contents（旧实现同样是 div，不是 ul）；
  * - is-latest 仅加在第一条带版本号的条目上（与旧实现正则命中分支一致）。
  */
-defineProps({
+import type { UpdateItem } from '@/utils/update-items'
+withDefaults(defineProps<{
     /** 当前版本号 */
-    currentVersion: { type: String, default: '' },
+    currentVersion?: string
     /** 最新版本号 */
-    latestVersion: { type: String, default: '' },
+    latestVersion?: string
     /** 已解析的更新条目：[{ version, desc }]，version 为空表示该条无版本号 */
-    items: { type: Array, default: () => [] },
+    items?: UpdateItem[]
     /** 已是最新版本（手动检查时的反馈弹窗）：不展示更新列表，只提示已是最新 */
-    isLatest: { type: Boolean, default: false }
+    isLatest?: boolean
+}>(), {
+    currentVersion: '',
+    latestVersion: '',
+    items: () => [],
+    isLatest: false
 })
 </script>

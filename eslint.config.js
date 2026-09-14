@@ -1,7 +1,11 @@
 import js from '@eslint/js'
 import stylistic from '@stylistic/eslint-plugin'
+import ts from 'typescript-eslint'
 export default [
     js.configs.recommended,
+    // TypeScript 源码（TS 迁移期与 .js 并存）：类型语义由 tsc/vue-tsc 负责（npm run typecheck），
+    // eslint 只补充风格与常见错误；下方无 files 的共享块（globals + 风格规则）对 .ts 同样生效。
+    ...ts.configs.recommended.map(config => ({ ...config, files: ['**/*.ts']})),
     {
         languageOptions: {
             ecmaVersion: 'latest',
@@ -167,6 +171,20 @@ export default [
             'no-debugger': 'error',
             'no-dupe-keys': 'error',
             'no-undef': 'error'
+        }
+    },
+    {
+        files: ['**/*.ts'],
+        rules: {
+            // TS 编译器已覆盖这两类检查，且 no-undef 在类型导入/全局声明上误报率高
+            'no-undef': 'off',
+            // lodash 语义要求把 this 透传给原函数（lodash-lite 的 debounce/throttle），故放行
+            '@typescript-eslint/no-this-alias': 'off',
+            'no-unused-vars': 'off',
+            // 项目里大量使用 `cond && call()` 形式的短路调用（.js 时代即如此），保持一致
+            '@typescript-eslint/no-unused-expressions': 'off',
+            // `_` 前缀参数表示「刻意保留但不使用」（如兼容既有调用签名的参数）
+            '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }]
         }
     },
     {

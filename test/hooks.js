@@ -1,4 +1,11 @@
-// Node 模块解析 hook：复刻 vite 的解析行为（'@' 别名 + 省略扩展名的导入补全 .js）
+// Node 模块解析 hook：复刻 vite 的解析行为（'@' 别名 + 省略扩展名的导入补全 .js/.ts）
+//
+// TS 迁移期约定：
+// - 源码 .js / .ts 混排，导入一律省略扩展名（与 vite 一致），故补全时按 .js → .ts 顺序尝试；
+// - Node 22.18+ 默认启用「类型剥离」（type stripping），.ts 可直接被 --test 加载，
+//   无需 ts-node/tsx 等额外运行时；
+// - 类型剥离**不做类型转换**：enum / namespace / 参数属性会运行时报错，
+//   这也是本项目禁用它们的另一条理由（见 tsconfig.json 的 isolatedModules 与 docs/typescript-migration.md）。
 import { pathToFileURL, fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -7,7 +14,9 @@ const resolveWithExt = (target, baseUrl) => {
     const absolute = path.isAbsolute(target) ? target : path.resolve(baseUrl, target)
     // 已存在的目标（如 ../package.json）原样放行
     if (fs.existsSync(absolute)) return pathToFileURL(absolute).href
-    if (fs.existsSync(`${absolute}.js`)) return pathToFileURL(`${absolute}.js`).href
+    for (const ext of ['.js', '.ts']) {
+        if (fs.existsSync(`${absolute}${ext}`)) return pathToFileURL(`${absolute}${ext}`).href
+    }
     return null
 }
 export async function resolve (specifier, context, next) {

@@ -3,8 +3,14 @@ export const subtitleSwitchTemplates = {
     autoEnableSubtitleSwitchButtonTip: '<div id="autoEnableSubtitleTip" class="bpx-player-tooltip-item" style="visibility: hidden; opacity: 0; transform: translate(0px, 0px);" bilibili-adjustment-element><div class="bpx-player-tooltip-title">[[AUTOENABLESUBTITLESWITCHBUTTONTIPTEXT]]</div></div>'
 }
 /** 低层渲染：按 vars 替换 [[UPPER_SNAKE]] 占位符（供调用方内联使用） */
+/**
+ * 渲染字幕开关模板
+ * @param {string} key 模板键（subtitleSwitchTemplates 的键）
+ * @param {Record<string, unknown>} [vars] 占位符变量
+ */
 export const renderSubtitleButton = (key, vars = {}) => {
-    const template = subtitleSwitchTemplates[key]
+    // 模板键来自调用方（字符串），断言为字面量联合对象的索引视图
+    const template = /** @type {Record<string, string>} */ (subtitleSwitchTemplates)[key]
     if (!template) return ''
     let out = template
     for (const [name, value] of Object.entries(vars)) {

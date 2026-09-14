@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
-import { progressMemoryFeatures } from '../src/modules/video/progress-memory.js'
+import { progressMemoryFeatures } from '../src/modules/video/progress-memory'
 const makeVideo = overrides => ({
     readyState: 1,
     currentTime: 0,

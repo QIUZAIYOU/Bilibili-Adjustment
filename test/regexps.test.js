@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
-import { formatVideoCommentDescription, formatVideoCommentContents } from '../src/shared/regexps.js'
+import { formatVideoCommentDescription, formatVideoCommentContents } from '../src/shared/regexps'
 test('formatVideoCommentDescription 时间字符串转为可点击锚点', () => {
     const result = formatVideoCommentDescription('00:00 片头\n00:05:30 正片开始\n12:34:56 高潮部分', [])
     assert.ok(result.includes('<a data-type="seek" data-video-time="0" bilibili-adjustment-element>00:00</a>'))

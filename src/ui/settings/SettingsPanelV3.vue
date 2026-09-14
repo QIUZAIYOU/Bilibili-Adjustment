@@ -3,7 +3,7 @@
          这样最终 DOM 与经典渲染器完全一致（.adjustment-popover > .adjustment-form > 设置项） -->
     <template v-for="item in schema" :key="item.id || item.label">
         <!-- section：V2 用 .adjustment-section + 紧凑网格（全为 inline checkbox 时） -->
-        <div v-if="item.type === 'section'" class="adjustment-section" :class="item.id">
+        <div v-if="item.type === 'section'" class="adjustment-section" :class="item.id" :style="sectionVisibleStyle(item)">
             <div class="adjustment-section-title">{{ item.label }}</div>
             <div :class="sectionLayoutClass(item)">
                 <SettingItemV3
@@ -29,7 +29,7 @@
         />
     </template>
 </template>
-<script setup>
+<script setup lang="ts">
 /**
  * 设置面板 V3
  *
@@ -43,37 +43,59 @@
  * configs、dynamicOptions 为宿主持有的响应式对象：宿主侧修改即驱动面板重渲染
  * （跨标签同步、模型列表刷新都不需要再操作 DOM）。
  */
+import type { SettingItemSchema, SettingOption } from '@/config/settings-config'
 import SettingItemV3 from './controls/SettingItemV3.vue'
 
-const props = defineProps({
+const props = withDefaults(defineProps<{
     /** 设置项 schema 数组（videoSettingsConfig / dynamicSettingsConfig） */
-    schema: { type: Array, default: () => [] },
+    schema?: SettingItemSchema[]
     /** 当前配置值（扁平标量 map，宿主响应式对象） */
-    configs: { type: Object, default: () => ({}) },
+    configs?: Record<string, unknown>
     /** 动态选项：{ [configId]: [{ value, label }] }（如模型列表，宿主响应式对象） */
-    dynamicOptions: { type: Object, default: () => ({}) },
+    dynamicOptions?: Record<string, SettingOption[]>
     /** 配置变更回调（key, value） */
-    onChange: { type: Function, default: null },
+    onChange?: ((key: string, value: unknown) => void) | null
     /** 校验按钮回调（key） */
-    onValidate: { type: Function, default: null },
+    onValidate?: ((key: string) => void) | null
     /** 刷新按钮回调（key） */
-    onRefresh: { type: Function, default: null }
+    onRefresh?: ((key: string) => void) | null
+}>(), {
+    schema: () => [],
+    configs: () => ({}),
+    dynamicOptions: () => ({}),
+    onChange: null,
+    onValidate: null,
+    onRefresh: null
 })
-const emit = defineEmits(['change', 'validate', 'refresh'])
-const handleChange = (key, value) => {
+const emit = defineEmits<{
+    change: [key: string, value: unknown]
+    validate: [key: string]
+    refresh: [key: string]
+}>()
+const handleChange = (key: string, value: unknown) => {
     if (typeof props.onChange === 'function') props.onChange(key, value)
     else emit('change', key, value)
 }
-const handleValidate = key => {
+const handleValidate = (key: string) => {
     if (typeof props.onValidate === 'function') props.onValidate(key)
     else emit('validate', key)
 }
-const handleRefresh = key => {
+const handleRefresh = (key: string) => {
     if (typeof props.onRefresh === 'function') props.onRefresh(key)
     else emit('refresh', key)
 }
 /** 全为 inline checkbox 的子项使用紧凑网格布局（与 V2 一致） */
-const sectionLayoutClass = item => {
+/** section 也支持 visible：不可见时整块（含标题与全部子项）隐藏，避免只剩孤零零的标题 */
+const isItemVisible = (item: SettingItemSchema): boolean => {
+    if (item.visible === undefined) return true
+    if (typeof item.visible === 'function') return Boolean(item.visible(props.configs))
+    return Boolean(item.visible)
+}
+// 可见时**返回空字符串**（不写 display）：.adjustment-section 自身是 display: flex，
+// 若在此写死 display: block 会覆盖它 —— gap 失效，且宽度收缩行为从 flex item 变为 block，
+// 表现为「悬停控件时（滚动条加宽导致内容宽度变化）控件位移几个像素」。
+const sectionVisibleStyle = (item: SettingItemSchema): string => isItemVisible(item) ? '' : 'display: none;'
+const sectionLayoutClass = (item: SettingItemSchema) => {
     const allInline = (item.items || []).every(subItem => subItem.inline && subItem.type === 'checkbox')
     return allInline ? 'adjustment-section-content compact-grid' : 'adjustment-section-content'
 }

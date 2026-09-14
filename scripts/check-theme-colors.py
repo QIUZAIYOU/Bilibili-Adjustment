@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 """
 主题迁移静态断言（docs/theme-system.md §7 阶段4 / R6）：
-检查 src 下所有 .js 是否残留「字面色值」，保证样式全部走 var(--adj-*) 主题变量。
+检查 src 下所有 .js/.ts/.vue 是否残留「字面色值」，保证样式全部走 var(--adj-*) 主题变量。
 
 允许的例外：
 - src/shared/theme/：变量定义唯一来源（token 值）
-- logger.service.js：console %c 输出配色（开发者日志，非 UI）
+- logger.service.js/.ts：console %c 输出配色（开发者日志，非 UI）
 - SVG/HTML 中 fill="#" 属性：B 站官方克隆控件原色（跟随官方，见方案 §2）
 - 注释中的色值说明
 用法：python scripts/check-theme-colors.py；退出码 0=通过，1=存在残留
@@ -18,7 +18,9 @@ import sys
 HEX = re.compile(r'#[0-9a-fA-F]{3}\b|#[0-9a-fA-F]{6}\b')
 RGB = re.compile(r'rgba?\([^)]*\)')
 ALLOW_DIR = ('theme',)
-ALLOW_FILE = ('logger.service.js',)
+# 参与扫描的源码扩展名（.vue 只按行扫，模板里的 SVG fill 属性已由下方 fill= 规则豁免）
+SRC_EXTS = ('.js', '.ts', '.vue')
+ALLOW_FILE = ('logger.service.js', 'logger.service.ts')
 
 
 def has_literal_color(line):
@@ -35,7 +37,7 @@ def main(root):
     hits = []
     for base, _, files in os.walk(root):
         for f in files:
-            if not f.endswith('.js'):
+            if not f.endswith(SRC_EXTS):
                 continue
             fp = os.path.join(base, f)
             rel = os.path.relpath(fp, root).replace('\\', '/')

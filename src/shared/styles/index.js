@@ -109,14 +109,15 @@ function generateBilibiliAdjustmentStyle () {
             display: none !important;
         }
 
+        /* 入场只做透明度淡入：原实现为 scale(0.96) + translateY(10px)，当设置项增多、弹窗变高后，
+           该变换会在打开瞬间造成最多约二十余像素的整体位移（高 800px 时 0.96 的缩放即带来 ~16px
+           偏移），会被误判成「悬停开关时开关下移」。淡入不改变任何几何尺寸。 */
         @keyframes adjustment-popover-in {
             from {
                 opacity: 0;
-                transform: scale(0.96) translateY(10px);
             }
             to {
                 opacity: 1;
-                transform: scale(1) translateY(0);
             }
         }
 
@@ -285,6 +286,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-section-title {
+            margin-bottom: 10px;
             font-size: 16px;
             font-weight: 700;
             color: var(--adj-text-strong);
@@ -337,7 +339,8 @@ function generateBilibiliAdjustmentStyle () {
             border-radius: 10px;
             background: var(--adj-bg-surface);
             border: 1px solid transparent;
-            transition: all 0.15s ease;
+            /* 只过渡外观属性：transition: all 会把任何属性变化都做成动画，易产生意外位移 */
+            transition: border-color 0.15s ease, background-color 0.15s ease;
         }
 
         .adjustment-setting-item:hover {
@@ -396,7 +399,7 @@ function generateBilibiliAdjustmentStyle () {
             border-radius: 13px;
             background: var(--adj-switch-track);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: background-color 0.2s ease;
             flex-shrink: 0;
             -webkit-tap-highlight-color: transparent;
         }
@@ -415,12 +418,18 @@ function generateBilibiliAdjustmentStyle () {
 
         .adjustment-switch input {
             position: absolute;
-            opacity: 0;
+            /* 必须显式给出偏移：绝对定位元素不写 top/left 时会退回 static position，
+               该位置由行盒决定，任何行内布局微变（hover 重排、滚动条加宽等）都会让它莫名偏移
+               —— 这正是「开关 input 会下移几个像素、而带显式 top 的 knob 不动」的原因 */
+            top: 0;
+            left: 0;
             width: 100%;
             height: 100%;
+            margin: 0;
+            padding: 0;
+            opacity: 0;
             cursor: pointer;
             z-index: 2;
-            margin: 0;
         }
 
         .adjustment-switch-knob {
@@ -431,7 +440,7 @@ function generateBilibiliAdjustmentStyle () {
             height: 22px;
             border-radius: 50%;
             background: var(--adj-on-brand);
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transition: left 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
             box-shadow: var(--adj-shadow-sm);
             pointer-events: none;
         }
@@ -441,6 +450,66 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         /* ========== 子设置项容器 ========== */
+        /* ========== 设置分组导航 ========== */
+        /* 漂浮在弹窗左侧外侧（不占设置内容宽度）：弹窗固定 550px 宽且水平居中，
+           故右边缘贴在弹窗左边缘外 12px 处 */
+        .adjustment-settings-nav {
+            position: fixed;
+            /* top 由脚本按弹窗头部下边框实测对齐（这里只是脚本未接手时的兜底值） */
+            top: 16vh;
+            right: calc(50% + 275px + 10px);
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            max-height: 70vh;
+            overflow-y: auto;
+            padding: 6px;
+            background: var(--adj-bg-surface);
+            border: 1px solid var(--adj-border);
+            border-radius: 10px;
+            box-shadow: var(--adj-shadow-dialog);
+            z-index: var(--adj-z-popover);
+        }
+
+        .adjustment-settings-nav.is-closed {
+            display: none;
+        }
+
+        .adjustment-settings-nav-item {
+            padding: 6px 12px;
+            border: none;
+            border-radius: 6px;
+            background: transparent;
+            color: var(--adj-text-secondary);
+            font-size: 12px;
+            line-height: 1.4;
+            text-align: left;
+            white-space: nowrap;
+            cursor: pointer;
+        }
+
+        .adjustment-settings-nav-item:hover {
+            background: var(--adj-bg-page);
+            color: var(--adj-text-primary);
+        }
+
+        .adjustment-settings-nav-item.is-active {
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
+        }
+
+        /* 该分组的 section 当前不可见（开关未开启）时，导航项一并隐藏 */
+        .adjustment-settings-nav-item.is-hidden {
+            display: none;
+        }
+
+        /* 视口放不下（弹窗左侧空间不足）时隐藏，避免挤出屏幕 */
+        @media (max-width: 900px) {
+            .adjustment-settings-nav {
+                display: none;
+            }
+        }
+
         .adjustment-setting-children {
             display: flex;
             gap: 12px;
@@ -456,6 +525,20 @@ function generateBilibiliAdjustmentStyle () {
             min-width: 140px;
             padding: 12px 16px;
             margin: 0;
+        }
+
+        /* 三级及以上子项容器：不再嵌套卡片（卡片套卡片会边框叠内边距、视觉拥挤），
+           改用左侧竖线表示层级，背景透明、缩进收窄 */
+        .adjustment-setting-children .adjustment-setting-children {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
+            padding: 4px 0 4px 12px;
+            background: transparent;
+            border: none;
+            border-left: 2px solid var(--adj-border-strong);
+            border-radius: 0;
+            overflow-x: visible;
         }
 
         /* ========== 紧凑开关项（用于日志等） ========== */

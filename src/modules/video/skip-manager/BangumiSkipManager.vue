@@ -44,7 +44,7 @@
                             </div>
                             <div class="staging-list">
                                 <div v-if="stagingView.length === 0" class="empty-result">暂无待提交片段，请在下方添加</div>
-                                <div v-else v-for="(seg, si) in stagingView" :key="'s' + si" class="staging-item" :class="{ editing: editing === si }">
+                                <div v-else v-for="(seg, si) in stagingView" :key="'s' + si" class="staging-item" :class="{ editing: viewEditing === si }">
                                     <span class="segment-time">{{ formatTime(seg.start) }} - {{ formatTime(seg.end) }}</span>
                                     <div class="staging-actions">
                                         <div class="staging-edit" title="编辑" @click.stop="startEdit(si)">✎</div>
@@ -141,48 +141,67 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { commitCache, loadEpisodesCache, commitBatch } from './skip-manager-service'
 import { formatTime, mergeSegments, validateSegment, parseTime, parseDuration, getCurrentUid } from './pure'
+import type { SkipSegment, SkipCacheEntry, SkipManagerEnv, SkipEpisode } from './types'
 
-const props = defineProps({
-    bvid: { type: String, required: true },
-    env: { type: Object, required: true }
-})
+const props = defineProps<{
+    /** 视频 bvid（番剧页为当前分集 bvid） */
+    bvid: string
+    /** 宿主注入的服务环境（见 types.d.ts#SkipManagerEnv） */
+    env: SkipManagerEnv
+}>()
 const env = props.env
-const uid = () => (env.uidProvider ? env.uidProvider() : getCurrentUid())
+const uid = (): number | null => (env.uidProvider ? env.uidProvider() : getCurrentUid())
+/** 覆盖选择 / 批量确认模态的状态（kind 决定模板分支） */
+interface SkipModalState {
+    kind: 'overwrite' | 'all-confirm' | 'confirm'
+    /** 覆盖选择的候选片段（非 overwrite 分支传空数组，模板只在 overwrite 分支读取） */
+    existing: SkipSegment[]
+    picked: number[]
+    count?: number
+    text?: string
+}
+/** 模态回传值：不同 kind 回传不同类型（见 closeModal / modalResolve 赋值点） */
+type ModalResolveValue = 'all' | 'pick' | 'append' | 'overwrite' | number[] | boolean | null
+/** 各集暂存（按 epId 保存在内存，随面板生命周期） */
+interface StagingEntry {
+    segments: SkipSegment[]
+    editingIndex: number
+}
 
 const tick = ref(0)
 const bump = () => { tick.value++ }
-const accordionListEl = ref(null)
+const accordionListEl = ref<HTMLElement | null>(null)
 const error = ref('')
 const loading = ref(true)
-const expandedId = ref(null)
+const expandedId = ref<string | null>(null)
 const allBusy = ref(false)
 const message = reactive({ text: '', type: '' })
 const epMsg = reactive({ text: '', type: '' })
-const modal = ref(null)
-let modalResolve = null
+const modal = ref<SkipModalState | null>(null)
+let modalResolve: ((value: ModalResolveValue) => void) | null = null
 // —— 视图数据全部为「普通结构」，渲染经 computed + tick 版本号触发，
 //    彻底避开 Vue 响应式代理数组的迭代递归（此前 RangeError 栈溢出根因）——
-const episodes = { value: [] } // 精简剧集 {id, ep_id, cid, title, long_title}
-const cacheMap = {} // epId -> cached（普通对象）
-const persistedStaging = { map: {} } // 各集暂存（普通对象）
-const activeStaging = { value: [] } // 当前展开集暂存（普通数组）
+const episodes = { value: [] as SkipEpisode[] } // 精简剧集 {id, ep_id, cid, title, long_title}
+const cacheMap: Record<string, SkipCacheEntry | null | undefined> = {} // epId -> cached（普通对象）
+const persistedStaging: { map: Record<string, StagingEntry | undefined> } = { map: {} } // 各集暂存（普通对象）
+const activeStaging = { value: [] as SkipSegment[] } // 当前展开集暂存（普通数组）
 const editingIndex = { value: -1 } // 当前编辑下标
 const epMode = ref('start-end')
 const sTime = ref('')
 const eTime = ref('')
 const dur = ref('')
 
-const epId = ep => String(ep && ep.id != null ? ep.id : (ep && ep.ep_id != null ? ep.ep_id : ''))
+const epId = (ep: SkipEpisode | null | undefined): string => String(ep && ep.id != null ? ep.id : (ep && ep.ep_id != null ? ep.ep_id : ''))
 /** 依据标题文本在剧集中匹配（兼容「第N集」/「上中下」/任意集名）：先精确匹配，再按候选长度降序包含匹配 */
-const matchEpisodeByTitle = titleText => {
-    const norm = s => String(s || '').replace(/\s+/g, '')
+const matchEpisodeByTitle = (titleText: string): string | null => {
+    const norm = (s?: unknown) => String(s || '').replace(/\s+/g, '')
     const key = norm(titleText)
     if (!key) return null
-    const labelsOf = ep => {
+    const labelsOf = (ep: SkipEpisode): string[] => {
         const raw = String(ep.title || '').trim()
         const numLabel = /^\d+$/.test(raw) ? '第' + raw + '集' : raw
         const long = String(ep.long_title || '').trim()
@@ -191,7 +210,7 @@ const matchEpisodeByTitle = titleText => {
     for (const ep of episodes.value) {
         if (labelsOf(ep).includes(key)) return epId(ep)
     }
-    const cands = []
+    const cands: Array<{ ep: SkipEpisode; l: string }> = []
     episodes.value.forEach(ep => labelsOf(ep).forEach(l => cands.push({ ep, l })))
     cands.sort((a, b) => b.l.length - a.l.length)
     for (const { ep, l } of cands) {
@@ -200,16 +219,16 @@ const matchEpisodeByTitle = titleText => {
     return null
 }
 /** 解析当前播放分集的 epId（用于默认展开），优先级：URL ep → 播放器视频 cid → 页面状态 → DOM 高亮 → 传入 id → null */
-const resolveCurrentEpId = episodes => {
+const resolveCurrentEpId = (episodes: SkipEpisode[]): string | null => {
     const list = episodes.map(epId)
-    const inList = v => list.includes(String(v))
+    const inList = (v: unknown) => list.includes(String(v))
     try {
         const m = window.location.pathname.match(/\/bangumi\/play\/ep(\d+)/)
         if (m && inList(m[1])) return m[1]
     } catch { /* 忽略异常 */ }
     // ss 季页/SPA 场景 URL 无 ep：从播放器正在播放的视频 src 提取 cid 反查当前集（纯 DOM，沙盒可用）
     try {
-        const video = document.querySelector('#bilibili-player video, .bpx-player-video-wrap video')
+        const video = document.querySelector('#bilibili-player video, .bpx-player-video-wrap video') as HTMLVideoElement | null
         const src = video ? (video.currentSrc || video.getAttribute('src') || '') : ''
         const cidMatch = src.match(/[?&]cid=(\d+)/)
         if (cidMatch) {
@@ -219,12 +238,15 @@ const resolveCurrentEpId = episodes => {
     } catch { /* 忽略异常 */ }
     try {
         const st = window.__INITIAL_STATE__
-        let curId = null
+        let curId: unknown = null
         if (st && st.epInfo && st.epInfo.id != null) {
             curId = st.epInfo.id
-        } else if (Array.isArray(st && st.epList)) {
-            const cur = st.epList.find(e => e && (e.now === true || e.now === 1))
-            if (cur) curId = cur.id != null ? cur.id : cur.ep_id
+        } else {
+            const epList = st?.epList
+            if (Array.isArray(epList)) {
+                const cur = (epList as SkipEpisode[]).find(e => e && (e.now === true || e.now === 1))
+                if (cur) curId = cur.id != null ? cur.id : cur.ep_id
+            }
         }
         if (curId != null && inList(curId)) return String(curId)
     } catch { /* 忽略异常 */ }
@@ -239,7 +261,8 @@ const resolveCurrentEpId = episodes => {
     } catch { /* 忽略异常 */ }
     try {
         const active = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')].find(a => /(^|\s)(active|current)(\s|$)/.test(a.className || ''))
-        const domId = active && active.getAttribute('href') ? active.getAttribute('href').match(/ep(\d+)/) : null
+        const activeHref = active ? active.getAttribute('href') : null
+        const domId = activeHref ? activeHref.match(/ep(\d+)/) : null
         if (domId && inList(domId[1])) return domId[1]
     } catch { /* 忽略异常 */ }
     // 从页面标题反查当前集（ss 季页播放中的标题通常为当前分集名）
@@ -251,7 +274,7 @@ const resolveCurrentEpId = episodes => {
             if (n >= 1 && n <= episodes.length) return epId(episodes[n - 1])
         }
         // ②集名包含匹配（标题为集名且长度足够避免误判）
-        const norm = s => String(s || '').replace(/\s+/g, '')
+        const norm = (s?: unknown) => String(s || '').replace(/\s+/g, '')
         const dt = norm(document.title)
         for (const ep of episodes) {
             const raw = String(ep.title || '').trim()
@@ -262,11 +285,11 @@ const resolveCurrentEpId = episodes => {
     if (inList(props.bvid)) return String(props.bvid)
     return null
 }
-const epNum = (ep, i) => {
+const epNum = (ep: SkipEpisode, i: number): string => {
     const t = (ep.title || '').replace(/[^\d]/g, '')
     return t || String(i + 1)
 }
-const epTitle = ep => {
+const epTitle = (ep: SkipEpisode): string => {
     const t = (ep.title || '').trim()
     const label = /^\d+$/.test(t) ? '第' + t + '集' : t
     const long = ep.long_title ? ' ' + ep.long_title : ''
@@ -287,36 +310,38 @@ const viewEditing = computed(() => {
 })
 const cachedSegments = computed(() => {
     void tick.value
-    const c = cacheMap[expandedId.value]
+    const c = cacheMap[expandedId.value ?? '']
     return c && c.segments ? mergeSegments(c.segments) : []
 })
 const ownerLockVisible = computed(() => {
     void tick.value
-    const c = cacheMap[expandedId.value]
+    const c = cacheMap[expandedId.value ?? '']
     return !!(c && c.uploader_uid && c.uploader_uid === uid())
 })
 const lockedState = computed(() => {
     void tick.value
-    const c = cacheMap[expandedId.value]
+    const c = cacheMap[expandedId.value ?? '']
     return c && c.locked ? '已锁定：他人无法修改此集数据' : '未锁定：他人可修改'
 })
 const lockedStateText = computed(() => {
     void tick.value
-    const c = cacheMap[expandedId.value]
+    const c = cacheMap[expandedId.value ?? '']
     return c && c.locked ? '已锁定' : '未锁定'
 })
 const anyStaging = computed(() => {
     void tick.value
     return Object.values(persistedStaging.map).some(s => s && s.segments && s.segments.length > 0)
 })
-const previewOf = id => {
+const previewOf = (id: string): string => {
     void tick.value
     const c = cacheMap[id]
     if (!c || !c.segments || c.segments.length === 0) return '无片段'
     const merged = mergeSegments(c.segments)
     return merged.slice(0, 3).map(s => formatTime(s.start) + '-' + formatTime(s.end)).join(', ') + (merged.length > 3 ? '...' : '')
 }
-const showMsg = (text, type = '', duration = 3000) => {
+/** showMsg/showEpMsg 上挂计时器句柄（沿用旧实现的函数属性写法） */
+type MsgFn = ((text: string, type?: string, duration?: number) => void) & { _t?: ReturnType<typeof setTimeout> }
+const showMsg: MsgFn = (text, type = '', duration = 3000) => {
     message.text = text
     message.type = type
     if (duration > 0) {
@@ -327,7 +352,7 @@ const showMsg = (text, type = '', duration = 3000) => {
         }, duration)
     }
 }
-const showEpMsg = (text, type = 'warn', duration = 3000) => {
+const showEpMsg: MsgFn = (text, type = 'warn', duration = 3000) => {
     epMsg.text = text
     epMsg.type = type
     if (duration > 0) {
@@ -341,17 +366,17 @@ const showEpMsg = (text, type = 'warn', duration = 3000) => {
 
 const saveActiveToMap = () => {
     if (!expandedId.value) return
-    persistedStaging.map[expandedId.value] = { segments: [...activeStaging.value], editingIndex: editingIndex.value }
+    persistedStaging.map[expandedId.value ?? ''] = { segments: [...activeStaging.value], editingIndex: editingIndex.value }
     bump()
 }
 const syncActiveFromMap = () => {
-    const saved = persistedStaging.map[expandedId.value]
+    const saved = persistedStaging.map[expandedId.value ?? '']
     activeStaging.value = saved && saved.segments ? [...saved.segments].sort((a, b) => a.start - b.start) : []
     editingIndex.value = saved && typeof saved.editingIndex === 'number' ? saved.editingIndex : -1
     bump()
 }
 
-const toggleEpisode = async id => {
+const toggleEpisode = async (id: string | null): Promise<void> => {
     if (expandedId.value === id) {
         saveActiveToMap()
         expandedId.value = null
@@ -376,7 +401,7 @@ const scrollToExpanded = () => {
     el.scrollTop += headerRect.top - elRect.top - padTop
 }
 const toggleLock = async () => {
-    const id = expandedId.value
+    const id = expandedId.value ?? ''
     const entry = cacheMap[id]
     if (!entry || !env.lockCache) return
     try {
@@ -433,7 +458,7 @@ const commitStaging = () => {
     clearForm()
     saveActiveToMap()
 }
-const startEdit = i => {
+const startEdit = (i: number) => {
     const seg = activeStaging.value[i]
     editingIndex.value = i
     if (epMode.value === 'start-end') {
@@ -446,7 +471,7 @@ const startEdit = i => {
     }
     bump()
 }
-const removeStaging = i => {
+const removeStaging = (i: number) => {
     activeStaging.value.splice(i, 1)
     if (editingIndex.value === i) clearForm()
     else if (editingIndex.value > i) editingIndex.value--
@@ -457,15 +482,15 @@ const cancelEdit = () => {
     clearForm()
 }
 
-const closeModal = value => {
+const closeModal = (value: ModalResolveValue) => {
     if (modalResolve) modalResolve(value)
     modal.value = null
     modalResolve = null
 }
 
-const updateEpisode = async kind => {
+const updateEpisode = async (kind: 'append' | 'overwrite'): Promise<void> => {
     if (activeStaging.value.length === 0) { showEpMsg('请先在暂存区添加片段'); return }
-    const id = expandedId.value
+    const id = expandedId.value ?? ''
     const source = mergeSegments(activeStaging.value)
     const cached = cacheMap[id]
     const existing = cached && cached.segments && cached.segments.length > 0 ? mergeSegments(cached.segments) : []
@@ -476,7 +501,7 @@ const updateEpisode = async kind => {
         if (existing.length === 0) {
             finalSegments = source
         } else {
-            const picked = await new Promise(resolve => {
+            const picked = await new Promise<ModalResolveValue>(resolve => {
                 modal.value = { kind: 'overwrite', existing, picked: existing.map((_, i) => i) }
                 modalResolve = v => {
                     if (v === 'pick') resolve(modal.value ? modal.value.picked : [])
@@ -487,7 +512,11 @@ const updateEpisode = async kind => {
             })
             if (picked === null) return
             if (picked === 'all') finalSegments = source
-            else finalSegments = mergeSegments([...existing.filter((_, i) => !picked.includes(i)), ...source])
+            else {
+                // modalResolve 已把 'pick' 转为选中的索引数组；非数组分支仅为类型兜底（保留全部已有片段）
+                const keepIndexes = Array.isArray(picked) ? picked : []
+                finalSegments = mergeSegments([...existing.filter((_, i) => !keepIndexes.includes(i)), ...source])
+            }
         }
     }
     try {
@@ -499,12 +528,12 @@ const updateEpisode = async kind => {
         showEpMsg(kind === 'append' ? '缓存已更新（追加）' : '缓存已更新（覆盖）', 'success')
         bump()
     } catch (error) {
-        showEpMsg('更新缓存失败：' + (error && error.message ? error.message : '请稍后重试'))
+        showEpMsg('更新缓存失败：' + (error instanceof Error ? error.message : '请稍后重试'))
     }
 }
 
 const applyToAll = async () => {
-    const id = expandedId.value
+    const id = expandedId.value ?? ''
     if (activeStaging.value.length === 0) { showEpMsg('请先在暂存区添加片段'); return }
     const source = mergeSegments(activeStaging.value)
     for (const ep of episodes.value) {
@@ -518,8 +547,8 @@ const applyToAll = async () => {
 }
 const clearOthers = async () => {
     if (episodes.value.length <= 1) { showEpMsg('当前无其他集可清空'); return }
-    const id = expandedId.value
-    const items = []
+    const id = expandedId.value ?? ''
+    const items: Array<{ episodeId: string; cached: SkipCacheEntry | null; addSegments?: SkipSegment[]; replaceSegments?: SkipSegment[] | null }> = []
     for (const ep of episodes.value) {
         const eid = epId(ep)
         if (eid === id) continue
@@ -544,8 +573,8 @@ const clearOthers = async () => {
         showEpMsg('批量清空失败，请重试')
     }
 }
-const confirmEp = text => new Promise(resolve => {
-    modal.value = { kind: 'confirm', text, picked: [] }
+const confirmEp = (text: string): Promise<ModalResolveValue> => new Promise(resolve => {
+    modal.value = { kind: 'confirm', existing: [], text, picked: [] }
     modalResolve = resolve
 })
 
@@ -553,17 +582,18 @@ const openUpdateAll = async () => {
     saveActiveToMap()
     const count = Object.values(persistedStaging.map).filter(s => s && s.segments && s.segments.length > 0).length
     if (count === 0) { showMsg('暂存区无数据，无需更新'); return }
-    const mode = await new Promise(resolve => {
-        modal.value = { kind: 'all-confirm', count, picked: [] }
+    const mode = await new Promise<ModalResolveValue>(resolve => {
+        modal.value = { kind: 'all-confirm', existing: [], count, picked: [] }
         modalResolve = resolve
     }).finally(() => {
         if (modal.value && modal.value.kind === 'all-confirm') { modal.value = null; modalResolve = null }
     })
-    if (!mode || mode === 'cancel') return
+    // 注：closeModal 只会回传 'overwrite' / 'append'（或 null），'cancel' 分支在任何路径下都不可达
+    if (!mode) return
     allBusy.value = true
     showMsg('正在更新 ' + count + ' 集缓存...', '', 0)
     try {
-        const items = []
+        const items: Array<{ episodeId: string; cached: SkipCacheEntry | null; addSegments?: SkipSegment[]; replaceSegments?: SkipSegment[] | null }> = []
         for (const ep of episodes.value) {
             const eid = epId(ep)
             const stagingSegs = (persistedStaging.map[eid] && persistedStaging.map[eid].segments) || []
@@ -598,16 +628,16 @@ const openUpdateAll = async () => {
 
 onMounted(async () => {
     const id = props.bvid
-    let info = null
+    let info: { episodes?: SkipEpisode[] } | null = null
     try {
-        info = await env.season(id)
+        info = await env.season!(id)
         console.info('[BA-Bangumi] season 返回 episodes 数量 =', info && info.episodes ? info.episodes.length : '无 episodes 字段')
     } catch (err) {
-        console.warn('[BA-Bangumi] 加载番剧失败：', err && err.message ? err.message : err)
+        console.warn('[BA-Bangumi] 加载番剧失败：', err instanceof Error ? err.message : err)
     }
     if (info && Array.isArray(info.episodes) && info.episodes.length > 0) {
         // 仅保留渲染所需最小字段，避免把 B 站接口大对象整块放入响应式（深代理递归/性能）
-        episodes.value = info.episodes.map(raw => ({
+        episodes.value = info.episodes.map((raw: SkipEpisode) => ({
             id: raw.id != null ? raw.id : raw.ep_id,
             ep_id: raw.ep_id != null ? raw.ep_id : raw.id,
             cid: raw.cid != null ? raw.cid : null,
@@ -628,7 +658,7 @@ onMounted(async () => {
             bump()
             nextTick(() => requestAnimationFrame(scrollToExpanded))
         } catch (err) {
-            console.warn('[BA-Bangumi] 装载剧集数据异常（列表仍可用）：', err && err.message ? err.message : err)
+            console.warn('[BA-Bangumi] 装载剧集数据异常（列表仍可用）：', err instanceof Error ? err.message : err)
             expandedId.value = target
             bump()
             nextTick(() => requestAnimationFrame(scrollToExpanded))

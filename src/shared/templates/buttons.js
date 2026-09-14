@@ -8,8 +8,14 @@ export const buttonTemplates = {
     indexRecommendVideoHistoryOpenButton: '<button id="indexRecommendVideoHistoryOpenButton" class="primary-btn roll-btn" bilibili-adjustment-element><span>历史记录</span></button>'
 }
 /** 低层渲染：按 vars 将模板中的 [[UPPER_SNAKE]] 占位符替换为值（模板与注册常量同源，供调用方内联使用） */
+/**
+ * 渲染按钮模板
+ * @param {string} key 模板键（buttonTemplates 的键）
+ * @param {Record<string, unknown>} [vars] 占位符变量（[[UPPER_SNAKE]] 会被替换）
+ */
 export const renderButton = (key, vars = {}) => {
-    const template = buttonTemplates[key]
+    // 模板键来自调用方（字符串），断言为字面量联合对象的索引视图
+    const template = /** @type {Record<string, string>} */ (buttonTemplates)[key]
     if (!template) return ''
     let out = template
     for (const [name, value] of Object.entries(vars)) {

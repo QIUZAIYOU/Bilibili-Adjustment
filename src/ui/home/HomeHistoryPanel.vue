@@ -27,7 +27,7 @@
         </ul>
     </div>
 </template>
-<script setup>
+<script setup lang="ts">
 /**
  * 首页推荐历史弹窗「列表区」面板
  *
@@ -46,24 +46,44 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { sanitizeHttpUrl } from '@/utils/common'
+/**
+ * 宿主传入的历史记录条目（由 src/modules/home/history.js 采集）
+ * 字段与旧命令式实现一致；`_key` 为 url 缺失时的去重键。
+ */
+interface HistoryVideoRecord {
+    _key?: string
+    url?: string
+    pic?: string
+    title?: string
+    author?: string
+    category?: string
+}
+/** 预计算安全 URL 后的渲染条目 */
+interface DecoratedHistoryRecord extends HistoryVideoRecord {
+    safeUrl: string
+    safePic: string
+}
 /** 与旧实现一致的分页大小 */
 const PAGE_SIZE = 50
-const props = defineProps({
+const props = withDefaults(defineProps<{
     /** 已由宿主排序好的记录（批次时间倒序 → 页面顺序升序） */
-    records: { type: Array, default: () => [] },
+    records?: HistoryVideoRecord[]
     /** 宿主弹窗模板内的搜索输入框（用于绑定 300ms 防抖的 input 监听） */
-    searchInput: { type: Object, default: null }
+    searchInput?: HTMLElement | null
+}>(), {
+    records: () => [],
+    searchInput: null
 })
 const selectedTag = ref('')
 const keyword = ref('')
 const visibleCount = ref(PAGE_SIZE)
 const isLoading = ref(false)
-const listEl = ref(null)
-const sentinelEl = ref(null)
-let observer = null
-let searchTimer = null
-let searchCleanup = null
-const toSafeUrl = value => {
+const listEl = ref<HTMLElement | null>(null)
+const sentinelEl = ref<HTMLElement | null>(null)
+let observer: IntersectionObserver | null = null
+let searchTimer: number | null = null
+let searchCleanup: (() => void) | null = null
+const toSafeUrl = (value?: string) => {
     try {
         return sanitizeHttpUrl(value) || ''
     } catch {
@@ -71,7 +91,7 @@ const toSafeUrl = value => {
     }
 }
 /** 预计算安全 URL，避免模板里重复调用白名单函数 */
-const decorated = computed(() => props.records.map(video => ({
+const decorated = computed<DecoratedHistoryRecord[]>(() => props.records.map(video => ({
     ...video,
     safeUrl: toSafeUrl(video.url),
     safePic: toSafeUrl(video.pic)
@@ -91,14 +111,15 @@ const filteredList = computed(() => {
 })
 const visibleList = computed(() => filteredList.value.slice(0, visibleCount.value))
 const hasMore = computed(() => filteredList.value.length > visibleCount.value)
-const selectTag = tag => {
+const selectTag = (tag: string) => {
     selectedTag.value = tag
     visibleCount.value = PAGE_SIZE
 }
 /** 列表点击委托：命中 li 开新窗口；点击 a 时放行（保留旧行为，包括 opener 策略） */
-const onListClick = event => {
-    const li = event.target.closest('li')
-    if (!li || event.target.closest('a')) return
+const onListClick = (event: MouseEvent) => {
+    const target = event.target as HTMLElement | null
+    const li = target?.closest('li')
+    if (!li || target?.closest('a')) return
     const url = li.dataset.url
     if (url) window.open(url, '_blank', 'noopener')
 }
@@ -109,7 +130,7 @@ const teardownObserver = () => {
     }
 }
 /** 还有更多数据时挂 -> 进入视口加载下一页（保留 100ms 模拟延迟） */
-const setupObserver = async () => {
+const setupObserver = async (): Promise<void> => {
     teardownObserver()
     if (!hasMore.value) return
     await nextTick()
@@ -132,10 +153,10 @@ watch([hasMore, filteredList, sentinelEl], () => {
 onMounted(() => {
     const input = props.searchInput
     if (!input || typeof input.addEventListener !== 'function') return
-    const onInput = event => {
-        clearTimeout(searchTimer)
+    const onInput = (event: Event) => {
+        clearTimeout(searchTimer ?? undefined)
         searchTimer = setTimeout(() => {
-            keyword.value = event.target.value
+            keyword.value = (event.target as HTMLInputElement).value
             visibleCount.value = PAGE_SIZE
         }, 300)
     }
@@ -144,7 +165,7 @@ onMounted(() => {
 })
 onBeforeUnmount(() => {
     teardownObserver()
-    clearTimeout(searchTimer)
+    clearTimeout(searchTimer ?? undefined)
     if (searchCleanup) {
         searchCleanup()
         searchCleanup = null

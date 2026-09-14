@@ -1,7 +1,7 @@
 import { test, beforeEach } from 'node:test'
 import assert from 'node:assert/strict'
 // 注意：theme 模块顶层不触碰 DOM（仅函数内使用），故可在 import 后注入 DOM 桩
-import { ThemeManager, FOLLOW_THEME, DEFAULT_THEME } from '@/shared/theme/index.js'
+import { ThemeManager, FOLLOW_THEME, DEFAULT_THEME } from '@/shared/theme/index'
 let attrValue = null
 let htmlClasses = []
 let lastObserver = null

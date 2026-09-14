@@ -1,7 +1,7 @@
 // AI 返回内容的 JSON 解析工具单测（纯函数，不依赖网络与环境）
 import test from 'node:test'
 import assert from 'node:assert'
-import { extractJsonArray, sanitizeJsonText, repairTruncated } from '../src/utils/ai-json.js'
+import { extractJsonArray, sanitizeJsonText, repairTruncated } from '../src/utils/ai-json'
 // ============ extractJsonArray ============
 test('extractJsonArray：标准数组', () => {
     assert.equal(extractJsonArray('[{"start":1,"end":2}]'), '[{"start":1,"end":2}]')

@@ -34,7 +34,7 @@
                             data-config-type="input"
                             :value="configs[item.id] ?? ''"
                             :placeholder="item.placeholder || ''"
-                            @change="emit('change', item.id, $event.target.value)"
+                            @change="emit('change', item.id, ($event.target as HTMLInputElement).value)"
                         >
                         <div
                             v-if="item.hasValidateButton"
@@ -57,7 +57,7 @@
                                 data-config-type="select"
                                 :disabled="selectOptions.length === 0"
                                 :value="String(configs[item.id] ?? '')"
-                                @change="emit('change', item.id, $event.target.value)"
+                                @change="emit('change', item.id, ($event.target as HTMLInputElement).value)"
                             >
                                 <template v-if="selectOptions.length > 0">
                                     <option
@@ -116,7 +116,7 @@
         </div>
     </div>
 </template>
-<script setup>
+<script setup lang="ts">
 /**
  * 单个设置项（V3）：schema 驱动，覆盖 checkbox / input / select / radio 与 children 联动。
  *
@@ -131,17 +131,29 @@
  * - `depth` 限制递归渲染层数：即使 schema 出现异常自引用也不会渲染溢出（防御性约束）。
  */
 import { computed } from 'vue'
+import type { SettingItemSchema, SettingOption } from '@/config/settings-config'
 import AdjTips from './AdjTips.vue'
 import AdjSwitch from './AdjSwitch.vue'
 /** 递归渲染层数上限：设置 schema 实际最深为 section > checkbox > children（2 层），留足余量 */
 const MAX_DEPTH = 4
-const props = defineProps({
-    item: { type: Object, required: true },
-    configs: { type: Object, required: true },
-    dynamicOptions: { type: Object, default: () => ({}) },
-    depth: { type: Number, default: 0 }
+const props = withDefaults(defineProps<{
+    /** 设置项 schema（唯一字段契约见 src/config/settings-config.ts） */
+    item: SettingItemSchema
+    /** 当前配置值（宿主响应式扁平 map） */
+    configs: Record<string, unknown>
+    /** 动态选项：{ [configId]: SettingOption[] }（宿主响应式对象） */
+    dynamicOptions?: Record<string, SettingOption[]>
+    /** 递归渲染层数（上限 MAX_DEPTH） */
+    depth?: number
+}>(), {
+    dynamicOptions: () => ({}),
+    depth: 0
 })
-const emit = defineEmits(['change', 'validate', 'refresh'])
+const emit = defineEmits<{
+    change: [key: string, value: unknown]
+    validate: [key: string]
+    refresh: [key: string]
+}>()
 // 校验/刷新按钮样式与 V2 一致（内联属性，避免引入未定义 class）
 const sideButtonStyle = 'padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;height:32px;'
 

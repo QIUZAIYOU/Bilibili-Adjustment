@@ -1,7 +1,7 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
-import { escapeHtml, sanitizeHttpUrl, getTotalSecondsFromTimeString } from '../src/utils/common.js'
+import { escapeHtml, sanitizeHttpUrl, getTotalSecondsFromTimeString } from '../src/utils/common'
 test('escapeHtml 转义 HTML 特殊字符', () => {
     assert.equal(escapeHtml('<a href="x">&\'</a>'), '&lt;a href=&quot;x&quot;&gt;&amp;&#39;&lt;/a&gt;')
     assert.equal(escapeHtml('纯文本'), '纯文本')

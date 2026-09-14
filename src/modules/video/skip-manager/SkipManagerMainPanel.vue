@@ -179,24 +179,27 @@
     </div>
 </template>
 
-<script setup>
+<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { loadCache, commitCache, detectSubtitles } from './skip-manager-service'
 import { formatTime, mergeSegments, validateSegment, parseTime, parseDuration, canUpdateCache, getCurrentUid } from './pure'
+import type { SkipSegment, SkipCacheEntry, SkipManagerEnv } from './types'
 
-const props = defineProps({
-    bvid: { type: String, required: true },
-    env: { type: Object, required: true }
-})
+const props = defineProps<{
+    /** 视频 bvid（番剧页为当前分集 bvid） */
+    bvid: string
+    /** 宿主注入的服务环境（见 types.d.ts#SkipManagerEnv） */
+    env: SkipManagerEnv
+}>()
 const env = props.env
-const uid = () => (env.uidProvider ? env.uidProvider() : getCurrentUid())
+const uid = (): number | null => (env.uidProvider ? env.uidProvider() : getCurrentUid())
 
 // —— 视图数据全部为「普通结构 + tick 版本号」，避免响应式代理数组迭代递归（栈溢出）——
 const tick = ref(0)
 const bump = () => { tick.value++ }
-let cached = null // 缓存条目（普通对象）
-let currentSegments = [] // 合并后的展示片段（普通数组）
-let pendingSegments = [] // 待提交片段（普通数组）
+let cached: SkipCacheEntry | null = null // 缓存条目（普通对象）
+let currentSegments: SkipSegment[] = [] // 合并后的展示片段（普通数组）
+let pendingSegments: SkipSegment[] = [] // 待提交片段（普通数组）
 let canUpdate = true
 const editMode = ref('start-end')
 const loading = ref(true)
@@ -221,17 +224,17 @@ const addStart = ref('')
 const addEnd = ref('')
 const addDuration = ref('')
 const addSummary = ref('')
-const overlay = ref(null)
-let overlayResolveFn = null
+const overlay = ref<{ existing: SkipSegment[]; picked: number[] } | null>(null)
+let overlayResolveFn: ((choice: 'all' | 'pick' | null) => void) | null = null
 // 通用二次确认层状态（危险操作复用，替代原生 confirm）
-const confirmState = ref(null)
-let confirmResolveFn = null
+const confirmState = ref<{ text: string; okText: string } | null>(null)
+let confirmResolveFn: ((ok: boolean) => void) | null = null
 /**
  * 弹出二次确认，返回 Promise<boolean>
  * @param {string} text 确认文案
  * @param {string} [okText] 确认按钮文案
  */
-const confirmAction = (text, okText = '确定') => {
+const confirmAction = (text: string, okText = '确定'): Promise<boolean> => {
     // 重入保护：已有确认层时直接返回 false（不覆盖 confirmResolveFn），
     // 否则上一个 await 的 Promise 永不 settle（Promise 泄漏）
     if (confirmState.value) return Promise.resolve(false)
@@ -241,7 +244,7 @@ const confirmAction = (text, okText = '确定') => {
     })
 }
 /** 关闭确认层并回传结果（遮罩点击 / 取消 / 确认都走这里，避免 Promise 悬挂） */
-const confirmResolve = ok => {
+const confirmResolve = (ok: boolean) => {
     confirmState.value = null
     const resolve = confirmResolveFn
     confirmResolveFn = null
@@ -268,7 +271,7 @@ const cacheInfoVisible = computed(() => { void tick.value; return Boolean(cached
 const metaUid = computed(() => { void tick.value; return (cached ? cached.uploader_uid : uid()) || '未知' })
 const metaTime = computed(() => {
     void tick.value
-    const t = cached ? cached.last_updated : Date.now()
+    const t = cached?.last_updated ?? Date.now()
     return new Date(t).toLocaleString('zh-CN')
 })
 const metaVersion = computed(() => { void tick.value; return cached ? cached.version || 1 : 1 })
@@ -282,7 +285,9 @@ const segmentEditable = computed(() => { void tick.value; return canUpdate && !(
 // 可清空：存在缓存中的已有片段且未锁定
 const clearableExisting = computed(() => { void tick.value; return Boolean(canUpdate && cached && cached.segments && cached.segments.length > 0 && !cached.locked) })
 
-const showMessage = (text, type = '', durationMs = 3000) => {
+/** showMessage 上挂计时器句柄（沿用旧实现的函数属性写法，避免新增响应式状态） */
+type ShowMessageFn = ((text: string, type?: string, durationMs?: number) => void) & { _t?: ReturnType<typeof setTimeout> }
+const showMessage: ShowMessageFn = (text, type = '', durationMs = 3000) => {
     messageText.value = text
     messageType.value = type
     if (durationMs > 0) {
@@ -294,7 +299,7 @@ const showMessage = (text, type = '', durationMs = 3000) => {
     }
 }
 
-const load = async () => {
+const load = async (): Promise<void> => {
     loading.value = true
     recognizeError.value = ''
     identifyPreview.value = false
@@ -413,7 +418,7 @@ const addPending = () => {
 }
 
 // 编辑已有片段：在片段行内展开编辑卡片（手风琴，同时只展开一个）
-const editExisting = i => {
+const editExisting = (i: number) => {
     if (i < 0 || i >= currentSegments.length) return
     const seg = currentSegments[i]
     editingExistingIndex.value = i
@@ -425,7 +430,7 @@ const editExisting = i => {
     summaryText.value = seg.summary || ''
 }
 /** 点击片段行 ✎：已在编辑该行则收起，否则切换为编辑该行 */
-const toggleExistingEdit = i => {
+const toggleExistingEdit = (i: number) => {
     if (editingExistingIndex.value === i) {
         cancelExistingEdit()
         return
@@ -508,11 +513,11 @@ const clearExisting = async () => {
     await commit([], '已清空已有片段', true)
 }
 
-const removePending = index => {
+const removePending = (index: number) => {
     pendingSegments.splice(index, 1)
     bump()
 }
-const removeSegment = index => {
+const removeSegment = (index: number) => {
     currentSegments.splice(index, 1)
     bump()
 }
@@ -543,7 +548,7 @@ const submitSource = () => {
     return mergeSegments(parts)
 }
 
-const commit = async (finalSegments, label, keepPending = false) => {
+const commit = async (finalSegments: SkipSegment[], label: string, keepPending = false): Promise<void> => {
     busy.value = true
     try {
         const result = await commitCache(env, props.bvid, cached, finalSegments)
@@ -556,7 +561,7 @@ const commit = async (finalSegments, label, keepPending = false) => {
         bump()
         if (env.afterCommit) env.afterCommit().catch(() => {})
     } catch (error) {
-        showMessage('更新缓存失败：' + (error && error.message ? error.message : '请稍后重试'), 'warn', 5000)
+        showMessage('更新缓存失败：' + (error instanceof Error ? error.message : '请稍后重试'), 'warn', 5000)
     } finally {
         busy.value = false
     }
@@ -572,7 +577,7 @@ const appendUpdate = async () => {
     await commit(mergeSegments([...existing, ...source]), '缓存已更新（追加）')
 }
 
-const overlayResolve = value => {
+const overlayResolve = (value: 'all' | 'pick' | null) => {
     if (overlayResolveFn) overlayResolveFn(value)
     overlay.value = null
     overlayResolveFn = null
@@ -589,8 +594,13 @@ const overwriteUpdate = async () => {
         await commit(source, '缓存已更新（覆盖）')
         return
     }
-    const picked = await new Promise(resolve => {
-        overlayResolveFn = resolve
+    const picked = await new Promise<'all' | number[] | null>(resolve => {
+        // 'pick' 必须回传当前勾选的索引：overlayResolve 先回调本函数、之后才清空 overlay，
+        // 因此这里仍能读到 overlay.value.picked（与 BangumiSkipManager 的 modalResolve 写法一致）。
+        overlayResolveFn = choice => {
+            if (choice === 'pick') resolve(overlay.value ? overlay.value.picked : [])
+            else resolve(choice)
+        }
         overlay.value = { existing, picked: existing.map((_, i) => i) }
     })
     if (picked === null) return
@@ -598,6 +608,9 @@ const overwriteUpdate = async () => {
     if (picked === 'all') {
         finalSegments = source
     } else {
+        // 修复：此前 overlayResolve 回传的是 'pick' 字符串，picked.includes(i) 恒为 false，
+        // 导致「覆盖选中」等价于保留全部已有片段（效果等同「追加」）。
+        // 现按勾选索引保留未勾选项，与弹层文案（「未勾选的片段将保留」）一致。
         const keep = existing.filter((_, i) => !picked.includes(i))
         finalSegments = mergeSegments([...keep, ...source])
     }
@@ -609,7 +622,7 @@ const reIdentify = async () => {
     busy.value = true
     recognizeError.value = ''
     try {
-        const result = await env.recognize(props.bvid)
+        const result = await env.recognize!(props.bvid)
         if (result && result.error) {
             recognizeError.value = result.error
             return
@@ -624,7 +637,7 @@ const reIdentify = async () => {
         showMessage('重新识别完成，共 ' + pendingSegments.length + ' 段，可点击「覆盖更新」或「追加更新」生效', 'success', 5000)
         bump()
     } catch (error) {
-        recognizeError.value = '识别失败: ' + (error && error.message ? error.message : '未知错误')
+        recognizeError.value = '识别失败: ' + (error instanceof Error ? error.message : '未知错误')
     } finally {
         identifying.value = false
         busy.value = false

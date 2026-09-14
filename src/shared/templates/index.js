@@ -11,7 +11,8 @@ const templates = {
 registerTemplates(templates)
 export const getTemplates = new Proxy(templates, {
     get (target, prop) {
-        recordTemplateUsage(prop)
-        return target[prop]
+        // prop 实际只用字符串键；symbol 仅来自运行时特性探测，统一转字符串便于类型检查
+        recordTemplateUsage(String(prop))
+        return Reflect.get(target, prop)
     }
 })
