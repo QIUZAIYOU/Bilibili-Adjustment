@@ -7,11 +7,12 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 10
+    # 分组后一批更新只占一个 PR，所以并发上限压到 3 即可。
+    # （此前为 10 且无 groups，每个依赖各开一个 PR，导致单依赖 PR 堆积到上限）
+    open-pull-requests-limit: 3
     labels:
       - "dependencies"
       - "security"
-    # 安全更新：patch 和 minor 版本自动合并
     allow:
       - dependency-type: "direct"
       - dependency-type: "indirect"
@@ -20,6 +21,38 @@ updates:
       prefix: "chore"
       prefix-development: "chore"
       include: "scope"
-    # 将安全更新 PR 标记为自动合并
+    groups:
+      # minor/patch 合并为一个 PR；分组后的 update-type 取组内最高者，
+      # 因此仍会被 dependabot-auto-merge.yml 判为 minor/patch 并自动合并
+      dev-minor-patch:
+        dependency-type: "development"
+        update-types:
+          - "minor"
+          - "patch"
+      prod-minor-patch:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    ignore:
+      # 主版本更新不自动开 PR：本项目依赖多为构建链工具，major 需人工评估
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
     pull-request-branch-name:
       separator: "-"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    labels:
+      - "dependencies"
+      - "ci"
+    commit-message:
+      prefix: "chore"
+      include: "scope"
+    groups:
+      actions:
+        patterns:
+          - "*"
