@@ -23,7 +23,7 @@
         "@vitejs/plugin-vue": "^6.0.8",
         "eslint": "^9.32.0",
         "javascript-obfuscator": "^4.1.1",
-        "terser": "^5.50.0",
+        "terser": "^5.51.2",
         "typescript": "^6.0.3",
         "typescript-eslint": "^8.70.0",
         "vite": "^6.4.3",
