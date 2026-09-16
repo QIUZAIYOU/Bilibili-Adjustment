@@ -2,15 +2,25 @@ import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { EVENT_NAMES } from '@/shared/constants'
+import { BUILD_SHA } from '@/shared/build-info'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { mountUpdateNoticePanel } from '@/ui/update'
 import { parseUpdateItems } from '@/utils/update-items'
+import { isFeatureLevelUpdate, isSameVersionRebuild, parseRemoteBuildInfo } from '@/utils/update-policy'
+import type { RemoteBuildInfo } from '@/utils/update-policy'
 import type { UpdateItem } from '@/utils/update-items'
 const logger = new LoggerService('UpdateService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
+/** 服务器上的发布信息（version.json）；与脚本同目录，随每次上传刷新 */
+const VERSION_JSON_URL = 'https://www.asifadeaway.com/UserScripts/bilibili/version.json'
+const META_JS_URL = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
 export class UpdateService {
-    static #cacheKey = 'latestScriptCache'
     static #proxyStatusKey = 'proxyStatus'
     static #updateCheckExecuted = false
+    /** 本次会话已取到的 meta.js 内容（仅内存；不再跨会话缓存，保证发布后本会话即可发现） */
+    static #sessionScriptCache = ''
+    /** 本次会话已取到的发布信息（version.json） */
+    static #sessionBuildInfo: RemoteBuildInfo | null = null
+    static #buildInfoFetched = false
     // 检查更新是否已经执行过
     static isUpdateCheckExecuted (): boolean {
         return this.#updateCheckExecuted
@@ -118,32 +128,9 @@ export class UpdateService {
             }
         }
     }
-    // 验证缓存
-    #validateCache (cacheDuration: number): string | null {
-        try {
-            const cachedContent = localStorage.getItem(UpdateService.#cacheKey)
-            if (!cachedContent) return null
-            const parsed = JSON.parse(cachedContent)
-            if (!parsed || typeof parsed !== 'object' || !parsed.data || !parsed.time) {
-                localStorage.removeItem(UpdateService.#cacheKey) // 清除无效缓存
-                return null
-            }
-            if (Date.now() - parsed.time < cacheDuration) {
-                logger.info('使用缓存的脚本数据')
-                return parsed.data
-            }
-            return null
-        } catch (error) {
-            logger.warn('缓存验证失败，清除无效缓存:', (error instanceof Error ? error.message : String(error)))
-            localStorage.removeItem(UpdateService.#cacheKey)
-            return null
-        }
-    }
     // 直连源列表（服务器配置 CORS 头后无需代理即可访问）
     #getDirectSources (): string[] {
-        return [
-            'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
-        ]
+        return [META_JS_URL]
     }
     // 并行请求多个 URL，返回第一个有效数据
     async #fetchFirstAvailable (urls: string[], timeout = 10000): Promise<string> {
@@ -164,31 +151,48 @@ export class UpdateService {
         if (!pkg.version) throw new Error('package.json 缺少版本号')
         return { version: pkg.version, updates: pkg.updates || '' }
     }
-    // 保存脚本缓存
-    #saveScriptCache (data: string): void {
-        localStorage.setItem(UpdateService.#cacheKey, JSON.stringify({ data, time: Date.now() }))
-    }
-    // 获取最新脚本内容
-    async fetchLatestScript (): Promise<string | null | undefined> {
-        // 获取用户配置的更新检查频率
-        let cacheDuration = 24 * 60 * 60 * 1000 // 默认24小时
+    /**
+     * 获取服务器发布信息（version.json，含 version 与构建 sha）
+     *
+     * 只用内存记一次结果（成功或失败）：拿到就拿，拿不到就按「无构建信息」降级，
+     * 绝不抛错影响版本号检查 —— 该文件只是「同版本覆盖发布」的兜底信号。
+     */
+    async #fetchRemoteBuildInfo (): Promise<RemoteBuildInfo | null> {
+        if (UpdateService.#buildInfoFetched) return UpdateService.#sessionBuildInfo
+        UpdateService.#buildInfoFetched = true
+        const parse = (text: string): RemoteBuildInfo | null => parseRemoteBuildInfo(text)
         try {
-            const updateCheckFrequency = await ConfigService.getValue('update_check_frequency')
-            if (updateCheckFrequency && typeof updateCheckFrequency === 'number') {
-                cacheDuration = updateCheckFrequency * 60 * 60 * 1000
+            const direct = await this.#fetchWithTimeout(VERSION_JSON_URL, {}, 8000)
+            const info = parse(direct)
+            if (info) {
+                UpdateService.#sessionBuildInfo = info
+                logger.debug(`发布信息：v${info.version} (${info.sha})`)
+                return info
             }
         } catch (error) {
-            logger.warn('获取更新检查频率失败，使用默认值:', (error instanceof Error ? error.message : String(error)))
+            logger.debug('直连 version.json 失败，改用 CORS 代理:', (error instanceof Error ? error.message : String(error)))
         }
-        // 验证缓存
-        const cachedData = this.#validateCache(cacheDuration)
-        if (cachedData) {
-            return cachedData
+        const targetURL = encodeURIComponent(VERSION_JSON_URL)
+        const proxyResults = await Promise.allSettled(this.#getProxyList().map(proxy => this.#tryFetch(proxy, targetURL, 1)))
+        for (const result of proxyResults) {
+            if (result.status === 'fulfilled' && result.value) {
+                const info = parse(result.value)
+                if (info) {
+                    UpdateService.#sessionBuildInfo = info
+                    return info
+                }
+            }
         }
+        logger.debug('未获取到 version.json（构建信息兜底不可用）')
+        return null
+    }
+    // 获取最新脚本内容（仅本次会话内存缓存；不再跨会话缓存，发布后本会话即可发现）
+    async fetchLatestScript (): Promise<string | null | undefined> {
+        if (UpdateService.#sessionScriptCache) return UpdateService.#sessionScriptCache
         // 1. 直连自有域名（若服务器已配置 CORS 头则直接成功）
         try {
             const directData = await this.#fetchFirstAvailable(this.#getDirectSources())
-            this.#saveScriptCache(directData)
+            UpdateService.#sessionScriptCache = directData
             logger.info('直连获取最新脚本成功')
             return directData
         } catch (error) {
@@ -200,25 +204,12 @@ export class UpdateService {
         const proxyResults = await Promise.allSettled(CORSProxyList.map(proxy => this.#tryFetch(proxy, targetURL, 1)))
         for (const result of proxyResults) {
             if (result.status === 'fulfilled' && result.value && typeof result.value === 'string' && result.value.trim()) {
-                this.#saveScriptCache(result.value)
+                UpdateService.#sessionScriptCache = result.value
                 logger.info('通过 CORS 代理获取最新脚本成功')
                 return result.value
             }
         }
-        // 3. 所有源失败，尝试使用缓存（即使过期）作为后备
-        const expiredCache = localStorage.getItem(UpdateService.#cacheKey)
-        if (expiredCache) {
-            try {
-                const parsed: { data?: string } | null = JSON.parse(expiredCache)
-                if (parsed && parsed.data) {
-                    logger.warn('所有更新源请求失败，使用过期缓存数据')
-                    return parsed.data
-                }
-            } catch {
-                // 忽略过期缓存解析错误
-            }
-        }
-        throw new Error('所有更新源均不可用，且无可用缓存')
+        throw new Error('所有更新源均不可用')
     }
     // 从脚本内容中提取版本号
     extractVersionFromScript (scriptContent: string): string | null {
@@ -227,6 +218,11 @@ export class UpdateService {
             return versionMatch[1]
         }
         return null
+    }
+    // 从脚本内容中提取构建标识（产物元数据的 @build-sha）
+    extractBuildShaFromScript (scriptContent: string): string {
+        const match = String(scriptContent || '').match(/\/\/\s*@build-sha\s+(\S+)/)
+        return match && match[1] ? match[1].trim() : ''
     }
     // 从脚本内容中提取更新内容
     // 优先从脚本头部的 @updates 标签提取，其次从更新日志注释块提取
@@ -303,13 +299,15 @@ export class UpdateService {
      * 弹窗外壳/标题/按钮/a11y 仍由 openAdjustmentDialog 提供，class 契约保持不变，
      * 故 src/shared/styles/index.js 中的更新弹窗样式无需改动。
      */
-    #showUpdatePopover (currentVersion: string, latestVersion: string, updateItems: UpdateItem[], options: { isLatest?: boolean } = {}): void {
+    #showUpdatePopover (currentVersion: string, latestVersion: string, updateItems: UpdateItem[], options: { isLatest?: boolean; rebuilt?: boolean } = {}): void {
         // isLatest：手动检查「已是最新版本」时的反馈弹窗（不展示更新列表，也不需要「更新」按钮）
         const isLatest = options.isLatest === true
+        // rebuilt：版本号未变、但线上内容已更新（同版本覆盖发布）——只能重新安装，没有更新日志
+        const rebuilt = options.rebuilt === true
         openAdjustmentDialog({
             key: 'update-notice',
-            title: isLatest ? '哔哩哔哩调整 · 已是最新版本' : '哔哩哔哩调整 · 有新版本',
-            subtitle: isLatest ? '（当前已是最新版本，无需更新）' : '（点击更新按钮安装最新版）',
+            title: rebuilt ? '哔哩哔哩调整 · 内容已更新' : (isLatest ? '哔哩哔哩调整 · 已是最新版本' : '哔哩哔哩调整 · 有新版本'),
+            subtitle: rebuilt ? '（版本号未变但服务器内容已更新，点击重新安装）' : (isLatest ? '（当前已是最新版本，无需更新）' : '（点击更新按钮安装最新版）'),
             className: 'update-dialog',
             content: (body: HTMLElement) => {
                 const holder = document.createElement('div')
@@ -339,7 +337,7 @@ export class UpdateService {
                 : [
                     { text: '关闭', type: 'info', onClick: (d: { close: () => void }) => d.close() },
                     {
-                        text: '更新',
+                        text: rebuilt ? '重新安装' : '更新',
                         type: 'primary',
                         onClick: (d: { close: () => void }) => {
                             window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
@@ -349,12 +347,17 @@ export class UpdateService {
                 ]
         })
     }
-    // 获取最新版本信息：GitHub 优先，失败回退脚本内容提取
-    async #fetchLatestVersionInfo (): Promise<{ latestVersion: string; latestUpdates: string }> {
+    /**
+     * 获取最新版本信息：GitHub 优先，失败回退脚本内容提取；构建标识来自服务器 version.json（拿不到则为空）
+     * @returns {Promise<{latestVersion: string, latestUpdates: string, latestSha: string}>}
+     */
+    async #fetchLatestVersionInfo (): Promise<{ latestVersion: string; latestUpdates: string; latestSha: string }> {
+        const remoteInfo = await this.#fetchRemoteBuildInfo()
+        const latestSha = remoteInfo?.sha || ''
         try {
             const pkgInfo = await this.#fetchGitHubPackageInfo()
             logger.debug('通过 GitHub API 获取最新版本信息:', pkgInfo.version)
-            return { latestVersion: pkgInfo.version, latestUpdates: pkgInfo.updates }
+            return { latestVersion: pkgInfo.version, latestUpdates: pkgInfo.updates, latestSha }
         } catch (error) {
             logger.warn('GitHub 获取最新版本信息失败，改用脚本内容提取:', (error instanceof Error ? error.message : String(error)))
         }
@@ -362,22 +365,40 @@ export class UpdateService {
         if (!scriptContent) throw new Error('未获取到最新脚本内容')
         const latestVersion = this.extractVersionFromScript(scriptContent)
         if (!latestVersion) throw new Error('从最新脚本中提取版本号失败')
-        return { latestVersion, latestUpdates: this.extractChangelogFromScript(scriptContent) }
+        return {
+            latestVersion,
+            latestUpdates: this.extractChangelogFromScript(scriptContent),
+            // 兜底路径下 meta.js 自带 @build-sha，比 version.json 更贴近实际文件
+            latestSha: latestSha || this.extractBuildShaFromScript(scriptContent)
+        }
+    }
+    /** 同版本覆盖发布检测：本地构建标识与线上发布标识不一致 → 需要提示用户重新安装 */
+    #detectSameVersionRebuild (remoteSha: string): boolean {
+        return isSameVersionRebuild(BUILD_SHA, remoteSha)
     }
     // 手动检查更新（点击设置弹窗版本号触发）：绕过防重复标记与跳过更新设置，结果由返回值提供
-    async checkForUpdatesManually (currentVersion: string, localUpdates?: string): Promise<{ type: 'latest' | 'update' | 'error'; latestVersion?: string }> {
+    async checkForUpdatesManually (currentVersion: string, localUpdates?: string): Promise<{ type: 'latest' | 'update' | 'rebuilt' | 'error'; latestVersion?: string }> {
         try {
-            const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
+            const { latestVersion, latestUpdates, latestSha } = await this.#fetchLatestVersionInfo()
             if (!this.compareVersions(currentVersion, latestVersion)) {
+                // 版本号相同但线上构建标识不同：服务器文件被「同版本覆盖发布」过（如应急修复）
+                if (this.#detectSameVersionRebuild(latestSha)) {
+                    logger.info(`检查更新丨v${currentVersion} 线上内容已更新（本地 ${BUILD_SHA} → 线上 ${latestSha}）`)
+                    this.#setPendingRebuild({ version: currentVersion, sha: latestSha })
+                    this.#showUpdatePopover(currentVersion, latestVersion, [], { rebuilt: true })
+                    return { type: 'rebuilt', latestVersion }
+                }
                 logger.info(`检查更新丨当前 v${currentVersion} 已是最新版本（远程 v${latestVersion}）`)
-                // 已是最新：清掉版本号处的「有新版本」提示（用户可能早已手动更新过）
+                // 已是最新：清掉版本号处的提示（用户可能早已手动更新过）
                 this.#setPendingUpdateVersion('')
+                this.#setPendingRebuild(null)
                 // 手动检查同样弹出反馈弹窗（与「发现新版本」的反馈保持一致）
                 this.#showUpdatePopover(currentVersion, latestVersion, [], { isLatest: true })
                 return { type: 'latest', latestVersion }
             }
             logger.info(`检查更新丨发现新版本 v${latestVersion}（当前 v${currentVersion}）`)
             // 用户已看到该版本详情，但未必立即更新：保留版本号处提示，方便稍后处理
+            this.#setPendingRebuild(null)
             this.#setPendingUpdateVersion(latestVersion)
             const updateItems = parseUpdateItems(latestUpdates || localUpdates)
             this.#showUpdatePopover(currentVersion, latestVersion, updateItems)
@@ -396,18 +417,33 @@ export class UpdateService {
         }
         UpdateService.#updateCheckExecuted = true
         try {
-            const { latestVersion, latestUpdates } = await this.#fetchLatestVersionInfo()
+            const { latestVersion, latestUpdates, latestSha } = await this.#fetchLatestVersionInfo()
             if (!this.compareVersions(currentVersion, latestVersion)) {
+                // 版本号没变，但线上构建标识变了 = 服务器文件被「同版本覆盖发布」过。
+                // 此时版本号比对恒为「已是最新」，只能靠构建标识让用户知道要重新安装。
+                if (this.#detectSameVersionRebuild(latestSha)) {
+                    logger.info(`检查更新丨v${currentVersion} 线上内容已更新（本地 ${BUILD_SHA} → 线上 ${latestSha}），仅提示不弹窗`)
+                    this.#setPendingRebuild({ version: currentVersion, sha: latestSha })
+                    return
+                }
                 logger.debug(`检查更新丨当前 v${currentVersion} 已是最新版本（远程 v${latestVersion}）`)
                 this.#setPendingUpdateVersion('')
+                this.#setPendingRebuild(null)
                 return
             }
+            // 版本号变了：清掉「同版本内容已更新」状态（已被真正的版本更新取代）
+            this.#setPendingRebuild(null)
             logger.info(`检查更新丨发现新版本 v${latestVersion}（当前 v${currentVersion}）`)
             // 无论哪种模式都把「有新版本」暴露给设置面板：手动模式唯一的提示途径就是版本号处
             this.#setPendingUpdateVersion(latestVersion)
             const mode = await this.#getUpdateMode()
             if (mode === 'manual') {
                 logger.info(`更新方式为「手动」：v${latestVersion} 仅在设置面板版本号处提示，不弹窗`)
+                return
+            }
+            // 补丁级（Y 位）更新不弹窗：小修复不该反复打断用户，只在版本号处常驻提示
+            if (!isFeatureLevelUpdate(currentVersion, latestVersion)) {
+                logger.info(`v${latestVersion} 属补丁级更新，仅在版本号处提示，不弹窗`)
                 return
             }
             // 自动模式：同一「更新方式 + 版本」只弹一次。去重键带上方式，用户在设置里把
@@ -449,6 +485,21 @@ export class UpdateService {
         if (UpdateService.#pendingUpdateVersion === version) return
         UpdateService.#pendingUpdateVersion = version
         eventBus.emit(EVENT_NAMES.UPDATE_AVAILABLE, { version })
+    }
+    /**
+     * 同版本覆盖发布（版本号没变、线上内容变了）：设置面板据此在版本号处提示「内容已更新」。
+     * 与 #pendingUpdateVersion 互斥展示，两者都为真时以「有新版本」优先。
+     */
+    static #pendingRebuild: { version: string; sha: string } | null = null
+    getPendingRebuild (): { version: string; sha: string } | null {
+        return UpdateService.#pendingRebuild
+    }
+    #setPendingRebuild (next: { version: string; sha: string } | null): void {
+        const current = UpdateService.#pendingRebuild
+        const same = (current === null && next === null) || (current !== null && next !== null && current.version === next.version && current.sha === next.sha)
+        if (same) return
+        UpdateService.#pendingRebuild = next
+        eventBus.emit(EVENT_NAMES.UPDATE_AVAILABLE, { version: next?.version ?? '' })
     }
     /** 上次已弹窗提示过的新版本号（localStorage，跨会话持久）：同一版本不重复弹窗 */
     static #lastNotifiedVersionKey = 'bili-adjustment-last-notified-version'

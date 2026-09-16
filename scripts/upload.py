@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
-"""SCP 上传 dist 产物 + www 落地页 + API 接口到轻量服务器
+"""SCP 上传 dist 产物 + version.json + www 落地页 + API 接口到轻量服务器
 
 用法：python scripts/upload.py
 前置：先执行 npm run build 生成 dist/bilibili-adjustment.{user,meta}.js
 凭据：读取项目根 .env 的 SERVER_HOST / SERVER_USER / SERVER_SSH_KEY / SERVER_DEPLOY_PATH
+
+version.json：从构建产物元数据里抄 @version 与 @build-sha，供脚本端做「同版本覆盖发布」兜底
+（版本号没变但线上内容变了 → 提示用户重新安装）。字段与产物同源，不可能不一致。
 """
+import datetime
+import hashlib
+import json
 import os
+import re
 import subprocess
 import sys
 
@@ -116,6 +123,25 @@ def upload_with_check(scp_cmd, ssh_cmd, local_dir, files, remote_dir, user, host
         return True
 
 
+def build_version_json(root, meta_path, user_path):
+    """从构建产物元数据生成 version.json 内容（version/sha 与产物同源）"""
+    with open(meta_path, encoding='utf-8') as f:
+        meta = f.read()
+    version_match = re.search(r'//\s*@version\s+([\d.]+)', meta)
+    if not version_match:
+        sys.exit('无法从 ' + meta_path + ' 解析 @version')
+    sha_match = re.search(r'//\s*@build-sha\s+(\S+)', meta)
+    with open(user_path, 'rb') as f:
+        content = f.read()
+    return {
+        'version': version_match.group(1),
+        'sha': sha_match.group(1) if sha_match else '',
+        'builtAt': datetime.datetime.now().astimezone().isoformat(timespec='seconds'),
+        'size': len(content),
+        'sha256': hashlib.sha256(content).hexdigest(),
+    }
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -161,6 +187,26 @@ def main():
         else:
             print(f'验证失败 {name} local={size} remote={remote_size}')
             ok = False
+
+    # ========== 生成并上传 version.json（供脚本端同版本覆盖发布兜底） ==========
+    version_json_path = os.path.join(root, 'dist', 'version.json')
+    info = build_version_json(root, os.path.join(root, 'dist', 'bilibili-adjustment.meta.js'),
+                             os.path.join(root, 'dist', 'bilibili-adjustment.user.js'))
+    with open(version_json_path, 'w', encoding='utf-8') as f:
+        json.dump(info, f, ensure_ascii=False, indent=2)
+    print(f"\n--- 上传 version.json ---")
+    print(f"v{info['version']} sha={info['sha']} size={info['size']} sha256={info['sha256'][:12]}…")
+    version_remote = f'{remote_dir}/version.json'
+    if upload_file(scp_cmd, version_json_path, user, host, version_remote):
+        remote_size = get_remote_size(ssh_cmd, user, host, version_remote)
+        local_size = os.path.getsize(version_json_path)
+        if remote_size == local_size:
+            print(f'OK version.json {local_size} bytes')
+        else:
+            print(f'验证失败 version.json local={local_size} remote={remote_size}')
+            ok = False
+    else:
+        ok = False
 
     # ========== 上传 www 落地页（按需） ==========
     www_local_dir = os.path.join(root, 'www')

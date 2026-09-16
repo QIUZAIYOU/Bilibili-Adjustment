@@ -443,7 +443,7 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                     { value: 'manual', label: '手动' }
                 ],
                 defaultValue: 'auto',
-                tips: '自动：发现新版本时弹窗提示，每个版本只弹一次\n手动：不弹窗，仅在设置面板右上角版本号处提示，点击版本号可查看详情'
+                tips: '自动：功能级更新（版本号 X 位变化）弹窗提示，每个版本只弹一次；小修复（Y 位）与「同版本内容已更新」只在版本号处提示\n手动：一律不弹窗，仅在设置面板右上角版本号处提示，点击版本号可查看详情'
             }
         ]
     },

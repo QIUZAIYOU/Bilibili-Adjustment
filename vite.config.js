@@ -4,9 +4,30 @@ import monkey from 'vite-plugin-monkey'
 import pkg from './package.json' with { type: 'json' }
 import path from 'path'
 import url from 'url'
+import { execFileSync } from 'node:child_process'
 import VitePluginBundleObfuscator from 'vite-plugin-bundle-obfuscator'
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
+/**
+ * 构建标识：git 短 SHA（工作区有未提交改动时带 -dirty）。
+ * 用途：① 写进产物元数据 `@build-sha`，由 scripts/upload.py 抄进 version.json；
+ *      ② 注入源码常量 `__BUILD_SHA__`（src/shared/build-info.ts），供「同版本覆盖发布」时提示重新安装。
+ * 取不到 git 时降级为 unknown（相关兜底会自动关闭，不影响构建）。
+ */
+const buildSha = (() => {
+    try {
+        const options = { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore']}
+        const sha = execFileSync('git', ['rev-parse', '--short', 'HEAD'], options).trim()
+        if (!sha) return 'unknown'
+        const dirty = execFileSync('git', ['status', '--porcelain'], options).trim()
+        return dirty ? `${sha}-dirty` : sha
+    } catch {
+        return 'unknown'
+    }
+})()
 export default defineConfig(({ mode }) => ({
+    define: {
+        __BUILD_SHA__: JSON.stringify(buildSha)
+    },
     build: {
         minify: 'terser',
         terserOptions: {
@@ -74,10 +95,14 @@ export default defineConfig(({ mode }) => ({
             format: {
                 generate: ({ userscript, mode }) => {
                     const updatesLine = pkg.updates ? `// @updates      ${pkg.updates}\n` : ''
+                    // @build-sha 是自定义字段（脚本管理器不认识就忽略）：upload.py 据此生成 version.json，
+                    // 保证「线上发布的 sha」与「产物自身的 sha」不可能不一致
+                    const buildShaLine = `// @build-sha    ${buildSha}\n`
+                    const injected = `${buildShaLine}${updatesLine}`
                     if (mode === 'meta') {
-                        return `${userscript.replace('// ==/UserScript==', `${updatesLine}// ==/UserScript==`)}`
+                        return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==`)}`
                     }
-                    return `${userscript.replace('// ==/UserScript==', `${updatesLine}// ==/UserScript==`)}`
+                    return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==`)}`
                 }
             }
         }),

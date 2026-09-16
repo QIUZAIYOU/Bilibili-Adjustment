@@ -6,6 +6,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, enablePopoverLightDismiss } from '@/utils/common'
 import { SettingsShellRenderer } from '@/components/settings-shell-renderer'
+import { BUILD_SHA } from '@/shared/build-info'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
@@ -35,6 +36,11 @@ type FeedbackButton = HTMLElement & {
     _feedbackResetTimer?: ReturnType<typeof setTimeout> | null
 }
 const logger = new LoggerService('SettingsDialog')
+/**
+ * 设置面板显示的版本号：`v3.34.4+a1b2c3d`（构建期注入的 git 短 SHA）。
+ * 取不到构建标识时只显示版本号，保持原样。
+ */
+const versionLabel = (): string => (BUILD_SHA ? `${pkg.version}+${BUILD_SHA}` : pkg.version)
 /**
  * 设置弹窗宿主：负责弹窗壳渲染、与 Vue 设置面板的接线（挂载/卸载/配置与动态选项同步）、
  * 特殊联动（AI 凭证与模型、日志级别、字幕开关）、配置导入导出与版本检查。
@@ -270,10 +276,10 @@ export class SettingsDialogHost {
         const renderer = new SettingsShellRenderer()
         this._activeSchema = videoSettingsConfig
         const formContent = '<div class="adjustment-form" id="VideoSettingsFormMount"></div>'
-        // 生成完整弹窗
+        // 生成完整弹窗（版本号带上构建标识：同版本覆盖发布时便于确认用户装的是哪一份）
         const popoverHtml = renderer.renderPopover(
             '哔哩哔哩播放页设置',
-            pkg.version,
+            versionLabel(),
             formContent
         )
         createElementAndInsert(popoverHtml, document.body)
@@ -477,17 +483,27 @@ export class SettingsDialogHost {
                 statusEl.classList.add('hidden')
             }, 3000)
         }
-        // 「手动」更新模式的唯一提示途径：常驻显示「有新版本」（不自动隐藏），点击版本号查看详情
+        // 版本号处的常驻提示（不自动隐藏）：
+        // ① 有新版本 → 「有新版本 vX，点击查看」（手动模式唯一的提示途径，自动模式下补丁级也只走这里）
+        // ② 同版本覆盖发布 → 「内容已更新，点击重新安装」（版本号未变，只能提示重新安装）
         const showPendingUpdate = (): void => {
             const pending = updateService.getPendingUpdateVersion()
-            if (!pending) return
+            const rebuild = updateService.getPendingRebuild()
+            if (!pending && !rebuild) return
             clearTimeout(hideTimer ?? undefined)
             statusEl.className = 'adjustment-popover-version-status has-update'
-            statusEl.textContent = `有新版本 v${pending}，点击查看`
+            statusEl.textContent = pending
+                ? `有新版本 v${pending}，点击查看`
+                : '内容已更新，点击重新安装'
         }
         showPendingUpdate()
         this._updateAvailableUnsubscribe = eventBus.on(EVENT_NAMES.UPDATE_AVAILABLE, () => showPendingUpdate())
         addEventListenerToElement(versionEl, 'click', async () => {
+            // 同版本覆盖发布：没有更新日志可看，直接打开安装页让用户重装
+            if (!updateService.getPendingUpdateVersion() && updateService.getPendingRebuild()) {
+                window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+                return
+            }
             if (checking) return
             checking = true
             statusEl.classList.remove('hidden')
@@ -500,6 +516,8 @@ export class SettingsDialogHost {
                     showStatus(`已是最新版本 v${pkg.version}`)
                 } else if (result.type === 'update') {
                     showStatus(`发现新版本 v${result.latestVersion}`, 'update')
+                } else if (result.type === 'rebuilt') {
+                    showStatus('内容已更新，点击重新安装', 'update')
                 } else {
                     showStatus('检查更新失败，请稍后重试', 'error')
                 }
@@ -784,7 +802,7 @@ export class SettingsDialogHost {
         const formContent = '<div class="adjustment-form" id="DynamicSettingsFormMount"></div>'
         const popoverHtml = renderer.renderDynamicPopover(
             '哔哩哔哩动态页设置',
-            pkg.version,
+            versionLabel(),
             formContent
         )
         createElementAndInsert(popoverHtml, document.body)
