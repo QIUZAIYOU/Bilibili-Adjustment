@@ -180,11 +180,12 @@ export const homeHistoryFeatures = {
         if (titleSpan) {
             titleSpan.innerText = `首页视频推荐历史记录(${totalCount})`
         }
-        // 清理旧实现遗留的包裹层/分类栏，把挂载点放在原列表位置。
+        // 清理上一次渲染遗留的包裹层/分类栏，把挂载点放在原列表位置。
         // 关键：挂载点在样式里为 display: contents（不生成盒子），面板根仍是 .history-body，
         // 从而保持「.adjustment-popover > .history-body > 分类栏/列表」的高度链与滚动行为。
         document.querySelector('#indexRecommendVideoHistoryPopover > .history-body')?.remove()
-        document.getElementById('indexRecommendVideoHistoryCategoryV2')?.remove()
+        // 分类栏按弹窗作用域查找（id 是本脚本自建的，但仍限定在弹窗内，避免误删页面上的同名元素）
+        document.querySelector('#indexRecommendVideoHistoryPopover #indexRecommendVideoHistoryCategory')?.remove()
         let mountEl = existingMount
         if (!mountEl) {
             mountEl = document.createElement('div')

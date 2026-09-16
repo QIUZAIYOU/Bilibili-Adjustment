@@ -1,8 +1,8 @@
 <template>
     <div class="history-body">
-        <!-- 分类栏：结构与 class 与旧实现一致（全部 = .all_v2，选中态 .active） -->
-        <ul id="indexRecommendVideoHistoryCategoryV2">
-            <li class="all_v2" :class="{ active: selectedTag === '' }" @click="selectTag('')">全部</li>
+        <!-- 分类栏：结构与 class 保持既有契约（全部 = .all，选中态 .active，样式见 home-page.js 的 #indexRecommendVideoHistoryCategory） -->
+        <ul id="indexRecommendVideoHistoryCategory">
+            <li class="all" :class="{ active: selectedTag === '' }" @click="selectTag('')">全部</li>
             <li
                 v-for="tag in allTags"
                 :key="tag"
@@ -35,14 +35,14 @@
  * 宿主负责弹窗外壳、标题计数、清空按钮与「关闭即销毁」；本组件负责分类栏、视频列表、
  * 搜索过滤、分页懒加载与列表点击。
  *
- * 保真要点（旧实现为命令式 DOM，结构与样式契约必须逐字保留）：
- * - 沿用 #indexRecommendVideoHistoryCategoryV2 / #indexRecommendVideoHistoryList /
+ * 保真要点（DOM 结构与样式契约必须逐字保留）：
+ * - 沿用 #indexRecommendVideoHistoryCategory / #indexRecommendVideoHistoryList /
  *   #indexHistoryLoading / #indexHistorySentinel 与 .history-body/.empty-state/.loading-state 等 class
  *   （样式 src/shared/styles/home-page.js 全按这些 id/结构选择器书写）；
  * - 列表点击为「容器委托」：命中 li 才打开，点击链接 a 时走浏览器默认行为；
  * - 分页每页 50 条，IntersectionObserver(root=列表, rootMargin=100px) + 100ms 模拟延迟；
  * - 搜索 300ms 防抖，由宿主模板里的搜索框触发；
- * - URL 经 sanitizeHttpUrl 白名单处理（与旧实现一致，非 http(s) 一律为空）。
+ * - URL 经 sanitizeHttpUrl 白名单处理（非 http(s) 一律为空）。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { sanitizeHttpUrl } from '@/utils/common'

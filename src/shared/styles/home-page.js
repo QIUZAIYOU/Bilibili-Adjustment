@@ -65,7 +65,7 @@ export const homePageStyles = {
         #indexRecommendVideoHistorySearchInput::placeholder {
             color: var(--adj-text-disabled);
         }
-        #indexRecommendVideoHistoryCategoryV2 {
+        #indexRecommendVideoHistoryCategory {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 6px;
@@ -78,7 +78,7 @@ export const homePageStyles = {
             width: 340px;
             border-right: 1px solid var(--adj-border-strong);
         }
-        #indexRecommendVideoHistoryCategoryV2 li {
+        #indexRecommendVideoHistoryCategory li {
             display: flex;
             align-items: center;
             justify-content: center;
@@ -92,11 +92,11 @@ export const homePageStyles = {
             line-height: 1.3;
             word-break: break-all;
         }
-        #indexRecommendVideoHistoryCategoryV2 li:hover {
+        #indexRecommendVideoHistoryCategory li:hover {
             background: var(--adj-bg-hover);
             color: var(--adj-brand);
         }
-        #indexRecommendVideoHistoryCategoryV2 li.active {
+        #indexRecommendVideoHistoryCategory li.active {
             background: var(--adj-brand)20;
             color: var(--adj-brand);
             border-color: var(--adj-brand)40;

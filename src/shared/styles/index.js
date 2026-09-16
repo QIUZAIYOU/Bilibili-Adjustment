@@ -2,7 +2,7 @@ import { videoPageStyles } from './video-page'
 import { dynamicPageStyles } from './dynamic-page'
 import { commonStyles } from './common'
 import { homePageStyles } from './home-page'
-export const stylesV2 = {
+export const styles = {
     BilibiliAdjustment: generateBilibiliAdjustmentStyle(),
     VideoPageAdjustment: Object.values(videoPageStyles).join(''),
     DynamicSetting: Object.values(dynamicPageStyles).join(''),
@@ -488,7 +488,6 @@ function generateBilibiliAdjustmentStyle () {
             background: transparent;
             color: var(--adj-text-secondary);
             font-size: 12px;
-            line-height: 1.4;
             text-align: left;
             white-space: nowrap;
             cursor: pointer;

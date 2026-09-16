@@ -1,15 +1,13 @@
 /**
  * 设置弹窗外壳渲染器
  *
- * Vue 化后表单内容全部由 Vue 面板（SettingsPanelV3.vue）渲染，本类只负责生成弹窗「壳」HTML：
+ * 表单内容全部由 Vue 面板（src/ui/settings/SettingsPanel.vue）渲染，本类只负责生成弹窗「壳」HTML：
  * 标题、版本号、推荐样式表、底部按钮组，以及由调用方传入的表单挂载点（formContent）。
  *
- * 原先的命令式表单渲染方法（render / renderItem / renderSection / renderCheckbox / renderInput /
- * renderSelect / renderRadio / renderTipsIcon / isVisible / resolveTips / escapeHtml / toPascalCase）
- * 已随经典渲染器一并移除：DOM 结构与 class 契约现由 Vue 组件保证
- * （见 src/ui/settings/SettingsPanelV3.vue 与 docs/settings-v3-migration.md）。
+ * 这里**没有**、也不应再出现任何表单/设置项渲染方法：DOM 结构与 class 契约由 Vue 组件保证
+ * （见 src/ui/settings/SettingsPanel.vue 与 docs/settings-panel.md）。
  */
-export class SettingsRenderer {
+export class SettingsShellRenderer {
     /**
      * 生成播放页设置弹窗 HTML
      * @param {string} title 标题

@@ -82,7 +82,7 @@ src/shared/theme/
 | `theme.js` 的 `theme.colors/spacing/borderRadius/fontSize/shadows/transitions` | 拆分并入 `tokens.js`（值取自现有 night 色板），`theme.js` 保留为 `night` 的 JS 兼容视图（内部由 token 生成），过渡期后删除 |
 | `style-utils.js#generateCssVariables` | 升级为 `generateThemeVariables(themeId)`（由 `tokens.js` 驱动，补全 fontSize/shadows/transitions） |
 | `styles/index.js#generateBilibiliAdjustmentStyle` | 迁移为 `var()` 引用（不含变量定义块） |
-| `stylesV2` / `generateAllStyles` | 保留结构；`generateAllStyles` 不再需要单独注入 `cssVariables`（改为 theme vars 统一注入） |
+| `styles` / `generateAllStyles` | 保留结构；`generateAllStyles` 不再需要单独注入 `cssVariables`（改为 theme vars 统一注入） |
 | `insertStyleToDocument` | 不变；theme vars 由其注入 |
 
 ### 3.4 初始化时序（main.js）
@@ -236,14 +236,14 @@ ThemeManager.followOfficial({ enable }) // 预留：跟随官方深浅（§6.4�
 - [ ] 滚动条颜色实测（R2），`scrollbar-hover.js` 如需跟随主题则接 ThemeManager。
 
 **阶段 2：组件内嵌 CSS 常量**
-- [ ] `popover-dialog.js`（DIALOG_CSS）、`notification.js`（浅色 toast → 主题化后 night/dark 下为深色外观，注意与现有视觉对比）、`tooltip-component.js`、`settings-component-v2.js`（成功/失败边框与提示色）；
+- [ ] `popover-dialog.js`（DIALOG_CSS）、`notification.js`（浅色 toast → 主题化后 night/dark 下为深色外观，注意与现有视觉对比）、`tooltip-component.js`、`settings-dialog.ts`（成功/失败边框与提示色）；
 - [ ] `update.service.js`（版本检查浮动提示）内联 `cssText`。
 
 **阶段 3：模块/模板内联样式与 SVG fill**
 - [ ] 模板 `style=` 内联（buttons.js 评论归属地、paid-mark.js `#fb7299` 付费标——`#fb7299` 为 B 站官方粉色，归「跟随官方」或独立 `--adj-brand-pink` token，待定）；
 - [ ] `video-rotate.js` divider、`up-space-popup.js` iframe cssText、`utils/common.js` tooltip 定位 cssText（仅尺寸，确认无色值）；
 - [ ] SVG：`ui-buttons.js` 等克隆官方图标 `fill="#fff"` 默认保留官方原色（§2 例外），仅当需随脚本主题时改为 `class + fill: var()`；
-- [ ] JS 直写色值处：`settings-component-v2.js` `#2ed573/#ff4757` → `ThemeManager.getColor` 或 CSS 类切换。
+- [ ] JS 直写色值处：`settings-dialog.ts` `#2ed573/#ff4757` → `ThemeManager.getColor` 或 CSS 类切换。
 
 **阶段 4：清理与收尾**
 - [ ] `theme.js` 兼容层导出核对，确认无遗漏 `theme.colors` 消费方后删除或改为 token 派生；

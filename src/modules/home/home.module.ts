@@ -4,7 +4,7 @@ import { LoggerService } from '@/services/logger.service'
 import { executeFunctionsSequentially, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
-import { stylesV2 } from '@/shared/styles'
+import { styles } from '@/shared/styles'
 import { homeHistoryFeatures } from './history'
 import { homePaidMarkFeatures } from './paid-mark'
 const logger = new LoggerService('HomeModule')
@@ -26,7 +26,7 @@ interface HomeModuleContext {
 }
 export default {
     name: 'home',
-    version: '3.34.1',
+    version: '3.34.2',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
     async install (this: HomeModuleContext): Promise<void> {
@@ -52,7 +52,7 @@ export default {
         this.userConfigs = await storageService.getAll('user') as Record<string, unknown>
         if (document.visibilityState === 'visible') {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'IndexAdjustmentStyle': stylesV2.IndexAdjustment })
+            insertStyleToDocument({ 'IndexAdjustmentStyle': styles.IndexAdjustment })
             this.handleExecuteFunctionsSequentially()
             await this.initEventListeners()
         }

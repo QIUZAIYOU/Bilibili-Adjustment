@@ -12,8 +12,8 @@
  * ⚠️ 本模块**禁止被静态 import**：一旦静态引入，Vue 运行时与 SFC 会进入首屏关键路径
  * （违反「Vue 入口必须懒加载」红线）。它只应出现在 `await import('./lazy-panel.js')` 中。
  */
-import SettingsPanelV3 from './SettingsPanelV3.vue'
+import SettingsPanel from './SettingsPanel.vue'
 import { createApp, reactive, markRaw } from 'vue'
 /** 设置面板组件（与下面的 Vue API 来自同一个模块图，保证运行时实例一致） */
-export const SettingsPanelV3Component = SettingsPanelV3
+export const SettingsPanelComponent = SettingsPanel
 export { createApp, reactive, markRaw }

@@ -2,7 +2,7 @@ import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { stylesV2 } from '@/shared/styles'
+import { styles } from '@/shared/styles'
 import { EVENT_NAMES } from '@/shared/constants'
 import { sleep, insertStyleToDocument, getBodyHeight, addEventListenerToElement } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
@@ -38,7 +38,7 @@ export const webfullFeatures = {
         }
         document.body.classList.add('webscreen-fix')
         // 注入解锁样式（移除时 B 站原生 CSS 自动恢复）
-        insertStyleToDocument({ 'UnlockWebPlayerStyle': stylesV2.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
+        insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
         // 移除小窗模式按钮（解锁后小窗模式会破坏布局）
         document.querySelectorAll('.mini-player-window[title*="迷你播放器"]').forEach(el => el.remove())
         // 监听模式切换按钮（排除全屏按钮，避免干扰 B 站全屏操作）

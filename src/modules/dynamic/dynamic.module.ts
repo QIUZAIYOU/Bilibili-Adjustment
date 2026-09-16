@@ -1,17 +1,17 @@
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { SettingsComponentV2 } from '@/components/settings-component-v2'
+import { SettingsDialogHost } from '@/components/settings-dialog'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
 import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
 import { waitForCondition } from '@/utils/dom-wait'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
-import { stylesV2 } from '@/shared/styles'
+import { styles } from '@/shared/styles'
 import { commentEnhanceFeatures } from './comment-enhance'
 const logger = new LoggerService('DynamicModule')
-const settingsComponent = new SettingsComponentV2()
+const settingsComponent = new SettingsDialogHost()
 /** 动态模块实例上下文（本对象字段 + 展开的 commentEnhanceFeatures） */
 interface DynamicModuleContext {
     name: string
@@ -50,7 +50,7 @@ export default {
         await this.registSettings()
         if (document.visibilityState === 'visible') {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'DynamicSettingStyle': stylesV2.DynamicSetting })
+            insertStyleToDocument({ 'DynamicSettingStyle': styles.DynamicSetting })
             this.handleExecuteFunctionsSequentially()
         }
     },

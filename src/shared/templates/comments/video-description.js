@@ -1,7 +1,7 @@
 /**
  * 评论区简介条目（shadow 富文本）渲染函数。
  * 从占位符模板（getTemplates.replace）改为直接插值渲染，结构与旧模板逐字一致：
- * - styleCss：注入 shadow 的样式（stylesV2.videoCommentDescription）
+ * - styleCss：注入 shadow 的样式（styles.videoCommentDescription）
  * - avatarDataUri：UP 头像 data URI
  * - bodyHtml：已处理（转义 + 链接化）的简介富文本
  */

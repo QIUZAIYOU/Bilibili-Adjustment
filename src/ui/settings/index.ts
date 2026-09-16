@@ -2,7 +2,7 @@
  * Vue 设置面板懒加载入口
  *
  * 遵守「Vue 入口必须懒加载」红线：设置弹窗打开前不加载 Vue 运行时与 SFC。
- * 宿主（settings-component-v2）在渲染弹窗壳后调用 mountVueSettingsPanel 挂载面板，
+ * 宿主（components/settings-dialog.ts 的 SettingsDialogHost）在渲染弹窗壳后调用 mountVueSettingsPanel 挂载面板，
  * 并在弹窗关闭时调用返回的 unmount（否则 Vue 实例与响应式副作用会泄漏）。
  *
  * ⚠️ 两条务必遵守的约束：
@@ -35,7 +35,7 @@ const isComponent = (value: unknown): boolean => {
  * @param {(key:string, value:any)=>void} [options.onChange] 配置变更回调
  * @param {(key:string)=>void} [options.onValidate] 校验按钮回调
  * @param {(key:string)=>void} [options.onRefresh] 刷新按钮回调
- * @param {(error:Error)=>void} [options.onError] 渲染期错误回调（宿主据此回退经典渲染器）
+ * @param {(error:Error)=>void} [options.onError] 渲染期错误回调（宿主据此在挂载点内显示失败提示）
  * @returns {Promise<{bridge: object, unmount: Function}>}
  */
 /** 挂载选项（schema 静态；configs / dynamicOptions 必须是宿主自身持有的对象） */
@@ -46,7 +46,7 @@ export interface MountVueSettingsOptions {
     onChange?: (key: string, value: unknown) => void
     onValidate?: (key: string) => void
     onRefresh?: (key: string) => void
-    /** 渲染期错误回调（宿主据此回退经典渲染器） */
+    /** 渲染期错误回调（宿主据此在挂载点内显示失败提示） */
     onError?: (error: unknown) => void
 }
 /** 挂载结果：bridge 持有响应式代理，宿主所有写入都必须经它 */
@@ -62,8 +62,8 @@ export const mountVueSettingsPanel = async (mountEl: HTMLElement | null, options
     const { schema, configs, dynamicOptions = {}, onChange, onValidate, onRefresh, onError } = options
     // 桥模块只被动态 import（懒加载红线）；它同时导出组件与**同源**的 Vue API
     const panelModule = await import('./lazy-panel')
-    const { SettingsPanelV3Component, createApp, reactive, markRaw } = panelModule || {}
-    const PanelComponent = SettingsPanelV3Component || (panelModule as { default?: unknown } | undefined)?.default
+    const { SettingsPanelComponent, createApp, reactive, markRaw } = panelModule || {}
+    const PanelComponent = SettingsPanelComponent || (panelModule as { default?: unknown } | undefined)?.default
     if (!isComponent(PanelComponent)) {
         const keys = panelModule ? Object.keys(panelModule).join(',') : '模块为空'
         throw new Error(`设置面板组件解析失败（模块导出：${keys}）`)

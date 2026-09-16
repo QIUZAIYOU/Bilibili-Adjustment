@@ -5,6 +5,13 @@
 > （禁 `mangle.properties`、SystemJS 命名导出桥、Vue 懒加载）与源码语言无关。
 >
 > 阶段 0（基建 + 护栏）已落地，业务代码尚未迁移。
+>
+> **⚠️ 命名已变更（2026-09-16）**：本文下面的阶段记录里出现的旧文件名是**当时的事实**（连同当时的行数），
+> 保留不改。当前对应关系：`components/settings-component-v2` → `components/settings-dialog`、
+> `components/settings-renderer` → `components/settings-shell-renderer`、
+> `ui/settings/SettingsPanelV3.vue` → `ui/settings/SettingsPanel.vue`、
+> `ui/settings/controls/SettingItemV3.vue` → `ui/settings/controls/SettingItem.vue`
+> （原因：设置弹窗只剩 Vue 一套实现，去掉 v2/V3 版本号命名；详见 `docs/settings-panel.md`）。
 
 ## 1. 实测证据（阶段 0 验收）
 

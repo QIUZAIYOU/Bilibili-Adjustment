@@ -1,5 +1,5 @@
 <template>
-    <!-- class 与 V2 逐字符一致（V2 模板为 `adjustment-switch ${switchClass}`，未选中时带尾随空格） -->
+    <!-- class 名与全局样式/主题态严格对应：未选中时 class 尾随一个空格（`adjustment-switch `） -->
     <div :class="'adjustment-switch ' + (modelValue ? 'on' : '')">
         <input
             :id="inputId"
@@ -14,9 +14,9 @@
 </template>
 <script setup lang="ts">
 /**
- * 设置开关（V3）
- * DOM 结构与 class 与 V2（settings-renderer.renderCheckbox）一致，直接复用既有全局样式与
- * .adjustment-switch.on 主题态，保证迁移过程中视觉零差异。
+ * 设置开关
+ * DOM 结构与 class 直接复用既有全局样式（`.adjustment-switch` 与 `.adjustment-switch.on` 主题态），
+ * 改类名会让开关失去样式与主题跟随。
  */
 withDefaults(defineProps<{ modelValue?: boolean; inputId?: string }>(), {
     modelValue: false,

@@ -1,14 +1,14 @@
 import { eventBus } from '@/core/event-bus'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { SettingsComponentV2 } from '@/components/settings-component-v2'
+import { SettingsDialogHost } from '@/components/settings-dialog'
 import { destroyTooltip } from '@/components/tooltip-component'
 import { elementSelectors } from '@/shared/element-selectors'
 import { biliApis } from '@/shared/bili-apis'
 import { sleep, executeFunctionsSequentially, isTabActive, monitorHrefChange, insertStyleToDocument } from '@/utils/common'
 import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
-import { stylesV2 } from '@/shared/styles'
+import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import type { LogLevel } from '@/services/logger.service'
 import { playerModeFeatures } from './player-mode'
@@ -23,7 +23,7 @@ import { upSpacePopupFeatures } from './up-space-popup'
 import { videoRotateFeatures } from './video-rotate'
 import { initProgressSegmentTint } from './progress-segments'
 const logger = new LoggerService('VideoModule')
-const settingsComponent = new SettingsComponentV2()
+const settingsComponent = new SettingsDialogHost()
 /**
  * 视频模块实例契约：本对象的字段 + 展开的各 feature 提供的字段/方法。
  * 各 feature 内部用 `this: XxxContext` 声明的成员，必须在这里被覆盖到。
@@ -106,7 +106,7 @@ interface VideoModuleContext {
 }
 export default {
     name: 'video',
-    version: '3.34.1',
+    version: '3.34.2',
     async install (this: VideoModuleContext): Promise<void> {
         this._cleanup = []
         this._modeObservers = []
@@ -164,7 +164,7 @@ export default {
         // 定位前锁定页面滚动，避免用户滚动干扰自动定位；网页全屏解锁场景不执行定位（见 autoLocateToPlayer），
         // 锁定会在定位被跳过时永远无法解除，导致页面卡死无法滚动，故跳过
         if (!this.userConfigs.webfull_unlock) {
-            insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
+            insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
         }
         await this.registSettings()
         await this.initEventListeners()
@@ -274,14 +274,14 @@ export default {
         // 普通视频页：保留标签页激活检测（防止后台标签页误触发）
         if (this.userConfigs.page_type === 'bangumi') {
             logger.debug('番剧页丨跳过标签页检测，直接检测视频元素')
-            insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
+            insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
             ;(async () => this.checkVideoCanplaythrough(await elementSelectors.wait('video') as HTMLVideoElement | null))()
         } else {
             this._cleanup.push(isTabActive({
                 onActiveChange: async isActive => {
                     if (isActive) {
                         logger.info('标签页｜已激活')
-                        insertStyleToDocument({ 'VideoPageAdjustmentStyle': stylesV2.VideoPageAdjustment, 'VideoSettingsStyle': stylesV2.VideoSettings })
+                        insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
                         this.checkVideoCanplaythrough(elementSelectors.get('video') as HTMLVideoElement | null)
                     }
                 },

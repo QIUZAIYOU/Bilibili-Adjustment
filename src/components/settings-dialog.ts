@@ -5,13 +5,15 @@ import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
 import { detectivePageType, createElementAndInsert, addEventListenerToElement, enablePopoverLightDismiss } from '@/utils/common'
-import { SettingsRenderer } from '@/components/settings-renderer'
+import { SettingsShellRenderer } from '@/components/settings-shell-renderer'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
 import { mountVueSettingsPanel } from '@/ui/settings'
+import { pickActiveSection } from '@/ui/settings/nav-scroll-spy'
+import type { NavSectionPosition } from '@/ui/settings/nav-scroll-spy'
 import pkg from '../../package.json'
 import type { SettingItemSchema } from '@/config/settings-config'
 /** Vue 设置面板桥的返回形状（与 ui/settings/index.ts 的 VueSettingsPanelHandle 对应） */
@@ -32,22 +34,23 @@ type FeedbackButton = HTMLElement & {
     _feedbackOriginalText?: string
     _feedbackResetTimer?: ReturnType<typeof setTimeout> | null
 }
-const logger = new LoggerService('SettingsV2')
+const logger = new LoggerService('SettingsDialog')
 /**
- * 新设置组件（基于配置驱动）
- * 与旧版 SettingsComponent 独立，后续可替换旧版
+ * 设置弹窗宿主：负责弹窗壳渲染、与 Vue 设置面板的接线（挂载/卸载/配置与动态选项同步）、
+ * 特殊联动（AI 凭证与模型、日志级别、字幕开关）、配置导入导出与版本检查。
+ *
+ * 表单本身由 Vue 面板（src/ui/settings/SettingsPanel.vue）按 settings-config 的 schema 渲染，本类不生成任何表单 DOM。
  */
-export class SettingsComponentV2 {
+export class SettingsDialogHost {
     userConfigs: Record<string, unknown>
-    renderer: SettingsRenderer | null
     pageType: string | null
-    tooltip: unknown
     /** Vue 设置面板应用实例（关闭/重建时 unmount） */
     _vuePanel: VueSettingsPanelHandleLike | null
     _vueBridge: VueSettingsPanelHandleLike['bridge'] | null
     /** Vue 响应式代理：宿主所有写入都必须经它们（写原始对象会绕过 set trap，面板不重渲染） */
     _vueConfigsProxy: Record<string, unknown> | null
     _vueDynamicOptionsProxy: DynamicOptions | null
+    /** 当前面板使用的 schema（动态页为 dynamicSettingsConfig） */
     _activeSchema: SettingItemSchema[] | null
     _pendingModelOptions?: DynamicOptions
     _configSyncUnsubscribe?: (() => void) | null
@@ -57,10 +60,8 @@ export class SettingsComponentV2 {
     _settingsNavCleanup?: (() => void) | null
     constructor () {
         this.userConfigs = {}
-        this.renderer = null
         this.pageType = null
-        this.tooltip = null
-        // Vue 设置面板（settings_panel = 'v3'）状态：
+        // Vue 设置面板状态：
         // - _vuePanel：应用实例（关闭/重建时 unmount）
         // - _vueConfigsProxy / _vueDynamicOptionsProxy：**Vue 响应式代理**，宿主所有写入都必须经它们
         //   （写原始对象会绕过 Proxy 的 set trap，面板不会重渲染）
@@ -135,7 +136,7 @@ export class SettingsComponentV2 {
     /**
      * Vue 面板不可用时的兜底提示（加载/渲染失败）
      *
-     * 不再回退到经典渲染器（该路径已移除），只在挂载点内显示轻量提示 + 重试按钮，
+     * 表单一律由 Vue 面板渲染（没有第二套实现可回退），故只在挂载点内显示轻量提示 + 重试按钮，
      * 保证用户能看见发生了什么并可自行重试；不会写库、不会改变任何配置。
      */
     showPanelLoadFailure (error: unknown): void {
@@ -160,7 +161,7 @@ export class SettingsComponentV2 {
         mountEl.appendChild(retry)
     }
     /**
-     * Vue 面板配置变更统一处理（等价于经典模式 bindConfigChangeEvents 的链路）
+     * Vue 面板配置变更统一处理：先归一（input 去空格 / checkbox 布尔化）再落库，最后跑特殊联动
      */
     async handleVueConfigChange (key: string, value: unknown, popover: SettingsPopover | null): Promise<void> {
         const item = this.findConfigItem(key)
@@ -169,7 +170,7 @@ export class SettingsComponentV2 {
         if (item?.type === 'input') next = String(value ?? '').trim()
         if (item?.type === 'checkbox') next = Boolean(value)
         await this.saveConfig(key, next)
-        // 复用经典模式的特殊联动逻辑（AI 凭证、日志级别、字幕开关、自定义模型等）
+        // 特殊联动逻辑（AI 凭证、日志级别、字幕开关、自定义模型等）
         if (item?.type === 'checkbox') {
             await this.handleSpecialCheckboxChange(key, next, popover)
         } else if (item?.type === 'input') {
@@ -177,8 +178,6 @@ export class SettingsComponentV2 {
         } else if (item?.type === 'select') {
             await this.handleSpecialSelectChange(key, next, oldValue, popover)
         }
-        // 说明：`settings_panel`（面板实现）切换后的弹窗重建统一在 saveConfig 内完成，
-        // 以覆盖「Vue 面板回调」与「经典渲染器 DOM 事件」两条路径。
     }
     async init (userConfigs: Record<string, unknown>): Promise<void> {
         this.userConfigs = userConfigs
@@ -266,16 +265,13 @@ export class SettingsComponentV2 {
         this.unmountVuePanel()
         // 销毁旧的 tooltip
         destroyTooltip()
-        // 不 await fetchDynamicOptions（fetchModels 有 10s 超时）：动态选项由 mountVuePanel
-        // 内部从 _pendingModelOptions / 当前 ai_model 推导，面板挂载后再异步更新
-        // 创建渲染器：只用于生成弹窗壳（表单由 Vue 面板 SettingsPanelV3 渲染）
-        this.renderer = new SettingsRenderer()
+        // 弹窗壳由 SettingsShellRenderer 生成：表单挂载点本身即 .adjustment-form 容器，
+        // 面板以多根 fragment 渲染，最终 DOM 为 .adjustment-popover > .adjustment-form > 各设置项
+        const renderer = new SettingsShellRenderer()
         this._activeSchema = videoSettingsConfig
-        // 挂载点本身即 .adjustment-form 容器：面板以多根 fragment 渲染，
-        // 最终 DOM 与旧渲染器一致（.adjustment-popover > .adjustment-form > 各设置项）
         const formContent = '<div class="adjustment-form" id="VideoSettingsFormMount"></div>'
         // 生成完整弹窗
-        const popoverHtml = this.renderer.renderPopover(
+        const popoverHtml = renderer.renderPopover(
             '哔哩哔哩播放页设置',
             pkg.version,
             formContent
@@ -283,24 +279,23 @@ export class SettingsComponentV2 {
         createElementAndInsert(popoverHtml, document.body)
         // 获取 popover DOM 元素（需要等 DOM 插入后才能获取）
         const popover = document.getElementById('VideoSettingsPopover') as SettingsPopover | null
-        // Vue 面板挂载（懒加载 Vue 运行时 + SFC）；挂载完成后再做自绘下拉与 tooltip 增强，
-        // 因为对应 DOM（select/输入框）由组件渲染
+        // Vue 面板挂载（懒加载 Vue 运行时 + SFC）；不 await fetchDynamicOptions（fetchModels 有 10s 超时）：
+        // 动态选项由 mountVuePanel 内部从 _pendingModelOptions / 当前 ai_model 推导，面板挂载后再异步更新。
+        // 挂载完成后再做自绘下拉与 tooltip 增强，因为对应 DOM（select/输入框）由组件渲染
         await this.mountVuePanel(popover, 'VideoSettingsFormMount', videoSettingsConfig)
         this.setupSettingsNav(popover, videoSettingsConfig)
         // 原生 select 视觉替身：套自绘下拉（trigger+菜单），数据/事件仍走原生 select
         enhanceCustomSelects(popover)
         // 初始化 tooltip 并将 tooltip 元素插入 popover 内，避免被 popover 的顶层(top layer)遮挡
         // 说明：TooltipComponent 只消费 delay / container（hideDelay 从未被读取），故不再传入
-        this.tooltip = initTooltip({ delay: 300, container: popover as HTMLElement })
+        initTooltip({ delay: 300, container: popover as HTMLElement })
         requestAnimationFrame(() => {
             bindTooltipIcons()
         })
         // 异步获取完整模型列表并更新（不阻塞初始化流程）
         this.fetchDynamicOptions().then(options => {
             if (!options?.ai_model) return
-            // Vue 面板：就地合并到共享的动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
-            // 就地合并到共享的动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
-            // 挂载时已赋值（见 mountVuePanel），此处保持同一引用就地合并
+            // 就地合并到挂载时赋值的共享动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
             Object.assign(this._pendingModelOptions!, options)
             refreshCustomSelects(popover)
         }).catch(() => {})
@@ -367,9 +362,6 @@ export class SettingsComponentV2 {
         this.bindVersionUpdateCheck(popover)
     }
     /**
-     * 绑定版本号点击检查更新：结果小字展示在版本号下方
-     */
-    /**
      * 设置弹窗左侧的分组导航：列出 schema 里的 section，点击平滑跳转。
      *
      * 为什么放在 popover 外面：`.adjustment-popover` 自身既是滚动容器又有 `overflow-x: hidden`，
@@ -422,15 +414,21 @@ export class SettingsComponentV2 {
             // 弹窗打开（toggle → open）后 refresh 会被再次调用，届时才是真实位置。
             const bottom = headerBottom()
             if (bottom > 0) nav.style.top = `${Math.round(bottom)}px`
-            const top = popover.getBoundingClientRect().top
-            let current = ''
+            // 当前分组判定必须与点击跳转（见上方 click 处理）同基准——都用头部下边框：
+            // 跳转补偿掉了 sticky 头部高度，若这里改用弹窗顶边加固定阈值，
+            // 头部高度会把判定整体下压一格，导致点了分组 N 却高亮 N-1。
+            // 判定规则与回归用例见 src/ui/settings/nav-scroll-spy.ts
+            const positions: NavSectionPosition[] = []
             for (const item of sections) {
                 const id = String(item.id)
                 const el = popover.querySelector(`.adjustment-section.${id}`)
                 const hidden = !(el instanceof HTMLElement) || window.getComputedStyle(el).display === 'none'
                 buttons.get(id)?.classList.toggle('is-hidden', hidden)
-                if (!hidden && el instanceof HTMLElement && el.getBoundingClientRect().top - top <= 100) current = id
+                positions.push({ id, top: hidden ? 0 : (el as HTMLElement).getBoundingClientRect().top, hidden })
             }
+            const scrollable = popover.scrollHeight - popover.clientHeight > 2
+            const atBottom = scrollable && popover.scrollTop + popover.clientHeight >= popover.scrollHeight - 2
+            const current = pickActiveSection(positions, bottom, atBottom)
             for (const [id, btn] of buttons) btn.classList.toggle('is-active', id === current)
         }
         // 分组显隐由配置开关驱动（Vue 改的是内联 display），用 observer 跟随
@@ -459,6 +457,9 @@ export class SettingsComponentV2 {
             nav.remove()
         }
     }
+    /**
+     * 绑定版本号点击检查更新：结果小字展示在版本号下方
+     */
     bindVersionUpdateCheck (popover: SettingsPopover): void {
         const versionEl = popover.querySelector('.adjustment-popover-version')
         const statusEl = popover.querySelector('.adjustment-popover-version-status')
@@ -508,10 +509,7 @@ export class SettingsComponentV2 {
         })
     }
     /**
-     * 绑定配置项变更事件
-     */
-    /**
-     * 处理 API Key 验证按钮点击（Vue 面板由 onValidate 回调调用）
+     * 处理 API Key 验证按钮点击（由 Vue 面板的 onValidate 回调调用）
      * @param {string} targetId 目标输入框 id（ai_apikey / custom_model_api_key）
      * @param {HTMLElement} popover 设置弹窗
      * @param {HTMLElement} [buttonEl] 按钮元素（缺省时按 targetId 查找，兼容 Vue 面板）
@@ -554,7 +552,7 @@ export class SettingsComponentV2 {
         }
     }
     /**
-     * 处理模型列表刷新按钮点击（经典模式由 DOM 事件调用，Vue 面板由 onRefresh 回调调用）
+     * 处理模型列表刷新按钮点击（由 Vue 面板的 onRefresh 回调调用）
      * @param {string} targetId 目标下拉 id（当前仅支持 ai_model）
      * @param {HTMLElement} popover 设置弹窗
      * @param {HTMLElement} [buttonEl] 按钮元素（缺省时按 targetId 查找，兼容 Vue 面板）
@@ -781,11 +779,10 @@ export class SettingsComponentV2 {
         }
         // 面板重建前先卸载旧的 Vue 实例（避免泄漏）
         this.unmountVuePanel()
-        this.renderer = new SettingsRenderer()
-        // 表单区由 Vue 面板（SettingsPanelV3）按 dynamicSettingsConfig 渲染；
-        // 挂载点本身即 .adjustment-form 容器，DOM 结构与经典渲染器一致
+        const renderer = new SettingsShellRenderer()
+        // 表单区由 Vue 面板按 dynamicSettingsConfig 渲染；挂载点本身即 .adjustment-form 容器
         const formContent = '<div class="adjustment-form" id="DynamicSettingsFormMount"></div>'
-        const popoverHtml = this.renderer.renderDynamicPopover(
+        const popoverHtml = renderer.renderDynamicPopover(
             '哔哩哔哩动态页设置',
             pkg.version,
             formContent
@@ -797,7 +794,7 @@ export class SettingsComponentV2 {
         if (panel) {
             // 表单 DOM 就绪后应用自绘下拉与 tooltip 增强
             enhanceCustomSelects(popover)
-            this.tooltip = initTooltip({ delay: 300, container: popover as HTMLElement })
+            initTooltip({ delay: 300, container: popover as HTMLElement })
             requestAnimationFrame(() => {
                 bindTooltipIcons()
             })

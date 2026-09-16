@@ -1,6 +1,6 @@
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { stylesV2 } from '@/shared/styles'
+import { styles } from '@/shared/styles'
 import { biliApis } from '@/shared/bili-apis'
 import { STORAGE_KEYS } from '@/shared/constants'
 import { getTemplates } from '@/shared/templates'
@@ -118,7 +118,7 @@ export const uiButtonsFeatures = {
         if (this.userConfigs.page_type === 'bangumi') {
             if (!existingLocateButton) { locateButton = createElementAndInsert(renderButton('locateButton', {
                 class: 'bili-adjustment-icon locate',
-                style: `style="${stylesV2.videoSettingsOpenButton}"`,
+                style: `style="${styles.videoSettingsOpenButton}"`,
                 dataV: dataV,
                 text: '定位'
             }), floatNav, 'append')
@@ -127,7 +127,7 @@ export const uiButtonsFeatures = {
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = createElementAndInsert(renderButton('videoSettingsOpenButton', {
                     floatNavMenuItemClass: '',
-                    style: `style="${stylesV2.videoSettingsOpenButton}"`,
+                    style: `style="${styles.videoSettingsOpenButton}"`,
                     dataV: '',
                     text: '设置'
                 }), floatNav, 'append')
@@ -138,7 +138,7 @@ export const uiButtonsFeatures = {
             // 插入跳过片段管理按钮（番剧页用于配置片头片尾跳过）
             if (!existingSkipButton) {
                 const skipButton = createElementAndInsert(renderButton('skipSegmentManagerButton', {
-                    style: `style="${stylesV2.videoSettingsOpenButton}"`,
+                    style: `style="${styles.videoSettingsOpenButton}"`,
                     dataV: '',
                     text: '片段'
                 }), floatNav, 'append')
@@ -157,7 +157,7 @@ export const uiButtonsFeatures = {
         if (!videoInfo) return
         const { pages = false, ugc_season = false, episodes = false } = videoInfo as { pages?: unknown; ugc_season?: unknown; episodes?: unknown }
         if (pages || ugc_season || episodes) {
-            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': stylesV2.UnlockEpisodeSelector })
+            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
             elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
                 addEventListenerToElement(link, 'click', async () => {
                     await this.locateToPlayer()

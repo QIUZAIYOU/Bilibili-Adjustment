@@ -1,6 +1,7 @@
 # 性能基线与护栏（Sprint 0 / P0 验收）
 
-> 对应报告：`docs/bilibili-adjustment-v3.31.0-analysis.md`（Sprint 0 基线与门禁、§8 验收 KPI）
+> 本文件是 Sprint 0（性能基线与门禁）的现行验收清单；当时的分析报告已随历史文档一并移除，
+> 体积/耗时基线与阈值以 `scripts/build-baseline.json`、`scripts/build-stats.mjs` 与 `src/shared/perf.js` 为准。
 > 原则：**任何优化先有 baseline，再谈收益**；每次改动都应能回答「哪个 chunk 变大 / 哪段变慢了」。
 
 ## 1. 体积门禁

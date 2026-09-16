@@ -2,7 +2,7 @@ import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { stylesV2 } from '@/shared/styles'
+import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 const logger = new LoggerService('VideoModule', { notify: false })
@@ -199,7 +199,7 @@ export const playerModeFeatures = {
             }
             // 定位期间锁定页面滚动（overflow hidden 不影响程序化 scrollTo），避免用户滚动干扰定位；
             // 结束后无论成败都恢复
-            insertStyleToDocument({ 'BodyOverflowHiddenStyle': stylesV2.BodyOverflowHidden })
+            insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
             try {
                 await sleep(300)
                 await this.locateToPlayer()
