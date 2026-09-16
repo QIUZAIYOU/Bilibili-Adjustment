@@ -47,7 +47,7 @@ const pruneDuplicateHistoryRecords = async (rawList: unknown): Promise<number> =
     if (!duplicates.length) return 0
     try {
         // 明细先落日志再删：保留「哪两条被判为同一视频」的现场，便于回溯判定是否过宽
-        logger.info(
+        logger.debug(
             `首页视频推荐历史｜清理重复记录 ${duplicates.length} 条（同一视频只留最新一条）`,
             duplicates.map(item => `${item.identity} 删[${item.title || item.url}](${item.url}) 留[${item.keptKey}]`).join(' ｜ ')
         )

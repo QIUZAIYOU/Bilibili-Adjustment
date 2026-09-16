@@ -1,7 +1,9 @@
 export const homePageStyles = {
     indexAdjustment: `
         #indexRecommendVideoHistoryOpenButton {
-            margin-top: 10px;
+            /* 与「换一换」按钮对齐：本按钮复用了 B 站官方 .primary-btn class，其外边距随官方样式表变动，
+               故用 id 选择器把外边距统一清零（也清掉原 margin-top 在 flex 行里造成的垂直偏移） */
+            margin: 0;
         }
         .adjustment-history-popover {
             width: 820px;
