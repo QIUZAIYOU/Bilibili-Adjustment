@@ -26,7 +26,7 @@ interface HomeModuleContext {
 }
 export default {
     name: 'home',
-    version: '3.34.2',
+    version: '3.34.3',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
     async install (this: HomeModuleContext): Promise<void> {

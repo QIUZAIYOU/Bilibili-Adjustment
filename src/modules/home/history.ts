@@ -6,7 +6,7 @@ import { getTemplates } from '@/shared/templates'
 import { createElementAndInsert, addEventListenerToElement, enablePopoverLightDismiss } from '@/utils/common'
 import { chunk } from '@/utils/lodash-lite'
 import { mountHomeHistoryPanel } from '@/ui/home'
-import { sortAndDedupeHistoryRecords } from './history-records'
+import { sortAndDedupeHistoryRecords, findDuplicateHistoryRecords } from './history-records'
 const logger = new LoggerService('HomeModule')
 /** 首页推荐视频信息子集（记录用） */
 interface HistoryVideoInfo {
@@ -31,6 +31,33 @@ interface HomeHistoryContext {
     clearRecommendVideoHistory: () => Promise<void>
     setRecordRecommendVideoHistory: () => Promise<void>
     generatorIndexRecommendVideoHistoryContents: () => Promise<void>
+}
+/**
+ * 清理库里「同一视频的旧记录」（展示侧只认最新一条，留着的旧行永远不可见，只会越积越多）。
+ *
+ * 为什么需要：存储 key 是 `${bvid||aid||url}::${sessionTimestamp}`，同一视频每次被推荐都会新增一行，
+ * 而展示侧按**视频身份**去重 —— 于是库里长期存在大量不可见重复行，且一旦身份判定漏了
+ * （历史实现按 url 字符串比，tracking 参数/尾斜杠/分 P 不同就漏）就会在列表里冒出来。
+ * 这里按与展示完全同源的规则删掉旧行：批次时间最新、同批次内页面顺序靠前的那条保留。
+ * @param {Array<{key: string, value: object}>} rawList storageService.getAllRaw('index') 的结果
+ * @returns {Promise<number>} 实际清理（提交删除事务）的条数
+ */
+const pruneDuplicateHistoryRecords = async (rawList: unknown): Promise<number> => {
+    const duplicates = findDuplicateHistoryRecords(rawList)
+    if (!duplicates.length) return 0
+    try {
+        // 明细先落日志再删：保留「哪两条被判为同一视频」的现场，便于回溯判定是否过宽
+        logger.info(
+            `首页视频推荐历史｜清理重复记录 ${duplicates.length} 条（同一视频只留最新一条）`,
+            duplicates.map(item => `${item.identity} 删[${item.title || item.url}](${item.url}) 留[${item.keptKey}]`).join(' ｜ ')
+        )
+        await storageService.batchRemove('index', duplicates.map(item => item.key))
+        return duplicates.length
+    } catch (error) {
+        // 清理失败不影响展示（展示侧本来就会去重）
+        logger.warn('首页视频推荐历史｜清理重复记录失败', error)
+        return 0
+    }
 }
 export const homeHistoryFeatures = {
     async setRecordRecommendVideoHistory (this: HomeHistoryContext): Promise<void> {
@@ -98,6 +125,8 @@ export const homeHistoryFeatures = {
             }
         })()
         await this._recordingPromise
+        // 本次写入后立刻清掉同一视频的旧行：否则每被推荐一次就多一行，库只增不减
+        await pruneDuplicateHistoryRecords(await storageService.getAllRaw('index'))
     },
     async insertIndexRecommendVideoHistoryPopover (this: HomeHistoryContext): Promise<void> {
         // 幂等：已经插过按钮就不再重复插入
@@ -168,6 +197,8 @@ export const homeHistoryFeatures = {
         const existingMount = document.getElementById('indexRecommendVideoHistoryPanelMount')
         if (!popoverEl || (!listAnchor && !existingMount)) return
         const indexRecommendVideoHistoriesRaw = await storageService.getAllRaw('index')
+        // 打开/重绘弹窗时顺手把库里同一视频的旧行删掉（复用刚读到的一份数据，不额外读库）
+        await pruneDuplicateHistoryRecords(indexRecommendVideoHistoriesRaw)
         const [titleEl, searchInput] = await elementSelectors.batch([
             'indexRecommendVideoHistoryPopoverTitle',
             'indexRecommendVideoHistorySearchInput'

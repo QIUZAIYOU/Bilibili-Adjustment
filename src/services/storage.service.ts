@@ -127,6 +127,12 @@ export class StorageService {
         const db = this.#dbs.get(dbName)!
         return db.batchGet('keyval', keys)
     }
+    /** 单事务批量删除（P0-3：替代循环里逐键 await remove） */
+    async batchRemove (dbName: string, keys: string[]): Promise<number> {
+        if (!keys || keys.length === 0) return 0
+        const db = this.#dbs.get(dbName)!
+        return db.batchDelete('keyval', keys)
+    }
     async clear (dbName: string): Promise<unknown> {
         const db = this.#dbs.get(dbName)!
         return db.clear('keyval')

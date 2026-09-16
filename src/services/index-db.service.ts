@@ -106,6 +106,26 @@ export class IndexedDBService {
         })
     }
     /**
+     * 单事务批量删除（P0-3）
+     * 逐条 delete 会为每个键开一次事务（N 次往返），批量清理必须走这里。
+     * @param {string} storeName
+     * @param {Array<string>} keys 待删除主键
+     * @returns {Promise<number>} 请求删除的条数（事务失败会 reject）
+     */
+    async batchDelete (storeName: string, keys: string[]): Promise<number> {
+        if (!keys || keys.length === 0) return 0
+        await this.connect()
+        this._updateLastOperation()
+        return new Promise<number>((resolve, reject) => {
+            const tx = this.db!.transaction(storeName, 'readwrite')
+            const store = tx.objectStore(storeName)
+            for (const key of keys) store.delete(key)
+            tx.oncomplete = () => resolve(keys.length)
+            tx.onerror = (event: Event) => reject((event.target as IDBTransaction).error)
+            tx.onabort = () => reject(tx.error || new Error('IndexedDB 批量删除事务已中止'))
+        })
+    }
+    /**
      * 单事务批量读取（同一事务内并发取键，避免 N 次事务）
      * @param {string} storeName
      * @param {Array<string>} keys
