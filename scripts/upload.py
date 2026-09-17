@@ -30,8 +30,11 @@ DIST_FILES = [
     'bilibili-adjustment.meta.js',
 ]
 
-# 远程提示词文件（脚本运行时优先读取它；只改提示词时可只上传它，用户无需更新脚本）
-PROMPT_FILE = 'ad-detection-prompt.js'
+# 远程提示词/覆盖表等「热更资产」目录（服务器上 meta.js 同级的子目录）
+HOT_CONFIG_DIR = 'hot-config'
+# 热更资产：dist/hot-config/<生成物> 与仓库 hot-config/<人工维护>
+HOT_CONFIG_DIST_FILES = ['ad-detection-prompt.js']
+HOT_CONFIG_REPO_FILES = ['selectors.js', 'ai-providers.js']
 
 # www 落地页文件
 WWW_FILES = [
@@ -178,30 +181,80 @@ def check_gitee_mirror(local_version, token):
               f'镜像未同步，GitHub 不可达的用户会读到旧版本（请同步 Gitee 仓库）')
 
 
-def upload_prompt_file(scp_cmd, ssh_cmd, root, remote_dir, user, host):
-    """上传远程提示词文件（脚本运行时优先读取它）"""
-    local_path = os.path.join(root, 'dist', PROMPT_FILE)
-    if not os.path.isfile(local_path):
-        print(f'⚠️ 缺少 {PROMPT_FILE}（请先 npm run build 或 npm run build:prompt），跳过提示词上传')
-        return False
-    try:
-        with open(local_path, encoding='utf-8') as handle:
-            meta = json.loads(handle.read())
-        print(f"提示词资产：v{meta.get('version', '?')} #{meta.get('hash', '?')} "
-              f"{len(meta.get('prompt', ''))} 字（生成于 {meta.get('updatedAt', '?')}）")
-    except Exception as error:
-        print(f'⚠️ {PROMPT_FILE} 无法解析（{error}）')
-        return False
-    size = os.path.getsize(local_path)
-    remote_path = f'{remote_dir}/{PROMPT_FILE}'
-    if not upload_file(scp_cmd, local_path, user, host, remote_path):
-        return False
-    remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-    if remote_size == size:
-        print(f'OK {PROMPT_FILE} {size} bytes')
-        return True
-    print(f'验证失败 {PROMPT_FILE} local={size} remote={remote_size}')
-    return False
+def upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
+    """上传「热更资产」到服务器 hot-config/ 目录（提示词 + 选择器/AI 提供商覆盖表）
+
+    这些文件让「改配置」不必发版：脚本运行时优先读它们，拉不到再回退内置值。
+    迁移期同时把提示词往旧位置留一份（3.35.4 用户读的是旧路径），下个大版本可移除。
+    """
+    remote_hot_dir = f'{remote_dir}/{HOT_CONFIG_DIR}'
+    mkdir_cmd = ssh_cmd + [f'{user}@{host}', f'mkdir -p {remote_hot_dir}']
+    subprocess.run(mkdir_cmd, capture_output=True, text=True, timeout=30,
+                   encoding='utf-8', errors='replace')
+    ok = True
+    # 1) 生成物（提示词：由 npm run build 或本脚本的 HOT_ONLY 模式生成）
+    for name in HOT_CONFIG_DIST_FILES:
+        local_path = os.path.join(root, 'dist', HOT_CONFIG_DIR, name)
+        if not os.path.isfile(local_path):
+            print(f'⚠️ 缺少 dist/{HOT_CONFIG_DIR}/{name}（请先 npm run build 或 npm run build:hot-config），跳过')
+            ok = False
+            continue
+        if name == 'ad-detection-prompt.js':
+            try:
+                with open(local_path, encoding='utf-8') as handle:
+                    meta = json.loads(handle.read())
+                print(f"提示词资产：v{meta.get('version', '?')} #{meta.get('hash', '?')} "
+                      f"{len(meta.get('prompt', ''))} 字（生成于 {meta.get('updatedAt', '?')}）")
+            except Exception as error:
+                print(f'⚠️ {name} 无法解析（{error}）')
+                ok = False
+                continue
+        size = os.path.getsize(local_path)
+        remote_path = f'{remote_hot_dir}/{name}'
+        if not upload_file(scp_cmd, local_path, user, host, remote_path):
+            ok = False
+            continue
+        remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
+        if remote_size == size:
+            print(f'OK {HOT_CONFIG_DIR}/{name} {size} bytes')
+        else:
+            print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={size} remote={remote_size}')
+            ok = False
+        # 迁移期：提示词在旧位置也留一份（3.35.4 及更早的脚本读的是那里）
+        if name == 'ad-detection-prompt.js':
+            legacy_remote = f'{remote_dir}/{name}'
+            if upload_file(scp_cmd, local_path, user, host, legacy_remote):
+                print(f'OK {name}（旧路径兼容副本）')
+            else:
+                print(f'⚠️ 旧路径兼容副本上传失败（3.35.4 用户会回退内置提示词）')
+    # 2) 人工维护的覆盖表（仓库 hot-config/ 原样上传）
+    for name in HOT_CONFIG_REPO_FILES:
+        local_path = os.path.join(root, HOT_CONFIG_DIR, name)
+        if not os.path.isfile(local_path):
+            print(f'⚠️ 缺少 {HOT_CONFIG_DIR}/{name}，跳过')
+            ok = False
+            continue
+        try:
+            with open(local_path, encoding='utf-8') as handle:
+                data = json.loads(handle.read())
+            entries = data.get('overrides') or {}
+            print(f'{name}：{len(entries)} 条覆盖' + (f'（{", ".join(entries)}）' if entries else '（当前为空，不影响识别）'))
+        except Exception as error:
+            print(f'⚠️ {HOT_CONFIG_DIR}/{name} 不是合法 JSON（{error}），已跳过')
+            ok = False
+            continue
+        size = os.path.getsize(local_path)
+        remote_path = f'{remote_hot_dir}/{name}'
+        if not upload_file(scp_cmd, local_path, user, host, remote_path):
+            ok = False
+            continue
+        remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
+        if remote_size == size:
+            print(f'OK {HOT_CONFIG_DIR}/{name} {size} bytes')
+        else:
+            print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={size} remote={remote_size}')
+            ok = False
+    return ok
 
 
 def main():
@@ -230,16 +283,16 @@ def main():
 
     # ========== 提示词热更模式：只生成并上传提示词，不动脚本产物 ==========
     # 用途：改了提示词但不想让用户更新脚本（也就不会触发「同版本内容已更新」的重新安装提示）
-    prompt_only = os.environ.get('PROMPT_ONLY') == '1'
+    prompt_only = os.environ.get('HOT_ONLY', os.environ.get('PROMPT_ONLY')) == '1'
     if prompt_only:
-        print('--- 提示词热更模式（PROMPT_ONLY=1）：只重新生成并上传提示词资产 ---')
-        generated = subprocess.run(['node', os.path.join(root, 'scripts', 'build-prompt-asset.mjs')],
+        print('--- 热更模式（HOT_ONLY=1，PROMPT_ONLY=1 为旧名）：只重新生成并上传 hot-config/ 资产，不动脚本产物 ---')
+        generated = subprocess.run(['node', os.path.join(root, 'scripts', 'build-hot-config.mjs')],
                                    capture_output=True, text=True, timeout=120,
                                    encoding='utf-8', errors='replace')
         print((generated.stdout or '').strip() or (generated.stderr or '').strip())
         if generated.returncode != 0:
-            sys.exit('提示词资产生成失败，已中止（未上传任何文件）')
-        if not upload_prompt_file(scp_cmd, ssh_cmd, root, remote_dir, user, host):
+            sys.exit('热更资产生成失败，已中止（未上传任何文件）')
+        if not upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
             ok = False
         sys.exit(0 if ok else 1)
 
@@ -287,7 +340,7 @@ def main():
 
     # ========== 上传远程提示词资产（脚本运行时优先读它） ==========
     print('\n--- 上传远程提示词 ---')
-    if not upload_prompt_file(scp_cmd, ssh_cmd, root, remote_dir, user, host):
+    if not upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
         ok = False
 
     # ========== 校验 Gitee 镜像新鲜度（脚本端 GitHub 兜底源） ==========
@@ -309,3 +362,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+

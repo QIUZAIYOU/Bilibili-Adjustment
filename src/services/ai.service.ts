@@ -2,6 +2,7 @@ import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import { httpGet, httpPost } from '@/utils/http'
 import { resolveAdDetectionPrompt } from '@/services/prompt.service'
+import { AI_PROVIDER_CONFIGS as PROVIDER_CONFIGS } from '@/shared/ai-providers'
 import { parseJsonArrayLoose } from '@/utils/ai-json'
 import {
     initialResponseTokens,
@@ -12,14 +13,6 @@ import {
 } from '@/utils/ai-response'
 import type { ChatResult } from '@/utils/ai-response'
 import type { HttpError } from '@/utils/http'
-/** 提供商配置（均为 OpenAI 兼容协议） */
-interface AIProviderConfig {
-    name: string
-    baseURL: string
-    defaultModel: string
-    docsUrl: string
-    pricingUrl: string
-}
 /** 模型列表条目 */
 export interface AIModelOption {
     id: string
@@ -36,51 +29,8 @@ export const cancelAIRequest = (): boolean => {
     currentRequestController = null
     return true
 }
-// ========== 提供商配置（均为 OpenAI 兼容协议） ==========
-const PROVIDER_CONFIGS: Record<string, AIProviderConfig> = {
-    siliconflow: {
-        name: '硅基流动',
-        baseURL: 'https://api.siliconflow.cn/v1',
-        defaultModel: 'deepseek-ai/DeepSeek-V3',
-        docsUrl: 'https://siliconflow.cn',
-        pricingUrl: 'https://siliconflow.cn/pricing'
-    },
-    deepseek: {
-        name: 'DeepSeek 官方',
-        baseURL: 'https://api.deepseek.com/v1',
-        defaultModel: 'deepseek-chat',
-        docsUrl: 'https://platform.deepseek.com',
-        pricingUrl: 'https://platform.deepseek.com/api-docs/pricing'
-    },
-    kimi: {
-        name: 'Kimi（月之暗面）',
-        baseURL: 'https://api.moonshot.cn/v1',
-        defaultModel: 'moonshot-v1-8k',
-        docsUrl: 'https://platform.moonshot.cn',
-        pricingUrl: 'https://platform.moonshot.cn/docs/pricing'
-    },
-    zhipu: {
-        name: '智谱 AI',
-        baseURL: 'https://open.bigmodel.cn/api/paas/v4',
-        defaultModel: 'glm-4-flash',
-        docsUrl: 'https://open.bigmodel.cn',
-        pricingUrl: 'https://open.bigmodel.cn/pricing'
-    },
-    openai: {
-        name: 'OpenAI',
-        baseURL: 'https://api.openai.com/v1',
-        defaultModel: 'gpt-4o-mini',
-        docsUrl: 'https://platform.openai.com',
-        pricingUrl: 'https://openai.com/api/pricing'
-    },
-    custom: {
-        name: '自定义',
-        baseURL: '',
-        defaultModel: '',
-        docsUrl: '',
-        pricingUrl: ''
-    }
-}
+// 提供商配置（含端点与默认模型）见 src/shared/ai-providers.ts：
+// 它既作为内置兜底，也作为热更覆盖的白名单（远端只能改已存在 provider 的 baseURL/defaultModel）
 // 本地缓存的模型列表
 let cachedModels: AIModelOption[] | null = null
 let cachedModelsKey = ''

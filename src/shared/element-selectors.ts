@@ -262,6 +262,18 @@ Object.entries(CSS_MAP).forEach(([name, selector]) => {
         logger.warn(`选择器注册失败: ${name}`, e instanceof Error ? e.message : String(e))
     }
 })
+/**
+ * 覆盖已注册的选择器（供热更配置使用：远端修正某个选择器时不必让用户更新脚本）
+ *
+ * ⚠️ 必须同时写 registry 与 CSS_MAP：查询路径是 `CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)`，
+ * **CSS_MAP 优先**，所以只调 registerSelector 对 CSS_MAP 里的 175 个 key 完全无效（覆盖会被静默忽略）。
+ * @param {string} name - 已存在的选择器名（调用方需自行做白名单校验）
+ * @param {string} selector - 新的 CSS 选择器（语法非法时抛错且不写入）
+ */
+export const overrideSelector = (name: string, selector: string): void => {
+    registerSelector(name, selector)
+    CSS_MAP[name] = selector
+}
 // ========== 缓存系统 ==========
 const elementCache = new Map<string, { element: Element; observer: MutationObserver }>()
 const CACHE_MAX_SIZE = 50

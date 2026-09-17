@@ -200,7 +200,9 @@ export default [
             'legacy/',
             '*.user.js',
             '*.meta.js',
-            'everythingIsBasedOnThisFile.js'
+            'everythingIsBasedOnThisFile.js',
+            // 服务器热更资产（JSON 内容的 .js 文件，非源码、不参与产物构建，只由 scripts/upload.py 上传）
+            'hot-config/'
         ]
     }
 ]

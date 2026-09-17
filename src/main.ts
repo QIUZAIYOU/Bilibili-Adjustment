@@ -5,6 +5,7 @@ import { LoggerService } from '@/services/logger.service'
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
 import { initScrollbarHoverWidening } from '@/utils/scrollbar-hover'
 import { updateService } from '@/services/update.service'
+import { applyCachedHotConfig, refreshHotConfig } from '@/services/hot-config.service'
 import { styles } from '@/shared/styles'
 import { ThemeManager } from '@/shared/theme'
 import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
@@ -82,6 +83,9 @@ const initializeApp = async (): Promise<void> => {
             log_level_warn: (await ConfigService.getValue('log_level_warn')) as boolean | undefined,
             log_level_debug: (await ConfigService.getValue('log_level_debug')) as boolean | undefined
         })
+        // 热更配置：先用本地缓存**同步**覆盖（零延迟，必须早于功能模块查询选择器），再后台刷新供后续查询使用
+        applyCachedHotConfig()
+        refreshHotConfig().catch(error => logger.debug('热更配置刷新失败（已忽略）', error instanceof Error ? error.message : error))
         await detectAndLoadModule()
         if (currentModuleType === 'other') return
         await moduleSystem.init()
