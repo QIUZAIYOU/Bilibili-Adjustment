@@ -234,7 +234,8 @@ def main():
     if prompt_only:
         print('--- 提示词热更模式（PROMPT_ONLY=1）：只重新生成并上传提示词资产 ---')
         generated = subprocess.run(['node', os.path.join(root, 'scripts', 'build-prompt-asset.mjs')],
-                                   capture_output=True, text=True, timeout=120)
+                                   capture_output=True, text=True, timeout=120,
+                                   encoding='utf-8', errors='replace')
         print((generated.stdout or '').strip() or (generated.stderr or '').strip())
         if generated.returncode != 0:
             sys.exit('提示词资产生成失败，已中止（未上传任何文件）')
