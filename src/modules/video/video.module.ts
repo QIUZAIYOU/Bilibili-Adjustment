@@ -106,7 +106,7 @@ interface VideoModuleContext {
 }
 export default {
     name: 'video',
-    version: '3.35.2',
+    version: '3.35.3',
     async install (this: VideoModuleContext): Promise<void> {
         this._cleanup = []
         this._modeObservers = []
