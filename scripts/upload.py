@@ -4,10 +4,13 @@
 用法：python scripts/upload.py
 前置：先执行 npm run build 生成 dist/bilibili-adjustment.{user,meta}.js
 凭据：读取项目根 .env 的 SERVER_HOST / SERVER_USER / SERVER_SSH_KEY / SERVER_DEPLOY_PATH
+      （可选 GITEE_PERSONAL_TOKEN：仅本脚本用于提高 Gitee API 读取限额，**绝不进用户脚本**）
 
 version.json：从构建产物元数据里抄 @version 与 @build-sha，供脚本端做「同版本覆盖发布」兜底
 （版本号没变但线上内容变了 → 提示用户重新安装）。字段与产物同源，不可能不一致。
+Gitee 镜像校验：脚本端在 GitHub 不可达时会回退读 Gitee API，故这里确认镜像已同步到本版本。
 """
+import base64
 import datetime
 import hashlib
 import json
@@ -15,6 +18,11 @@ import os
 import re
 import subprocess
 import sys
+import urllib.parse
+import urllib.request
+
+# 脚本端回退源用的 Gitee 仓库（镜像）
+GITEE_REPO = 'aiideai/Bilibili-Adjustment'
 
 # dist 构建产物
 DIST_FILES = [
@@ -142,6 +150,31 @@ def build_version_json(root, meta_path, user_path):
     }
 
 
+def check_gitee_mirror(local_version, token):
+    """校验 Gitee 镜像是否已同步到本版本（脚本端的兜底源不能是旧版本）
+
+    只读公开 API，不写入；镜像落后时仅告警，不影响上传结果。
+    token 仅用于提高读取限额，只在本机脚本里使用。
+    """
+    url = f'https://gitee.com/api/v5/repos/{GITEE_REPO}/contents/package.json'
+    if token:
+        url += '?' + urllib.parse.urlencode({'access_token': token})
+    try:
+        request = urllib.request.Request(url, headers={'User-Agent': 'bilibili-adjustment-upload'})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            payload = json.loads(response.read().decode('utf-8'))
+        content = base64.b64decode(payload.get('content', '')).decode('utf-8')
+        remote_version = json.loads(content).get('version', '')
+    except Exception as error:  # 网络/限流等一律忽略，不能因此让发布失败
+        print(f'Gitee 镜像校验跳过（{type(error).__name__}: {error}）')
+        return
+    if remote_version == local_version:
+        print(f'Gitee 镜像已同步 v{remote_version}')
+    else:
+        print(f'⚠️ Gitee 镜像版本 {remote_version or "未知"} ≠ 本地 v{local_version}：'
+              f'镜像未同步，GitHub 不可达的用户会读到旧版本（请同步 Gitee 仓库）')
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -207,6 +240,10 @@ def main():
             ok = False
     else:
         ok = False
+
+    # ========== 校验 Gitee 镜像新鲜度（脚本端 GitHub 兜底源） ==========
+    print('\n--- 校验 Gitee 镜像 ---')
+    check_gitee_mirror(info['version'], os.environ.get('GITEE_PERSONAL_TOKEN') or env.get('GITEE_PERSONAL_TOKEN', ''))
 
     # ========== 上传 www 落地页（按需） ==========
     www_local_dir = os.path.join(root, 'www')

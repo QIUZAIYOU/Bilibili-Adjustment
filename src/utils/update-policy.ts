@@ -28,7 +28,66 @@ export const isComparableBuildSha = (sha: unknown): boolean =>
  */
 export const isSameVersionRebuild = (localSha: unknown, remoteSha: unknown): boolean =>
     isComparableBuildSha(localSha) && isComparableBuildSha(remoteSha) && localSha !== remoteSha
-/** 服务器发布的构建信息（version.json） */
+/** package.json 里的发布信息（GitHub raw / 各镜像同源） */
+export interface PackageInfo {
+    version: string
+    updates: string
+}
+/** 脚本元数据里的发布信息（自有服务器 meta.js：一份文件同时给出三个信号） */
+export interface ScriptMetaInfo extends PackageInfo {
+    /** 产物元数据 `@build-sha`；同版本覆盖发布检测用，缺失为空串 */
+    sha: string
+}
+/** 解析 package.json 文本 */
+export const parsePackageInfo = (text: unknown): PackageInfo | null => {
+    if (typeof text !== 'string' || !text.trim()) return null
+    try {
+        const data = JSON.parse(text) as { version?: unknown; updates?: unknown } | null
+        if (!data || typeof data !== 'object') return null
+        const version = typeof data.version === 'string' ? data.version.trim() : ''
+        if (!version) return null
+        return { version, updates: typeof data.updates === 'string' ? data.updates : '' }
+    } catch {
+        return null
+    }
+}
+/**
+ * 解析用户脚本元数据（`// @version` / `// @updates` / `// @build-sha`）
+ * 自有服务器 meta.js 与我们自己的产物同构，故只认这几个字段。
+ */
+export const parseScriptMetaInfo = (text: unknown): ScriptMetaInfo | null => {
+    if (typeof text !== 'string' || !text.trim()) return null
+    const version = text.match(/\/\/\s*@version\s+([\d.]+)/)?.[1]?.trim() || ''
+    if (!version) return null
+    return {
+        version,
+        updates: text.match(/\/\/\s*@updates\s+(.+)/)?.[1]?.trim() || '',
+        sha: text.match(/\/\/\s*@build-sha\s+(\S+)/)?.[1]?.trim() || ''
+    }
+}
+/**
+ * 解析 Gitee API 的 contents 响应（`/api/v5/repos/{owner}/{repo}/contents/package.json`）
+ *
+ * Gitee raw **不能**用：既不返回 CORS 头（页面读不到），又以 text/plain 返回 .js（script 标签也被 MIME 拦下）；
+ * API 则返回 CORS `*`，代价是文件内容以 base64 放在 `content` 字段，需要自己解码。
+ * base64 → 文本必须按 UTF-8 解码（updates 含中文，直接 atob 会乱码）。
+ */
+export const parseGiteeContentsInfo = (text: unknown): PackageInfo | null => {
+    if (typeof text !== 'string' || !text.trim()) return null
+    try {
+        const data = JSON.parse(text) as { content?: unknown; encoding?: unknown } | null
+        if (!data || typeof data !== 'object') return null
+        const content = typeof data.content === 'string' ? data.content : ''
+        if (!content) return null
+        if (data.encoding !== 'base64') return parsePackageInfo(content)
+        const binary = atob(content.replace(/\s/g, ''))
+        const bytes = Uint8Array.from(binary, char => char.charCodeAt(0))
+        return parsePackageInfo(new TextDecoder('utf-8').decode(bytes))
+    } catch {
+        return null
+    }
+}
+/** 服务器发布的构建信息（version.json，upload.py 生成的完整性记录） */
 export interface RemoteBuildInfo {
     version: string
     sha: string

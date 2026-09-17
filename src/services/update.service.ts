@@ -6,21 +6,26 @@ import { BUILD_SHA } from '@/shared/build-info'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { mountUpdateNoticePanel } from '@/ui/update'
 import { parseUpdateItems } from '@/utils/update-items'
-import { isFeatureLevelUpdate, isSameVersionRebuild, parseRemoteBuildInfo } from '@/utils/update-policy'
-import type { RemoteBuildInfo } from '@/utils/update-policy'
+import { isFeatureLevelUpdate, isSameVersionRebuild, parseScriptMetaInfo, parsePackageInfo, parseGiteeContentsInfo } from '@/utils/update-policy'
 import type { UpdateItem } from '@/utils/update-items'
 const logger = new LoggerService('UpdateService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
-/** 服务器上的发布信息（version.json）；与脚本同目录，随每次上传刷新 */
-const VERSION_JSON_URL = 'https://www.asifadeaway.com/UserScripts/bilibili/version.json'
+/**
+ * 更新检查源（**不再使用任何 CORS 代理**，全部直连）。
+ *
+ * 三个源都经过真实浏览器实测（页面内 fetch）：
+ * - 自有服务器 meta.js：CORS 头写死 `https://www.bilibili.com`，故只在 www 域可用；一份文件含
+ *   version + updates + `@build-sha`（**唯一能提供构建标识的源**，同版本覆盖发布检测靠它）；
+ * - GitHub raw package.json：`Access-Control-Allow-Origin: *`，任何域可用，但国内可能不可达；
+ * - Gitee API contents：`Access-Control-Allow-Origin: *` 且国内可达，作为 GitHub 的兜底。
+ *   注意必须走 API 而**不是** Gitee raw —— raw 既不返回 ACAO（浏览器读不到），也以 text/plain 返回
+ *   .js（`<script>` 标签同样被 MIME 检查拦下）；公开仓库读 API 无需 token，
+ *   个人 token 绝不能进用户脚本（脚本是明文分发的）。
+ */
 const META_JS_URL = 'https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js'
+const GITHUB_PACKAGE_URL = 'https://raw.githubusercontent.com/QIUZAIYOU/Bilibili-Adjustment/main/package.json'
+const GITEE_CONTENTS_URL = 'https://gitee.com/api/v5/repos/aiideai/Bilibili-Adjustment/contents/package.json'
 export class UpdateService {
-    static #proxyStatusKey = 'proxyStatus'
     static #updateCheckExecuted = false
-    /** 本次会话已取到的 meta.js 内容（仅内存；不再跨会话缓存，保证发布后本会话即可发现） */
-    static #sessionScriptCache = ''
-    /** 本次会话已取到的发布信息（version.json） */
-    static #sessionBuildInfo: RemoteBuildInfo | null = null
-    static #buildInfoFetched = false
     // 检查更新是否已经执行过
     static isUpdateCheckExecuted (): boolean {
         return this.#updateCheckExecuted
@@ -28,53 +33,6 @@ export class UpdateService {
     // 标记更新检查已执行
     static markUpdateCheckExecuted (): void {
         this.#updateCheckExecuted = true
-    }
-    // 智能代理选择
-    #getProxyList (): string[] {
-        const defaultProxies = [
-            'https://qian.npkn.net/cors/?url=',
-            'https://cors.aiideai-hq.workers.dev/?destination=',
-            'https://api.allorigins.win/raw?url=',
-            'https://cors.eu.org/',
-            'https://cros2.aiideai-hq.workers.dev/?'
-        ]
-        // 尝试获取代理状态
-        try {
-            const proxyStatus = localStorage.getItem(UpdateService.#proxyStatusKey)
-            if (proxyStatus) {
-                const status: Record<string, { success: number; total: number; successRate: number }> = JSON.parse(proxyStatus)
-                // 按成功率排序代理
-                const sortedProxies = [...defaultProxies].sort((a, b) => {
-                    const successRateA = status[a]?.successRate || 0
-                    const successRateB = status[b]?.successRate || 0
-                    return successRateB - successRateA
-                })
-                logger.debug('使用智能排序的代理列表:', sortedProxies)
-                return sortedProxies
-            }
-        } catch (error) {
-            logger.warn('获取代理状态失败，使用默认代理列表:', (error instanceof Error ? error.message : String(error)))
-        }
-        // 随机排序代理列表，避免总是从第一个开始
-        return [...defaultProxies].sort(() => Math.random() - 0.5)
-    }
-    // 更新代理状态
-    #updateProxyStatus (proxy: string, success: boolean): void {
-        try {
-            const proxyStatus = localStorage.getItem(UpdateService.#proxyStatusKey)
-            const status: Record<string, { success: number; total: number; successRate: number }> = proxyStatus ? JSON.parse(proxyStatus) : {}
-            if (!status[proxy]) {
-                status[proxy] = { success: 0, total: 0, successRate: 0 }
-            }
-            status[proxy].total++
-            if (success) {
-                status[proxy].success++
-            }
-            status[proxy].successRate = status[proxy].success / status[proxy].total
-            localStorage.setItem(UpdateService.#proxyStatusKey, JSON.stringify(status))
-        } catch (error) {
-            logger.warn('更新代理状态失败:', (error instanceof Error ? error.message : String(error)))
-        }
     }
     // 带超时的fetch函数
     #fetchWithTimeout (url: string, options: RequestInit = {}, timeout = 30000): Promise<string> {
@@ -99,161 +57,27 @@ export class UpdateService {
                 })
         })
     }
-    // 尝试通过代理获取脚本
-    async #tryFetch (proxy: string, targetURL: string, retries = 2): Promise<string | undefined> {
-        for (let i = 0; i < retries; i++) {
-            try {
-                const fullUrl = `${proxy}${targetURL}`
-                logger.debug(`尝试通过代理 ${proxy} 获取脚本 (尝试 ${i + 1}/${retries})`)
-                logger.debug(`完整请求URL: ${fullUrl}`)
-                const data = await this.#fetchWithTimeout(fullUrl, {
-                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
-                }, 30000)
-                if (data && typeof data === 'string' && data.trim()) {
-                    logger.debug(`代理 ${proxy} 请求成功`)
-                    this.#updateProxyStatus(proxy, true)
-                    return data
-                } else {
-                    throw new Error('返回的数据无效')
-                }
-            } catch (error) {
-                const errorMsg = error instanceof Error && error.name === 'AbortError' ? '请求超时' : (error instanceof Error ? error.message : String(error))
-                logger.warn(`代理 ${proxy}${targetURL} 请求失败 (${i + 1}/${retries}):`, errorMsg)
-                if (i === retries - 1) {
-                    this.#updateProxyStatus(proxy, false)
-                    throw new Error(`代理请求失败: ${errorMsg}`)
-                }
-                // 指数退避
-                await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, i)))
-            }
-        }
+    /** ① 自有服务器 meta.js：version + updates + 构建标识（唯一提供 sha 的源） */
+    async #fetchScriptMeta (): Promise<{ version: string; updates: string; sha: string }> {
+        const text = await this.#fetchWithTimeout(META_JS_URL, {}, 10000)
+        const info = parseScriptMetaInfo(text)
+        if (!info) throw new Error('meta.js 内容无法解析出版本号')
+        logger.debug('自有服务器 meta.js 解析成功:', info.version)
+        return { version: info.version, updates: info.updates, sha: info.sha }
     }
-    // 直连源列表（服务器配置 CORS 头后无需代理即可访问）
-    #getDirectSources (): string[] {
-        return [META_JS_URL]
-    }
-    // 并行请求多个 URL，返回第一个有效数据
-    async #fetchFirstAvailable (urls: string[], timeout = 10000): Promise<string> {
-        const results = await Promise.allSettled(urls.map(url => this.#fetchWithTimeout(url, {}, timeout)))
-        for (const result of results) {
-            if (result.status === 'fulfilled' && result.value && typeof result.value === 'string' && result.value.trim()) {
-                return result.value
-            }
-        }
-        throw new Error('所有直连源均不可用')
-    }
-    // 从 GitHub 获取最新版本信息（raw.githubusercontent.com 无 API 匿名限流且自带 CORS，替代易 403 的 api.github.com）
+    /** ② GitHub raw package.json（CORS `*`，国内可能不可达） */
     async #fetchGitHubPackageInfo (): Promise<{ version: string; updates: string }> {
-        const url = 'https://raw.githubusercontent.com/QIUZAIYOU/Bilibili-Adjustment/main/package.json'
-        const data = await this.#fetchWithTimeout(url, {}, 10000)
-        if (!data) throw new Error('GitHub 获取 package.json 返回空数据')
-        const pkg: { version?: string; updates?: string } = JSON.parse(data)
-        if (!pkg.version) throw new Error('package.json 缺少版本号')
-        return { version: pkg.version, updates: pkg.updates || '' }
+        const text = await this.#fetchWithTimeout(GITHUB_PACKAGE_URL, {}, 10000)
+        const info = parsePackageInfo(text)
+        if (!info) throw new Error('GitHub package.json 内容无法解析')
+        return info
     }
-    /**
-     * 获取服务器发布信息（version.json，含 version 与构建 sha）
-     *
-     * 只用内存记一次结果（成功或失败）：拿到就拿，拿不到就按「无构建信息」降级，
-     * 绝不抛错影响版本号检查 —— 该文件只是「同版本覆盖发布」的兜底信号。
-     */
-    async #fetchRemoteBuildInfo (): Promise<RemoteBuildInfo | null> {
-        if (UpdateService.#buildInfoFetched) return UpdateService.#sessionBuildInfo
-        UpdateService.#buildInfoFetched = true
-        const parse = (text: string): RemoteBuildInfo | null => parseRemoteBuildInfo(text)
-        try {
-            const direct = await this.#fetchWithTimeout(VERSION_JSON_URL, {}, 8000)
-            const info = parse(direct)
-            if (info) {
-                UpdateService.#sessionBuildInfo = info
-                logger.debug(`发布信息：v${info.version} (${info.sha})`)
-                return info
-            }
-        } catch (error) {
-            logger.debug('直连 version.json 失败，改用 CORS 代理:', (error instanceof Error ? error.message : String(error)))
-        }
-        const targetURL = encodeURIComponent(VERSION_JSON_URL)
-        const proxyResults = await Promise.allSettled(this.#getProxyList().map(proxy => this.#tryFetch(proxy, targetURL, 1)))
-        for (const result of proxyResults) {
-            if (result.status === 'fulfilled' && result.value) {
-                const info = parse(result.value)
-                if (info) {
-                    UpdateService.#sessionBuildInfo = info
-                    return info
-                }
-            }
-        }
-        logger.debug('未获取到 version.json（构建信息兜底不可用）')
-        return null
-    }
-    // 获取最新脚本内容（仅本次会话内存缓存；不再跨会话缓存，发布后本会话即可发现）
-    async fetchLatestScript (): Promise<string | null | undefined> {
-        if (UpdateService.#sessionScriptCache) return UpdateService.#sessionScriptCache
-        // 1. 直连自有域名（若服务器已配置 CORS 头则直接成功）
-        try {
-            const directData = await this.#fetchFirstAvailable(this.#getDirectSources())
-            UpdateService.#sessionScriptCache = directData
-            logger.info('直连获取最新脚本成功')
-            return directData
-        } catch (error) {
-            logger.warn('直连获取最新脚本失败，改用 CORS 代理:', (error instanceof Error ? error.message : String(error)))
-        }
-        // 2. 公共 CORS 代理并行兜底（任一成功即返回，替代串行等待）
-        const CORSProxyList = this.#getProxyList()
-        const targetURL = encodeURIComponent('https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.meta.js')
-        const proxyResults = await Promise.allSettled(CORSProxyList.map(proxy => this.#tryFetch(proxy, targetURL, 1)))
-        for (const result of proxyResults) {
-            if (result.status === 'fulfilled' && result.value && typeof result.value === 'string' && result.value.trim()) {
-                UpdateService.#sessionScriptCache = result.value
-                logger.info('通过 CORS 代理获取最新脚本成功')
-                return result.value
-            }
-        }
-        throw new Error('所有更新源均不可用')
-    }
-    // 从脚本内容中提取版本号
-    extractVersionFromScript (scriptContent: string): string | null {
-        const versionMatch = scriptContent.match(/\/\/\s*@version\s*([\d.-]+)/)
-        if (versionMatch && versionMatch[1]) {
-            return versionMatch[1]
-        }
-        return null
-    }
-    // 从脚本内容中提取构建标识（产物元数据的 @build-sha）
-    extractBuildShaFromScript (scriptContent: string): string {
-        const match = String(scriptContent || '').match(/\/\/\s*@build-sha\s+(\S+)/)
-        return match && match[1] ? match[1].trim() : ''
-    }
-    // 从脚本内容中提取更新内容
-    // 优先从脚本头部的 @updates 标签提取，其次从更新日志注释块提取
-    extractChangelogFromScript (scriptContent: string): string {
-        if (!scriptContent || typeof scriptContent !== 'string') {
-            return ''
-        }
-        // 1. 尝试从 @updates 标签提取（脚本头部元数据）
-        const updatesMatch = scriptContent.match(/\/\/\s*@updates\s+(.+)/)
-        if (updatesMatch && updatesMatch[1]) {
-            return updatesMatch[1].trim()
-        }
-        // 2. 尝试从 @update 标签提取（多行）
-        const updateMatch = scriptContent.match(/\/\/\s*@update\s*([\s\S]*?)(?:\/\/\s*@|$)/)
-        if (updateMatch && updateMatch[1]) {
-            return updateMatch[1].trim()
-        }
-        // 3. 尝试从 @changelog 标签提取
-        const changelogMatch = scriptContent.match(/\/\/\s*@changelog\s*([\s\S]*?)(?:\/\/\s*@|$)/)
-        if (changelogMatch && changelogMatch[1]) {
-            return changelogMatch[1].trim()
-        }
-        // 4. 尝试从注释块中提取更新日志
-        const commentBlockMatch = scriptContent.match(/\/\*[\s\S]*?(?:更新日志|changelog)[\s\S]*?\*\//i)
-        if (commentBlockMatch) {
-            return commentBlockMatch[0]
-                .replace(/\/\*|\*\//g, '')
-                .replace(/(?:更新日志|changelog)/i, '')
-                .trim()
-        }
-        return ''
+    /** ③ Gitee API contents（CORS `*` 且国内可达）：作为 GitHub 不可达时的兜底 */
+    async #fetchGiteePackageInfo (): Promise<{ version: string; updates: string }> {
+        const text = await this.#fetchWithTimeout(GITEE_CONTENTS_URL, {}, 10000)
+        const info = parseGiteeContentsInfo(text)
+        if (!info) throw new Error('Gitee API 内容无法解析')
+        return info
     }
     // 比较版本号
     // 返回 true 表示 latest > current（有新版本）
@@ -348,29 +172,30 @@ export class UpdateService {
         })
     }
     /**
-     * 获取最新版本信息：GitHub 优先，失败回退脚本内容提取；构建标识来自服务器 version.json（拿不到则为空）
+     * 获取最新版本信息：按 ① 自有 meta.js → ② GitHub raw → ③ Gitee API 顺序取第一个可用源。
+     *
+     * 顺序而非并行：① 是权威源且唯一带构建标识，正常情况一次请求就够；只有它不可用时才走镜像，
+     * 避免每次会话都去打第三方（顺带把第三方限流风险降到最低）。镜像没有构建标识 → latestSha 为空，
+     * 「同版本覆盖发布」检测自然跳过（该信号只在权威源可用时有意义）。
      * @returns {Promise<{latestVersion: string, latestUpdates: string, latestSha: string}>}
      */
     async #fetchLatestVersionInfo (): Promise<{ latestVersion: string; latestUpdates: string; latestSha: string }> {
-        const remoteInfo = await this.#fetchRemoteBuildInfo()
-        const latestSha = remoteInfo?.sha || ''
+        try {
+            const meta = await this.#fetchScriptMeta()
+            return { latestVersion: meta.version, latestUpdates: meta.updates, latestSha: meta.sha }
+        } catch (error) {
+            logger.warn('自有服务器 meta.js 获取失败，改用 GitHub:', (error instanceof Error ? error.message : String(error)))
+        }
         try {
             const pkgInfo = await this.#fetchGitHubPackageInfo()
-            logger.debug('通过 GitHub API 获取最新版本信息:', pkgInfo.version)
-            return { latestVersion: pkgInfo.version, latestUpdates: pkgInfo.updates, latestSha }
+            logger.debug('通过 GitHub raw 获取最新版本信息:', pkgInfo.version)
+            return { latestVersion: pkgInfo.version, latestUpdates: pkgInfo.updates, latestSha: '' }
         } catch (error) {
-            logger.warn('GitHub 获取最新版本信息失败，改用脚本内容提取:', (error instanceof Error ? error.message : String(error)))
+            logger.warn('GitHub 获取最新版本信息失败，改用 Gitee:', (error instanceof Error ? error.message : String(error)))
         }
-        const scriptContent = await this.fetchLatestScript()
-        if (!scriptContent) throw new Error('未获取到最新脚本内容')
-        const latestVersion = this.extractVersionFromScript(scriptContent)
-        if (!latestVersion) throw new Error('从最新脚本中提取版本号失败')
-        return {
-            latestVersion,
-            latestUpdates: this.extractChangelogFromScript(scriptContent),
-            // 兜底路径下 meta.js 自带 @build-sha，比 version.json 更贴近实际文件
-            latestSha: latestSha || this.extractBuildShaFromScript(scriptContent)
-        }
+        const giteeInfo = await this.#fetchGiteePackageInfo()
+        logger.debug('通过 Gitee API 获取最新版本信息:', giteeInfo.version)
+        return { latestVersion: giteeInfo.version, latestUpdates: giteeInfo.updates, latestSha: '' }
     }
     /** 同版本覆盖发布检测：本地构建标识与线上发布标识不一致 → 需要提示用户重新安装 */
     #detectSameVersionRebuild (remoteSha: string): boolean {

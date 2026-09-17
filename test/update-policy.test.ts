@@ -5,7 +5,10 @@ import {
     isFeatureLevelUpdate,
     isComparableBuildSha,
     isSameVersionRebuild,
-    parseRemoteBuildInfo
+    parseRemoteBuildInfo,
+    parsePackageInfo,
+    parseScriptMetaInfo,
+    parseGiteeContentsInfo
 } from '@/utils/update-policy'
 test('parseCoreVersion：解析核心段，预发布后缀不参与', () => {
     assert.deepEqual(parseCoreVersion('3.34.4'), [3, 34, 4])
@@ -50,4 +53,45 @@ test('parseRemoteBuildInfo：解析 version.json，坏数据一律返回 null', 
     assert.equal(parseRemoteBuildInfo(''), null)
     assert.equal(parseRemoteBuildInfo(null), null)
     assert.equal(parseRemoteBuildInfo('[]'), null)
+})
+test('parsePackageInfo：解析 package.json，缺版本号或坏数据返回 null', () => {
+    assert.deepEqual(parsePackageInfo('{"version":"3.35.0","updates":"3.35.0：示例;3.34.4：旧"}'), { version: '3.35.0', updates: '3.35.0：示例;3.34.4：旧' })
+    assert.deepEqual(parsePackageInfo('{"version":"3.35.0"}'), { version: '3.35.0', updates: '' })
+    assert.equal(parsePackageInfo('{"updates":"x"}'), null)
+    assert.equal(parsePackageInfo('not json'), null)
+    assert.equal(parsePackageInfo(null), null)
+})
+test('parseScriptMetaInfo：一份 meta.js 同时取出 version / updates / @build-sha', () => {
+    const meta = [
+        '// ==UserScript==',
+        '// @name         哔哩哔哩（bilibili.com）调整',
+        '// @version      3.35.0',
+        '// @build-sha    9911c09',
+        '// @updates      3.35.0：示例更新;3.34.4：旧更新',
+        '// ==/UserScript=='
+    ].join('\n')
+    assert.deepEqual(parseScriptMetaInfo(meta), { version: '3.35.0', updates: '3.35.0：示例更新;3.34.4：旧更新', sha: '9911c09' })
+    // 旧产物没有 @build-sha：sha 为空串，但版本仍可用
+    assert.deepEqual(parseScriptMetaInfo('// @version 3.35.0\n'), { version: '3.35.0', updates: '', sha: '' })
+    assert.equal(parseScriptMetaInfo('// @name x'), null)
+    assert.equal(parseScriptMetaInfo(''), null)
+    assert.equal(parseScriptMetaInfo(undefined), null)
+})
+test('parseGiteeContentsInfo：解码 Gitee API 的 base64 内容（中文 updates 不乱码）', () => {
+    const pkg = { version: '3.35.0', updates: '3.35.0：更新提示改为分级;3.34.4：旧' }
+    // Gitee API 返回：content 为文件内容的 base64（UTF-8 字节）
+    const b64 = Buffer.from(JSON.stringify(pkg), 'utf8').toString('base64')
+    assert.deepEqual(
+        parseGiteeContentsInfo(JSON.stringify({ content: b64, encoding: 'base64', path: 'package.json' })),
+        { version: '3.35.0', updates: '3.35.0：更新提示改为分级;3.34.4：旧' }
+    )
+    // 带换行的 base64 也要能解
+    const wrapped = b64.replace(/(.{20})/g, '$1\n')
+    assert.equal(parseGiteeContentsInfo(JSON.stringify({ content: wrapped, encoding: 'base64' }))?.version, '3.35.0')
+    // encoding 非 base64：按明文 JSON 处理
+    assert.equal(parseGiteeContentsInfo(JSON.stringify({ content: '{"version":"3.36.0"}' }))?.version, '3.36.0')
+    assert.equal(parseGiteeContentsInfo(JSON.stringify({ encoding: 'base64' })), null)
+    assert.equal(parseGiteeContentsInfo('{"message":"Not Found"}'), null)
+    assert.equal(parseGiteeContentsInfo('not json'), null)
+    assert.equal(parseGiteeContentsInfo(null), null)
 })
