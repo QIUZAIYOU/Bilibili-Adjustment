@@ -66,3 +66,23 @@ export const repairTruncated = (text: string): string => {
     while (opens.length) out += opens.pop() === '[' ? ']' : '}'
     return out
 }
+/**
+ * 渐进式解析出 JSON 数组：原样 → 括号配平提取 → 常见格式修复 → 截断补全，逐个尝试。
+ * 全部失败时返回最后一次报错，供调用方决定是否用更大输出预算重试。
+ * @param {string} text 模型输出的原始内容（已去掉 Markdown 围栏）
+ * @returns {{parsed: Array<Record<string, unknown>> | null, error: Error | null}}
+ */
+export const parseJsonArrayLoose = (text: string): { parsed: Array<Record<string, unknown>> | null, error: Error | null } => {
+    const jsonStr = extractJsonArray(text) || text
+    let error: Error | null = null
+    for (const candidate of [jsonStr, repairTruncated(jsonStr), sanitizeJsonText(jsonStr), repairTruncated(sanitizeJsonText(jsonStr))]) {
+        try {
+            const attempt = JSON.parse(candidate)
+            if (Array.isArray(attempt)) return { parsed: attempt as Array<Record<string, unknown>>, error: null }
+            error = error || new Error('解析结果不是数组')
+        } catch (parseError) {
+            error = parseError instanceof Error ? parseError : new Error(String(parseError))
+        }
+    }
+    return { parsed: null, error }
+}

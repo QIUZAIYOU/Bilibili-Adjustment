@@ -2,7 +2,15 @@ import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import { httpGet, httpPost } from '@/utils/http'
 import { AD_DETECTION_PROMPT } from '@/shared/ad-detection-prompt'
-import { extractJsonArray, sanitizeJsonText, repairTruncated } from '@/utils/ai-json'
+import { parseJsonArrayLoose } from '@/utils/ai-json'
+import {
+    initialResponseTokens,
+    retryResponseTokens,
+    shouldRetryEmptyResponse,
+    isTruncatedByLength,
+    describeChatResult
+} from '@/utils/ai-response'
+import type { ChatResult } from '@/utils/ai-response'
 import type { HttpError } from '@/utils/http'
 /** 提供商配置（均为 OpenAI 兼容协议） */
 interface AIProviderConfig {
@@ -78,8 +86,8 @@ let cachedModels: AIModelOption[] | null = null
 let cachedModelsKey = ''
 let lastFetchTime = 0
 const CACHE_DURATION = 5 * 60 * 1000
-// 广告识别输出的 token 上限（P1-4.6）：结果为 JSON 数组，限长可减少超长生成与超时/截断
-const MAX_RESPONSE_TOKENS = 2048
+// 广告识别输出的 token 上限与空响应判定见 src/utils/ai-response.ts
+// （3.31.0 起这里是写死的 2048：思考型模型把推理算进同一预算 → content 为空，故改为按是否思考型给预算）
 // ========== API Key 验证 ==========
 /**
  * 验证 API Key 是否有效
@@ -350,8 +358,8 @@ class OpenAIAdapter {
     constructor (baseURL: string) {
         this.#baseURL = baseURL.replace(/\/$/, '')
     }
-    /** 单条对话消息 */
-    async chat (apiKey: string, model: string, messages: Array<{ role: string; content: string }>, useCustomModel: unknown = false): Promise<string> {
+    /** 单条对话消息；返回内容与截断/推理诊断（「内容为空」时靠诊断定位根因） */
+    async chat (apiKey: string, model: string, messages: Array<{ role: string; content: string }>, options: { thinking: boolean; maxTokens: number }): Promise<ChatResult> {
         const requestBody: {
             model: string
             messages: Array<{ role: string; content: string }>
@@ -366,10 +374,10 @@ class OpenAIAdapter {
             stream: false,
             // P1-4.6：收紧生成参数 —— 期望输出为 JSON 数组，限制长度并降低随机性以减少截断/格式漂移
             temperature: 0.1,
-            max_tokens: MAX_RESPONSE_TOKENS
+            max_tokens: options.maxTokens
         }
-        // 自定义模型时，根据模型ID判断是否添加 DeepSeek 特定参数
-        if (useCustomModel && model.includes('deepseek')) {
+        // 思考型模型（自定义 deepseek）：推理与答案共用输出预算，调用方已据此放大预算
+        if (options.thinking) {
             requestBody.thinking = { type: 'enabled' }
             requestBody.reasoning_effort = 'high'
         }
@@ -391,8 +399,28 @@ class OpenAIAdapter {
                 }
             )
             // 接口正常返回时结构固定；缺字段时与原实现一样在此处抛出（由上层重试/报错处理）
-            const payload = response.data as { choices: Array<{ message: { content: string }}> }
-            return payload.choices[0].message.content
+            const payload = response.data as {
+                choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: unknown }>
+                usage?: Record<string, unknown>
+            }
+            const choice = payload.choices?.[0]
+            const content = typeof choice?.message?.content === 'string' ? choice.message.content : ''
+            const reasoningContent = typeof choice?.message?.reasoning_content === 'string' ? choice.message.reasoning_content : ''
+            const toNumber = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
+            // 推理 token 各家用名不同：SiliconFlow/DeepSeek 常见 completion_tokens_details.reasoning_tokens
+            const details = (payload.usage?.completion_tokens_details ?? {}) as Record<string, unknown>
+            return {
+                content,
+                finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : '',
+                usage: payload.usage
+                    ? {
+                        prompt: toNumber(payload.usage.prompt_tokens),
+                        completion: toNumber(payload.usage.completion_tokens),
+                        reasoning: toNumber(details.reasoning_tokens ?? payload.usage.reasoning_tokens)
+                    }
+                    : null,
+                reasoningChars: reasoningContent.length
+            }
         } finally {
             if (currentRequestController === controller) currentRequestController = null
         }
@@ -443,31 +471,38 @@ export class UnifiedAIService extends AIService {
             return []
         }
         const useCustomModel = await ConfigService.getValue('use_custom_model')
+        // 思考型模型：自定义提供商 + deepseek 系模型才注入 thinking/reasoning_effort（保持既有口径）
+        const thinking = Boolean(useCustomModel && model.includes('deepseek'))
         try {
             const adapter = await this.#getAdapter()
             const messages = [
                 { role: 'system', content: AD_DETECTION_PROMPT },
                 { role: 'user', content: subtitlesJsonString }
             ]
-            let content: string | undefined
-            try {
-                content = await adapter.chat(apiKey, model, messages, useCustomModel)
-            } catch (error) {
-                const httpErr = error as Partial<HttpError>
-                // 用户主动取消（P1-4.6）：不重试、不报错
-                if (httpErr.code === 'ERR_CANCELED') {
-                    this.#logger.info('广告识别已取消（用户中断）')
-                    return []
+            const request = async (maxTokens: number): Promise<ChatResult> => {
+                try {
+                    return await adapter.chat(apiKey, model, messages, { thinking, maxTokens })
+                } catch (error) {
+                    const httpErr = error as Partial<HttpError>
+                    // 用户主动取消（P1-4.6）：不重试、不报错
+                    if (httpErr.code === 'ERR_CANCELED') throw error
+                    // 网络/超时类失败自动重试一次，降低偶发超时导致的识别失败
+                    const retriable = !httpErr.response || httpErr.code === 'ECONNABORTED' || httpErr.code === 'ERR_NETWORK' || String((error as { message?: string }).message || '').includes('timeout')
+                    if (!retriable) throw error
+                    this.#logger.warn('广告识别请求失败，自动重试一次：' + ((error as { message?: string }).message || httpErr.code || 'unknown'))
+                    return await adapter.chat(apiKey, model, messages, { thinking, maxTokens })
                 }
-                // 网络/超时类失败自动重试一次，降低偶发超时导致的识别失败
-                const retriable = !httpErr.response || httpErr.code === 'ECONNABORTED' || httpErr.code === 'ERR_NETWORK' || String((error as { message?: string }).message || '').includes('timeout')
-                if (!retriable) throw error
-                this.#logger.warn('广告识别请求失败，自动重试一次：' + ((error as { message?: string }).message || httpErr.code || 'unknown'))
-                content = await adapter.chat(apiKey, model, messages, useCustomModel)
             }
+            let result = await request(initialResponseTokens(thinking))
+            // 空响应且像是被输出预算吃满（截断 / 推理占满）：用更大预算重试一次再判失败
+            if (!result.content.trim() && shouldRetryEmptyResponse(result)) {
+                this.#logger.warn('AI响应为空（' + describeChatResult(result) + '），以更大输出预算重试一次')
+                result = await request(retryResponseTokens(thinking))
+            }
+            let content = result.content
             // 检查响应是否为空
             if (!content || !content.trim()) {
-                this.#logger.error('AI响应内容为空')
+                this.#logger.error('AI响应内容为空（' + describeChatResult(result) + '）')
                 return []
             }
             // 兼容 Markdown 代码块和空数组响应，再提取 JSON 数组。
@@ -480,27 +515,19 @@ export class UnifiedAIService extends AIService {
                 this.#logger.error('AI响应内容为空')
                 return []
             }
-            // 渐进式解析：先按原样，再括号配平提取，最后做常见格式修复与截断补全。
-            // 每一步失败都继续下一策略，只有全部失败才算真的解析不出来。
-            const jsonStr = extractJsonArray(normalizedContent) || normalizedContent
-            const candidates = [
-                jsonStr,
-                repairTruncated(jsonStr),
-                sanitizeJsonText(jsonStr),
-                repairTruncated(sanitizeJsonText(jsonStr))
-            ]
-            let parsed: Array<Record<string, unknown>> | null = null
-            let lastError: Error | null = null
-            for (const candidate of candidates) {
-                try {
-                    const attempt = JSON.parse(candidate)
-                    if (Array.isArray(attempt)) {
-                        parsed = attempt as Array<Record<string, unknown>>
-                        break
-                    }
-                    lastError = lastError || new Error('解析结果不是数组')
-                } catch (error) {
-                    lastError = error instanceof Error ? error : new Error(String(error))
+            // 渐进式解析：原样 → 括号配平 → 格式修复 → 截断补全（见 parseJsonArrayLoose）
+            let outcome = parseJsonArrayLoose(normalizedContent)
+            let parsed = outcome.parsed
+            let lastError = outcome.error
+            // 解析不出来且本次是被 max_tokens 截断的：用更大预算重试一次（截断补全只是兜底，不该是常态）
+            if (!parsed && isTruncatedByLength(result)) {
+                this.#logger.warn('AI响应被输出上限截断（' + describeChatResult(result) + '），以更大输出预算重试一次')
+                result = await request(retryResponseTokens(thinking))
+                content = result.content
+                if (content && content.trim()) {
+                    outcome = parseJsonArrayLoose(String(content).replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim())
+                    parsed = outcome.parsed
+                    lastError = outcome.error
                 }
             }
             if (parsed) {
@@ -510,6 +537,7 @@ export class UnifiedAIService extends AIService {
             // 彻底失败时打印**完整**内容与真实报错位置，否则只截 200 字符根本看不出问题
             this.#logger.error(
                 'AI响应JSON解析失败：' + ((lastError && lastError.message) || '未知错误'),
+                '| ' + describeChatResult(result),
                 '| 内容长度 ' + normalizedContent.length,
                 '| 原始内容：', normalizedContent
             )
