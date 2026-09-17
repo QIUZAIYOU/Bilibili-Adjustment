@@ -1,5 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { registerSelector, getSelector, hasSelector } from './selector-registry'
+import { registerHotConfigTarget } from './hot-config-registry'
+import { MAX_OVERRIDE_VALUE_LENGTH } from './hot-config'
 const logger = new LoggerService('ElementSelectors')
 // ========== 选择器定义 ==========
 const CSS_MAP: Record<string, string> = {
@@ -274,6 +276,19 @@ export const overrideSelector = (name: string, selector: string): void => {
     registerSelector(name, selector)
     CSS_MAP[name] = selector
 }
+// 注册热更目标（选择器覆盖表）：本模块自带 CSS_MAP，故在这里自注册，
+// 服务端不 import 本模块（避免把懒加载的东西拖进首屏），内容先到就先存着、注册时补应用。
+registerHotConfigTarget('selectors', {
+    keys: () => Object.keys(CSS_MAP),
+    apply: (name, value) => {
+        if (typeof value !== 'string') return false
+        const trimmed = value.trim()
+        if (!trimmed || trimmed.length > MAX_OVERRIDE_VALUE_LENGTH) return false
+        // 语法非法时 overrideSelector 会抛错 → 由注册表捕获并只丢弃这一条
+        overrideSelector(name, trimmed)
+        return true
+    }
+})
 // ========== 缓存系统 ==========
 const elementCache = new Map<string, { element: Element; observer: MutationObserver }>()
 const CACHE_MAX_SIZE = 50

@@ -5,6 +5,7 @@
  * 因此它既作为内置兜底，也作为热更覆盖的**白名单**（远端只能覆盖已存在的 provider 的
  * baseURL / defaultModel，不能新增 provider、不能改名称/文档链接）。
  */
+import { registerHotConfigTarget } from './hot-config-registry'
 /** 提供商配置（均为 OpenAI 兼容协议） */
 export interface AIProviderConfig {
     name: string
@@ -81,3 +82,12 @@ export const applyProviderOverrides = (overrides: Record<string, { baseURL?: str
     }
     return applied
 }
+// 注册热更目标（AI 提供商覆盖表）：本模块自带内置表，故在这里自注册（服务端不 import 本模块，避免首屏负担）
+registerHotConfigTarget('ai-providers', {
+    keys: () => Object.keys(AI_PROVIDER_CONFIGS),
+    apply: (provider, value) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) return false
+        // 只认已内置的 provider，且只取 baseURL / defaultModel 两个字符串字段（名称/文档链接不归远端管）
+        return applyProviderOverrides({ [provider]: value as { baseURL?: string, defaultModel?: string }}).length > 0
+    }
+})

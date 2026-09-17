@@ -12,6 +12,14 @@ import fs from 'node:fs'
 const srcRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'src')
 const resolveWithExt = (target, baseUrl) => {
     const absolute = path.isAbsolute(target) ? target : path.resolve(baseUrl, target)
+    // 目录导入（如 '@/shared/theme'）按 vite 的行为解析到目录下的 index.js/index.ts
+    if (fs.existsSync(absolute) && fs.statSync(absolute).isDirectory()) {
+        for (const name of ['index.js', 'index.ts']) {
+            const file = path.join(absolute, name)
+            if (fs.existsSync(file)) return pathToFileURL(file).href
+        }
+        return null
+    }
     // 已存在的目标（如 ../package.json）原样放行
     if (fs.existsSync(absolute)) return pathToFileURL(absolute).href
     for (const ext of ['.js', '.ts']) {

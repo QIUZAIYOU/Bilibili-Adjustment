@@ -15,6 +15,8 @@
 import { eventBus } from '@/core/event-bus'
 import { EVENT_NAMES } from '@/shared/constants'
 import { THEMES, night } from './themes'
+import { applyThemeOverrides } from './overrides'
+import { registerHotConfigTarget } from '@/shared/hot-config-registry'
 import type { ThemeDefinition, ThemeId } from './themes'
 const STYLE_ID = 'adj-theme-vars'
 const ATTR = 'data-adj-theme'
@@ -93,6 +95,20 @@ const applyThemeAttribute = (id: string): void => {
     document.documentElement.setAttribute(ATTR, id)
 }
 const getStyleElement = (): HTMLElement | null => document.getElementById(STYLE_ID)
+/**
+ * 重新生成变量表（热更覆盖色值后调用）
+ * 变量表是「一次注入、之后只切 data-adj-theme」的结构，所以色值变了必须整块重写。
+ */
+export const reloadThemeVariables = (): void => {
+    const style = getStyleElement()
+    if (style) style.textContent = generateThemeVariables()
+}
+// 注册热更目标（主题色值表）：本模块自带变量生成逻辑，故在这里自注册
+registerHotConfigTarget('themes', {
+    keys: () => Object.keys(THEMES),
+    apply: (themeId, value) => applyThemeOverrides(themeId, value).length > 0,
+    afterApply: () => reloadThemeVariables()
+})
 const notify = (id: string): void => {
     for (const fn of listeners) fn(id)
 }

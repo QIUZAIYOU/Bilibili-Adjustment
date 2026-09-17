@@ -34,7 +34,7 @@ DIST_FILES = [
 HOT_CONFIG_DIR = 'hot-config'
 # 热更资产：dist/hot-config/<生成物> 与仓库 hot-config/<人工维护>
 HOT_CONFIG_DIST_FILES = ['ad-detection-prompt.js']
-HOT_CONFIG_REPO_FILES = ['selectors.js', 'ai-providers.js']
+HOT_CONFIG_REPO_FILES = ['selectors.js', 'ai-providers.js', 'regexps.js', 'templates.js', 'themes.js']
 
 # www 落地页文件
 WWW_FILES = [
@@ -257,6 +257,17 @@ def upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
     return ok
 
 
+def check_hot_config(root):
+    """上传前用「运行时同一套校验代码」过一遍热更资产（写错的值在用户侧是静默丢弃，必须在这里拦住）"""
+    print('--- 校验热更资产（发布侧，与运行时同一套规则）---')
+    result = subprocess.run(
+        ['node', '--import', './test/alias-loader.js', os.path.join('scripts', 'check-hot-config.mjs')],
+        cwd=root, capture_output=True, text=True, timeout=120,
+        encoding='utf-8', errors='replace')
+    print((result.stdout or '').strip() or (result.stderr or '').strip())
+    return result.returncode == 0
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -292,6 +303,8 @@ def main():
         print((generated.stdout or '').strip() or (generated.stderr or '').strip())
         if generated.returncode != 0:
             sys.exit('热更资产生成失败，已中止（未上传任何文件）')
+        if not check_hot_config(root):
+            sys.exit('热更资产校验失败，已中止（未上传任何文件）')
         if not upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
             ok = False
         sys.exit(0 if ok else 1)
@@ -338,8 +351,10 @@ def main():
     else:
         ok = False
 
-    # ========== 上传远程提示词资产（脚本运行时优先读它） ==========
-    print('\n--- 上传远程提示词 ---')
+    # ========== 上传远程热更资产（脚本运行时优先读它们） ==========
+    print('\n--- 上传热更资产（hot-config/）---')
+    if not check_hot_config(root):
+        sys.exit('热更资产校验失败，已中止（脚本产物与 version.json 已上传，热更资产未上传）')
     if not upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
         ok = False
 

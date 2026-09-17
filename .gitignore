@@ -43,3 +43,5 @@ pnpm-debug.log*
 
 website/
 bili-theme/
+# python 编译缓存
+__pycache__/

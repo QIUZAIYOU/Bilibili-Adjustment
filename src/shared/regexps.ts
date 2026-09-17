@@ -1,4 +1,8 @@
 import { getTotalSecondsFromTimeString, generateMentionUserLinks } from '@/utils/common'
+import { registerHotConfigTarget } from '@/shared/hot-config-registry'
+import { analyzeRegexSource } from '@/shared/hot-config'
+/** 正则分组（video/dynamic 两块的 key → 实例），热更覆盖按 `组.名` 定位并就地替换 */
+type RegexpGroups = Record<string, Record<string, RegExp>>
 // const tlds = [
 //     'com',
 //     'org',
@@ -349,6 +353,37 @@ export const regexps = {
         TopicDetailLink: /https:\/\/t.bilibili.com\/topic\/[0-9]+/i
     }
 }
+/**
+ * 正则热更覆盖（B 站改字段/文案格式时不必等发版）
+ *
+ * 两条硬约束：
+ * 1) **只覆盖 source，flags 固定沿用内置值** —— 调用点与 flags 是绑定的（`g` 决定 replace 是否全局、
+ *    `test()` 是否会因 lastIndex 变成有状态），远端改 flags 会静默改掉调用语义；
+ * 2) 值要过 `analyzeRegexSource`（灾难性回溯启发式），再由 `new RegExp` 兜住语法合法性。
+ */
+const builtInRegexps: RegexpGroups = {
+    video: { ...regexps.video },
+    dynamic: { ...regexps.dynamic }
+}
+export const regexpOverrideKeys = (): string[] => [
+    ...Object.keys(regexps.video).map(key => `video.${key}`),
+    ...Object.keys(regexps.dynamic).map(key => `dynamic.${key}`)
+]
+registerHotConfigTarget('regexps', {
+    keys: regexpOverrideKeys,
+    apply: (key, value) => {
+        const separator = key.indexOf('.')
+        const group = key.slice(0, separator)
+        const name = key.slice(separator + 1)
+        const builtIn = builtInRegexps[group]?.[name]
+        if (!builtIn) return false
+        const reason = analyzeRegexSource(value)
+        if (reason) throw new Error(reason)
+        // 语法非法时 new RegExp 会抛错 → 由注册表捕获并只丢弃这一条
+        ;(regexps as unknown as RegexpGroups)[group][name] = new RegExp(String(value), builtIn.flags)
+        return true
+    }
+})
 // console.log(regexps.video.url)
 // 新增公共处理函数
 /** 文本节点替换函数：入参为节点文本，返回替换后的 HTML 片段 */
