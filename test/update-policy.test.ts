@@ -5,6 +5,7 @@ import {
     isFeatureLevelUpdate,
     isComparableBuildSha,
     isSameVersionRebuild,
+    formatPendingUpdateHint,
     parseRemoteBuildInfo,
     parsePackageInfo,
     parseScriptMetaInfo,
@@ -40,6 +41,14 @@ test('isSameVersionRebuild：本地与线上构建标识不一致才算「同版
     assert.equal(isSameVersionRebuild('a1b2c3d', ''), false)
     assert.equal(isSameVersionRebuild('', 'e4f5g6h'), false)
     assert.equal(isSameVersionRebuild('unknown', 'e4f5g6h'), false)
+})
+test('formatPendingUpdateHint：有新版本用「- 有新版本 vX -」，覆盖发布提示重新安装，都没有则空串', () => {
+    assert.equal(formatPendingUpdateHint('3.35.5', false), '- 有新版本 v3.35.5 -')
+    // 两者都为真时以「有新版本」优先（与 update.service 的口径一致）
+    assert.equal(formatPendingUpdateHint('3.35.5', true), '- 有新版本 v3.35.5 -')
+    assert.equal(formatPendingUpdateHint(null, true), '内容已更新，点击重新安装')
+    assert.equal(formatPendingUpdateHint(null, false), '')
+    assert.equal(formatPendingUpdateHint(undefined, false), '')
 })
 test('parseRemoteBuildInfo：解析 version.json，坏数据一律返回 null', () => {
     assert.deepEqual(

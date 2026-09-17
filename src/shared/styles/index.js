@@ -174,26 +174,29 @@ function generateBilibiliAdjustmentStyle () {
 
         .adjustment-popover-version {
             font-size: 11px;
-            color: var(--adj-text-disabled);
+            color: var(--adj-success);
             background: var(--adj-bg-surface);
             padding: 3px 10px;
             border-radius: 9999px;
             font-weight: 500;
             letter-spacing: 0.3px;
-            border: 1px solid var(--adj-border);
+            border: 1px solid var(--adj-success);
             cursor: pointer;
             user-select: none;
         }
 
+        /* hover 只提亮底色：文字/边框保持成功色，避免与「有新版本」的绿色提示脱节 */
         .adjustment-popover-version:hover {
-            color: var(--adj-text-soft);
-            border-color: var(--adj-border-hover);
+            background: var(--adj-bg-surface-hover);
+            border-color: var(--adj-success);
         }
 
         /* 有新版本时常驻提示：用主题成功色（绿）区别于「检查中/已是最新」等临时状态 */
         .adjustment-popover-version-status.has-update {
             color: var(--adj-success);
             font-weight: 500;
+            width: 100%;
+            text-align: center;
         }
 
         .adjustment-popover-version-status {

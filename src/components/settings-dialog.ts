@@ -9,6 +9,7 @@ import { SettingsShellRenderer } from '@/components/settings-shell-renderer'
 import { BUILD_SHA } from '@/shared/build-info'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
+import { formatPendingUpdateHint } from '@/utils/update-policy'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
@@ -484,17 +485,14 @@ export class SettingsDialogHost {
             }, 3000)
         }
         // 版本号处的常驻提示（不自动隐藏）：
-        // ① 有新版本 → 「有新版本 vX，点击查看」（手动模式唯一的提示途径，自动模式下补丁级也只走这里）
+        // ① 有新版本 → 「- 有新版本 vX -」（手动模式唯一的提示途径，自动模式下补丁级也只走这里）
         // ② 同版本覆盖发布 → 「内容已更新，点击重新安装」（版本号未变，只能提示重新安装）
         const showPendingUpdate = (): void => {
-            const pending = updateService.getPendingUpdateVersion()
-            const rebuild = updateService.getPendingRebuild()
-            if (!pending && !rebuild) return
+            const hint = formatPendingUpdateHint(updateService.getPendingUpdateVersion(), Boolean(updateService.getPendingRebuild()))
+            if (!hint) return
             clearTimeout(hideTimer ?? undefined)
             statusEl.className = 'adjustment-popover-version-status has-update'
-            statusEl.textContent = pending
-                ? `有新版本 v${pending}，点击查看`
-                : '内容已更新，点击重新安装'
+            statusEl.textContent = hint
         }
         showPendingUpdate()
         this._updateAvailableUnsubscribe = eventBus.on(EVENT_NAMES.UPDATE_AVAILABLE, () => showPendingUpdate())
