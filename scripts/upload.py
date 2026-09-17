@@ -30,6 +30,9 @@ DIST_FILES = [
     'bilibili-adjustment.meta.js',
 ]
 
+# 远程提示词文件（脚本运行时优先读取它；只改提示词时可只上传它，用户无需更新脚本）
+PROMPT_FILE = 'ad-detection-prompt.js'
+
 # www 落地页文件
 WWW_FILES = [
     'index.html',
@@ -175,6 +178,32 @@ def check_gitee_mirror(local_version, token):
               f'镜像未同步，GitHub 不可达的用户会读到旧版本（请同步 Gitee 仓库）')
 
 
+def upload_prompt_file(scp_cmd, ssh_cmd, root, remote_dir, user, host):
+    """上传远程提示词文件（脚本运行时优先读取它）"""
+    local_path = os.path.join(root, 'dist', PROMPT_FILE)
+    if not os.path.isfile(local_path):
+        print(f'⚠️ 缺少 {PROMPT_FILE}（请先 npm run build 或 npm run build:prompt），跳过提示词上传')
+        return False
+    try:
+        with open(local_path, encoding='utf-8') as handle:
+            meta = json.loads(handle.read())
+        print(f"提示词资产：v{meta.get('version', '?')} #{meta.get('hash', '?')} "
+              f"{len(meta.get('prompt', ''))} 字（生成于 {meta.get('updatedAt', '?')}）")
+    except Exception as error:
+        print(f'⚠️ {PROMPT_FILE} 无法解析（{error}）')
+        return False
+    size = os.path.getsize(local_path)
+    remote_path = f'{remote_dir}/{PROMPT_FILE}'
+    if not upload_file(scp_cmd, local_path, user, host, remote_path):
+        return False
+    remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
+    if remote_size == size:
+        print(f'OK {PROMPT_FILE} {size} bytes')
+        return True
+    print(f'验证失败 {PROMPT_FILE} local={size} remote={remote_size}')
+    return False
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -198,6 +227,20 @@ def main():
     ssh_cmd = build_ssh_cmd(ssh_key)
 
     ok = True
+
+    # ========== 提示词热更模式：只生成并上传提示词，不动脚本产物 ==========
+    # 用途：改了提示词但不想让用户更新脚本（也就不会触发「同版本内容已更新」的重新安装提示）
+    prompt_only = os.environ.get('PROMPT_ONLY') == '1'
+    if prompt_only:
+        print('--- 提示词热更模式（PROMPT_ONLY=1）：只重新生成并上传提示词资产 ---')
+        generated = subprocess.run(['node', os.path.join(root, 'scripts', 'build-prompt-asset.mjs')],
+                                   capture_output=True, text=True, timeout=120)
+        print((generated.stdout or '').strip() or (generated.stderr or '').strip())
+        if generated.returncode != 0:
+            sys.exit('提示词资产生成失败，已中止（未上传任何文件）')
+        if not upload_prompt_file(scp_cmd, ssh_cmd, root, remote_dir, user, host):
+            ok = False
+        sys.exit(0 if ok else 1)
 
     # ========== 上传 dist 构建产物 ==========
     print('--- 上传 dist 构建产物 ---')
@@ -239,6 +282,11 @@ def main():
             print(f'验证失败 version.json local={local_size} remote={remote_size}')
             ok = False
     else:
+        ok = False
+
+    # ========== 上传远程提示词资产（脚本运行时优先读它） ==========
+    print('\n--- 上传远程提示词 ---')
+    if not upload_prompt_file(scp_cmd, ssh_cmd, root, remote_dir, user, host):
         ok = False
 
     # ========== 校验 Gitee 镜像新鲜度（脚本端 GitHub 兜底源） ==========

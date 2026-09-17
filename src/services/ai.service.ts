@@ -1,7 +1,7 @@
 import { LoggerService } from './logger.service'
 import { ConfigService } from './config.service'
 import { httpGet, httpPost } from '@/utils/http'
-import { AD_DETECTION_PROMPT } from '@/shared/ad-detection-prompt'
+import { resolveAdDetectionPrompt } from '@/services/prompt.service'
 import { parseJsonArrayLoose } from '@/utils/ai-json'
 import {
     initialResponseTokens,
@@ -475,8 +475,10 @@ export class UnifiedAIService extends AIService {
         const thinking = Boolean(useCustomModel && model.includes('deepseek'))
         try {
             const adapter = await this.#getAdapter()
+            // 提示词优先取远程文件（改词无需用户更新脚本），拉不到则回退本地缓存/内置版本
+            const { prompt: systemPrompt } = await resolveAdDetectionPrompt()
             const messages = [
-                { role: 'system', content: AD_DETECTION_PROMPT },
+                { role: 'system', content: systemPrompt },
                 { role: 'user', content: subtitlesJsonString }
             ]
             const request = async (maxTokens: number): Promise<ChatResult> => {
