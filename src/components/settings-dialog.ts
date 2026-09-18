@@ -481,7 +481,9 @@ export class SettingsDialogHost {
             if (className) statusEl.classList.add(className)
             statusEl.textContent = text
             hideTimer = setTimeout(() => {
-                statusEl.classList.add('hidden')
+                // 3 秒后不是简单隐藏，而是回到「常驻提示」的真实状态：手动检查若发现了新版本/内容补丁，
+                // 必须把它显示回来；否则临时状态一淡出，提醒就被吞掉了（提示槽位与被复用的弹窗状态不一致）
+                showPendingUpdate()
             }, 3000)
         }
         // 版本号处的常驻提示（不自动隐藏）：
@@ -521,7 +523,8 @@ export class SettingsDialogHost {
                 } else if (result.type === 'update') {
                     showStatus(`发现新版本 v${result.latestVersion}`, 'update')
                 } else if (result.type === 'rebuilt') {
-                    showStatus('内容已更新，点击重新安装', 'update')
+                    // 与版本号处的常驻提示同一槽位、同一文案（共用 formatPendingUpdateHint，避免两处措辞不一致）
+                    showStatus(formatPendingUpdateHint(null, true), 'update')
                 } else {
                     showStatus('检查更新失败，请稍后重试', 'error')
                 }
