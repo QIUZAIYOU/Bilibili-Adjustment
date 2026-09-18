@@ -29,6 +29,17 @@ export const isComparableBuildSha = (sha: unknown): boolean =>
 export const isSameVersionRebuild = (localSha: unknown, remoteSha: unknown): boolean =>
     isComparableBuildSha(localSha) && isComparableBuildSha(remoteSha) && localSha !== remoteSha
 /**
+ * 「同版本覆盖发布」的完整判据：**版本号必须真的相同** + 构建标识不同。
+ *
+ * ⚠️ 只比构建标识会误判（2026-09-18 用户报的形态）：用户刚从 vX-1 升到 vX，而这一轮检查读到的
+ * meta.js 是**浏览器 HTTP 缓存里的旧副本**（服务器只给 ETag/Last-Modified，没有 Cache-Control，
+ * 浏览器会按启发式规则缓存），于是「线上 vX-1 不比本地新 + 构建标识不同」→ 被当成同版本覆盖发布，
+ * **刚升级完的用户反而被提示「内容已更新，点击重新安装」**。
+ * 同版本覆盖发布的语义本来就是「版本号没变」，所以版本不等时一律不是。
+ */
+export const isSameVersionRepublish = (currentVersion: string, latestVersion: string, localSha: unknown, remoteSha: unknown): boolean =>
+    currentVersion === latestVersion && isSameVersionRebuild(localSha, remoteSha)
+/**
  * 版本号处「常驻提示」的文案（纯函数，便于单测）
  * - 有新版本：`- 有新版本 vX -`，只陈述状态、不写「点击查看」——提示本就挂在可点击的版本号下方；
  * - 同版本覆盖发布：版本号没变，必须明确告诉用户要重新安装（否则用户无从感知）；

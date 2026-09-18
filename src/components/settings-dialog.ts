@@ -487,10 +487,16 @@ export class SettingsDialogHost {
         // 版本号处的常驻提示（不自动隐藏）：
         // ① 有新版本 → 「- 有新版本 vX -」（手动模式唯一的提示途径，自动模式下补丁级也只走这里）
         // ② 同版本覆盖发布 → 「内容已更新，点击重新安装」（版本号未变，只能提示重新安装）
+        // 注意：没有提示时必须**主动清空**——弹窗是缓存复用的，只"不写"会把上一次的旧文案留在 DOM 里
+        // （表现为"已经是最新版却还显示内容已更新"）。
         const showPendingUpdate = (): void => {
             const hint = formatPendingUpdateHint(updateService.getPendingUpdateVersion(), Boolean(updateService.getPendingRebuild()))
-            if (!hint) return
             clearTimeout(hideTimer ?? undefined)
+            if (!hint) {
+                statusEl.textContent = ''
+                statusEl.className = 'adjustment-popover-version-status hidden'
+                return
+            }
             statusEl.className = 'adjustment-popover-version-status has-update'
             statusEl.textContent = hint
         }

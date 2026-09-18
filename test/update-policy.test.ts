@@ -5,6 +5,7 @@ import {
     isFeatureLevelUpdate,
     isComparableBuildSha,
     isSameVersionRebuild,
+    isSameVersionRepublish,
     formatPendingUpdateHint,
     parseRemoteBuildInfo,
     parsePackageInfo,
@@ -41,6 +42,20 @@ test('isSameVersionRebuild：本地与线上构建标识不一致才算「同版
     assert.equal(isSameVersionRebuild('a1b2c3d', ''), false)
     assert.equal(isSameVersionRebuild('', 'e4f5g6h'), false)
     assert.equal(isSameVersionRebuild('unknown', 'e4f5g6h'), false)
+})
+test('isSameVersionRepublish：版本号必须真的相同（修「刚升级完却提示内容已更新」）', () => {
+    // 真·同版本覆盖发布：版本相同 + 构建标识不同
+    assert.equal(isSameVersionRepublish('3.35.8', '3.35.8', '79e8192', 'aaaaaaa'), true)
+    // ⚠️ 2026-09-18 的线上误报形态：本地刚升到 3.35.8，检查读到缓存里的 3.35.7 meta.js（sha 是上一版）
+    // → 旧实现只看「线上不比本地新 + sha 不同」就判成覆盖发布，于是提示用户重新安装
+    assert.equal(isSameVersionRepublish('3.35.8', '3.35.7', '79e8192', 'f36e951'), false)
+    // 线上更新（版本不同）也不是覆盖发布
+    assert.equal(isSameVersionRepublish('3.35.7', '3.35.8', 'f36e951', '79e8192'), false)
+    // 版本相同且构建标识相同 → 已是最新，不是覆盖发布
+    assert.equal(isSameVersionRepublish('3.35.8', '3.35.8', '79e8192', '79e8192'), false)
+    // 镜像源没有 sha → 不判定
+    assert.equal(isSameVersionRepublish('3.35.8', '3.35.8', '79e8192', ''), false)
+    assert.equal(isSameVersionRepublish('3.35.8', '3.35.8', '79e8192-dirty', 'aaaaaaa'), false)
 })
 test('formatPendingUpdateHint：有新版本用「- 有新版本 vX -」，覆盖发布提示重新安装，都没有则空串', () => {
     assert.equal(formatPendingUpdateHint('3.35.5', false), '- 有新版本 v3.35.5 -')

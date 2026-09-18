@@ -6,7 +6,7 @@ import { BUILD_SHA } from '@/shared/build-info'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { mountUpdateNoticePanel } from '@/ui/update'
 import { parseUpdateItems } from '@/utils/update-items'
-import { isFeatureLevelUpdate, isSameVersionRebuild, parseScriptMetaInfo, parsePackageInfo, parseGiteeContentsInfo } from '@/utils/update-policy'
+import { isFeatureLevelUpdate, isSameVersionRepublish, parseScriptMetaInfo, parsePackageInfo, parseGiteeContentsInfo } from '@/utils/update-policy'
 import type { UpdateItem } from '@/utils/update-items'
 const logger = new LoggerService('UpdateService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
 /**
@@ -35,11 +35,19 @@ export class UpdateService {
         this.#updateCheckExecuted = true
     }
     // 带超时的fetch函数
+    /**
+     * 检查源一律**绕过 HTTP 缓存**（`cache: 'no-store'`）
+     *
+     * 服务器对 `.js` 只给 `ETag`/`Last-Modified`、没有 `Cache-Control`，浏览器会按启发式规则缓存一段时间。
+     * 更新检查每个会话只跑一次，却必须看到**此刻**的线上信息：2026-09-18 用户刚升级到 v3.35.8，
+     * 检查却读到缓存里的 v3.35.7 meta.js → 「线上不比本地新 + 构建标识不同」→ 被误判成同版本覆盖发布。
+     */
     #fetchWithTimeout (url: string, options: RequestInit = {}, timeout = 30000): Promise<string> {
         return new Promise<string>((resolve, reject) => {
             const controller = new AbortController()
             const timeoutId = setTimeout(() => controller.abort(), timeout)
             fetch(url, {
+                cache: 'no-store',
                 ...options,
                 signal: controller.signal
             })
@@ -197,9 +205,12 @@ export class UpdateService {
         logger.debug('通过 Gitee API 获取最新版本信息:', giteeInfo.version)
         return { latestVersion: giteeInfo.version, latestUpdates: giteeInfo.updates, latestSha: '' }
     }
-    /** 同版本覆盖发布检测：本地构建标识与线上发布标识不一致 → 需要提示用户重新安装 */
-    #detectSameVersionRebuild (remoteSha: string): boolean {
-        return isSameVersionRebuild(BUILD_SHA, remoteSha)
+    /**
+     * 同版本覆盖发布检测：**版本号相同**且本地构建标识与线上发布标识不一致 → 需要提示用户重新安装
+     * （版本不等时一律不是：否则「本地刚升级、线上读到缓存的旧 meta.js」会被误判成覆盖发布）
+     */
+    #detectSameVersionRebuild (currentVersion: string, latestVersion: string, remoteSha: string): boolean {
+        return isSameVersionRepublish(currentVersion, latestVersion, BUILD_SHA, remoteSha)
     }
     // 手动检查更新（点击设置弹窗版本号触发）：绕过防重复标记与跳过更新设置，结果由返回值提供
     async checkForUpdatesManually (currentVersion: string, localUpdates?: string): Promise<{ type: 'latest' | 'update' | 'rebuilt' | 'error'; latestVersion?: string }> {
@@ -207,7 +218,7 @@ export class UpdateService {
             const { latestVersion, latestUpdates, latestSha } = await this.#fetchLatestVersionInfo()
             if (!this.compareVersions(currentVersion, latestVersion)) {
                 // 版本号相同但线上构建标识不同：服务器文件被「同版本覆盖发布」过（如应急修复）
-                if (this.#detectSameVersionRebuild(latestSha)) {
+                if (this.#detectSameVersionRebuild(currentVersion, latestVersion, latestSha)) {
                     logger.info(`检查更新丨v${currentVersion} 线上内容已更新（本地 ${BUILD_SHA} → 线上 ${latestSha}）`)
                     this.#setPendingRebuild({ version: currentVersion, sha: latestSha })
                     this.#showUpdatePopover(currentVersion, latestVersion, [], { rebuilt: true })
@@ -246,7 +257,7 @@ export class UpdateService {
             if (!this.compareVersions(currentVersion, latestVersion)) {
                 // 版本号没变，但线上构建标识变了 = 服务器文件被「同版本覆盖发布」过。
                 // 此时版本号比对恒为「已是最新」，只能靠构建标识让用户知道要重新安装。
-                if (this.#detectSameVersionRebuild(latestSha)) {
+                if (this.#detectSameVersionRebuild(currentVersion, latestVersion, latestSha)) {
                     logger.info(`检查更新丨v${currentVersion} 线上内容已更新（本地 ${BUILD_SHA} → 线上 ${latestSha}），仅提示不弹窗`)
                     this.#setPendingRebuild({ version: currentVersion, sha: latestSha })
                     return
