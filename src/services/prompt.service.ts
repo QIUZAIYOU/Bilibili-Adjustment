@@ -16,8 +16,6 @@ import type { PromptSource, RemotePromptPayload } from '@/shared/remote-prompt'
 const logger = new LoggerService('PromptService', { notify: false })
 /** 远程提示词文件（与 meta.js 同级的热更目录；扩展名 .js 以命中服务器的 CORS 规则） */
 export const REMOTE_PROMPT_URL = 'https://www.asifadeaway.com/UserScripts/bilibili/hot-config/ad-detection-prompt.js'
-/** 兼容路径：3.35.4 用户读的是旧位置，迁移期保留一份副本（下个大版本可移除） */
-const LEGACY_PROMPT_URL = 'https://www.asifadeaway.com/UserScripts/bilibili/ad-detection-prompt.js'
 /** 拉取超时：识别本身要几十秒，这里只等 3s，拉不到就用兜底，不拖慢识别 */
 const FETCH_TIMEOUT_MS = 3000
 const CACHE_KEY = 'adj-ad-prompt-v1'
@@ -42,23 +40,20 @@ const writeCache = (payload: RemotePromptPayload): void => {
 }
 /** 拉取远程提示词（失败返回 null，绝不抛错） */
 const fetchRemote = async (): Promise<RemotePromptPayload | null> => {
-    for (const url of [REMOTE_PROMPT_URL, LEGACY_PROMPT_URL]) {
-        const controller = new AbortController()
-        const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-        try {
-            const response = await fetch(url, { signal: controller.signal, credentials: 'omit' })
-            if (!response.ok) throw new Error(`HTTP ${response.status}`)
-            const payload = parsePromptPayload(await response.text())
-            if (!payload) throw new Error('远程提示词内容不完整或格式非法')
-            if (url !== REMOTE_PROMPT_URL) logger.debug('提示词来自旧路径（迁移期兼容），新目录：' + REMOTE_PROMPT_URL)
-            return payload
-        } catch (error) {
-            logger.debug(`远程提示词不可用（${url.includes('hot-config') ? 'hot-config' : '旧路径'}）：` + (error instanceof Error ? error.message : String(error)))
-        } finally {
-            clearTimeout(timer)
-        }
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
+    try {
+        const response = await fetch(REMOTE_PROMPT_URL, { signal: controller.signal, credentials: 'omit' })
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        const payload = parsePromptPayload(await response.text())
+        if (!payload) throw new Error('远程提示词内容不完整或格式非法')
+        return payload
+    } catch (error) {
+        logger.debug('远程提示词不可用（hot-config）：' + (error instanceof Error ? error.message : String(error)))
+        return null
+    } finally {
+        clearTimeout(timer)
     }
-    return null
 }
 /**
  * 解析出本次识别应使用的系统提示词

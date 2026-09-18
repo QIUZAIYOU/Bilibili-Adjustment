@@ -11,7 +11,6 @@
 ├── bilibili-adjustment.user.js     # 脚本产物（发版才动）
 ├── bilibili-adjustment.meta.js
 ├── version.json
-├── ad-detection-prompt.js          # ⚠️ 迁移期兼容副本（3.35.4 用户读这里），下个大版本删除
 └── hot-config/                     # ← 热更资产统一放这里
     ├── ad-detection-prompt.js      # 广告识别提示词（构建生成）
     ├── selectors.js                # 元素选择器覆盖表（仓库内维护）
@@ -119,7 +118,7 @@ npm run build && python scripts/upload.py
 ```
 
 - 两种模式都会先跑 `npm run check:hot-config`（发布侧校验，见 §4.4），失败即中止、不上传任何热更文件；
-- `HOT_ONLY=1`（别名 `PROMPT_ONLY=1`）会先 `npm run build:hot-config` 重新生成提示词资产，再**只**上传 `hot-config/` 下的文件（远程 `mkdir -p`、逐个校验大小），并顺带把提示词的兼容副本更新到旧路径；
+- `HOT_ONLY=1`（别名 `PROMPT_ONLY=1`）会先 `npm run build:hot-config` 重新生成提示词资产，再**只**上传 `hot-config/` 下的文件（远程 `mkdir -p`、逐个校验大小）；
 - 改提示词**必须**同时 `python scripts/sync_ad_prompt.py` 同步给平台（否则脚本与平台判定漂移）；
 - 上传脚本会校验 Gitee 镜像是否已同步到本版本；发布后建议 `curl -H 'Origin: https://space.bilibili.com' -I` 复核 `hot-config/` 文件的 ACAO 头。
 

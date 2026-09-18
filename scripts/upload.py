@@ -182,10 +182,9 @@ def check_gitee_mirror(local_version, token):
 
 
 def upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
-    """上传「热更资产」到服务器 hot-config/ 目录（提示词 + 选择器/AI 提供商覆盖表）
+    """上传「热更资产」到服务器 hot-config/ 目录（提示词 + 五张覆盖表）
 
     这些文件让「改配置」不必发版：脚本运行时优先读它们，拉不到再回退内置值。
-    迁移期同时把提示词往旧位置留一份（3.35.4 用户读的是旧路径），下个大版本可移除。
     """
     remote_hot_dir = f'{remote_dir}/{HOT_CONFIG_DIR}'
     mkdir_cmd = ssh_cmd + [f'{user}@{host}', f'mkdir -p {remote_hot_dir}']
@@ -220,13 +219,6 @@ def upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
         else:
             print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={size} remote={remote_size}')
             ok = False
-        # 迁移期：提示词在旧位置也留一份（3.35.4 及更早的脚本读的是那里）
-        if name == 'ad-detection-prompt.js':
-            legacy_remote = f'{remote_dir}/{name}'
-            if upload_file(scp_cmd, local_path, user, host, legacy_remote):
-                print(f'OK {name}（旧路径兼容副本）')
-            else:
-                print(f'⚠️ 旧路径兼容副本上传失败（3.35.4 用户会回退内置提示词）')
     # 2) 人工维护的覆盖表（仓库 hot-config/ 原样上传）
     for name in HOT_CONFIG_REPO_FILES:
         local_path = os.path.join(root, HOT_CONFIG_DIR, name)
