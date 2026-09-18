@@ -494,6 +494,9 @@ export class SettingsDialogHost {
         const showPendingUpdate = (): void => {
             const hint = formatPendingUpdateHint(updateService.getPendingUpdateVersion(), Boolean(updateService.getPendingRebuild()))
             clearTimeout(hideTimer ?? undefined)
+            // 版本号的绿色 = 「有待处理更新」这一状态本身：没有提示时必须恢复默认样式，
+            // 否则"已是最新版本却还绿着"会被误读成仍有更新
+            versionEl.classList.toggle('has-update', Boolean(hint))
             if (!hint) {
                 statusEl.textContent = ''
                 statusEl.className = 'adjustment-popover-version-status hidden'
