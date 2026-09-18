@@ -220,6 +220,9 @@ export class UpdateService {
                 // 版本号相同但线上构建标识不同：服务器文件被「同版本覆盖发布」过（如应急修复）
                 if (this.#detectSameVersionRebuild(currentVersion, latestVersion, latestSha)) {
                     logger.info(`检查更新丨v${currentVersion} 线上内容已更新（本地 ${BUILD_SHA} → 线上 ${latestSha}）`)
+                    // 线上已不比本地新 → 之前记下的「有新版本」标记已过期，必须一起清掉，
+                    // 否则版本号处会继续显示旧的「有新版本 vX」（与本次检查结论自相矛盾）
+                    this.#setPendingUpdateVersion('')
                     this.#setPendingRebuild({ version: currentVersion, sha: latestSha })
                     this.#showUpdatePopover(currentVersion, latestVersion, [], { rebuilt: true })
                     return { type: 'rebuilt', latestVersion }
@@ -259,6 +262,8 @@ export class UpdateService {
                 // 此时版本号比对恒为「已是最新」，只能靠构建标识让用户知道要重新安装。
                 if (this.#detectSameVersionRebuild(currentVersion, latestVersion, latestSha)) {
                     logger.info(`检查更新丨v${currentVersion} 线上内容已更新（本地 ${BUILD_SHA} → 线上 ${latestSha}），仅提示不弹窗`)
+                    // 同「手动检查」：结论是"线上不比本地新"，过期的「有新版本」标记必须一起清掉
+                    this.#setPendingUpdateVersion('')
                     this.#setPendingRebuild({ version: currentVersion, sha: latestSha })
                     return
                 }

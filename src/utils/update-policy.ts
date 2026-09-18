@@ -42,12 +42,12 @@ export const isSameVersionRepublish = (currentVersion: string, latestVersion: st
 /**
  * 版本号处「常驻提示」的文案（纯函数，便于单测）
  * - 有新版本：`- 有新版本 vX -`，只陈述状态、不写「点击查看」——提示本就挂在可点击的版本号下方；
- * - 同版本覆盖发布：版本号没变，必须明确告诉用户要重新安装（否则用户无从感知）；
+ * - 同版本覆盖发布：`- 内容补丁可更新 -`（版本号没变、线上内容变了，重新安装才能拿到）；
  * - 两者都没有 → 空串（调用方不显示提示）。
  */
 export const formatPendingUpdateHint = (pendingVersion: string | null | undefined, rebuilt: boolean): string => {
     if (pendingVersion) return `- 有新版本 v${pendingVersion} -`
-    return rebuilt ? '内容已更新，点击重新安装' : ''
+    return rebuilt ? '- 内容补丁可更新 -' : ''
 }
 /** package.json 里的发布信息（GitHub raw / 各镜像同源） */
 export interface PackageInfo {
