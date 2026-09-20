@@ -45,6 +45,33 @@ test('formatVideoCommentDescription 缺失 desc_v2 时不报错', () => {
     assert.ok(result.includes('@测试UP主'))
     assert.ok(!result.includes('<a '))
 })
+test('formatVideoCommentDescription 链接里带 bvid=BV… 时不再被二次链接化（回归：整段链接乱码）', () => {
+    const text = [
+        '直播回放：',
+        'https://www.bilibili.com/list/259689/?sid=5095696&spm_id_from=333.1387.0.0&oid=116138549714529&bvid=BV1b5AyzaEQh',
+        '舞台Focus：',
+        '支持snh48李婷谢谢喵'
+    ].join('\n')
+    const result = formatVideoCommentDescription(text, [])
+    // href 必须完整：旧实现（连续 replace）会把 href 里的 BV 号再替换一次，产生 `bvid=&lt;a href="…` 这种坏属性
+    assert.ok(result.includes('<a href="https://www.bilibili.com/list/259689/?sid=5095696&spm_id_from=333.1387.0.0&oid=116138549714529&bvid=BV1b5AyzaEQh" target="_blank" bilibili-adjustment-element>'))
+    assert.ok(!result.includes('&lt;a'), '不能出现被转义的 <a')
+    assert.equal((result.match(/<a /g) || []).length, 1, '一个 URL 只应产生一个链接')
+    assert.ok(!/<a\b[^>]*>[^<]*<a\b/.test(result), '不能出现嵌套链接')
+    // URL 内的 BV 号已被整段吃掉，不应再生成第二个视频链接
+    assert.ok(!result.includes('/video/BV1b5AyzaEQh'))
+    // 其余文本保持原样
+    assert.ok(result.includes('直播回放：'))
+    assert.ok(result.includes('支持snh48李婷谢谢喵'))
+})
+test('formatVideoCommentDescription 独立 BV 号仍然链接化（与上一条对照）', () => {
+    const result = formatVideoCommentDescription('正片 BV1b5AyzaEQh 见 https://www.bilibili.com/list/259689/?bvid=BV1BdrDBGEag', [])
+    // 独立出现的 BV 号 → 视频链接
+    assert.ok(result.includes('<a href="https://www.bilibili.com/video/BV1b5AyzaEQh" target="_blank" bilibili-adjustment-element>BV1b5AyzaEQh</a>'))
+    // URL 里的 BV 号 → 只作为 URL 链接的一部分，不额外链接化
+    assert.ok(result.includes('<a href="https://www.bilibili.com/list/259689/?bvid=BV1BdrDBGEag" target="_blank" bilibili-adjustment-element>https://www.bilibili.com/list/259689/?bvid=BV1BdrDBGEag</a>'))
+    assert.ok(!result.includes('/video/BV1BdrDBGEag'))
+})
 test('formatVideoCommentContents 评论内容链接化', () => {
     const el = document.createElement('div')
     el.innerHTML = '视频 BV1xx411c7mD 专栏 cv1234567 完整链接 https://www.bilibili.com/video/BV1xx411c7mD 域名 example.com 素材 image.jpg'

@@ -388,11 +388,20 @@ registerHotConfigTarget('regexps', {
 // 新增公共处理函数
 /** 文本节点替换函数：入参为节点文本，返回替换后的 HTML 片段 */
 type TextNodeReplacer = (content: string) => string
+/**
+ * 这些祖先元素内部的文本**不再做链接化**：
+ * `<a>` 里再插 `<a>` 是非法嵌套，浏览器解析时会直接拆坏标签（表现为整段链接乱码）；
+ * `script`/`style` 里的文本本来就不是给人看的。
+ */
+const LINKIFY_SKIP_SELECTOR = 'a, script, style'
 const processTextNodes = (element: Element, replacer: TextNodeReplacer): Element => {
     const clonedElement = element.cloneNode(true) as Element
     const walker = document.createTreeWalker(clonedElement, NodeFilter.SHOW_TEXT)
-    while (walker.nextNode()) {
-        const textNode = walker.currentNode as Text
+    // 先收集再替换：替换会改动 DOM，边遍历边改容易漏节点/重复处理
+    const textNodes: Text[] = []
+    while (walker.nextNode()) textNodes.push(walker.currentNode as Text)
+    for (const textNode of textNodes) {
+        if (textNode.parentElement?.closest(LINKIFY_SKIP_SELECTOR)) continue
         const newHtml = replacer(textNode.textContent ?? '')
         if (newHtml !== textNode.textContent) {
             const tempDiv = document.createElement('div')
@@ -407,38 +416,96 @@ const generateLink = (match: string): string => {
     const protocol = match.includes('http') ? '' : 'https://'
     return `<a href="${protocol}${match}" target="_blank" bilibili-adjustment-element>${match}</a>`
 }
-// 修改后的formatVideoCommentDescription
+/** 一个可链接化模式：`re` 必须是 sticky（y），只在当前位置尝试匹配 */
+interface LinkifyToken {
+    re: RegExp
+    render: (match: RegExpExecArray) => string
+}
+/** 把已有正则改造成「只在指定位置尝试」的 sticky 版本（不改动原对象，避免共享 lastIndex 互相干扰） */
+const anchored = (source: RegExp): RegExp => new RegExp(source.source, source.flags.replace(/[gy]/g, '') + 'y')
+/**
+ * **单遍**扫描链接化：每个字符只被处理一次，生成的 HTML 不会再进入下一轮匹配。
+ *
+ * 为什么必须单遍（2026-09-18 用户报的简介区乱码）：原先是在同一段文本上连续 `.replace()`，
+ * 后一次会命中前一次生成的 HTML —— 例如文本里的 `…&bvid=BV1b5AyzaEQh`，
+ * `url` 替换先生成 `<a href="…&bvid=BV1b5AyzaEQh" …>`，紧接着的 `videoId` 替换又命中
+ * **这个 href 里的 BV 号**，把属性值写坏，浏览器解析后整段链接就散了。
+ * 另外 URL 模式排在 BV/cv 之前，URL 里带的 `bvid=BV…` 会被整段吃掉，不会再被二次链接化。
+ */
+const linkifyTokens = (content: string, tokens: LinkifyToken[]): string => {
+    let result = ''
+    let index = 0
+    while (index < content.length) {
+        let hit: { token: LinkifyToken, match: RegExpExecArray } | null = null
+        for (const token of tokens) {
+            token.re.lastIndex = index
+            const match = token.re.exec(content)
+            if (match && match.index === index && match[0]) {
+                hit = { token, match }
+                break
+            }
+        }
+        if (!hit) {
+            result += content[index]
+            index += 1
+            continue
+        }
+        result += hit.token.render(hit.match)
+        index += hit.match[0].length
+    }
+    return result
+}
+const videoIdLink = (match: string): string =>
+    `<a href="https://www.bilibili.com/video/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`
+const readIdLink = (match: string): string =>
+    `<a href="https://www.bilibili.com/read/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`
 /** desc_v2 条目（@ 提及用的官方字段） */
 export interface MentionDescItem {
     raw_text?: string
     biz_id?: string | number
 }
-export const formatVideoCommentDescription = (html: string, desc_v2?: MentionDescItem[]): string => {
+/** 简介用的模式表：URL → 时间锚点 → BV → cv → @提及（顺序即优先级；URL 在前可吃掉其中的 BV/cv） */
+const buildDescriptionTokens = (descV2?: MentionDescItem[]): LinkifyToken[] => [
+    { re: anchored(regexps.video.url), render: match => generateLink(match[0]) },
+    {
+        re: anchored(regexps.video.timeString),
+        render: match => `<a data-type="seek" data-video-time="${getTotalSecondsFromTimeString(match[0])}" bilibili-adjustment-element>${match[0]}</a>`
+    },
+    { re: anchored(regexps.video.videoId), render: match => videoIdLink(match[0]) },
+    { re: anchored(regexps.video.readId), render: match => readIdLink(match[0]) },
+    { re: anchored(regexps.video.user), render: match => generateMentionUserLinks(match[1], descV2) }
+]
+/** 评论内容用的模式表（没有时间锚点与 @提及） */
+const buildCommentTokens = (): LinkifyToken[] => [
+    { re: anchored(regexps.video.url), render: match => generateLink(match[0]) },
+    { re: anchored(regexps.video.videoId), render: match => videoIdLink(match[0]) },
+    { re: anchored(regexps.video.readId), render: match => readIdLink(match[0]) }
+]
+/**
+ * 处理视频简介并返回可插入页面的 HTML
+ *
+ * 入参是 **B 站 API 的纯文本简介**（`videoInfo.desc`），因此按 `textContent` 写入而不是 `innerHTML`：
+ * 简介里出现 `<`、`&lt;` 等字符时应原样显示，既不会吞掉后半段内容，也避免作者在简介里塞的
+ * HTML（如 `<img onerror=…>`）被我们注入进页面。
+ */
+export const formatVideoCommentDescription = (text: string, desc_v2?: MentionDescItem[]): string => {
     const tempDiv = document.createElement('div')
-    tempDiv.innerHTML = html
-    const processedElement = processTextNodes(tempDiv, content =>
-        content
+    tempDiv.textContent = text
+    const tokens = buildDescriptionTokens(desc_v2)
+    const processedElement = processTextNodes(tempDiv, content => {
+        // 文本规范化先做：都是纯文本变换，与链接化互不影响
+        const normalized = content
             .replace(regexps.video.specialBlank, '%20')
             .replace(regexps.video.nbspToBlank, ' ')
-            .replace(regexps.video.timeString, match =>
-                `<a data-type="seek" data-video-time="${getTotalSecondsFromTimeString(match)}" bilibili-adjustment-element>${match}</a>`)
-            .replace(regexps.video.url, match => generateLink(match))
-            .replace(regexps.video.videoId, match =>
-                `<a href="https://www.bilibili.com/video/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`)
-            .replace(regexps.video.readId, match =>
-                `<a href="https://www.bilibili.com/read/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`)
             .replace(regexps.video.blankLine, '')
-            .replace(regexps.video.user, (_, p1) => generateMentionUserLinks(p1, desc_v2)))
+        return linkifyTokens(normalized, tokens)
+    })
     return processedElement.innerHTML
 }
-// 修改后的formatVideoCommentContents
-export const formatVideoCommentContents = (element: Element): string => processTextNodes(element, content =>
-    content
-        .replace(regexps.video.url, generateLink)
-        .replace(regexps.video.videoId, match =>
-            `<a href="https://www.bilibili.com/video/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`)
-        .replace(regexps.video.readId, match =>
-            `<a href="https://www.bilibili.com/read/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`)).innerHTML
+export const formatVideoCommentContents = (element: Element): string => {
+    const tokens = buildCommentTokens()
+    return processTextNodes(element, content => linkifyTokens(content, tokens)).innerHTML
+}
 const adjustPunctuation = (sentence: string): string => sentence.replace(/【(.*?)】/gu, (match: string, text: string) => {
     const punctuationMatch = text.match(/^(\p{P}+)(.*)/u)
     if (punctuationMatch) {

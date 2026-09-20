@@ -32,7 +32,16 @@ const createElement = () => ({
         this._html = value
         this._children = [createTextNode(value, this)]
     },
+    // 纯文本读写：stub 不做 HTML 转义（测试输入不含特殊字符），语义与「文本节点内容」一致
+    get textContent () { return this._html },
+    set textContent (value) {
+        this._html = String(value)
+        this._children = [createTextNode(String(value), this)]
+    },
     get childNodes () { return this._children },
+    // 顶层元素无父元素；真实 DOM 里用于「跳过 <a> 内部文本」的判断在浏览器夹具中验证
+    parentElement: null,
+    closest: () => null,
     cloneNode () {
         const copy = createElement()
         copy.innerHTML = this._html
