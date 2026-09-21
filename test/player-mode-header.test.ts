@@ -4,24 +4,23 @@ import { isHeaderOverlaying } from '@/utils/header-offset'
 /**
  * 头部「是否压在内容上方」的判据（决定自动定位要不要扣掉头部高度）
  *
- * 背景（2026-09-21）：B 站改版后 `.bili-header__bar` 是 position: fixed 的吸顶条，
- * 而容器 `.bili-header.bili-header--mini` 只是态类、position 为 relative 且会随页面滚走。
- * 口径按「position 非 static 或含 fixed 字样」都算占据视口顶部。
+ * 背景（2026-09-21 实测）：
+ * - 关闭「夜间哔哩」样式时 `.bili-header--fixed .bili-header__bar` 计算值为 `fixed`（各滚动位置 rect.top 恒为 0）→ 要扣 64px；
+ * - 开启该样式时用户刻意加了 `position: relative !important`，导航栏随页面滚走（滚动 1500 时 rect.top = -1500）→ **不能扣**。
+ * 因此口径收紧为「只认 fixed / sticky」。
  */
-test('isHeaderOverlaying：非 static 一律视为压在内容上方', () => {
-    // 真实会出现的取值
-    assert.equal(isHeaderOverlaying('fixed'), true)
-    assert.equal(isHeaderOverlaying('sticky'), true)
-    assert.equal(isHeaderOverlaying('relative'), true)
-    assert.equal(isHeaderOverlaying('absolute'), true)
-    // static 不占据视口顶部（页面顶部未滚动时的头部就是 static）
+test('isHeaderOverlaying：只有 fixed / sticky 才算固定在视口上方', () => {
+    assert.equal(isHeaderOverlaying('fixed'), true, '关闭夜间哔哩样式时的实际取值')
+    assert.equal(isHeaderOverlaying('sticky'), true, 'sticky 同样钉在视口顶部')
+    // 开启夜间哔哩样式时的实际取值：随文档流滚动，不能扣高度（上一版按「非 static」判成 true，导致多扣 64px）
+    assert.equal(isHeaderOverlaying('relative'), false)
+    assert.equal(isHeaderOverlaying('absolute'), false)
     assert.equal(isHeaderOverlaying('static'), false)
 })
-test('isHeaderOverlaying：含 fixed 字样也算（口径要求），读不到样式时不算', () => {
-    // `includes('fixed')` 是口径里明确要求保留的防御性子句：真实计算样式里它已被「非 static」覆盖，
-    // 但万一将来出现 static + fixed 组合（或自定义取值）也能判为固定，故这里锁住语义。
-    assert.equal(isHeaderOverlaying('fixed'), true)
-    assert.equal(isHeaderOverlaying('fixed-sticky'), true, '含 fixed 字样 → 视为固定')
+test('isHeaderOverlaying：含 fixed 字样也算；读不到样式时不算', () => {
+    // 口径里明确保留的防御性子句：万一出现复合取值也能判为固定
+    assert.equal(isHeaderOverlaying('fixed-sticky'), true)
+    assert.equal(isHeaderOverlaying('FIXED'), true, '大小写不敏感')
     // 元素不存在 / 取不到样式：保持「没有头部就不扣高度」的原行为
     assert.equal(isHeaderOverlaying(undefined), false)
     assert.equal(isHeaderOverlaying(''), false)
