@@ -5,6 +5,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
+import { isHeaderOverlaying } from '@/utils/header-offset'
 const logger = new LoggerService('VideoModule', { notify: false })
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface PlayerModeContext {
@@ -188,7 +189,7 @@ export const playerModeFeatures = {
                 ? getElementComputedStyle(header, ['position', 'height']) as { position?: string; height?: string }
                 : {}
             const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
-            const playerOffsetTop = headerComputedStyle.position === 'fixed' ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
+            const playerOffsetTop = isHeaderOverlaying(headerComputedStyle.position) ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
             const targetOffset = playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)
             const currentScrollTop = window.scrollY
             // 允许一定的误差范围（50px）
@@ -216,7 +217,7 @@ export const playerModeFeatures = {
                         ? getElementComputedStyle(freshHeader, ['position', 'height']) as { position?: string; height?: string }
                         : {}
                     const freshHeaderHeight = parseInt(freshHeaderStyle.height ?? '', 10) || 0
-                    const freshTargetViewportTop = freshHeaderStyle.position === 'fixed' ? freshHeaderHeight + Number(this.userConfigs.offset_top || 0) : Number(this.userConfigs.offset_top || 0)
+                    const freshTargetViewportTop = isHeaderOverlaying(freshHeaderStyle.position) ? freshHeaderHeight + Number(this.userConfigs.offset_top || 0) : Number(this.userConfigs.offset_top || 0)
                     const scroller = document.scrollingElement || document.documentElement
                     const atBottom = window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
                     if (Math.abs(window.scrollY - (freshOffsetTop - freshTargetViewportTop)) < 50 || atBottom) {
@@ -247,7 +248,7 @@ export const playerModeFeatures = {
             ? getElementComputedStyle(header, ['position', 'height']) as { position?: string; height?: string }
             : {}
         const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
-        const headerFixed = headerComputedStyle.position === 'fixed'
+        const headerFixed = isHeaderOverlaying(headerComputedStyle.position)
         const offsetTop = Number(this.userConfigs.offset_top) || 0
         // mini 模式播放器 transform 悬浮，无文档流位置可用，滚动到记忆位置即可
         if (playerMode === 'mini') {

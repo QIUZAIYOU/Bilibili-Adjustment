@@ -8,7 +8,10 @@ const CSS_MAP: Record<string, string> = {
     // 通用
     app: '#app',
     header: '#biliMainHeader',
-    headerMini: '#biliMainHeader .bili-header .mini-header',
+    // 吸顶头部：B 站改版后真正吸顶的是头部条 `.bili-header__bar`（position: fixed，始终存在，高 64px）。
+    // 旧的 `.bili-header .mini-header` 已失效；`.bili-header.bili-header--mini` 只是加在容器上的态类，
+    // 且它 position 为 relative（会随页面滚走），自动定位要的"固定头部高度"应取这里。
+    headerMini: '#biliMainHeader .bili-header .bili-header__bar',
     // 播放器
     player: '#bilibili-player',
     playerWrap: '#playerWrap',

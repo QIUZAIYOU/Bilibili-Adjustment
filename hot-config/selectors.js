@@ -3,5 +3,5 @@
   "_example": "例如播放器容器改名时：\"playerContainer\": \"#bilibili-player .bpx-player-container-v2\"",
   "table": "selectors",
   "updatedAt": "",
-  "overrides": {}
+  "overrides": { "headerMini": "#biliMainHeader .bili-header .bili-header__bar" }
 }
