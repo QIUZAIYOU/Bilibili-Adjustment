@@ -535,8 +535,8 @@ svg { display: inline-block; vertical-align: middle; flex-shrink: 0; }
 .footer-left, .footer-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }
 .footer-left { color: var(--text-soft); }
 .footer-sep { color: var(--muted); }
-.footer-right a { color: var(--muted); transition: color var(--dur) var(--ease); }
-.footer-right a:hover { color: var(--text); }
+.footer-right a, .footer-left a { color: var(--muted); transition: color var(--dur) var(--ease); }
+.footer-right a:hover, .footer-left a:hover { color: var(--text); }
 
 /* ---------- 滚动显现 ---------- */
 [data-reveal] { opacity: 0; transform: translateY(16px); transition: opacity 0.55s var(--ease), transform 0.55s var(--ease); }
