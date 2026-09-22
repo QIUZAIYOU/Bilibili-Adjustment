@@ -100,21 +100,29 @@ export const playerModeFeatures = {
             eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
         }
     },
+    /**
+     * 重试切换播放器模式（由重试队列调用）
+     *
+     * ⚠️ **任何"没切成"的情况都必须抛错**：队列把"正常返回"当作成功并出队，
+     * 旧实现在找不到按钮/容器时直接 `return`，于是重试一次就被静默丢弃（2026-09-21 修的第二个坑）。
+     */
     async _retryPlayerMode (this: PlayerModeContext): Promise<void> {
         const playerContainer = elementSelectors.get('playerContainer')
-        if (!playerContainer) return
+        if (!playerContainer) throw new Error('未找到播放器容器')
         const targetMode = String(this.userConfigs.selected_player_mode)
+        // 已经是目标模式：视为重试成功（可能上一次其实生效了，只是校验时机太早）
         if (playerContainer.getAttribute('data-screen') === targetMode) return
         const strategy: Record<string, string> = { wide: 'playerModeWideEnterButton', web: 'playerModeWebEnterButton' }
-        const btn = await elementSelectors.wait(strategy[targetMode], 2000) as HTMLElement | null
-        if (!btn) return
+        const buttonKey = strategy[targetMode]
+        if (!buttonKey) throw new Error(`未知的目标模式：${targetMode}`)
+        const btn = await elementSelectors.wait(buttonKey, 2000) as HTMLElement | null
+        if (!btn) throw new Error('未找到模式切换按钮（可能尚未渲染）')
         btn.click()
         await sleep(350)
         const success = await this.isPlayerModeSwitchSuccess(targetMode, elementSelectors.get('video') as HTMLVideoElement | null)
-        if (success) {
-            this._modeSwitchCooldown = Date.now()
-            logger.info(`屏幕模式丨${targetMode === 'wide' ? '宽屏' : '网页全屏'}丨重试切换成功`)
-        }
+        if (!success) throw new Error('点击后校验仍未切换到目标模式')
+        this._modeSwitchCooldown = Date.now()
+        logger.info(`屏幕模式丨${targetMode === 'wide' ? '宽屏' : '网页全屏'}丨重试切换成功`)
     },
     async isPlayerModeSwitchSuccess (this: PlayerModeContext, selectedPlayerMode: string, videoElement: HTMLVideoElement | null): Promise<boolean> {
         const playerContainer = elementSelectors.get('playerContainer')
