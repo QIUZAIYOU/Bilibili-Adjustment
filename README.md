@@ -424,3 +424,16 @@ GitHub：
 
 - 提交 Issue：[GitHub Issues](https://github.com/QIUZAIYOU/Bilibili-Adjustment/issues)
 - 项目主页：[www.asifadeaway.com/bilibili](https://www.asifadeaway.com/bilibili/)（含功能介绍与完整更新日志）
+
+---
+
+## 📄 许可证
+
+本项目以 **MIT 许可证 + 附加条款**（`MIT AND LicenseRef-Bilibili-Adjustment-Additional-Terms`）开源，完整条款见 [LICENSE](./LICENSE)。附加条款要点：
+
+- 本项目是个人开发的第三方脚本，**与哔哩哔哩无关联**，也未获其授权或认可
+- 分发（含修改版）须保留许可证、版权声明与原始来源，修改版需显著标注
+- 不得用于收费、付费墙、捆绑销售等商业利用
+- 请合理使用作者自建的服务器与共享缓存（不得批量抓取、写入脏数据或绕过防误改机制），服务按「现状」提供
+- AI 识别需自行配置第三方接口与密钥（密钥仅存本地），识别结果会上传共享缓存以复用
+- 请遵守哔哩哔哩用户协议与法律法规，不得用于绕过会员权益或访问控制

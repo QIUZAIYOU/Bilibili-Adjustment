@@ -1,7 +1,13 @@
 MIT License with Additional Terms
-=================================
+MIT 许可证（附附加条款）
 
-Copyright (c) 2025 QIAN
+SPDX-License-Identifier: MIT AND LicenseRef-Bilibili-Adjustment-Additional-Terms
+
+Copyright (c) 2025-2026 QIAN
+
+Project: 哔哩哔哩（bilibili.com）调整
+  https://github.com/QIUZAIYOU/Bilibili-Adjustment
+  https://www.asifadeaway.com/bilibili/
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,45 +29,54 @@ SOFTWARE.
 
 -------------------------------------------------------------------------------
 
-Additional Terms（附加条款）
-============================
+Additional Terms / 附加条款
+LicenseRef-Bilibili-Adjustment-Additional-Terms
 
-The license granted above applies subject to the additional restrictions set
-out below. Any use of the Software in violation of these restrictions is
-expressly prohibited, and this license and all rights granted under it shall
-terminate automatically upon such violation.
+以下条款针对本项目的实际情况作出 —— 本项目是面向 bilibili.com 的用户脚本，配套作者自建的
+服务端（安装产物、热更配置、广告识别共享缓存接口），AI 能力由使用者自行配置第三方接口。
+这些条款与上方 MIT 条款共同构成完整许可；两者冲突时以本附加条款为准；违反本附加条款的，
+本许可及其授予的全部权利自动终止。
 
-1. Prohibited military and weapons use.
+1. 非官方、非关联
+   本项目为个人开发的第三方脚本，与哔哩哔哩（bilibili.com）及其运营方无任何关联，也未获得其
+   授权、认可或赞助。「哔哩哔哩」「bilibili」等名称与标识归其权利人所有，本项目仅在描述性
+   意义上使用，不得以任何方式暗示本项目是官方产品。
+   (Unofficial: not affiliated with or endorsed by Bilibili.)
 
-   You may not use, copy, modify, merge, publish, distribute, sublicense, or
-   sell the Software, in whole or in part, for or in connection with:
-   (a) weapons of any kind, including but not limited to firearms,
-   ammunition, missiles, or unmanned combat systems; (b) any military,
-   paramilitary, or defense system, equipment, or research; or (c) any
-   product or service that is designed primarily to facilitate any of the
-   foregoing.
+2. 保留署名与来源
+   分发本软件或其修改版时，必须保留本许可证全文与版权声明，并标明原始来源（上方的项目地址）。
+   修改版必须显著标注其为修改版及其修改者，不得使人误认为原作者的版本。
+   (Keep this license, the copyright notice and the original source; mark modified versions clearly.)
 
-2. Prohibited abusive use.
+3. 禁止商业利用
+   不得将本软件或其修改版用于直接或间接的收费目的，包括出售、付费订阅、付费墙、与收费产品
+   捆绑，或投放到需要付费、强制广告、强制推广才能获取的分发渠道。
+   (No commercial exploitation, resale, or paywalled distribution.)
 
-   You may not use the Software in any way that violates applicable law, or
-   that promotes or facilitates discrimination, harassment, violence, or the
-   violation of human rights.
+4. 服务端与共享缓存的合理使用
+   本软件会访问作者自建的服务器（安装产物、热更配置、广告识别共享缓存接口）。使用时不得：
+   批量抓取或恶意压测；写入错误、误导性或批量生成的缓存数据；绕过上传者归属（uid）与锁定
+   字段等防误改机制；或将上述服务用于本软件之外的目的。这些服务按「现状」提供，作者可随时
+   变更、限制或停止，且不承诺可用性、准确性或数据保留。
+   (Do not abuse the author's self-hosted endpoints or the shared cache; they are provided as-is.)
 
-3. No endorsement.
+5. AI 接口、密钥与个人数据
+   AI 广告识别需由使用者在本地自行配置第三方大模型接口与密钥：密钥仅保存在使用者本机，相关
+   费用与合规由使用者自行承担。广告识别结果会上传至共享缓存以供复用（记录中的上传者 uid 仅用于
+   区分归属、防止他人误改），使用者应知悉并自行判断是否接受该共享行为。
+   (Bring your own API key; recognition results are shared through the author's cache with an uploader uid.)
 
-   You may not use the name "QIAN" or any other trademarks, trade names, or
-   logos of the copyright holder to endorse or promote products derived from
-   the Software without prior written permission.
+6. 合法与合规使用
+   不得将本软件用于违反哔哩哔哩用户协议或任何适用法律法规的用途，包括但不限于破解或绕过会员
+   权益与访问控制、下载或传播受版权保护的内容、批量爬取数据，或干扰、破坏他人及平台服务。
+   使用者应自行确保使用行为合法，并自行承担由此产生的一切后果（如账号受限、数据丢失等）。
+   (Use lawfully and in compliance with Bilibili's terms; no bypassing paywalls or access controls.)
 
-4. Precedence and severability.
+7. 可分性
+   本附加条款任一条款被认定无效或不可执行的，其余条款继续有效，本软件仍按上方 MIT 条款授权
+   （仅就该无效条款所涉限制不再适用）。
+   (Severability: an invalid provision does not affect the remaining provisions.)
 
-   To the extent that these Additional Terms conflict with the MIT License
-   terms above, these Additional Terms prevail. If any provision of these
-   Additional Terms is held to be invalid or unenforceable, the remaining
-   provisions shall continue in full force and effect, and the Software
-   remains licensed under the MIT License above except for the restrictions
-   stated in these Additional Terms.
-
-This file constitutes the complete license for the Software. Any copy or
-substantial portion of the Software, and any derivative work thereof, must be
-distributed together with a copy of this license.
+本文件构成本软件的完整许可。任何副本、实质部分或衍生作品的分发，都必须随附本文件。
+This file constitutes the complete license for the Software; any copy, substantial portion or
+derivative work thereof must be distributed together with a copy of this file.
