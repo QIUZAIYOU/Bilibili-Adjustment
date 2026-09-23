@@ -59,7 +59,10 @@ const fetchTable = async (table: string): Promise<Record<string, unknown> | null
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
-        const response = await fetch(TABLES[table], { signal: controller.signal, credentials: 'omit' })
+        // cache: 'no-store' —— 热更资产必须取**此刻**的线上内容：
+        // 服务器按请求 Origin 回显 ACAO（白名单），若浏览器缓存了别的 B 站子域拿到的响应，
+        // CORS 校验会直接失败（2026-09-23 真实故障），且启发式缓存还会压住配置更新
+        const response = await fetch(TABLES[table], { signal: controller.signal, credentials: 'omit', cache: 'no-store' })
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const payload = parseHotConfigPayload(await response.text(), table)
         if (!payload) throw new Error('内容格式非法')

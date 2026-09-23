@@ -43,7 +43,9 @@ const fetchRemote = async (): Promise<RemotePromptPayload | null> => {
     const controller = new AbortController()
     const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
-        const response = await fetch(REMOTE_PROMPT_URL, { signal: controller.signal, credentials: 'omit' })
+        // cache: 'no-store'：提示词与热更覆盖表同理 —— 服务器按请求 Origin 回显 ACAO，
+        // 复用其他 B 站子域缓存下来的响应会被浏览器 CORS 拦下，且缓存会压住提示词更新
+        const response = await fetch(REMOTE_PROMPT_URL, { signal: controller.signal, credentials: 'omit', cache: 'no-store' })
         if (!response.ok) throw new Error(`HTTP ${response.status}`)
         const payload = parsePromptPayload(await response.text())
         if (!payload) throw new Error('远程提示词内容不完整或格式非法')
