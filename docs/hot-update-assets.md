@@ -121,6 +121,7 @@ npm run build && python scripts/upload.py
 - `HOT_ONLY=1`（别名 `PROMPT_ONLY=1`）会先 `npm run build:hot-config` 重新生成提示词资产，再**只**上传 `hot-config/` 下的文件（远程 `mkdir -p`、逐个校验大小）；
 - 改提示词**必须**同时 `python scripts/sync_ad_prompt.py` 同步给平台（否则脚本与平台判定漂移）；
 - 上传脚本会校验 Gitee 镜像是否已同步到本版本；发布后建议 `curl -H 'Origin: https://space.bilibili.com' -I` 复核 `hot-config/` 文件的 ACAO 头。
+- ⚠️ **必须用不同 Origin 各测一次，并确认响应带 `Vary: Origin`**：ACAO 是按请求 Origin 回显的白名单，缺 `Vary` 时浏览器会把某个子域（如 `space`）拿到的缓存响应用于另一个子域（如 `www`），表现为「www 页面报 ACAO=space 不匹配」**而服务器侧 curl 一切正常**（2026-09-23 的真实故障）。现 nginx 在 `.js|.css` 与 API 两个 location 都有 `add_header Vary Origin always;`，热更资产另加 `Cache-Control: no-cache` 以保证远端改动及时生效。复核：`curl -H 'Origin: https://www.bilibili.com' -I` 与 `-H 'Origin: https://space.bilibili.com'` 各一次，两个 ACAO 应各自回显且都带 `Vary: Origin`。
 
 ## 7. 排查「行为变了」
 
