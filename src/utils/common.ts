@@ -1,4 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
+import { isRetryBudgetExhausted, retryBackoffDelay } from '@/utils/retry-policy'
 import { chunk as chunkArray, pick, reduce, snakeCase } from '@/utils/lodash-lite'
 const logger = new LoggerService('Common')
 /** 页面类型（决定加载哪个页面模块） */
@@ -58,9 +59,9 @@ export const isElementSizeChange = (el: HTMLElement, callback?: ElementSizeChang
 }
 /** documentScrollTo 的选项 */
 export interface DocumentScrollToOptions {
-    /** 最大重试次数（默认 3） */
-    maxRetries?: number
-    /** 重试基准延迟（指数退避，默认 300ms） */
+    /** 校验重试的总时长预算（毫秒，默认 3000）；≤ 0 表示不校验重试 */
+    retryBudgetMs?: number
+    /** 重试基准延迟（指数退避，默认 300ms，封顶 1500ms） */
     retryDelay?: number
     /** 位置容差（px，默认 2） */
     tolerance?: number
@@ -71,7 +72,7 @@ export interface DocumentScrollToOptions {
 }
 export const documentScrollTo = (offset: number, options: DocumentScrollToOptions = {}): Promise<void> => {
     const {
-        maxRetries = 3,
+        retryBudgetMs = 3000,
         retryDelay = 300,
         tolerance = 2,
         behavior = 'auto',
@@ -79,6 +80,9 @@ export const documentScrollTo = (offset: number, options: DocumentScrollToOption
     } = options
     return new Promise<void>((resolve, reject) => {
         let attempts = 0
+        // 收口口径从「最多 3 次」改为「预算内一直重试」（2026-09-24）：滚动没落位多是
+        // 页面滚动锁未解除/布局还在动，网络差时页面就绪更慢，按次数收口会过早放弃
+        const startedAt = Date.now()
         const checkPosition = (): boolean => {
             const currentY = window.scrollY
             return currentY === offset ||
@@ -116,11 +120,11 @@ export const documentScrollTo = (offset: number, options: DocumentScrollToOption
                 await new Promise(r => requestAnimationFrame(r))
                 if (checkPosition()) {
                     resolve()
-                } else if (attempts < maxRetries) {
+                } else if (retryBudgetMs > 0 && !isRetryBudgetExhausted(startedAt, retryBudgetMs)) {
                     attempts++
-                    setTimeout(attemptScroll, retryDelay * (2 ** (attempts - 1)))
+                    setTimeout(attemptScroll, retryBackoffDelay(attempts, retryDelay, 1500))
                 } else {
-                    reject(new Error(`Failed to scroll after ${maxRetries} attempts`))
+                    reject(new Error(`滚动未到位（已重试 ${attempts} 次，耗时 ${Math.round((Date.now() - startedAt) / 1000)} 秒）`))
                 }
             } catch (error) {
                 reject(error)

@@ -108,15 +108,20 @@ export const biliApis = {
         }
         const getWbiKeys = async (): Promise<{ img_key: string; sub_key: string }> => {
             const url = 'https://api.bilibili.com/x/web-interface/nav'
-            // 该接口的 data 形状固定，直接用泛型声明（缺字段时与原实现一样在解构处抛出）
-            const res = await _apiRequest<{ wbi_img: { img_url: string; sub_url: string }}>(url)
-            const { img_url, sub_url } = res.data.wbi_img
+            // ⚠️ `res.data` 就是**整个响应体**（`{code, message, ttl, data:{...}}`），不是接口的 data 字段：
+            // 这里曾经写成 `res.data.wbi_img`，于是永远取到 undefined 并在解构处抛错，
+            // 而两个调用点都在 try/catch 里静默吞掉 —— 表现为「UP主空间投稿列表、视频搜索」永远拿不到数据
+            // （2026-09-24 用真实接口核对响应形状后修正）
+            const res = await _apiRequest<{ data?: { wbi_img?: { img_url?: string; sub_url?: string }}}>(url)
+            const imgUrl = res.data?.data?.wbi_img?.img_url
+            const subUrl = res.data?.data?.wbi_img?.sub_url
+            if (!imgUrl || !subUrl) throw new Error('nav 接口未返回 wbi_img（无法签名 wbi 请求）')
             return {
-                img_key: img_url.slice(
-                    img_url.lastIndexOf('/') + 1
+                img_key: imgUrl.slice(
+                    imgUrl.lastIndexOf('/') + 1
                 ),
-                sub_key: sub_url.slice(
-                    sub_url.lastIndexOf('/') + 1
+                sub_key: subUrl.slice(
+                    subUrl.lastIndexOf('/') + 1
                 )
             }
         }

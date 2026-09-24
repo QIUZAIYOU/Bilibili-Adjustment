@@ -72,6 +72,7 @@ interface VideoModuleContext {
     autoSelectPlayerMode: () => Promise<unknown>
     autoLocateToPlayer: () => Promise<void>
     locateToPlayer: () => Promise<void>
+    guardEpisodeSwitchClicks: () => void
     handleExecuteFunctionsSequentially: () => Promise<void> | void
     handleHrefChangedFunctionsSequentially: () => Promise<void>
     insertLocateToCommentButton: () => Promise<void> | void
@@ -476,6 +477,8 @@ export default {
             [this.autoCancelMute, Boolean(this.userConfigs.auto_cancel_mute)],
             this.initVideoRotate,
             [this.unlockEpisodeSelector, !hasTitle],
+            // 原生选集入口（右侧分P列表/合集/番剧选集）同样会被 B 站自己滚到顶部：绑定位置守卫
+            this.guardEpisodeSwitchClicks,
             [this.autoEnableHiResMode, Boolean(this.userConfigs.is_vip && this.userConfigs.auto_hi_res)],
             [this.autoSelectVideoHighestQuality, Boolean(this.userConfigs.auto_select_video_highest_quality)],
             [this.webfullPlayerModeUnlock, Boolean(this.userConfigs.webfull_unlock && this.userConfigs.selected_player_mode === 'web' && this.userConfigs.page_type === 'video')],

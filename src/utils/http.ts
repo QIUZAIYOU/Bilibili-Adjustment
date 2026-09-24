@@ -5,6 +5,7 @@
  * 返回值与错误形状刻意与 axios 对齐（`response.data` / `error.response.status` / `error.code`），
  * 以便调用点无需改动即可从 axios 平滑切换。
  */
+import { isRetryBudgetExhausted, retryBackoffDelay } from '@/utils/retry-policy'
 const DEFAULT_TIMEOUT = 30000
 const DEFAULT_RETRY_DELAY = 800
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
@@ -41,6 +42,8 @@ export interface HttpRequestOptions {
     body?: string | object | null
     timeout?: number
     retries?: number
+    /** 重试总时长预算（毫秒）：设置后**按预算重试**（不再按次数），退避递增封顶 10 秒 */
+    retryBudgetMs?: number
     retryDelay?: number
     signal?: AbortSignal | null
     responseType?: 'json' | 'text'
@@ -60,6 +63,7 @@ export const httpRequest = async (url: string, options: HttpRequestOptions = {})
         body = null,
         timeout = DEFAULT_TIMEOUT,
         retries: retriesOption = 0,
+        retryBudgetMs = 0,
         retryDelay = DEFAULT_RETRY_DELAY,
         signal = null,
         responseType = 'json',
@@ -67,6 +71,12 @@ export const httpRequest = async (url: string, options: HttpRequestOptions = {})
         credentials = null
     } = options
     let retriesLeft = retriesOption
+    let attempts = 0
+    const startedAt = Date.now()
+    /** 还能再试一次吗：给了预算就按预算算，否则沿用「次数」口径 */
+    const canRetry = (): boolean => retryBudgetMs > 0
+        ? !isRetryBudgetExhausted(startedAt, retryBudgetMs)
+        : retriesLeft > 0
     const payload = body !== null && typeof body === 'object' ? JSON.stringify(body) : body
     const effectiveCredentials = credentials || (withCredentials ? 'include' : 'same-origin')
     for (;;) {
@@ -96,9 +106,10 @@ export const httpRequest = async (url: string, options: HttpRequestOptions = {})
             }
             if (!response.ok) {
                 const retriable = response.status === 429 || response.status >= 500
-                if (retriable && retriesLeft > 0) {
+                if (retriable && canRetry()) {
                     retriesLeft--
-                    await sleep(retryDelay)
+                    attempts++
+                    await sleep(retryBackoffDelay(attempts, retryDelay, 10000))
                     continue
                 }
                 throw buildError(`请求失败: ${response.status}`, {
@@ -115,9 +126,10 @@ export const httpRequest = async (url: string, options: HttpRequestOptions = {})
                 throw buildError('请求已取消', { code: 'ERR_CANCELED' })
             }
             const isTimeout = timedOut && controller.signal.aborted
-            if (retriesLeft > 0) {
+            if (canRetry()) {
                 retriesLeft--
-                await sleep(retryDelay)
+                attempts++
+                await sleep(retryBackoffDelay(attempts, retryDelay, 10000))
                 continue
             }
             throw buildError(isTimeout ? `请求超时（${timeout}ms）` : (error instanceof Error ? error.message : '网络请求失败'), {

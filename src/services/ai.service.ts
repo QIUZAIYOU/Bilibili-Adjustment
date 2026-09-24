@@ -13,6 +13,11 @@ import {
 } from '@/utils/ai-response'
 import type { ChatResult } from '@/utils/ai-response'
 import type { HttpError } from '@/utils/http'
+import { withRetryBudget, isRetryableRequestError } from '@/utils/retry-policy'
+/** 拉取模型列表的重试预算（设置面板即时操作，别让下拉框一直转） */
+const MODEL_LIST_RETRY_BUDGET_MS = 30 * 1000
+/** AI 识别请求的重试预算（后台识别，网络抖动时多试几次；每次调用本身可能耗时数十秒） */
+const AI_CHAT_RETRY_BUDGET_MS = 90 * 1000
 /** 模型列表条目 */
 export interface AIModelOption {
     id: string
@@ -106,7 +111,9 @@ export async function fetchModels (apiKey: string, provider = 'siliconflow', bas
                     'Authorization': `Bearer ${apiKey}`
                 },
                 timeout: 10000,
-                retries: 1
+                // 拉模型列表是设置面板里的即时操作：按预算重试（30 秒）而不是"只试 2 次"，
+                // 网络抖动时能自愈，同时又不会让下拉框一直转
+                retryBudgetMs: MODEL_LIST_RETRY_BUDGET_MS
             }
         )
         const payload = response.data as { data?: Array<{ id?: string; object?: unknown; owned_by?: string }> } | null
@@ -431,19 +438,27 @@ export class UnifiedAIService extends AIService {
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: subtitlesJsonString }
             ]
-            const request = async (maxTokens: number): Promise<ChatResult> => {
-                try {
-                    return await adapter.chat(apiKey, model, messages, { thinking, maxTokens })
-                } catch (error) {
-                    const httpErr = error as Partial<HttpError>
-                    // 用户主动取消（P1-4.6）：不重试、不报错
-                    if (httpErr.code === 'ERR_CANCELED') throw error
-                    // 网络/超时类失败自动重试一次，降低偶发超时导致的识别失败
-                    const retriable = !httpErr.response || httpErr.code === 'ECONNABORTED' || httpErr.code === 'ERR_NETWORK' || String((error as { message?: string }).message || '').includes('timeout')
-                    if (!retriable) throw error
-                    this.#logger.warn('广告识别请求失败，自动重试一次：' + ((error as { message?: string }).message || httpErr.code || 'unknown'))
-                    return await adapter.chat(apiKey, model, messages, { thinking, maxTokens })
-                }
+            const request = (maxTokens: number): Promise<ChatResult> => {
+                const attempt = (): Promise<ChatResult> => adapter.chat(apiKey, model, messages, { thinking, maxTokens })
+                // 网络/超时类失败按预算重试（原本只重试 1 次，网络差时容易整段识别失败）；
+                // 用户主动取消与确定性失败（鉴权/参数错误）立即抛出，不浪费额度
+                return withRetryBudget(attempt, {
+                    budgetMs: AI_CHAT_RETRY_BUDGET_MS,
+                    intervalMs: 1000,
+                    shouldRetry: error => {
+                        const httpErr = error as Partial<HttpError>
+                        if (httpErr.code === 'ERR_CANCELED') return false
+                        if (isRetryableRequestError(error)) return true
+                        // 部分网关把超时表达成普通 Error（message 含 timeout），一并视为可重试
+                        return String((error as { message?: string }).message || '').includes('timeout')
+                    },
+                    onRetry: ({ attempts, delayMs, error }) => {
+                        this.#logger.warn(`广告识别请求失败，${delayMs}ms 后重试（第 ${attempts} 次重试）：` + ((error as { message?: string }).message || (error as Partial<HttpError>).code || 'unknown'))
+                    },
+                    onGiveUp: ({ attempts, error }) => {
+                        this.#logger.warn(`广告识别请求重试已达时间预算（共重试 ${attempts} 次）：` + ((error as { message?: string }).message || (error as Partial<HttpError>).code || 'unknown'))
+                    }
+                })
             }
             let result = await request(initialResponseTokens(thinking))
             // 空响应且像是被输出预算吃满（截断 / 推理占满）：用更大预算重试一次再判失败

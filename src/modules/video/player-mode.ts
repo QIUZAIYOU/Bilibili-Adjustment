@@ -6,6 +6,7 @@ import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
+import { holdScrollPosition } from '@/modules/video/scroll-guard'
 const logger = new LoggerService('VideoModule', { notify: false })
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface PlayerModeContext {
@@ -13,6 +14,8 @@ interface PlayerModeContext {
     _lastPlayerMode?: string
     _modeSwitchCooldown?: number
     _autoLocating?: boolean
+    /** 原生选集入口的位置守卫是否已绑定（只绑一次） */
+    _episodeSwitchGuardBound?: boolean
     _retryQueue?: { register: (id: string, fn: () => Promise<void> | void, options?: { budgetMs?: number }) => void } | null
     hasPlayerTitle: () => Promise<boolean>
     isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
@@ -51,6 +54,46 @@ const waitForEpisodeChange = async (beforeHref: string, beforeSrc: string, maxWa
     }
     return false
 }
+/** 定位目标：把播放器顶部对齐到视口目标位置所需的滚动位置 */
+interface PlayerScrollTarget {
+    /** 目标滚动位置 */
+    offset: number
+    /** 播放器顶部应对齐到的视口位置 */
+    viewportTop: number
+}
+/**
+ * 计算「定位到播放器」的目标滚动位置；当前不具备定位条件时返回 null。
+ *
+ * 不具备条件的情形：读不到播放器容器、全屏/网页全屏（播放器占满视口，滚动无效）、
+ * mini 模式（播放器靠 transform 悬浮，没有文档流位置可用）。
+ * 定位流程与「选集切换时的位置守卫」共用这里，避免两处各算一套偏移。
+ */
+const resolvePlayerScrollTarget = (offsetTop: number): PlayerScrollTarget | null => {
+    const playerContainer = elementSelectors.get('playerContainer')
+    if (!playerContainer) return null
+    const playerMode = playerContainer.getAttribute('data-screen')
+    if (playerMode === 'full' || playerMode === 'web' || playerMode === 'mini') return null
+    const header = elementSelectors.get('headerMini')
+    const headerComputedStyle: { position?: string, height?: string } = header
+        ? getElementComputedStyle(header, ['position', 'height']) as { position?: string, height?: string }
+        : {}
+    const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
+    const viewportTop = isHeaderOverlaying(headerComputedStyle.position) ? headerHeight + offsetTop : offsetTop
+    const scroller = document.scrollingElement || document.documentElement
+    const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+    const raw = getElementOffsetToDocument(playerContainer as HTMLElement).top - viewportTop
+    // 无评论等文档高度不足时目标超出可滚动范围，clamp 到最大滚动位置
+    return { offset: Math.max(0, Math.min(raw, maxScroll)), viewportTop }
+}
+/** 当前是否已经定位在播放器位置（±8px） */
+const isLocatedAtPlayer = (offsetTop: number): boolean => {
+    const target = resolvePlayerScrollTarget(offsetTop)
+    return target !== null && Math.abs(window.scrollY - target.offset) <= 8
+}
+/** 选集切换的原生入口（右侧分P列表、合集、番剧选集等）——点在这些元素上就算"切换选集" */
+const isEpisodeSwitchElement = (element: Element | null): boolean => !!element?.closest(
+    '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .list-box a[href*="?p="], a[href*="?p="]'
+)
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
         // 电影播放页若默认宽屏则跳过（电影页本身已宽屏，重复执行会退出宽屏）
@@ -288,12 +331,6 @@ export const playerModeFeatures = {
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
         if (playerMode === 'full' || playerMode === 'web') return
-        const header = elementSelectors.get('headerMini')
-        const headerComputedStyle: { position?: string; height?: string } = header
-            ? getElementComputedStyle(header, ['position', 'height']) as { position?: string; height?: string }
-            : {}
-        const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
-        const headerFixed = isHeaderOverlaying(headerComputedStyle.position)
         const offsetTop = Number(this.userConfigs.offset_top) || 0
         // mini 模式播放器 transform 悬浮，无文档流位置可用，滚动到记忆位置即可
         if (playerMode === 'mini') {
@@ -302,18 +339,11 @@ export const playerModeFeatures = {
             })
             return
         }
-        // 播放器容器顶部在视口中的期望位置（滚动到位后播放器顶部应对齐到此）
-        const targetViewportTop = headerFixed ? headerHeight + offsetTop : offsetTop
-        const getMaxScroll = (): number => {
-            const scroller = document.scrollingElement || document.documentElement
-            return Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-        }
-        // 文档流位置（getElementOffsetToDocument 已排除吸顶干扰）减去期望视口位置；
-        // 无评论等文档高度不足时目标超出可滚动范围，clamp 到最大滚动位置
-        const computeTarget = (container: Element): number => {
-            const target = getElementOffsetToDocument(container as HTMLElement).top - targetViewportTop
-            return Math.max(0, Math.min(target, getMaxScroll()))
-        }
+        // 目标滚动位置与「播放器应对齐到的视口位置」统一由 resolvePlayerScrollTarget 计算
+        // （与选集切换时的位置守卫共用同一套偏移判据，避免两处各算一套）
+        const resolved = resolvePlayerScrollTarget(offsetTop)
+        if (!resolved) return
+        const targetViewportTop = resolved.viewportTop
         const isPositioned = (container: Element): boolean => {
             const rect = container.getBoundingClientRect()
             // 吸顶（scroll-sticky）时播放器固定在视口目标位置同样视为定位成功
@@ -322,7 +352,7 @@ export const playerModeFeatures = {
             const scroller = document.scrollingElement || document.documentElement
             return window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
         }
-        let targetOffset = computeTarget(playerContainer)
+        let targetOffset = resolved.offset
         await documentScrollTo(targetOffset, { duration, behavior: 'instant' }).catch(error => {
             logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
         })
@@ -332,7 +362,7 @@ export const playerModeFeatures = {
             const freshContainer = elementSelectors.get('playerContainer')
             if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full' || freshContainer.getAttribute('data-screen') === 'web') return
             if (isPositioned(freshContainer)) return
-            const freshTarget = computeTarget(freshContainer)
+            const freshTarget = resolvePlayerScrollTarget(offsetTop)?.offset ?? targetOffset
             if (Math.abs(freshTarget - targetOffset) <= 5) {
                 // 目标未变化但仍未到位：B站 吸顶状态未解除，重复滚动触发其监听器后继续等待
                 logger.debug('自动定位丨目标未变化，等待播放器吸顶状态解除')
@@ -347,22 +377,59 @@ export const playerModeFeatures = {
         logger.debug('自动定位丨多次尝试后仍未到位')
     },
     /**
-     * 选集切换后的定位（由选集菜单点击触发）
+     * 选集切换后的定位（由播放器「选集」菜单点击触发）
      *
-     * 旧实现是在点击回调里**立刻** `locateToPlayer()`：那一刻 B 站尚未完成切换、页面结构处于中间态，
-     * 按中间态偏移滚动会先滚到错位置（用户看到"先滚到顶部"），随后视频可播放再触发一次 autoLocateToPlayer
-     * 才滚到正确位置 —— 来回滚动一次。现改为：等「切换真的发生」→ 等「布局稳定」→ **一次性直达**（无动画）。
+     * ⚠️ 「先滚到顶部」不是我们滚的：实测（真实页面取证）B 站自己的 `a.switchVideo` 在点击后约 35ms
+     * 就调用 `window.scrollTo(0, 0)`，而视频页滚动容器带 `scroll-behavior: smooth`，
+     * 于是页面会可见地滑到顶部，之后我们的定位才把位置拉回来 —— 用户看到"先滚到顶部再回来"。
+     * 因此这里在**第一个 await 之前**（仍在同一个点击任务里）就装上位置守卫，
+     * 让 B 站这次滚动根本落不到页面上；随后等「切换真的发生」+「布局稳定」再一次性直达（无动画）。
      */
     async locateToPlayerAfterEpisodeSwitch (this: PlayerModeContext): Promise<void> {
         const beforeHref = window.location.href
         const beforeSrc = elementSelectors.get('video')?.getAttribute('src') || ''
-        const switched = await waitForEpisodeChange(beforeHref, beforeSrc)
+        const offsetTop = Number(this.userConfigs.offset_top) || 0
+        // 只有"当前已经定位在播放器"时才守位置：此时用户本就在播放器上，切换选集不该把页面挪走。
+        // 其它情况（用户在评论区等）保持原行为，仍由 autoLocateToPlayer 决定要不要定位。
+        const guard = isLocatedAtPlayer(offsetTop) ? holdScrollPosition(window.scrollY) : null
+        // 有守卫时页面本来就被钉在播放器位置，不必久等"切换真的发生"（我们的回调可能注册在
+        // B 站之后，进回调时 URL/src 已经变了，等下去只是白等）
+        const switched = await waitForEpisodeChange(beforeHref, beforeSrc, guard ? 1200 : 2500)
         if (!switched) {
             logger.debug('选集定位丨未检测到切换（可能点的是当前集），直接定位一次')
         }
         await waitForStablePlayerOffset()
         await this.locateToPlayer({ duration: 0 })
+        if (guard) {
+            // 只有"确实落在了播放器位置"才把锚点挪过去：中间态测出的离谱目标不该被固化，
+            // 那种情况保持原锚点（用户仍在播放器上），交给后续 autoLocateToPlayer 收尾
+            if (isLocatedAtPlayer(offsetTop)) {
+                guard.setTarget(window.scrollY)
+            } else {
+                logger.debug('选集定位丨定位结果不在播放器位置（布局中间态），保持原位置守卫')
+            }
+            // 再守一小会儿：B 站可能在切换完成后才补一次"回到顶部/恢复位置"的滚动
+            setTimeout(() => guard.release(), 600)
+        }
         logger.debug('选集定位丨已直接定位到播放器')
+    },
+    /**
+     * 原生选集入口的位置守卫（右侧分P列表、合集、番剧选集等）
+     *
+     * 这些入口不经过上面的选集菜单回调，但同样会触发 B 站自己的"回到顶部"。
+     * 这里用捕获阶段的委托监听，在点击那一刻就把位置守住（**只守位置、不主动定位**，
+     * 是否定位仍由视频可播放后的 autoLocateToPlayer 按设置决定）。
+     */
+    guardEpisodeSwitchClicks (this: PlayerModeContext): void {
+        if (this._episodeSwitchGuardBound) return
+        this._episodeSwitchGuardBound = true
+        document.addEventListener('click', (event: Event) => {
+            if (!isEpisodeSwitchElement(event.target as Element | null)) return
+            const offsetTop = Number(this.userConfigs.offset_top) || 0
+            if (!isLocatedAtPlayer(offsetTop)) return
+            holdScrollPosition(window.scrollY)
+        }, true)
+        logger.debug('选集定位丨已监听原生选集入口（分P列表/合集/番剧选集）')
     },
     async clickPlayerAutoLocate (this: PlayerModeContext): Promise<void> {
         addEventListenerToElement(elementSelectors.get('playerContainer'), 'click', async (e: Event) => {
