@@ -332,7 +332,10 @@ export const biliApis = {
     },
     async getWebCreaterArcsDrawInfo (mid: string | number): Promise<Array<BiliData> | null | undefined> {
         try {
-            const wbiUrl = `https://api.bilibili.com/x/space/arc/search?${await this.getQueryWithWbi({ mid, ps: 10, pn: 1 })}`
+            // ⚠️ 必须用 wbi 端点：`x/space/arc/search` 是已弃用的非 wbi 端点（实测两个端点都会返回
+            // -403 访问权限不足，但 B 站自己的空间页请求的是 `x/space/wbi/arc/search`，这里对齐它；
+            // 旧版单文件脚本用的也是 wbi 端点，重构时被写错成非 wbi 端点）
+            const wbiUrl = `https://api.bilibili.com/x/space/wbi/arc/search?${await this.getQueryWithWbi({ mid, ps: 10, pn: 1 })}`
             const res = await _apiRequest<{ code?: number | string; data?: { list?: { vlist?: Array<BiliData> }}}>(wbiUrl)
             const { code, data } = res.data
             if (code === 0) return data?.list?.vlist
