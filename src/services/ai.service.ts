@@ -90,7 +90,7 @@ export async function validateApiKey (apiKey: string, provider = 'siliconflow', 
  * @param {string} baseURL - 自定义 baseURL（仅自定义提供商使用）
  * @returns {Promise<Array>} 模型列表
  */
-export async function fetchModels (apiKey: string, provider = 'siliconflow', baseURL = ''): Promise<AIModelOption[]> {
+export async function fetchModels (apiKey: string, provider = 'siliconflow', baseURL = '', retryOptions: { retryBudgetMs?: number, retryDelay?: number } = {}): Promise<AIModelOption[]> {
     const logger = new LoggerService('AIService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
     const config = PROVIDER_CONFIGS[provider] || PROVIDER_CONFIGS.siliconflow
     const effectiveBaseURL = (provider === 'custom' && baseURL ? baseURL : config.baseURL).replace(/\/$/, '')
@@ -112,8 +112,9 @@ export async function fetchModels (apiKey: string, provider = 'siliconflow', bas
                 },
                 timeout: 10000,
                 // 拉模型列表是设置面板里的即时操作：按预算重试（30 秒）而不是"只试 2 次"，
-                // 网络抖动时能自愈，同时又不会让下拉框一直转
-                retryBudgetMs: MODEL_LIST_RETRY_BUDGET_MS
+                // 网络抖动时能自愈，同时又不会让下拉框一直转（测试可传更小预算）
+                retryBudgetMs: retryOptions.retryBudgetMs ?? MODEL_LIST_RETRY_BUDGET_MS,
+                retryDelay: retryOptions.retryDelay
             }
         )
         const payload = response.data as { data?: Array<{ id?: string; object?: unknown; owned_by?: string }> } | null
