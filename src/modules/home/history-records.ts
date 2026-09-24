@@ -1,21 +1,22 @@
 /**
- * 首页推荐历史的记录整理（纯函数，零依赖 → 便于单测）
+ * 首页推荐历史的记录整理（纯函数；B 站 URL 结构判据一律取 regexps 注册表 → 可热更、便于单测）
  */
+import { regexps } from '@/shared/regexps'
 /** 同一视频的规范身份（去重用）：同一视频在任何链接形态/批次下必须得到同一个值 */
 export const historyIdentity = (record: Record<string, unknown>): string => {
     const rawKey = record._key === undefined || record._key === null ? '' : String(record._key)
     // 存储 key 形如 `${bvid || aid || url}::${sessionTimestamp}`：前缀就是 API 返回的 bvid/aid，
     // 比解析 URL 更可靠（同一视频在不同批次可能一个走 bvid 链接、一个走 av 链接）
     const keyId = rawKey.split('::')[0]
-    if (/^BV[0-9A-Za-z]+$/.test(keyId)) return `video:${keyId.toLowerCase()}`
-    if (/^\d+$/.test(keyId)) return `aid:${keyId}`
+    if (regexps.common.bvid.test(keyId)) return `video:${keyId.toLowerCase()}`
+    if (regexps.common.aid.test(keyId)) return `aid:${keyId}`
     const url = typeof record.url === 'string' ? record.url : ''
-    const bvid = url.match(/\/video\/(BV[0-9A-Za-z]+)/i)?.[1] || url.match(/[?&]bvid=(BV[0-9A-Za-z]+)/i)?.[1]
+    const bvid = url.match(regexps.common.bvidInUrl)?.[1] || url.match(regexps.common.bvidInQuery)?.[1]
     if (bvid) return `video:${bvid.toLowerCase()}`
-    const aid = url.match(/\/video\/av(\d+)/i)?.[1]
+    const aid = url.match(regexps.common.aidInUrl)?.[1]
     if (aid) return `aid:${aid}`
     // 番剧：ep（单集）/ss（季）分别归一，忽略 ?ep= 之类的定位参数
-    const episode = url.match(/\/bangumi\/play\/((?:ep|ss)\d+)/i)?.[1]
+    const episode = url.match(regexps.common.bangumiEpisodeInUrl)?.[1]
     if (episode) return `bangumi:${episode.toLowerCase()}`
     // 无视频 id：去掉查询串/哈希/尾斜杠后比较（tracking 参数不同不算不同页面）
     const stripped = url.split(/[?#]/)[0].replace(/\/+$/, '')

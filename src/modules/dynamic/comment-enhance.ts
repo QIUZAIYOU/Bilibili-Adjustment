@@ -1,4 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
+import { getTemplates } from '@/shared/templates'
 import { ShadowDOMHelper } from '@/utils/shadow-dom-helper'
 import { elementSelectors, shadowDomSelectors } from '@/shared/element-selectors'
 import { createElementAndInsert, addEventListenerToElement } from '@/utils/common'
@@ -17,7 +18,7 @@ export const commentEnhanceFeatures = {
             try {
                 const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
                 if (existingLocation) return
-                const locationWrapperHtml = '<div id="location" style="margin-left:5px"></div>'
+                const locationWrapperHtml = getTemplates.locationWrapper
                 const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.CSS('videoReplyPubDate') as string)
                 if (!pubdate) return
                 const locationElement = createElementAndInsert(locationWrapperHtml, pubdate as Node, 'after') as HTMLElement | null

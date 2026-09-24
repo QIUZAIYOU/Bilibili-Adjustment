@@ -193,7 +193,33 @@ const CSS_MAP: Record<string, string> = {
     VideoSettingsStyle: '#VideoSettingsStyle',
     IndexAdjustmentStyle: '#IndexAdjustmentStyle',
     DynamicSettingStyle: '#DynamicSettingStyle',
-    BodyOverflowHiddenStyle: '#BodyOverflowHiddenStyle'
+    BodyOverflowHiddenStyle: '#BodyOverflowHiddenStyle',
+    // ===== 以下为从各模块里迁出的硬编码 B 站页面特征（2026-09-24 热更审计）=====
+    // 约定：模块里**不允许**再写死 B 站页面选择器，一律走注册表，B 站改版时改服务器上的
+    // hot-config/selectors.js 即可生效，不必发版；本文件是这些选择器的唯一真源。
+    // 首页推荐卡片（历史记录 / 付费标记）：原始前 11 个卡片、容器、卡片内部结构与广告标记
+    indexRecommendCards: '.recommended-container_floor-aside .feed-card:nth-child(-n+11)',
+    indexRecommendContainer: '.recommended-container_floor-aside',
+    indexRecommendAdCard: '[class*="-ad"]',
+    indexRecommendCardLink: 'a',
+    indexRecommendCardTitle: 'h3',
+    // 播放器控制栏上下区域（点击播放器自动定位时用于排除控制栏）
+    playerControlTop: '.bpx-player-ctrl-top',
+    playerControlBottom: '.bpx-player-ctrl-bottom',
+    // 播放器右键菜单里的画面旋转项
+    playerContextMenuRotateItems: '[data-action^="rotate_"]',
+    playerContextMenuRotateDivider: '.bpx-player-contextmenu-rotate-divider',
+    // 迷你播放器：按标题模糊匹配的全部窗口（用于清理残留）
+    miniPlayerWindows: '.mini-player-window[title*="迷你播放器"]',
+    // 视频元素：番剧页播放器容器与普通页不同，取两者之一
+    videoCompat: '#bilibili-player video, .bpx-player-video-wrap video',
+    // 简介正文节点（在 videoDescriptionInfo 内部按相对选择器查询）
+    videoDescriptionTextInner: '.desc-info-text',
+    // 选集/上下集的点击入口（位置守卫用：选集列表、分P列表、合集、番剧选集、上下集按钮）
+    episodeSwitchEntry: '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .bpx-player-ctrl-next, .bpx-player-ctrl-prev, .list-box a[href*="?p="], a[href*="?p="]',
+    // 番剧选集链接与折叠面板
+    bangumiEpisodeLinks: 'a[href*="/bangumi/play/ep"]',
+    bangumiEpisodeAccordionHeaderActive: '.episode-accordion-header.active'
 }
 // ========== Shadow DOM 选择器 ==========
 export const shadowDomSelectors: Record<string, string> = {
@@ -228,7 +254,9 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'bangumiComment',
         'bangumiFloatNav',
         'bangumiMainContainer',
-        'bangumiSectionsEpisodeLink'
+        'bangumiSectionsEpisodeLink',
+        'bangumiEpisodeLinks',
+        'bangumiEpisodeAccordionHeaderActive'
     ]),
     home: new Set([
         'indexApp',
@@ -247,7 +275,12 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'indexRecommendVideoHistoryListItem',
         'indexRecommendVideoHistorySearchInput',
         'clearRecommendVideoHistoryButton',
-        'notChargeHighLevelCover'
+        'notChargeHighLevelCover',
+        'indexRecommendCards',
+        'indexRecommendContainer',
+        'indexRecommendAdCard',
+        'indexRecommendCardLink',
+        'indexRecommendCardTitle'
     ]),
     dynamic: new Set([
         'dynamicListItem',

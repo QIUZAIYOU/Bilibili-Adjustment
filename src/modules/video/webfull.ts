@@ -40,7 +40,7 @@ export const webfullFeatures = {
         // 注入解锁样式（移除时 B 站原生 CSS 自动恢复）
         insertStyleToDocument({ 'UnlockWebPlayerStyle': styles.UnlockWebPlayer.replace(/BODYHEIGHT/gi, `${getBodyHeight()}px`) })
         // 移除小窗模式按钮（解锁后小窗模式会破坏布局）
-        document.querySelectorAll('.mini-player-window[title*="迷你播放器"]').forEach(el => el.remove())
+        elementSelectors.queryAll('miniPlayerWindows').forEach(el => el.remove())
         // 监听模式切换按钮（排除全屏按钮，避免干扰 B 站全屏操作）
         const [wideEnterButton, wideLeaveButton, webLeaveButton] = await elementSelectors.batch([
             'playerModeWideEnterButton',

@@ -62,7 +62,7 @@ export const progressMemoryFeatures = {
         this._playbackSeekedKey = null
         this._playbackSaveThrottled = throttle(this.savePlaybackPosition.bind(this), 10000)
         const isMainVideo = (event: Event): boolean => event.target instanceof HTMLVideoElement &&
-                                     event.target.matches('#bilibili-player video')
+                                     event.target.matches(elementSelectors.CSS('video') || '#bilibili-player video')
         const diagLog = (type: string, event: Event): void => {
             if (this._playbackDiagFlags?.[type]) return
             this._playbackDiagFlags = this._playbackDiagFlags || {}
@@ -115,7 +115,7 @@ export const progressMemoryFeatures = {
             this.savePlaybackPosition()
         }
         this._playbackClickHandler = (event: Event) => {
-            if (event.target instanceof Element && event.target.closest('#bilibili-player')) {
+            if (event.target instanceof Element && event.target.closest(elementSelectors.CSS('player') || '#bilibili-player')) {
                 this._playbackUserInteracted = true
             }
         }

@@ -269,6 +269,17 @@ def check_hot_config(root):
     return result.returncode == 0
 
 
+def check_hot_content(root):
+    """上传前拦住"把可热更内容写死在代码里"（选择器/结构正则/注入模板），否则只能等发版才能修"""
+    print('--- 校验无硬编码的可热更内容（选择器/结构正则）---')
+    result = subprocess.run(
+        ['node', os.path.join('scripts', 'check-hot-content.mjs')],
+        cwd=root, capture_output=True, text=True, timeout=120,
+        encoding='utf-8', errors='replace')
+    print((result.stdout or '').strip() or (result.stderr or '').strip())
+    return result.returncode == 0
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -292,6 +303,11 @@ def main():
     ssh_cmd = build_ssh_cmd(ssh_key)
 
     ok = True
+
+    # ========== 硬编码门禁：可热更内容必须走热更表，不能写死在代码里 ==========
+    # （两种上传模式都先过这一关：写死的东西只能等发版才能修，属于发布前必须拦住的债）
+    if not check_hot_content(root):
+        sys.exit('发现硬编码的可热更内容，已中止（未上传任何文件）')
 
     # ========== 提示词热更模式：只生成并上传提示词，不动脚本产物 ==========
     # 用途：改了提示词但不想让用户更新脚本（也就不会触发「同版本内容已更新」的重新安装提示）

@@ -19,14 +19,14 @@ export const videoRotateFeatures = {
         this._videoRotateContextHandler = () => {
             let attempts = 0
             const tryInject = () => {
-                const menu = document.querySelector('.bpx-player-contextmenu')
+                const menu = elementSelectors.get('playerContextMenu')
                 if (!menu) {
                     if (++attempts < 15) setTimeout(tryInject, 20)
                     return
                 }
                 // 移除旧的旋转菜单项
-                menu.querySelectorAll('[data-action^="rotate_"]').forEach(el => el.remove())
-                const oldDivider = menu.querySelector('.bpx-player-contextmenu-rotate-divider')
+                menu.querySelectorAll(elementSelectors.CSS('playerContextMenuRotateItems') || '[data-action^="rotate_"]').forEach(el => el.remove())
+                const oldDivider = menu.querySelector(elementSelectors.CSS('playerContextMenuRotateDivider') || '.bpx-player-contextmenu-rotate-divider')
                 if (oldDivider) oldDivider.remove()
                 // 分割线：rgba 白浮色保留字面（嵌入 B 站官方播放器右键菜单，随官方播放器深色皮肤，
                 // 不随脚本主题切换；见 docs/theme-system.md §2 例外清单）
@@ -62,7 +62,7 @@ export const videoRotateFeatures = {
         document.addEventListener('fullscreenchange', this._videoRotateFullscreenHandler)
     },
     applyVideoRotation (this: VideoRotateContext, degrees: number): void {
-        const video = document.querySelector('#bilibili-player video') as HTMLVideoElement | null
+        const video = elementSelectors.get('video') as HTMLVideoElement | null
         if (!video) return
         this.videoRotateState = degrees
         if (degrees === 0) {

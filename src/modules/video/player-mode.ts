@@ -95,17 +95,20 @@ const isLocatedAtPlayer = (offsetTop: number): boolean => {
  *
  * 实测（真实页面取证）：播放器控制栏的上下集按钮是 `.bpx-player-ctrl-next` / `.bpx-player-ctrl-prev`
  * （aria-label「下一个」），点它同样会触发 B 站自己的 `switchVideo` → `window.scrollTo(0,0)`。
+ * ⚠️ 这一整套选择器来自注册表键 `episodeSwitchEntry`，**不要在这里写死**：
+ * B 站改版时改服务器上的 hot-config/selectors.js 即可生效，不必发版。
  */
-const EPISODE_SWITCH_SELECTOR = '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .bpx-player-ctrl-next, .bpx-player-ctrl-prev, .list-box a[href*="?p="], a[href*="?p="]'
+const episodeSwitchEntrySelector = (): string | null => elementSelectors.CSS('episodeSwitchEntry')
 /**
  * 上下集按钮的文案特征：B 站各版式类名不统一（分P 是「下一个」、番剧是「下一话」、合集是「下一集」），
  * 类名命中之外再按标签文本兜底，避免以后版式一改就又漏掉一条入口。
  */
 const EPISODE_SWITCH_LABEL = /^(上一集|下一集|上一话|下一话|上一P|下一P|上一个|下一个|上一期|下一期|上一视频|下一视频|previous|prev|next)$/i
-/** 点击是否命中「切换选集/上下集」的入口（类名为主、文案兜底） */
+/** 点击是否命中「切换选集/上下集」的入口（注册表选择器为主、文案兜底） */
 const isEpisodeSwitchElement = (element: Element | null): boolean => {
     if (!element) return false
-    if (element.closest(EPISODE_SWITCH_SELECTOR)) return true
+    const entrySelector = episodeSwitchEntrySelector()
+    if (entrySelector && element.closest(entrySelector)) return true
     // 点在图标/内层元素上时向上找几层，取 aria-label / title / 文本判断
     let node: Element | null = element
     for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
@@ -455,7 +458,9 @@ export const playerModeFeatures = {
     async clickPlayerAutoLocate (this: PlayerModeContext): Promise<void> {
         addEventListenerToElement(elementSelectors.get('playerContainer'), 'click', async (e: Event) => {
             const target = e.target as Element | null
-            if (target?.closest('.bpx-player-ctrl-bottom') || target?.closest('.bpx-player-ctrl-top')) {
+            const controlTop = elementSelectors.CSS('playerControlTop')
+            const controlBottom = elementSelectors.CSS('playerControlBottom')
+            if ((controlBottom && target?.closest(controlBottom)) || (controlTop && target?.closest(controlTop))) {
                 return
             }
             await this.locateToPlayer()

@@ -4,10 +4,12 @@ import { checkTemplateOverride } from '../hot-config'
 import { buttonTemplates } from './buttons'
 import { historyPopoverTemplate } from './popovers/history-popover'
 import { subtitleSwitchTemplates } from './subtitle/subtitle-switch'
+import { commentWrapperTemplates } from './comment/comment-wrappers'
 const templates = {
     ...buttonTemplates,
     ...historyPopoverTemplate,
-    ...subtitleSwitchTemplates
+    ...subtitleSwitchTemplates,
+    ...commentWrapperTemplates
 }
 // 初始化注册所有模板到 TemplateRegistry
 registerTemplates(templates)

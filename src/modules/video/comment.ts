@@ -1,4 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
+import { getTemplates } from '@/shared/templates'
 import { ShadowDOMHelper } from '@/utils/shadow-dom-helper'
 import { elementSelectors, shadowDomSelectors } from '@/shared/element-selectors'
 import { createElementAndInsert, addEventListenerToElement, sleep } from '@/utils/common'
@@ -41,7 +42,7 @@ export const commentFeatures = {
         try {
             const existingLocation = shadowDOMHelper.queryDescendant(host, '#location')
             if (existingLocation) return
-            const locationWrapperHtml = '<div id="location" style="margin-left:5px"></div>'
+            const locationWrapperHtml = getTemplates.locationWrapper
             const pubdate = shadowDOMHelper.queryDescendant(host, elementSelectors.CSS('videoReplyPubDate') as string)
             if (!pubdate) return
             const locationElement = createElementAndInsert(locationWrapperHtml, pubdate as Node, 'after') as HTMLElement | null
@@ -240,7 +241,7 @@ export const commentFeatures = {
         // 替换原简介区内容为链接化版本（时间锚点/URL/BV号/cv号/@用户），不论简介长短都要执行，
         // 与插入评论区解耦；仅替换 .desc-info-text 内部内容，保留 B 站原始 DOM 结构
         const videoDescriptionInfoElement = elementSelectors.get('videoDescriptionInfo')
-        const descriptionTextElement = videoDescriptionInfoElement?.querySelector('.desc-info-text')
+        const descriptionTextElement = videoDescriptionInfoElement?.querySelector(elementSelectors.CSS('videoDescriptionTextInner') || '.desc-info-text')
         if (descriptionTextElement) {
             // 简介区无 pre-line 样式保证时换行会被 HTML 折叠，显式转为 <br>
             descriptionTextElement.innerHTML = descriptionHtml.replace(/\n/g, '<br>')

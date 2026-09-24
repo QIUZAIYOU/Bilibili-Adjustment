@@ -351,6 +351,41 @@ export const regexps = {
         moreDataLink: /https:\/\/t.bilibili.com\/[0-9]+\?tab=[0-9]+/i,
         DetailLink: /https:\/\/t.bilibili.com\/[0-9]+/i,
         TopicDetailLink: /https:\/\/t.bilibili.com\/topic\/[0-9]+/i
+    },
+    /**
+     * 跨页面通用的「B 站 URL/页面结构判据」（2026-09-24 从各模块迁出）。
+     *
+     * 约定：模块里**不允许**再写死 B 站 URL 结构正则，一律取这里的键 ——
+     * B 站改路由（例如换路径、换分集链接格式）时改服务器上的 hot-config/regexps.js 即可生效。
+     * ⚠️ 覆盖只改 source、flags 固定沿用内置值，所以这些正则的 flags 与调用点绑定（见文件下方说明）。
+     */
+    common: {
+        /** 视频 id 校验（存储 key 里的 BV 号） */
+        bvid: /^BV[0-9A-Za-z]+$/,
+        /** 纯数字 id（aid） */
+        aid: /^\d+$/,
+        /** 视频页路径片段 */
+        videoPath: /^\/video\//,
+        /** 列表页路径片段（/list/ 与视频页同构） */
+        listPath: /^\/list\//,
+        /** 番剧页路径片段 */
+        bangumiPath: /^\/bangumi\//,
+        /** URL 里的 BV 号 */
+        bvidInUrl: /\/video\/(BV[0-9A-Za-z]+)/i,
+        /** 查询串里的 bvid */
+        bvidInQuery: /[?&]bvid=(BV[0-9A-Za-z]+)/i,
+        /** URL 里的 av 号 */
+        aidInUrl: /\/video\/av(\d+)/i,
+        /** 番剧分集链接（/bangumi/play/ep123） */
+        bangumiEpInPath: /\/bangumi\/play\/ep(\d+)/,
+        /** 番剧季链接（/bangumi/play/ss45） */
+        bangumiSsInPath: /\/bangumi\/play\/ss(\d+)/,
+        /** 番剧 ep/ss 标识（history 归一用） */
+        bangumiEpisodeInUrl: /\/bangumi\/play\/((?:ep|ss)\d+)/i,
+        /** 链接里的 ep 数字 */
+        epInHref: /ep(\d+)/,
+        /** 激活态类名 token（B 站各版式用 active/current/on/selected/playing 之一） */
+        activeClassToken: /(^|\s)(active|current|on|selected|playing)(\s|$)/
     }
 }
 /**
@@ -363,11 +398,13 @@ export const regexps = {
  */
 const builtInRegexps: RegexpGroups = {
     video: { ...regexps.video },
-    dynamic: { ...regexps.dynamic }
+    dynamic: { ...regexps.dynamic },
+    common: { ...regexps.common }
 }
 export const regexpOverrideKeys = (): string[] => [
     ...Object.keys(regexps.video).map(key => `video.${key}`),
-    ...Object.keys(regexps.dynamic).map(key => `dynamic.${key}`)
+    ...Object.keys(regexps.dynamic).map(key => `dynamic.${key}`),
+    ...Object.keys(regexps.common).map(key => `common.${key}`)
 ]
 registerHotConfigTarget('regexps', {
     keys: regexpOverrideKeys,

@@ -1,6 +1,8 @@
 import { LoggerService } from '@/services/logger.service'
+import { elementSelectors } from '@/shared/element-selectors'
 import { httpGet } from '@/utils/http'
 import type { HttpRequestOptions, HttpResponse } from '@/utils/http'
+import { regexps } from '@/shared/regexps'
 import {
     DEFAULT_RETRY_BUDGET_MS,
     describeRequestError,
@@ -98,13 +100,13 @@ export const biliApis = {
         }
         const { pathname } = parsedUrl
         if (pathname.startsWith('/video/') || pathname.startsWith('/list/')) {
-            const match = pathname.match(/\/video\/(BV\w+)/)
+            const match = pathname.match(regexps.common.bvidInUrl)
             return match?.[1] || parsedUrl.searchParams.get('bvid') || 'error'
         } else if (pathname.startsWith('/bangumi/')) {
-            const match = pathname.match(/\/bangumi\/play\/ep(\d+)/)
+            const match = pathname.match(regexps.common.bangumiEpInPath)
             if (match?.[1]) return match[1]
             // ss/季链接（如 /bangumi/play/ss12345）
-            const ssMatch = pathname.match(/\/bangumi\/play\/ss(\d+)/)
+            const ssMatch = pathname.match(regexps.common.bangumiSsInPath)
             if (ssMatch?.[1]) {
                 // 优先尝试从页面解析当前分集 ep id（精确到分集，缓存/识别更准）
                 try {
@@ -114,16 +116,17 @@ export const biliApis = {
                     if (epId) return String(epId)
                     // DOM 兜底：高亮的当前集链接（B 站番剧选集列表的激活态类名/属性并不统一，
                     // 同时检查链接自身、其父级列表项以及 aria-current）
-                    const epLinks = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')]
+                    const epSelector = elementSelectors.CSS('bangumiEpisodeLinks')
+                    const epLinks = epSelector ? [...document.querySelectorAll(epSelector)] : []
                     const isActiveLink = (a: Element): boolean => {
-                        const activeRe = /(^|\s)(active|current|on|selected|playing)(\s|$)/
+                        const activeRe = regexps.common.activeClassToken
                         if (activeRe.test(a.className || '')) return true
                         if (a.getAttribute('aria-current') === 'true') return true
                         const parent = a.closest('li, div')
                         return parent ? activeRe.test(parent.className || '') : false
                     }
                     const activeLink = epLinks.find(isActiveLink)
-                    const domEp = activeLink?.getAttribute('href')?.match(/ep(\d+)/)?.[1]
+                    const domEp = activeLink?.getAttribute('href')?.match(regexps.common.epInHref)?.[1]
                     if (domEp) return String(domEp)
                 } catch { /* 忽略异常 */ }
                 // 无法解析当前分集时，返回带 ss 前缀的季 id（调用方可走 season API）

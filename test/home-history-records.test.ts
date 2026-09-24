@@ -1,5 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
+// 该模块改用 regexps 注册表（可热更）后不再是"零依赖"，注册表模块加载期会碰 location/window
+import './browser-stubs.js'
 import {
     sortAndDedupeHistoryRecords,
     findDuplicateHistoryRecords,

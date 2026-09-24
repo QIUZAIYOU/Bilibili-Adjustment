@@ -145,5 +145,27 @@ npm run build && python scripts/upload.py
 | `test/hot-config-targets.test.ts` | 正则 ReDoS/编译、模板契约、CSS 值安全；注册表「内容先到/目标先到」；选择器/正则/模板/主题/AI 五张表的应用与丢弃 |
 | `test/selector-override.test.ts` | `overrideSelector` 同时改写 registry 与 `CSS_MAP`（查询路径真的变） |
 | `scripts/check-hot-config.mjs` | 发布侧：5 张表用运行时同一套规则校验，任一被丢弃即失败 |
+| `scripts/check-hot-content.mjs` | 发布侧：`src` 里不得硬编码 B 站页面选择器与 URL 结构正则（见第 9 节） |
 | 真实浏览器夹具（临时，用后删） | 缓存优先、远端刷新、失败保缓存、非法项丢弃、主题变量表重写，共 22 条断言 |
+
+## 9. ⚠️ 可热更内容禁止硬编码（2026-09-24 起）
+
+热更表只有在**内容真的走注册表**时才有意义。2026-09-24 的一次审计发现：模块里散落着十几处 B 站页面选择器与 URL 结构正则（首页推荐卡片、播放器控制栏、迷你播放器按钮、番剧选集链接、`/video/`、`/bangumi/`、`BV` 号等），这些都必须发版才能改 —— 等于热更机制对它们无效。已全部迁入注册表，并加了机器门禁防止回潮。
+
+**约定**：
+
+| 内容 | 真源 | 调用方式 |
+|---|---|---|
+| B 站页面选择器 | `src/shared/element-selectors.ts` 的 `CSS_MAP` | `elementSelectors.get / CSS / queryAll / each / wait` |
+| B 站 URL/结构正则 | `src/shared/regexps.ts`（`video` / `dynamic` / `common` 三组） | `regexps.<group>.<key>` |
+| 注入 B 站页面的 HTML | `src/shared/templates/`（在 `templates/index.js` 合并） | `getTemplates.<key>` |
+
+**门禁**：`npm run check:hot-content`（`scripts/check-hot-content.mjs`）扫描 `src`，拦下 `querySelector/querySelectorAll/closest/matches/queryDescendant` 里的 B 站特征字面选择器与含 `/video/`、`/bangumi/`、`BV`、`bpx-` 等结构 token 的正则；`scripts/upload.py` 在**两种上传模式**下都会先跑它，失败即中止（不会上传任何文件）。
+
+**豁免**：注册表文件本身；脚本自己的 DOM（`adj-*` / `adjustment*` / `ba-*` / `bilibili-adjustment-element`）；纯域名校验（`/bilibili/`、`/space.bilibili.com/` —— 域名变了整个 `@match` 都得改，本就无法靠热更解决）。
+
+**迁移时的两个实务坑**：
+1. 选择器变成变量后 TypeScript 不再按字面量收窄元素类型（`querySelector('.desc-info-text')` → `Element`），需要显式断言（如 `as HTMLAnchorElement | null`）。
+2. 纯函数模块若原本「零依赖、便于单测」，改为 import 注册表后要给它补 DOM 桩（`import './browser-stubs.js'`），否则注册表模块在加载期访问 `location`/`window` 会报 `ReferenceError`。
+
 

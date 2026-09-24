@@ -10,6 +10,7 @@ import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
 import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
+import { regexps } from '@/shared/regexps'
 import type { LogLevel } from '@/services/logger.service'
 import { playerModeFeatures } from './player-mode'
 import { progressMemoryFeatures } from './progress-memory'
@@ -158,7 +159,7 @@ export default {
         this._pauseVideoCleanup?.()
     },
     async preFunctions (this: VideoModuleContext): Promise<void> {
-        await storageService.userSet('page_type', location.pathname.startsWith('/bangumi/') ? 'bangumi' : 'video')
+        await storageService.userSet('page_type', regexps.common.bangumiPath.test(location.pathname) ? 'bangumi' : 'video')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user') as Record<string, unknown>
         logger.debug('播放进度诊断丨userConfigs 已加载, playback_memory=' + this.userConfigs?.playback_memory)
@@ -367,7 +368,7 @@ export default {
             }
         }
         // 普通视频页：DOM 快速路径
-        if (document.querySelector('#player-title')) {
+        if (elementSelectors.get('playerTitle')) {
             this._playerTitleCache = true
             return true
         }
@@ -398,7 +399,7 @@ export default {
     async handleHrefChangedFunctionsSequentially (this: VideoModuleContext): Promise<void> {
         // 切换视频前保存旧视频的播放进度（URL 已变化，用缓存的旧 key 写入）
         const entry = this._playbackLastVideo || {
-            video: document.querySelector('#bilibili-player video'),
+            video: elementSelectors.get('video'),
             key: this._playbackKey
         }
         this._writePlaybackPosition(entry, this._playbackKey)
@@ -415,7 +416,7 @@ export default {
         }
         if (this.videoRotateState !== 0) {
             this.videoRotateState = 0
-            const video = document.querySelector('#bilibili-player video') as HTMLVideoElement | null
+            const video = elementSelectors.get('video') as HTMLVideoElement | null
             if (video) {
                 video.style.transform = ''
                 video.style.transformOrigin = ''

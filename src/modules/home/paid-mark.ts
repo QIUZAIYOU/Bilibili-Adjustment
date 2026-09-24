@@ -1,17 +1,21 @@
 import { LoggerService } from '@/services/logger.service'
 import { biliApis } from '@/shared/bili-apis'
+import { elementSelectors } from '@/shared/element-selectors'
 import { escapeHtml } from '@/utils/common'
 import { chunk } from '@/utils/lodash-lite'
 const logger = new LoggerService('HomeModule')
 export const homePaidMarkFeatures = {
     async markRecommendVideoPaidStatus (): Promise<void> {
-        const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
-        const cards = [...allCards].filter(card => !card.querySelector('[class*="-ad"]'))
+        const allCards = elementSelectors.queryAll('indexRecommendCards')
+        const adCardSelector = elementSelectors.CSS('indexRecommendAdCard') || '[class*="-ad"]'
+        const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') || 'a'
+        const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') || 'h3'
+        const cards = [...allCards].filter(card => !card.querySelector(adCardSelector))
         // 分批并发查询，避免串行请求拖慢整批标记
         for (const batch of chunk(cards, 4)) {
             await Promise.allSettled(batch.map(async video => {
-                const url = video.querySelector('a')?.href
-                const title = video.querySelector('h3')?.title
+                const url = (video.querySelector(cardLinkSelector) as HTMLAnchorElement | null)?.href
+                const title = (video.querySelector(cardTitleSelector) as HTMLElement | null)?.title
                 if (!location.host.includes('bilibili.com') || !url || url.includes('cm.bilibili.com') || !title) return
                 let isPaid = false
                 try {
@@ -25,7 +29,7 @@ export const homePaidMarkFeatures = {
                     }
                 } catch { /* 忽略视频信息/付费状态获取失败 */ }
                 if (isPaid) {
-                    const titleEl = video.querySelector('h3') as HTMLElement | null
+                    const titleEl = video.querySelector(cardTitleSelector) as HTMLElement | null
                     if (titleEl) {
                         titleEl.title = `🟡付费视频 丨 ${title}`
                         titleEl.innerHTML = `<span style="color:var(--adj-pink);font-weight:700;font-size:12px;border:1px solid;padding:2px 3px;border-radius:4px">付费视频</span> ${escapeHtml(title)}`

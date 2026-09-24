@@ -145,6 +145,8 @@
 import { computed, nextTick, onMounted, reactive, ref } from 'vue'
 import { commitCache, loadEpisodesCache, commitBatch } from './skip-manager-service'
 import { formatTime, mergeSegments, validateSegment, parseTime, parseDuration, getCurrentUid } from './pure'
+import { elementSelectors } from '@/shared/element-selectors'
+import { regexps } from '@/shared/regexps'
 import type { SkipSegment, SkipCacheEntry, SkipManagerEnv, SkipEpisode } from './types'
 
 const props = defineProps<{
@@ -223,12 +225,12 @@ const resolveCurrentEpId = (episodes: SkipEpisode[]): string | null => {
     const list = episodes.map(epId)
     const inList = (v: unknown) => list.includes(String(v))
     try {
-        const m = window.location.pathname.match(/\/bangumi\/play\/ep(\d+)/)
+        const m = window.location.pathname.match(regexps.common.bangumiEpInPath)
         if (m && inList(m[1])) return m[1]
     } catch { /* 忽略异常 */ }
     // ss 季页/SPA 场景 URL 无 ep：从播放器正在播放的视频 src 提取 cid 反查当前集（纯 DOM，沙盒可用）
     try {
-        const video = document.querySelector('#bilibili-player video, .bpx-player-video-wrap video') as HTMLVideoElement | null
+        const video = elementSelectors.get('videoCompat') as HTMLVideoElement | null
         const src = video ? (video.currentSrc || video.getAttribute('src') || '') : ''
         const cidMatch = src.match(/[?&]cid=(\d+)/)
         if (cidMatch) {
@@ -260,9 +262,9 @@ const resolveCurrentEpId = (episodes: SkipEpisode[]): string | null => {
         }
     } catch { /* 忽略异常 */ }
     try {
-        const active = [...document.querySelectorAll('a[href*="/bangumi/play/ep"]')].find(a => /(^|\s)(active|current)(\s|$)/.test(a.className || ''))
+        const active = [...elementSelectors.queryAll('bangumiEpisodeLinks')].find(a => regexps.common.activeClassToken.test(a.className || ''))
         const activeHref = active ? active.getAttribute('href') : null
-        const domId = activeHref ? activeHref.match(/ep(\d+)/) : null
+        const domId = activeHref ? activeHref.match(regexps.common.epInHref) : null
         if (domId && inList(domId[1])) return domId[1]
     } catch { /* 忽略异常 */ }
     // 从页面标题反查当前集（ss 季页播放中的标题通常为当前分集名）
@@ -392,7 +394,7 @@ const toggleEpisode = async (id: string | null): Promise<void> => {
 const scrollToExpanded = () => {
     const el = accordionListEl.value
     if (!el) return
-    const header = el.querySelector('.episode-accordion-header.active')
+    const header = el.querySelector(elementSelectors.CSS('bangumiEpisodeAccordionHeaderActive') || '.episode-accordion-header.active')
     if (!header) return
     const elRect = el.getBoundingClientRect()
     const headerRect = header.getBoundingClientRect()

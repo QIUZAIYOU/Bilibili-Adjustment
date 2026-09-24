@@ -67,9 +67,12 @@ export const homeHistoryFeatures = {
             return
         }
         const sessionTimestamp = Date.now()
-        const allCards = document.querySelectorAll('.recommended-container_floor-aside .feed-card:nth-child(-n+11)')
+        const allCards = elementSelectors.queryAll('indexRecommendCards')
+        const adCardSelector = elementSelectors.CSS('indexRecommendAdCard') || '[class*="-ad"]'
+        const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') || 'a'
+        const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') || 'h3'
         const recordRecommendVideos = [...allCards]
-            .filter(card => !card.querySelector('[class*="-ad"]'))
+            .filter(card => !card.querySelector(adCardSelector))
             .map((video, index) => ({ video, order: index }))
         const fetchVideoInfo = async (url: string): Promise<HistoryVideoInfo | null | undefined> => {
             try {
@@ -85,8 +88,8 @@ export const homeHistoryFeatures = {
                 // 分批并发获取视频信息，替代串行请求解决记录滞后
                 for (const batch of chunk(recordRecommendVideos, 4)) {
                     await Promise.allSettled(batch.map(async ({ video, order }) => {
-                        const url = video.querySelector('a')?.href
-                        const title = video.querySelector('h3')?.title
+                        const url = (video.querySelector(cardLinkSelector) as HTMLAnchorElement | null)?.href
+                        const title = (video.querySelector(cardTitleSelector) as HTMLElement | null)?.title
                         if (!location.host.includes('bilibili.com') || !url || url.includes('cm.bilibili.com') || !title) return
                         let videoInfo: HistoryVideoInfo | null | undefined
                         try {
@@ -134,8 +137,8 @@ export const homeHistoryFeatures = {
         // 锚点逐级兜底：首页变体/改版可能没有 .feed-roll-btn，锚点缺失时绝不能抛错
         //（createElementAndInsert 对 null 会抛 Target must be a valid DOM node，进而中断首页功能链）
         const anchor = await elementSelectors.wait('indexRecommendVideoRollButtonWrapper')
-            || document.querySelector('.recommended-container_floor-aside .feed-roll-btn')
-            || document.querySelector('.recommended-container_floor-aside')
+            || elementSelectors.get('indexRecommendVideoRollButtonWrapper')
+            || elementSelectors.get('indexRecommendContainer')
             || document.body
         createElementAndInsert(getTemplates.indexRecommendVideoHistoryOpenButton, anchor)
         const indexRecommendVideoHistoryOpenButton = document.getElementById('indexRecommendVideoHistoryOpenButton')
