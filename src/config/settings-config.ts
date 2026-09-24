@@ -43,11 +43,6 @@ export interface SettingItemSchema {
     validateButtonText?: string
     refreshButtonText?: string
 }
-/** 设置分组定义 */
-export interface SettingGroup {
-    id: string
-    label: string
-}
 export const videoSettingsConfig: SettingItemSchema[] = [
     {
         id: 'account_section',
@@ -502,11 +497,4 @@ export const dynamicSettingsConfig: SettingItemSchema[] = [
             }
         ]
     }
-]
-// 配置项分组定义
-export const videoSettingsGroups: SettingGroup[] = [
-    { id: 'basic', label: '基础设置' },
-    { id: 'ai', label: 'AI 服务' },
-    { id: 'update', label: '更新配置' },
-    { id: 'log', label: '日志配置' }
 ]

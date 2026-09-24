@@ -279,7 +279,6 @@ const lockedView = computed(() => { void tick.value; return Boolean(cached && ca
 const lockVisible = computed(() => { void tick.value; return Boolean(cached && cached.uploader_uid && cached.uploader_uid === uid()) })
 const lockText = computed(() => (lockedView.value ? '已锁定：他人无法修改此数据' : '未锁定：他人可修改'))
 const showNoData = computed(() => { void tick.value; return !cached && !identifyPreview.value && currentSegments.length === 0 })
-const canSubmit = computed(() => { void tick.value; return !loading.value && canUpdate && (currentSegments.length > 0 || pendingSegments.length > 0) })
 // 已有片段可编辑（未锁定；识别预览 cached 为空也可编辑后一并落库）
 const segmentEditable = computed(() => { void tick.value; return canUpdate && !(cached && cached.locked) })
 // 可清空：存在缓存中的已有片段且未锁定

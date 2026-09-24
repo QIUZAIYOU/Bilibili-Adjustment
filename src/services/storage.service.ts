@@ -110,10 +110,6 @@ export class StorageService {
             timestamp: item.timestamp
         }))
     }
-    async getByTimeRange (dbName: string, startTime: number, endTime: number, pageSize = 100): Promise<unknown> {
-        const range = IDBKeyRange.bound(startTime, endTime)
-        return this.getAll(dbName, 'by_timestamp', range, pageSize)
-    }
     async batchSet (dbName: string, configsArray: Array<{ key: string; value: unknown }>): Promise<number> {
         if (!configsArray || configsArray.length === 0) return 0
         const db = this.#dbs.get(dbName)!

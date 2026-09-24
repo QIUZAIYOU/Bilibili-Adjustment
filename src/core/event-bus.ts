@@ -48,7 +48,6 @@ export class EventBus {
     static #instance: EventBus | undefined
     #events = new Map<string, HandlerRecord[]>()
     #interceptors: EventInterceptor[] = []
-    #debug = false
     #emitDepth = 0
     constructor () {
         if (EventBus.#instance) return EventBus.#instance
@@ -145,13 +144,6 @@ export class EventBus {
         }
     }
     #handleError (error: unknown, context: EventContext, handler: EventHandler): void {
-        if (this.#debug) {
-            this.#logger.error(`[EventBus] 处理 ${context.event} 事件时发生错误:`, {
-                error,
-                handler: handler.name || '匿名函数',
-                args: context.args
-            })
-        }
         // error 事件嵌套防护：handler 抛错上报时若再次抛错，深度超限即丢弃，避免递归风暴
         if (this.#emitDepth >= ERROR_EMIT_MAX_DEPTH) {
             this.#logger.error(`[EventBus] error 事件嵌套过深（>${ERROR_EMIT_MAX_DEPTH}），已丢弃`)
@@ -167,12 +159,6 @@ export class EventBus {
         return () => {
             this.#interceptors = this.#interceptors.filter(i => i !== interceptor)
         }
-    }
-    setDebug (enabled: boolean): void {
-        this.#debug = enabled
-    }
-    listenAll (handler: EventHandler): () => void {
-        return this.on('*', handler)
     }
     clear (): void {
         this.#events.clear()

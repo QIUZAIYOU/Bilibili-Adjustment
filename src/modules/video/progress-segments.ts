@@ -158,4 +158,3 @@ export const initProgressSegmentTint = (): void => {
         }
     }, 1000)
 }
-export const refreshProgressSegmentTint = (): Promise<void> => refresh()

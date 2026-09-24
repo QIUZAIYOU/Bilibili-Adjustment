@@ -297,4 +297,3 @@ export class ConfigService {
         this.#syncChannel = null
     }
 }
-export const ConfigServiceStatic = ConfigService

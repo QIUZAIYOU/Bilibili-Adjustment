@@ -472,17 +472,3 @@ export const refreshCustomSelects = (root: Element | null | undefined): void => 
     if (!root) return
     root.querySelectorAll(`.adjustment-select.${MARK}`).forEach(node => refreshHost(node as SelectHost))
 }
-/**
- * 销毁容器内增强（可选，弹窗关闭销毁 DOM 时无需手动调用）
- */
-export const destroyCustomSelects = (root: Element | null | undefined): void => {
-    if (!root) return
-    root.querySelectorAll(`.adjustment-select.${MARK}`).forEach(node => {
-        const container = node as SelectHost
-        container.__adjSelectObserver?.disconnect()
-        closeMenu(container)
-        container.classList.remove(MARK)
-        container.querySelector('.adj-select-trigger')?.remove()
-        container.querySelector('.adj-select-menu')?.remove()
-    })
-}

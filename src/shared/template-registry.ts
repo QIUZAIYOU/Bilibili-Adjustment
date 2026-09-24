@@ -33,13 +33,6 @@ export interface TemplateUsageReportItem {
     selectorCount: number
     dependencyCount: number
 }
-/** 模板依赖图（dependentTemplates 预留给后续反向依赖分析） */
-export interface TemplateDependencyGraph {
-    name: string
-    dependencies: string[]
-    selectors: string[]
-    dependentTemplates: string[]
-}
 // 模板存储
 const templateRegistry = new Map<string, TemplateEntry>()
 // 模板使用统计
@@ -151,27 +144,6 @@ export function updateTemplate (name: string, newTemplate: string, meta: Templat
     logger.debug(`模板已更新: ${name} (v${templateVersions.get(name)})`)
 }
 /**
- * 获取模板
- * @param {string} name
- * @returns {string|null}
- */
-export function getTemplate (name: string): string | null {
-    const entry = templateRegistry.get(name)
-    if (!entry) {
-        logger.warn(`未注册的模板被访问: "${name}"`)
-        return null
-    }
-    return entry.template
-}
-/**
- * 获取模板元数据
- * @param {string} name
- * @returns {Object|null}
- */
-export function getTemplateMeta (name: string): TemplateEntry | null {
-    return templateRegistry.get(name) || null
-}
-/**
  * 记录模板使用
  * @param {string} name
  */
@@ -199,21 +171,6 @@ export function getTemplateUsageReport (): TemplateUsageReportItem[] {
         })
     })
     return report.sort((a, b) => b.count - a.count)
-}
-/**
- * 获取模板依赖图
- * @param {string} name
- * @returns {Object}
- */
-export function getTemplateDependencyGraph (name: string): TemplateDependencyGraph | null {
-    const entry = templateRegistry.get(name)
-    if (!entry) return null
-    return {
-        name,
-        dependencies: Array.from(entry.dependencies),
-        selectors: entry.selectors,
-        dependentTemplates: []
-    }
 }
 /**
  * 导出完整注册表
@@ -246,31 +203,6 @@ export function getUnusedTemplates (): string[] {
         }
     })
     return unused
-}
-/**
- * 同步更新模板中的选择器引用
- * 当选择器变更时，自动更新引用该选择器的所有模板
- * @param {string} oldSelector
- * @param {string} newSelector
- * @returns {number} - 更新的模板数量
- */
-export function syncSelectorInTemplates (oldSelector: string, newSelector: string): number {
-    let updatedCount = 0
-    templateRegistry.forEach((meta, name) => {
-        if (meta.template.includes(oldSelector)) {
-            const updatedTemplate = meta.template.replaceAll(oldSelector, newSelector)
-            templateRegistry.set(name, {
-                ...meta,
-                template: updatedTemplate,
-                selectors: meta.selectors.map(s => s === oldSelector ? newSelector : s),
-                updatedAt: Date.now()
-            })
-            templateVersions.set(name, (templateVersions.get(name) || 1) + 1)
-            updatedCount++
-            logger.debug(`模板 "${name}" 中的选择器已同步更新: ${oldSelector} -> ${newSelector}`)
-        }
-    })
-    return updatedCount
 }
 // 开发模式下暴露到全局
 if (import.meta.env?.DEV) {

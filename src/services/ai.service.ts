@@ -25,15 +25,6 @@ export interface AIModelOption {
     object?: unknown
     ownedBy?: string
 }
-// 当前进行中的 AI 请求控制器：供 UI「取消识别」使用（P1-4.6）
-let currentRequestController: AbortController | null = null
-/** 取消进行中的 AI 识别请求（若存在） */
-export const cancelAIRequest = (): boolean => {
-    if (!currentRequestController) return false
-    currentRequestController.abort()
-    currentRequestController = null
-    return true
-}
 // 提供商配置（含端点与默认模型）见 src/shared/ai-providers.ts：
 // 它既作为内置兜底，也作为热更覆盖的白名单（远端只能改已存在 provider 的 baseURL/defaultModel）
 // 本地缓存的模型列表
@@ -339,48 +330,40 @@ class OpenAIAdapter {
             requestBody.thinking = { type: 'enabled' }
             requestBody.reasoning_effort = 'high'
         }
-        // 记录当前请求控制器：UI 可通过 cancelAIRequest() 取消进行中的识别
-        const controller = new AbortController()
-        currentRequestController = controller
-        try {
-            const response = await httpPost(
-                `${this.#baseURL}/chat/completions`,
-                requestBody,
-                {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${apiKey}`
-                    },
-                    // 广告字幕可能很长，模型生成耗时高：放宽到 120s，降低偶发超时
-                    timeout: 120000,
-                    signal: controller.signal
+        const response = await httpPost(
+            `${this.#baseURL}/chat/completions`,
+            requestBody,
+            {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${apiKey}`
+                },
+                // 广告字幕可能很长，模型生成耗时高：放宽到 120s，降低偶发超时
+                timeout: 120000
+            }
+        )
+        // 接口正常返回时结构固定；缺字段时与原实现一样在此处抛出（由上层重试/报错处理）
+        const payload = response.data as {
+            choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: unknown }>
+            usage?: Record<string, unknown>
+        }
+        const choice = payload.choices?.[0]
+        const content = typeof choice?.message?.content === 'string' ? choice.message.content : ''
+        const reasoningContent = typeof choice?.message?.reasoning_content === 'string' ? choice.message.reasoning_content : ''
+        const toNumber = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
+        // 推理 token 各家用名不同：SiliconFlow/DeepSeek 常见 completion_tokens_details.reasoning_tokens
+        const details = (payload.usage?.completion_tokens_details ?? {}) as Record<string, unknown>
+        return {
+            content,
+            finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : '',
+            usage: payload.usage
+                ? {
+                    prompt: toNumber(payload.usage.prompt_tokens),
+                    completion: toNumber(payload.usage.completion_tokens),
+                    reasoning: toNumber(details.reasoning_tokens ?? payload.usage.reasoning_tokens)
                 }
-            )
-            // 接口正常返回时结构固定；缺字段时与原实现一样在此处抛出（由上层重试/报错处理）
-            const payload = response.data as {
-                choices?: Array<{ message?: { content?: unknown; reasoning_content?: unknown }; finish_reason?: unknown }>
-                usage?: Record<string, unknown>
-            }
-            const choice = payload.choices?.[0]
-            const content = typeof choice?.message?.content === 'string' ? choice.message.content : ''
-            const reasoningContent = typeof choice?.message?.reasoning_content === 'string' ? choice.message.reasoning_content : ''
-            const toNumber = (value: unknown): number => (typeof value === 'number' && Number.isFinite(value) ? value : 0)
-            // 推理 token 各家用名不同：SiliconFlow/DeepSeek 常见 completion_tokens_details.reasoning_tokens
-            const details = (payload.usage?.completion_tokens_details ?? {}) as Record<string, unknown>
-            return {
-                content,
-                finishReason: typeof choice?.finish_reason === 'string' ? choice.finish_reason : '',
-                usage: payload.usage
-                    ? {
-                        prompt: toNumber(payload.usage.prompt_tokens),
-                        completion: toNumber(payload.usage.completion_tokens),
-                        reasoning: toNumber(details.reasoning_tokens ?? payload.usage.reasoning_tokens)
-                    }
-                    : null,
-                reasoningChars: reasoningContent.length
-            }
-        } finally {
-            if (currentRequestController === controller) currentRequestController = null
+                : null,
+            reasoningChars: reasoningContent.length
         }
     }
     handleError (status: number): string {
@@ -447,8 +430,6 @@ export class UnifiedAIService extends AIService {
                     budgetMs: AI_CHAT_RETRY_BUDGET_MS,
                     intervalMs: 1000,
                     shouldRetry: error => {
-                        const httpErr = error as Partial<HttpError>
-                        if (httpErr.code === 'ERR_CANCELED') return false
                         if (isRetryableRequestError(error)) return true
                         // 部分网关把超时表达成普通 Error（message 含 timeout），一并视为可重试
                         return String((error as { message?: string }).message || '').includes('timeout')
@@ -512,10 +493,6 @@ export class UnifiedAIService extends AIService {
             return []
         } catch (error) {
             const httpErr = error as Partial<HttpError>
-            if (httpErr.code === 'ERR_CANCELED') {
-                this.#logger.info('广告识别已取消（用户中断）')
-                return []
-            }
             if (httpErr.response) {
                 const adapter = await this.#getAdapter()
                 const errorMessage = adapter.handleError(httpErr.response.status)

@@ -90,8 +90,6 @@ export const getAcceptedEntries = (table: string, report: HotConfigReport | null
     for (const key of report.applied) accepted[key] = values[key]
     return accepted
 }
-/** 当前记录的条目（测试/排查用） */
-export const getHotConfigEntries = (table: string): Record<string, unknown> | null => entries.get(table)?.values || null
 /** 仅测试用：清空记录（target 注册保留，便于同一会话内重复验证） */
 export const clearHotConfigStateForTest = (): void => {
     entries.clear()

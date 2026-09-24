@@ -115,5 +115,3 @@ export const holdScrollPosition = (targetY: number, options: { tolerance?: numbe
     logger.debug(`选集定位丨已接管页面滚动（锚定 ${Math.round(targetY)}，容差 ${tolerance}px，最长 ${maxMs}ms）`)
     return handle
 }
-/** 当前是否有生效中的守卫（测试/排查用） */
-export const hasActiveScrollGuard = (): boolean => activeGuard !== null

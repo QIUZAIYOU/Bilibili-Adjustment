@@ -32,18 +32,12 @@ export class ModuleSystem {
     static #instance: ModuleSystem | undefined
     #logger = new LoggerService('ModuleSystem')
     #modules = new Map<string, ModuleMeta>()
-    #config: { lazyInit: boolean } = {
-        lazyInit: false
-    }
     constructor () {
         if (ModuleSystem.#instance) {
             return ModuleSystem.#instance
         }
         ModuleSystem.#instance = this
         this.#initEventListeners()
-    }
-    configure ({ lazyInit = false }: { lazyInit?: boolean }): void {
-        this.#config.lazyInit = lazyInit
     }
     register (module: ModuleDefinition): void {
         this.#validateModule(module)
@@ -87,19 +81,7 @@ export class ModuleSystem {
     getModule (name: string): ModuleInstance | null {
         const moduleMeta = this.#modules.get(name)
         if (!moduleMeta) return null
-        if (this.#config.lazyInit && !moduleMeta.instance) {
-            this.#initializeModule(moduleMeta)
-        }
         return moduleMeta.instance
-    }
-    // 动态加载模块
-    async loadModule (moduleName: string, moduleConfig: ModuleDefinition): Promise<ModuleInstance | null | undefined> {
-        this.register(moduleConfig)
-        const moduleMeta = this.#modules.get(moduleName)
-        if (moduleMeta && !moduleMeta.instance) {
-            await this.#initializeModule(moduleMeta)
-        }
-        return moduleMeta?.instance
     }
     // 卸载模块
     async unloadModule (moduleName: string): Promise<void> {

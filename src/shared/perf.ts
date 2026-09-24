@@ -56,15 +56,6 @@ export const perfEnd = (name: string, meta?: Record<string, unknown>): number | 
     if (isDev) console.debug(`[perf] ${name}: ${duration}ms`, meta || '')
     return duration
 }
-/** 计时包裹：同步/异步均可，异常时仍结束计时 */
-export const perfTime = async <T>(name: string, fn: () => T | Promise<T>, meta?: Record<string, unknown>): Promise<T> => {
-    perfStart(name)
-    try {
-        return await fn()
-    } finally {
-        perfEnd(name, meta)
-    }
-}
 /** 全部埋点记录（排障用，生产不输出） */
 export const getPerfRecords = (): PerfRecord[] => records.slice()
 /** 汇总：同名多次取最近一次，便于一次性打印 */

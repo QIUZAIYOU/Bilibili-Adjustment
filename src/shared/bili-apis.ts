@@ -8,7 +8,6 @@ import {
     isRetryableRequestError,
     withRetryBudget
 } from '@/utils/retry-policy'
-import MD5 from 'md5'
 /** B 站接口响应外壳（各接口字段不同，调用点用泛型声明期望形状） */
 export interface BiliEnvelope<T = unknown> {
     code?: number | string
@@ -89,45 +88,6 @@ async function _apiRequest<T = BiliEnvelope> (url: string, options: HttpRequestO
 const _videoInfoCache = new Map<string, Promise<unknown>>()
 const VIDEO_INFO_CACHE_TTL = 5 * 60 * 1000 // 5 分钟
 export const biliApis = {
-    async getQueryWithWbi (originalParams: Record<string, string | number>): Promise<string> {
-        const mixinKeyEncTab = [
-            46, 47, 18, 2, 53, 8, 23, 32, 15, 50, 10, 31, 58, 3, 45, 35, 27, 43, 5, 49, 33, 9, 42, 19, 29, 28, 14, 39, 12, 38, 41, 13, 37, 48, 7, 16, 24, 55, 40, 61, 26, 17, 0, 1, 60, 51, 30, 4, 22, 25, 54, 21, 56, 59, 6, 63, 57, 62, 11, 36, 20, 34, 44, 52
-        ]
-        const getMixinKey = (orig: string): string => mixinKeyEncTab.map(n => orig[n]).join('').slice(0, 32)
-        const encWbi = (params: Record<string, string | number>, img_key: string, sub_key: string): string => {
-            const mixin_key = getMixinKey(img_key + sub_key),
-                curr_time = Math.round(Date.now() / 1000),
-                chr_filter = /[!'()*]/g
-            Object.assign(params, { wts: curr_time })
-            const query = Object.keys(params).sort().map(key => {
-                const value = params[key].toString().replace(chr_filter, '')
-                return `${encodeURIComponent(key)}=${encodeURIComponent(value)}`
-            }).join('&')
-            const wbi_sign = MD5(query + mixin_key)
-            return query + '&w_rid=' + wbi_sign
-        }
-        const getWbiKeys = async (): Promise<{ img_key: string; sub_key: string }> => {
-            const url = 'https://api.bilibili.com/x/web-interface/nav'
-            // ⚠️ `res.data` 就是**整个响应体**（`{code, message, ttl, data:{...}}`），不是接口的 data 字段：
-            // 这里曾经写成 `res.data.wbi_img`，于是永远取到 undefined 并在解构处抛错，
-            // 而两个调用点都在 try/catch 里静默吞掉 —— 表现为「UP主空间投稿列表、视频搜索」永远拿不到数据
-            // （2026-09-24 用真实接口核对响应形状后修正）
-            const res = await _apiRequest<{ data?: { wbi_img?: { img_url?: string; sub_url?: string }}}>(url)
-            const imgUrl = res.data?.data?.wbi_img?.img_url
-            const subUrl = res.data?.data?.wbi_img?.sub_url
-            if (!imgUrl || !subUrl) throw new Error('nav 接口未返回 wbi_img（无法签名 wbi 请求）')
-            return {
-                img_key: imgUrl.slice(
-                    imgUrl.lastIndexOf('/') + 1
-                ),
-                sub_key: subUrl.slice(
-                    subUrl.lastIndexOf('/') + 1
-                )
-            }
-        }
-        const { img_key, sub_key } = await getWbiKeys()
-        return encWbi(originalParams, img_key, sub_key)
-    },
     getCurrentVideoID (url?: string): string {
         if (!url) url = window.location.href
         let parsedUrl: URL
@@ -214,17 +174,6 @@ export const biliApis = {
             if (code === 0) return result
         }
     },
-    async getUserInformation (userId: string | number): Promise<BiliData | undefined> {
-        const url = `https://api.bilibili.com/x/web-interface/card?mid=${userId}`
-        const res = await _apiRequest<{ code?: number | string; data?: BiliData }>(url)
-        const { code, data } = res.data
-        if (code === 0) return data
-        else if (code === -400) logger.info('获取用户基本信息丨请求错误')
-        else if (code === -403) logger.info('获取用户基本信息丨权限不足')
-        else if (code === -404) logger.info('获取用户基本信息丨无此用户')
-        else if (code === 'ERR_BAD_REQUEST') logger.info('获取用户基本信息丨请求失败')
-        else logger.warn('获取用户基本信息丨请求失败')
-    },
     async getVideoSubtitles (bvid: string, cid: string | number): Promise<Array<BiliData> | null | undefined> {
         const url = `https://api.bilibili.com/x/player/wbi/v2?bvid=${bvid}&cid=${cid}`
         const res = await _apiRequest<{ code?: number | string; data?: { subtitle?: { subtitles?: Array<BiliData> }}}>(url)
@@ -244,115 +193,6 @@ export const biliApis = {
         } catch (error) {
             logger.debug('获取字幕内容失败', error)
             return []
-        }
-    },
-    async getVideoTags (bvid: string): Promise<Array<BiliData> | null | undefined> {
-        const url = `https://api.bilibili.com/x/tag/archive/tags?bvid=${bvid}`
-        const res = await _apiRequest<{ code?: number | string; data?: Array<BiliData> }>(url)
-        const { code, data } = res.data
-        if (code === 0) return data
-        else return null
-    },
-    async getUnreadCount (): Promise<number | undefined> {
-        try {
-            const url = 'https://message.bilibili.com/x/msg/unread/count'
-            const res = await _apiRequest<{ code?: number | string; data?: { all_count?: number }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return data?.all_count
-            else return 0
-        } catch {
-            return 0
-        }
-    },
-    async getLiveRoomStatus (roomid: string | number): Promise<boolean> {
-        const url = `https://api.live.bilibili.com/room/v1/Room/get_info?room_id=${roomid}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { live_status?: number }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return data?.live_status === 1
-            else return false
-        } catch {
-            return false
-        }
-    },
-    async getWebCreaterStatus (mid: string | number): Promise<BiliData | null> {
-        const url = `https://api.bilibili.com/x/web-interface/nav?mid=${mid}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { isLogin?: unknown; uname?: unknown; official?: unknown; vip?: unknown }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return { isLogin: data?.isLogin, uname: data?.uname, official: data?.official, vip: data?.vip }
-            else return null
-        } catch {
-            return null
-        }
-    },
-    async getWebCreaterPinInfo (mid: string | number): Promise<BiliData | null> {
-        const url = `https://api.bilibili.com/x/space/acc/info?mid=${mid}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { sign?: unknown; birthday?: unknown; sex?: unknown; face?: unknown }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return { sign: data?.sign, birthday: data?.birthday, sex: data?.sex, face: data?.face }
-            else return null
-        } catch {
-            return null
-        }
-    },
-    async getWebCreaterRelationInfo (mid: string | number): Promise<BiliData | null> {
-        const url = `https://api.bilibili.com/x/relation/stat?vmid=${mid}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { follower?: unknown; following?: unknown }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return { follower: data?.follower, following: data?.following }
-            else return null
-        } catch {
-            return null
-        }
-    },
-    async getWebCreaterUpstatInfo (mid: string | number): Promise<BiliData | null> {
-        const url = `https://api.bilibili.com/x/space/upstat?mid=${mid}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { archive?: { view?: unknown }; article?: { view?: unknown }; likes?: unknown }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return { view: data?.archive?.view, articleView: data?.article?.view, likes: data?.likes }
-            else return null
-        } catch {
-            return null
-        }
-    },
-    async getDynamicItems (offset: string | number): Promise<Array<BiliData> | null | undefined> {
-        const url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/all?offset=${offset}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { items?: Array<BiliData> }}>(url)
-            const { code, data } = res.data
-            if (code === 0) return data?.items
-            else return null
-        } catch {
-            return null
-        }
-    },
-    async getWebCreaterArcsDrawInfo (mid: string | number): Promise<Array<BiliData> | null | undefined> {
-        try {
-            // ⚠️ 必须用 wbi 端点：`x/space/arc/search` 是已弃用的非 wbi 端点（实测两个端点都会返回
-            // -403 访问权限不足，但 B 站自己的空间页请求的是 `x/space/wbi/arc/search`，这里对齐它；
-            // 旧版单文件脚本用的也是 wbi 端点，重构时被写错成非 wbi 端点）
-            const wbiUrl = `https://api.bilibili.com/x/space/wbi/arc/search?${await this.getQueryWithWbi({ mid, ps: 10, pn: 1 })}`
-            const res = await _apiRequest<{ code?: number | string; data?: { list?: { vlist?: Array<BiliData> }}}>(wbiUrl)
-            const { code, data } = res.data
-            if (code === 0) return data?.list?.vlist
-            else return null
-        } catch {
-            return null
-        }
-    },
-    async getSearchResult (keyword: string, page = 1): Promise<Array<BiliData> | null | undefined> {
-        const wbiUrl = `https://api.bilibili.com/x/web-interface/wbi/search/type?${await this.getQueryWithWbi({ keyword, page, search_type: 'video' })}`
-        try {
-            const res = await _apiRequest<{ code?: number | string; data?: { result?: Array<BiliData> }}>(wbiUrl)
-            const { code, data } = res.data
-            if (code === 0) return data?.result
-            else return null
-        } catch {
-            return null
         }
     }
 }
