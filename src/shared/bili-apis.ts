@@ -1,6 +1,13 @@
 import { LoggerService } from '@/services/logger.service'
 import { httpGet } from '@/utils/http'
-import type { HttpRequestOptions, HttpResponse, HttpError } from '@/utils/http'
+import type { HttpRequestOptions, HttpResponse } from '@/utils/http'
+import {
+    DEFAULT_RETRY_BUDGET_MS,
+    describeRequestError,
+    describeRetryBudget,
+    isRetryableRequestError,
+    withRetryBudget
+} from '@/utils/retry-policy'
 import MD5 from 'md5'
 /** B 站接口响应外壳（各接口字段不同，调用点用泛型声明期望形状） */
 export interface BiliEnvelope<T = unknown> {
@@ -48,28 +55,35 @@ async function _processQueue (): Promise<void> {
     _queueProcessing = false
 }
 // ========== 带重试的请求 ==========
-const _fetchWithRetry = async (url: string, options: HttpRequestOptions = {}, retries = 2, delay = 1000): Promise<HttpResponse | undefined> => {
-    for (let i = 0; i <= retries; i++) {
-        try {
-            return await httpGet(url, { withCredentials: true, timeout: 15000, ...options })
-        } catch (err) {
-            const httpErr = err as Partial<HttpError>
-            const isTimeout = httpErr?.code === 'ECONNABORTED'
-            const is429 = httpErr?.response?.status === 429
-            if ((is429 || isTimeout) && i < retries) {
-                const wait = delay * Math.pow(2, i) // 1s, 2s
-                logger.info(`请求被限流或超时(${is429 ? '429' : 'timeout'})，${wait}ms 后重试 (${i + 1}/${retries})`)
-                await new Promise(r => setTimeout(r, wait))
-                continue
-            }
-            throw err
+/** 接口重试：首次间隔 1 秒，退避封顶 30 秒，总预算 3 分钟（**不按次数**） */
+const API_RETRY_INTERVAL_MS = 1000
+const API_RETRY_BUDGET_MS = DEFAULT_RETRY_BUDGET_MS
+/**
+ * 发起一次接口请求，失败按「时间预算 + 递增退避」重试。
+ *
+ * 2026-09-24 改：原来只有超时/429 才重试且最多 3 次尝试（2 次重试），网络差时几次就永久放弃；
+ * 现在在 3 分钟预算内持续重试（1s→2s→4s…最多 30s 一次），断网、超时、429、5xx 都算可重试。
+ *
+ * ⚠️ 每次尝试都**单独入队**：退避等待期间不占着全局请求队列，其它接口请求可以照常进行。
+ */
+const _fetchWithRetry = (url: string, options: HttpRequestOptions = {}): Promise<HttpResponse | undefined> =>
+    withRetryBudget(
+        () => _enqueueRequest(() => httpGet(url, { withCredentials: true, timeout: 15000, ...options })),
+        {
+            budgetMs: API_RETRY_BUDGET_MS,
+            intervalMs: API_RETRY_INTERVAL_MS,
+            // 确定性失败（400/403/404…）与用户主动取消：重试再久也没用，直接抛出
+            shouldRetry: isRetryableRequestError,
+            onRetry: ({ attempts, elapsedMs, delayMs, error }) => logger.info(`接口请求失败（${describeRequestError(error)}），${delayMs}ms 后重试（已重试 ${attempts} 次，耗时 ${Math.round(elapsedMs / 1000)} 秒）`),
+            onGiveUp: ({ attempts, error }) => logger.warn(`接口请求重试已达时间预算（${describeRetryBudget(API_RETRY_BUDGET_MS)}，共尝试 ${attempts} 次），放弃：${describeRequestError(error)}`)
         }
-    }
-}
+    ) as Promise<HttpResponse | undefined>
 // ========== 统一的 API 请求入口 ==========
-// 所有 bilibili API 调用通过此函数，自动排队 + 重试
+// 所有 bilibili API 调用通过此函数：**每次尝试**单独排队（避免并发触发 429）+ 按时间预算重试
+// ⚠️ 不要再在这里套一层 _enqueueRequest：_fetchWithRetry 内部已逐次入队，
+//    外面再套一层会让队列一直等这个重试循环（内层入队永远排不到）→ 死锁
 async function _apiRequest<T = BiliEnvelope> (url: string, options: HttpRequestOptions = {}): Promise<{ data: T; status: number; headers: Headers }> {
-    return _enqueueRequest(() => _fetchWithRetry(url, options)) as Promise<{ data: T; status: number; headers: Headers }>
+    return _fetchWithRetry(url, options) as Promise<{ data: T; status: number; headers: Headers }>
 }
 // ========== 视频信息缓存（5 分钟） ==========
 const _videoInfoCache = new Map<string, Promise<unknown>>()

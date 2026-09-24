@@ -13,7 +13,7 @@ interface PlayerModeContext {
     _lastPlayerMode?: string
     _modeSwitchCooldown?: number
     _autoLocating?: boolean
-    _retryQueue?: { register: (id: string, fn: () => Promise<void>, maxRetries?: number) => void } | null
+    _retryQueue?: { register: (id: string, fn: () => Promise<void> | void, options?: { budgetMs?: number }) => void } | null
     hasPlayerTitle: () => Promise<boolean>
     isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
     locateToPlayer: (options?: { duration?: number }) => Promise<void>
@@ -125,8 +125,8 @@ export const playerModeFeatures = {
                 sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, String(this.userConfigs.selected_player_mode))
                 logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
             } else {
-                logger.warn('屏幕模式丨切换失败，已加入重试队列')
-                this._retryQueue?.register('playerMode', () => this._retryPlayerMode(), 3)
+                logger.warn('屏幕模式丨切换失败，已加入重试队列（3 分钟内持续重试）')
+                this._retryQueue?.register('playerMode', () => this._retryPlayerMode())
             }
             // 无论切换成败都继续后续流程：页面初始滚动锁定依赖该事件解除，失败时不发会导致页面永远无法滚动
             eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
