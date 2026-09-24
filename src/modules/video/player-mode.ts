@@ -90,10 +90,30 @@ const isLocatedAtPlayer = (offsetTop: number): boolean => {
     const target = resolvePlayerScrollTarget(offsetTop)
     return target !== null && Math.abs(window.scrollY - target.offset) <= 8
 }
-/** 选集切换的原生入口（右侧分P列表、合集、番剧选集等）——点在这些元素上就算"切换选集" */
-const isEpisodeSwitchElement = (element: Element | null): boolean => !!element?.closest(
-    '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .list-box a[href*="?p="], a[href*="?p="]'
-)
+/**
+ * 「切换选集/上下集」的入口元素：选集列表、分P列表、合集、番剧选集，以及上下集按钮。
+ *
+ * 实测（真实页面取证）：播放器控制栏的上下集按钮是 `.bpx-player-ctrl-next` / `.bpx-player-ctrl-prev`
+ * （aria-label「下一个」），点它同样会触发 B 站自己的 `switchVideo` → `window.scrollTo(0,0)`。
+ */
+const EPISODE_SWITCH_SELECTOR = '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .bpx-player-ctrl-next, .bpx-player-ctrl-prev, .list-box a[href*="?p="], a[href*="?p="]'
+/**
+ * 上下集按钮的文案特征：B 站各版式类名不统一（分P 是「下一个」、番剧是「下一话」、合集是「下一集」），
+ * 类名命中之外再按标签文本兜底，避免以后版式一改就又漏掉一条入口。
+ */
+const EPISODE_SWITCH_LABEL = /^(上一集|下一集|上一话|下一话|上一P|下一P|上一个|下一个|上一期|下一期|上一视频|下一视频|previous|prev|next)$/i
+/** 点击是否命中「切换选集/上下集」的入口（类名为主、文案兜底） */
+const isEpisodeSwitchElement = (element: Element | null): boolean => {
+    if (!element) return false
+    if (element.closest(EPISODE_SWITCH_SELECTOR)) return true
+    // 点在图标/内层元素上时向上找几层，取 aria-label / title / 文本判断
+    let node: Element | null = element
+    for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
+        const label = (node.getAttribute('aria-label') || node.getAttribute('title') || node.textContent || '').trim()
+        if (EPISODE_SWITCH_LABEL.test(label)) return true
+    }
+    return false
+}
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
         // 电影播放页若默认宽屏则跳过（电影页本身已宽屏，重复执行会退出宽屏）
@@ -414,9 +434,10 @@ export const playerModeFeatures = {
         logger.debug('选集定位丨已直接定位到播放器')
     },
     /**
-     * 原生选集入口的位置守卫（右侧分P列表、合集、番剧选集等）
+     * 原生选集/上下集入口的位置守卫（右侧分P列表、合集、番剧选集、播放器上下集按钮）
      *
-     * 这些入口不经过上面的选集菜单回调，但同样会触发 B 站自己的"回到顶部"。
+     * 这些入口不经过上面的选集菜单回调，但同样会触发 B 站自己的"回到顶部"
+     * （实测：点击播放器控制栏的「下一个」按钮，B 站 `switchVideo` 立刻 `scrollTo(0,0)`）。
      * 这里用捕获阶段的委托监听，在点击那一刻就把位置守住（**只守位置、不主动定位**，
      * 是否定位仍由视频可播放后的 autoLocateToPlayer 按设置决定）。
      */
