@@ -21,6 +21,15 @@ import sys
 import urllib.parse
 import urllib.request
 
+# Windows 控制台默认编码是 GBK：直接打印 ⚠ 这类非 GBK 字符会抛 UnicodeEncodeError 并把上传脚本打断
+# （2026-09-24 实测：Gitee 未同步的那条警告让脚本中途退出，后面的 www 落地页/API 步骤直接没跑）。
+# 统一把标准输出改成 UTF-8 + 出错替换：最坏只是控制台显示乱码，绝不会再因"打印"而中断上传。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8', errors='replace')
+    except (AttributeError, ValueError):
+        pass
+
 # 脚本端回退源用的 Gitee 仓库（镜像）
 GITEE_REPO = 'aiideai/Bilibili-Adjustment'
 
