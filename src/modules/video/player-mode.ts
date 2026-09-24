@@ -16,8 +16,40 @@ interface PlayerModeContext {
     _retryQueue?: { register: (id: string, fn: () => Promise<void>, maxRetries?: number) => void } | null
     hasPlayerTitle: () => Promise<boolean>
     isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
-    locateToPlayer: () => Promise<void>
+    locateToPlayer: (options?: { duration?: number }) => Promise<void>
     _retryPlayerMode: () => Promise<void>
+}
+/** 读播放器容器的文档流偏移（读不到返回 -1） */
+const readPlayerOffset = (): number => {
+    const container = elementSelectors.get('playerContainer')
+    if (!container) return -1
+    return Math.round(getElementOffsetToDocument(container as HTMLElement).top)
+}
+/**
+ * 等「播放器文档偏移」稳定：连续两次采样一致才算稳定，最多等 maxWait（默认 800ms）
+ *
+ * 为什么需要：选集/SPA 切换期间页面结构处于中间态，此时读到的偏移不是最终值，
+ * 立刻按它滚动就会滚到错位置，之后再被纠正 → 用户看到"先滚过去、又滚回来"。
+ */
+const waitForStablePlayerOffset = async (interval = 100, maxWait = 800): Promise<void> => {
+    let previous = readPlayerOffset()
+    const deadline = Date.now() + maxWait
+    while (Date.now() < deadline) {
+        await sleep(interval)
+        const current = readPlayerOffset()
+        if (current !== -1 && current === previous) return
+        previous = current
+    }
+}
+/** 等「切换真的发生」（URL 或视频 src 变化），返回是否检测到变化；最多等 maxWait（默认 2.5s） */
+const waitForEpisodeChange = async (beforeHref: string, beforeSrc: string, maxWait = 2500): Promise<boolean> => {
+    const deadline = Date.now() + maxWait
+    while (Date.now() < deadline) {
+        await sleep(100)
+        const src = elementSelectors.get('video')?.getAttribute('src') || ''
+        if (window.location.href !== beforeHref || (src !== '' && src !== beforeSrc)) return true
+    }
+    return false
 }
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
@@ -191,6 +223,8 @@ export const playerModeFeatures = {
                 eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
             }
+            // 先等布局稳定再测量目标：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
+            await waitForStablePlayerOffset()
             const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
             const header = elementSelectors.get('headerMini')
             const headerComputedStyle: { position?: string; height?: string } = header
@@ -245,7 +279,10 @@ export const playerModeFeatures = {
             this._autoLocating = false
         }
     },
-    async locateToPlayer (this: PlayerModeContext): Promise<void> {
+    async locateToPlayer (this: PlayerModeContext, options: { duration?: number } = {}): Promise<void> {
+        // duration 缺省 300ms（平滑动画，适合用户主动触发的定位）；
+        // 选集切换后的纠正传 0：直接到位，避免"先滚到顶部再滚回来"这种可见的二次滚动
+        const duration = options.duration ?? 300
         const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')
@@ -260,7 +297,7 @@ export const playerModeFeatures = {
         const offsetTop = Number(this.userConfigs.offset_top) || 0
         // mini 模式播放器 transform 悬浮，无文档流位置可用，滚动到记忆位置即可
         if (playerMode === 'mini') {
-            await documentScrollTo(this.userConfigs.player_offset_top as number, { duration: 300 }).catch(error => {
+            await documentScrollTo(this.userConfigs.player_offset_top as number, { duration, behavior: 'instant' }).catch(error => {
                 logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
             })
             return
@@ -286,7 +323,7 @@ export const playerModeFeatures = {
             return window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
         }
         let targetOffset = computeTarget(playerContainer)
-        await documentScrollTo(targetOffset, { duration: 300 }).catch(error => {
+        await documentScrollTo(targetOffset, { duration, behavior: 'instant' }).catch(error => {
             logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
         })
         // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 5 次
@@ -303,11 +340,29 @@ export const playerModeFeatures = {
                 logger.debug(`自动定位丨重新定位: ${freshTarget}（当前位置 ${window.scrollY}）`)
             }
             targetOffset = freshTarget
-            await documentScrollTo(targetOffset, { duration: 300 }).catch(error => {
+            await documentScrollTo(targetOffset, { duration, behavior: 'instant' }).catch(error => {
                 logger.warn('自动定位丨重新定位失败:', error instanceof Error ? error.message : String(error))
             })
         }
         logger.debug('自动定位丨多次尝试后仍未到位')
+    },
+    /**
+     * 选集切换后的定位（由选集菜单点击触发）
+     *
+     * 旧实现是在点击回调里**立刻** `locateToPlayer()`：那一刻 B 站尚未完成切换、页面结构处于中间态，
+     * 按中间态偏移滚动会先滚到错位置（用户看到"先滚到顶部"），随后视频可播放再触发一次 autoLocateToPlayer
+     * 才滚到正确位置 —— 来回滚动一次。现改为：等「切换真的发生」→ 等「布局稳定」→ **一次性直达**（无动画）。
+     */
+    async locateToPlayerAfterEpisodeSwitch (this: PlayerModeContext): Promise<void> {
+        const beforeHref = window.location.href
+        const beforeSrc = elementSelectors.get('video')?.getAttribute('src') || ''
+        const switched = await waitForEpisodeChange(beforeHref, beforeSrc)
+        if (!switched) {
+            logger.debug('选集定位丨未检测到切换（可能点的是当前集），直接定位一次')
+        }
+        await waitForStablePlayerOffset()
+        await this.locateToPlayer({ duration: 0 })
+        logger.debug('选集定位丨已直接定位到播放器')
     },
     async clickPlayerAutoLocate (this: PlayerModeContext): Promise<void> {
         addEventListenerToElement(elementSelectors.get('playerContainer'), 'click', async (e: Event) => {

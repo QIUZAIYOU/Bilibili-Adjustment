@@ -13,6 +13,8 @@ interface UiButtonsContext {
     settingsComponent: { openSettings: () => Promise<void> }
     _cachedMid?: string | number
     locateToPlayer: () => Promise<void>
+    /** 选集切换后的定位（等切换+布局稳定后一次性直达，见 player-mode） */
+    locateToPlayerAfterEpisodeSwitch: () => Promise<void>
     locateButtonClick: () => Promise<void>
     openUpSpace: (mid: string | number) => Promise<void> | void
     showSkipSegmentManager: (id: string) => Promise<void>
@@ -160,7 +162,9 @@ export const uiButtonsFeatures = {
             insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
             elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
                 addEventListenerToElement(link, 'click', async () => {
-                    await this.locateToPlayer()
+                    // 不能在这里立刻定位：此刻 B 站还没完成切换、布局是中间态，
+                    // 立刻滚动会先滚到错位置再被纠正（来回滚一次）。交给它等切换+布局稳定后一次直达。
+                    await this.locateToPlayerAfterEpisodeSwitch()
                 })
             })
         }
