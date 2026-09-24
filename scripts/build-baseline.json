@@ -1,17 +1,17 @@
 {
-    "version": "2026-09-24T07:41:29.519Z",
+    "version": "2026-09-24T07:50:21.422Z",
     "files": [
         {
             "name": "bilibili-adjustment.user.js",
-            "raw": 509684,
-            "gzip": 162731
+            "raw": 509871,
+            "gzip": 162850
         },
         {
             "name": "bilibili-adjustment.meta.js",
-            "raw": 6532,
-            "gzip": 3255
+            "raw": 6427,
+            "gzip": 3226
         }
     ],
-    "totalRaw": 516216,
-    "totalGzip": 165986
+    "totalRaw": 516298,
+    "totalGzip": 166076
 }
