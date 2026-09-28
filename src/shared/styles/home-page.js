@@ -241,6 +241,23 @@ export const homePageStyles = {
             background: var(--adj-brand);
             color: var(--adj-on-brand);
         }
+        /* ========== 首页悬浮按钮组里的「脚本设置」入口（只要图标不要文字） ========== */
+        /* 尺寸/间距对齐 B 站自带子项（实测 40×40、margin-top 6px、色值约 #969696 → 用主题 token） */
+        .adj-palette-settings-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            margin: 6px 0 0;
+            color: var(--adj-text-soft);
+            cursor: pointer;
+            user-select: none;
+            transition: var(--adj-motion-fast);
+        }
+        .adj-palette-settings-btn:hover {
+            color: var(--adj-brand);
+        }
         /* ========== 预览弹窗：视频贴边铺满，头部右侧放音量与「新标签页打开」 ========== */
         .adj-video-preview-dialog .adjustment-dialog-body {
             padding: 0;

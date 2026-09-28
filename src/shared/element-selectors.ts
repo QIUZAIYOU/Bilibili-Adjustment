@@ -226,7 +226,9 @@ const CSS_MAP: Record<string, string> = {
     homeVideoCard: '.bili-video-card',
     homeVideoCardLink: 'a',
     homeVideoCardTitle: '.bili-video-card__info--tit',
-    homeVideoCardInlineVideo: '.v-inline-player video'
+    homeVideoCardInlineVideo: '.v-inline-player video',
+    // 首页右下角悬浮按钮组（稍后再看/刷新/客服/顶部都在这里）：首页自己的脚本设置入口插进去
+    homePaletteButtonWrap: '.palette-button-wrap'
 }
 // ========== Shadow DOM 选择器 ==========
 export const shadowDomSelectors: Record<string, string> = {
@@ -292,7 +294,8 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'homeVideoCard',
         'homeVideoCardLink',
         'homeVideoCardTitle',
-        'homeVideoCardInlineVideo'
+        'homeVideoCardInlineVideo',
+        'homePaletteButtonWrap'
     ]),
     dynamic: new Set([
         'dynamicListItem',

@@ -14,6 +14,15 @@ const RUNTIME_DEFAULTS = {
     get_offset_method: 'function',
     current_player_mode: 'normal'
 }
+/**
+ * 本地写入后需要**立刻广播** `config:changed` 的配置键。
+ *
+ * 其余键在同一个页面里改完不需要立刻反应（跨标签页同步由 BroadcastChannel 通道负责），
+ * 只有"改了就要当场生效、不能等刷新"的运行时项才在这里登记：
+ * - `theme`：主题即时切换（ThemeManager 订阅）
+ * - `home_video_preview`：首页视频预览开关（首页设置面板里一开就要立刻给卡片加按钮）
+ */
+const LOCAL_EMIT_CONFIG_KEYS = new Set(['theme', 'home_video_preview'])
 export class ConfigService {
     static #logger = new LoggerService('ConfigService')
     static #initialized = false
@@ -246,8 +255,9 @@ export class ConfigService {
             await storageService.userSet(name, value)
             this.#cache.set(name, value)
             this.#ensureSyncChannel()
-            // 本地写入也广播事件：主题等运行时即时生效项依赖该事件（远端消息处理见 #ensureSyncChannel）
-            if (name === 'theme') {
+            // 本地写入也广播事件：**运行时即时生效项**依赖该事件（其余键本页不需要立刻反应，
+            // 跨标签页同步由下面的 postMessage 通道负责）
+            if (LOCAL_EMIT_CONFIG_KEYS.has(name)) {
                 eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key: name, value })
             }
             this.#syncChannel?.postMessage({ key: name, value })

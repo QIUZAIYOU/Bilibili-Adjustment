@@ -186,7 +186,13 @@ export class SettingsDialogHost {
             await this.handleSpecialSelectChange(key, next, oldValue, popover)
         }
     }
-    async init (userConfigs: Record<string, unknown>): Promise<void> {
+    /**
+     * 初始化设置宿主
+     * @param userConfigs 用户配置（宿主直接读写同一对象）
+     * @param options.pageType 强制指定"按哪类页面渲染设置面板"：首页等**没有自己 schema** 的页面
+     *   可传 `'video'` 复用播放页设置（首页功能开关就在那套 schema 里），不传则按当前页型推断
+     */
+    async init (userConfigs: Record<string, unknown>, options: { pageType?: string } = {}): Promise<void> {
         this.userConfigs = userConfigs
         // 弹窗重建时重新读取最新配置：Stylus「夜间哔哩」样式、其它标签页等**外部来源**
         // 会在设置弹窗关闭期间直接改存储，仅靠内存里的 userConfigs 会显示旧值
@@ -195,7 +201,7 @@ export class SettingsDialogHost {
             const latest = await storageService.getAll('user')
             if (latest && typeof latest === 'object') Object.assign(this.userConfigs, latest)
         } catch { /* 读取失败时沿用已有配置 */ }
-        this.pageType = await detectivePageType()
+        this.pageType = options.pageType ?? await detectivePageType()
         // 订阅其他标签页的配置变更，实时同步设置弹窗状态（只订阅一次，SPA 导航重复 init 不重复订阅）
         if (!this._configSyncUnsubscribe) {
             this._configSyncUnsubscribe = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, async (_ctx, ...args: unknown[]) => {
