@@ -58,6 +58,7 @@ export interface HomeVideoPreviewContext {
     initVideoPreview: () => Promise<void>
     injectVideoPreviewButtons: () => void
     enterPlayerWebFullscreen: (doc: Document) => Promise<boolean>
+    isPlayerFilled: (doc: Document, player?: Element | null) => boolean
     applyPreviewPlayerStyle: (doc: Document) => void
     setPreviewLoadingVisible: (visible: boolean) => void
     pausePreviewPlayback: () => void
@@ -284,6 +285,15 @@ export const homeVideoPreviewFeatures = {
         style.textContent = getTemplates.homePreviewPlayerCss
         doc.head.appendChild(style)
     },
+    /** 播放器是否已经铺满 iframe（网页全屏的几何判据，不依赖 B 站的态类名） */
+    isPlayerFilled (this: HomeVideoPreviewContext, doc: Document, player?: Element | null): boolean {
+        const playerSelector = elementSelectors.CSS('player')
+        const el = player || (playerSelector ? doc.querySelector(playerSelector) : null)
+        const view = doc.defaultView
+        if (!el || !view) return false
+        const rect = el.getBoundingClientRect()
+        return rect.width >= view.innerWidth - 2 && rect.height >= view.innerHeight - 2
+    },
     /**
      * 让播放器进入 **B 站自己的「网页全屏」**：这是本功能的关键一步 ——
      * 视频播放页整页塞进弹窗后，只有网页全屏（B 站自己的模式）能让播放器正好铺满 iframe，
@@ -298,6 +308,12 @@ export const homeVideoPreviewFeatures = {
         const playerSelector = elementSelectors.CSS('player')
         const player = playerSelector ? doc.querySelector(playerSelector) : null
         if (!buttonSelector || !player) return false
+        // ⚠️ 已经在网页全屏就**别再点**：那个按钮是开关，复用缓存弹窗重开同一视频时会把它关掉
+        // （而注入的 CSS 又把该按钮藏了，用户没法再点回来）
+        if (this.isPlayerFilled(doc, player)) {
+            logger.debug('首页视频预览丨已在网页全屏，无需再次进入')
+            return true
+        }
         player.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
         player.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
         const deadline = Date.now() + WEB_FULLSCREEN_BUTTON_TIMEOUT_MS
@@ -316,10 +332,7 @@ export const homeVideoPreviewFeatures = {
         button.click()
         await sleep(400)
         // 用几何验证是否真的铺满了（不依赖 B 站的态类名）
-        const view = doc.defaultView
-        const rect = player.getBoundingClientRect()
-        const filled = !!view && rect.width >= view.innerWidth - 2 && rect.height >= view.innerHeight - 2
-        if (filled) {
+        if (this.isPlayerFilled(doc, player)) {
             logger.debug('首页视频预览丨播放器已进入网页全屏')
             return true
         }

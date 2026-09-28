@@ -33,6 +33,10 @@ export const homePreviewTemplates = {
      * 注入播放页的 CSS（同源才能做），目的：**弹窗里只留视频元素**。
      * - 进入 B 站自己的「网页全屏」后，页面其它部分已被它收走；2026-09-25 实测真正还压在画面上的只有
      *   「顶部标题条 + 关注按钮」「顶部渐变遮罩」「登录/画质提示条」这三样，去掉后只剩视频 + 弹幕 + 控制条；
+     * - 控制栏里再去掉「模式选择（宽屏/网页全屏）」「小窗（画中画）」：预览的版式固定就是网页全屏，
+     *   留着小窗/模式按钮只会让人误点、把预览切走。⚠️ 隐藏「网页全屏」按钮不影响进入网页全屏 ——
+     *   进入是**程序化点击**该按钮（对 `display:none` 的元素 `.click()` 同样会触发），而且这段 CSS 是在
+     *   进入之后才注入的，顺序（先进入 → 再注入）不能反；
      * - 末尾一条是**兜底**：万一哪天没能进入网页全屏，也不至于把整张播放页糊在弹窗里 —— 只显示播放器那棵子树。
      *   ⚠️ 只做 `display:none`，**不要动播放器定位**：把播放器改成 fixed 会触发 B 站的迷你播放器逻辑
      *   （`.bpx-player-mini-warp` 浮出来吃掉点击），2026-09-25 实测踩过。
@@ -40,7 +44,10 @@ export const homePreviewTemplates = {
     homePreviewPlayerCss: `
     .bpx-player-top-wrap,
     .bpx-player-top-mask,
-    .bpx-player-toast-wrap { display: none !important; }
+    .bpx-player-toast-wrap,
+    .bpx-player-ctrl-wide,
+    .bpx-player-ctrl-web,
+    .bpx-player-ctrl-pip { display: none !important; }
     body *:not(#bilibili-player, #bilibili-player *):not(:has(#bilibili-player)) { display: none !important; }
 `
 }
