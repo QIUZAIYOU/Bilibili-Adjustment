@@ -4,6 +4,7 @@ import { getTemplates } from '@/shared/templates'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import type { AdjustmentDialogInstance } from '@/components/popover-dialog'
 import { createElementAndInsert, sleep } from '@/utils/common'
+import { PREVIEW_FRAME_ATTR } from '@/utils/preview-frame'
 import { buildPreviewUrl, extractPreviewBvid, normalizePreviewTitle } from './video-preview-pure'
 const logger = new LoggerService('HomeModule')
 /**
@@ -33,6 +34,8 @@ const PREVIEW_KEEP_ALIVE_MS = 10 * 60 * 1000
 const PREVIEW_DIALOG_WIDTH = 'min(1100px, 94vw)'
 /** 播放页最长等待（超时未出画面就回退官方外链播放器）—— 视频播放页比移动播放页慢，留宽一点 */
 const SAME_ORIGIN_READY_TIMEOUT_MS = 12000
+/** 注入播放页样式的 `<style>` id（幂等判据） */
+const PREVIEW_STYLE_ID = 'adj-preview-style'
 /** 等播放器渲染出「网页全屏」按钮的上限（控制条是悬停后才渲染的） */
 const WEB_FULLSCREEN_BUTTON_TIMEOUT_MS = 6000
 /** 首页视频预览特性上下文（由 home.module 的模块实例混入） */
@@ -40,6 +43,8 @@ export interface HomeVideoPreviewContext {
     userConfigs: Record<string, unknown>
     _previewDialog?: AdjustmentDialogInstance | null
     _previewFrame?: HTMLIFrameElement | null
+    /** 加载遮罩（盖在 iframe 上，铺满后才揭开） */
+    _previewLoadingEl?: HTMLElement | null
     _previewObserver?: MutationObserver | null
     _previewBound?: boolean
     _previewBvid?: string
@@ -53,6 +58,8 @@ export interface HomeVideoPreviewContext {
     initVideoPreview: () => Promise<void>
     injectVideoPreviewButtons: () => void
     enterPlayerWebFullscreen: (doc: Document) => Promise<boolean>
+    applyPreviewPlayerStyle: (doc: Document) => void
+    setPreviewLoadingVisible: (visible: boolean) => void
     pausePreviewPlayback: () => void
     resumePreviewPlaybackIfPausedByHide: () => void
     isPreviewDialogOpen: () => boolean
@@ -191,8 +198,13 @@ export const homeVideoPreviewFeatures = {
                 frame.allowFullscreen = true
                 frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media')
                 frame.setAttribute('scrolling', 'no')
+                // 预览标记：子框架里的脚本据此跳过「屏幕模式」等页面级自动化，否则它会把我们刚进的
+                // 网页全屏改成用户的默认模式（见 utils/preview-frame）
+                frame.setAttribute(PREVIEW_FRAME_ATTR, '')
                 body.appendChild(frame)
                 this._previewFrame = frame
+                // 遮罩放在 iframe 之后（同层叠靠后 → 盖在上面），铺满后揭开
+                this._previewLoadingEl = createElementAndInsert(getTemplates.homePreviewLoading, body) as HTMLElement | null
             }
         })
         this._previewDialog = dialog
@@ -216,6 +228,8 @@ export const homeVideoPreviewFeatures = {
         // 已是同一地址（缓存复用）就不要重设 src：给 iframe.src 赋相同值也会触发重新加载，
         // 白白丢掉已缓冲的进度（UP主空间弹窗同款处理）
         if (frame.getAttribute('src') !== primaryUrl) {
+            // 真要重新加载才盖遮罩：复用同一个已就绪的播放器时不必闪一下"视频加载中"
+            this.setPreviewLoadingVisible(true)
             frame.src = primaryUrl
             this._previewPausedByHide = false
         }
@@ -230,7 +244,14 @@ export const homeVideoPreviewFeatures = {
         }
         if (ready) {
             const doc = frame.contentDocument
-            if (doc) await this.enterPlayerWebFullscreen(doc)
+            if (doc) {
+                await this.enterPlayerWebFullscreen(doc)
+                // 铺满之后再注入"只留视频"的样式：放在进入之前会改变页面版式，干扰它自己进入网页全屏
+                this.applyPreviewPlayerStyle(doc)
+            }
+            // 铺满了（或尝试失败）才揭开遮罩：失败时也揭开，否则用户会永远停在"视频加载中"，
+            // 而这时播放器其实是可以用的（只是尺寸退回播放页默认版式）
+            this.setPreviewLoadingVisible(false)
             this.resumePreviewPlaybackIfPausedByHide()
             logger.debug(`首页视频预览丨播放页已就绪（${bvid}）`)
             return
@@ -242,9 +263,26 @@ export const homeVideoPreviewFeatures = {
         }
         this._previewUsingFallback = true
         frame.src = fallbackUrl
+        // 兜底播放器内部碰不到，加载状态无从判断，直接揭开遮罩
+        this.setPreviewLoadingVisible(false)
         if (titleEl) titleEl.textContent = ''
         dialog.root.setAttribute('aria-label', '视频预览')
         logger.warn(`首页视频预览丨播放页不可用，已回退官方外链播放器（${bvid}）`)
+    },
+    /** 显示/隐藏加载遮罩（元素由弹窗内容区创建，随弹窗缓存复用） */
+    setPreviewLoadingVisible (this: HomeVideoPreviewContext, visible: boolean): void {
+        this._previewLoadingEl?.classList.toggle('adj-video-preview-loading-hidden', !visible)
+    },
+    /**
+     * 注入"只留视频元素"的样式（幂等）。内容是模板注册表里的 `homePreviewPlayerCss`（可热更）：
+     * 去掉压在画面上的顶部标题/关注/提示条，并兜底隐藏播放器以外的整页内容。
+     */
+    applyPreviewPlayerStyle (this: HomeVideoPreviewContext, doc: Document): void {
+        if (!doc.head || doc.getElementById(PREVIEW_STYLE_ID)) return
+        const style = doc.createElement('style')
+        style.id = PREVIEW_STYLE_ID
+        style.textContent = getTemplates.homePreviewPlayerCss
+        doc.head.appendChild(style)
     },
     /**
      * 让播放器进入 **B 站自己的「网页全屏」**：这是本功能的关键一步 ——
@@ -333,6 +371,7 @@ export const homeVideoPreviewFeatures = {
         this._previewDialog?.destroy()
         this._previewDialog = null
         this._previewFrame = null
+        this._previewLoadingEl = null
         this._previewObserver?.disconnect()
         this._previewObserver = null
         logger.debug('首页视频预览丨已销毁')

@@ -8,6 +8,7 @@ import { biliApis } from '@/shared/bili-apis'
 import { sleep, executeFunctionsSequentially, isTabActive, monitorHrefChange, insertStyleToDocument } from '@/utils/common'
 import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
+import { isInsidePreviewFrame } from '@/utils/preview-frame'
 import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { regexps } from '@/shared/regexps'
@@ -159,6 +160,14 @@ export default {
         this._pauseVideoCleanup?.()
     },
     async preFunctions (this: VideoModuleContext): Promise<void> {
+        // 预览窗口（首页视频预览的 iframe）里**视频模块完全不介入播放页**：播放页在这里只是"播放器宿主"，
+        // 而模块的页面级自动化（屏幕模式切换、网页全屏解锁、页面滚动锁定、进度记忆…）会跟预览自己的
+        // 网页全屏和交互打架 —— 2026-09-25 实测：预览进网页全屏约 3 秒后被"屏幕模式"自动化切成宽屏/正常，
+        // 于是画面退出满屏。标记由父页面打在预览 iframe 上（见 utils/preview-frame）。
+        if (isInsidePreviewFrame()) {
+            logger.debug('预览窗口丨视频模块不介入播放页')
+            return
+        }
         await storageService.userSet('page_type', regexps.common.bangumiPath.test(location.pathname) ? 'bangumi' : 'video')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user') as Record<string, unknown>

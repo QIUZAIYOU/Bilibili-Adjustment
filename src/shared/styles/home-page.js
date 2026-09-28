@@ -272,8 +272,29 @@ export const homePageStyles = {
         }
         /* ========== 预览弹窗：视频贴边铺满，头部右侧放音量与「新标签页打开」 ========== */
         .adj-video-preview-dialog .adjustment-dialog-body {
+            /* 加载遮罩要绝对定位盖在 iframe 上 */
+            position: relative;
             padding: 0;
             background: var(--adj-bg-page);
+        }
+        /* 加载遮罩：播放器真的进入网页全屏铺满之后才揭开（否则看到的是播放页一点点加载、
+           播放器还没铺满的半成品画面） */
+        .adj-video-preview-loading {
+            position: absolute;
+            inset: 0;
+            z-index: var(--adj-z-popover);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--adj-bg-page);
+            color: var(--adj-text-soft);
+            font-size: var(--adj-font-base);
+            transition: var(--adj-motion-normal);
+        }
+        .adj-video-preview-loading-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
         }
         .adj-video-preview-frame {
             display: block;
