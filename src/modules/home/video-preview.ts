@@ -1,66 +1,40 @@
 import { LoggerService } from '@/services/logger.service'
-import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import type { AdjustmentDialogInstance } from '@/components/popover-dialog'
 import { createElementAndInsert, sleep } from '@/utils/common'
-import {
-    DEFAULT_PREVIEW_VOLUME,
-    VOLUME_CONFIG_KEY,
-    buildPreviewUrl,
-    extractPreviewBvid,
-    normalizePreviewTitle,
-    normalizePreviewVolume
-} from './video-preview-pure'
+import { buildPreviewUrl, extractPreviewBvid, normalizePreviewTitle } from './video-preview-pure'
 const logger = new LoggerService('HomeModule')
 /**
  * 首页视频预览
  *
  * 背景（2026-09-24 用户需求）：首页只想"瞄一眼"某个视频时，现在只能靠鼠标悬停的 B 站内联预览 ——
  * 画面只有卡片那么大、**没有声音**、**不能拖进度**。本功能在卡片封面左上角加一个预览按钮，
- * 点击后在弹窗里用**同源 html5 播放页**真正播放：有声音、有进度条（可拖）、画面大，
- * 且因为同源，我们能注入样式把播放器自带的 logo/评论/调起 APP 等元素去掉，做到"弹窗里只有视频"。
+ * 点击后在弹窗里真正播放。
  *
- * 关键取舍（都实测过）：
- * - 同源播放页 `www.bilibili.com/blackboard/html5mobileplayer.html`：`contentDocument` 可访问 → 可注入 CSS、
- *   可直接控制 `<video>`（音量/进度）；实测 `high_quality=1&qn=80` 可到 720P，未静音自动播放。
+ * 播放器选型（2026-09-25 换过一次，都是实测结论）：
+ * - ❌ 同源移动播放页 `blackboard/html5mobileplayer.html`：轻、稳、同源，但控制条**极其简陋**
+ *   （只有播放/进度/宽屏），声音、倍速、清晰度、弹幕、画中画、全屏全都没有；
+ *   自己往里塞控件（音量/单击暂停）则要跟它的覆盖层斗智（点击永远落在 `.mplayer-display` 上），
+ *   且永远做不出"和视频播放页一样"。
+ * - ✅ **视频播放页整页** + **让 B 站自己进入「网页全屏」**：控制条就是视频播放页那一套（音量/清晰度/倍速/
+ *   字幕/弹幕/画中画/宽屏/网页全屏/全屏/设置），样式与行为零维护成本地"完全对齐"，
+ *   「点画面暂停/播放」也是它自带的。网页全屏是 B 站自己的模式，播放器正好铺满 iframe，
+ *   我们不需要用 CSS 去钉版面（钉了反而会触发它的迷你播放器逻辑、把点击吃掉）。
  * - 官方外链播放器 `player.bilibili.com/player.html`：**跨源**，内部样式改不了（自带标题/UP 浮层会与我们的
  *   标题栏重复），仅作兜底 —— 兜底时把弹窗标题清空，只留右侧「新标签页打开 + 关闭」。
+ *
+ * 代价：视频播放页比移动播放页重（多拉页面数据），且我们自己的脚本也会在该 iframe 里跑一遍（它匹配 /video/）。
  */
 /** 关闭后保留弹窗实例的时长：期间再点别的视频直接复用（不重建 DOM，满足"所有预览共用一个弹窗"） */
 const PREVIEW_KEEP_ALIVE_MS = 10 * 60 * 1000
 /** 弹窗宽度 */
 const PREVIEW_DIALOG_WIDTH = 'min(1100px, 94vw)'
-/** 同源播放页最长等待（超时未出画面就回退官方外链播放器） */
-const SAME_ORIGIN_READY_TIMEOUT_MS = 6000
-/**
- * 注入同源播放页的样式：
- * - 去掉 B 站 logo、评论按钮、调起 APP 提示，并让控制条常显（弹窗里不需要"鼠标移入才出现"）；
- * - 音量控件落在**播放器自带工具栏**里（与宽屏/全屏按钮同级），故这里要覆盖 B 站给 `.mplayer-control-btn`
- *   定的 44px 固定宽度；图标与滑杆配色一律 `currentColor`（跟随播放器自身配色，也就不需要任何色值字面量）。
- */
-const PLAYER_INJECTED_CSS = `
-    .mplayer-panorama-logo,
-    .mplayer-btn-comment,
-    .mplayer-btn-comment-middle,
-    .mplayer-btn-comment-full,
-    .mplayer-comment-text-callapp,
-    .mplayer-video-tips { display: none !important; }
-    .mplayer-control-bar { opacity: 1 !important; }
-    .mplayer-control-bar-right .adj-preview-volume { width: auto !important; gap: 6px; padding: 0 4px; }
-    .adj-preview-volume svg { display: block; flex: none; }
-    /* 滑杆的 color 必须显式 inherit：表单控件不继承文字色，Chrome 会给它自己的近黑色（#101010），
-       那样 accent-color: currentColor 算出来就是几乎看不见的近黑滑杆 */
-    .adj-preview-volume-slider { width: 72px; margin: 0; color: inherit; accent-color: currentColor; cursor: pointer; }
-`
-const INJECTED_STYLE_ID = 'adj-preview-player-style'
-/** 播放器内音量控件的类名（也是"是否已注入"的幂等判据） */
-const PLAYER_VOLUME_CLASS = 'adj-preview-volume'
-/** 播放器内音量滑杆的类名 */
-const PLAYER_VOLUME_SLIDER_CLASS = 'adj-preview-volume-slider'
-/** 视频区已绑定「单击暂停/播放」的标记（打在 B 站元素上，按文档幂等） */
-const PLAYER_CLICK_BOUND_ATTR = 'data-adj-preview-click-bound'
+/** 播放页最长等待（超时未出画面就回退官方外链播放器）—— 视频播放页比移动播放页慢，留宽一点 */
+const SAME_ORIGIN_READY_TIMEOUT_MS = 12000
+/** 等播放器渲染出「网页全屏」按钮的上限（控制条是悬停后才渲染的） */
+const WEB_FULLSCREEN_BUTTON_TIMEOUT_MS = 6000
 /** 首页视频预览特性上下文（由 home.module 的模块实例混入） */
 export interface HomeVideoPreviewContext {
     userConfigs: Record<string, unknown>
@@ -78,9 +52,7 @@ export interface HomeVideoPreviewContext {
     _previewLoading?: boolean
     initVideoPreview: () => Promise<void>
     injectVideoPreviewButtons: () => void
-    applySameOriginPlayerStyle: (volume: number) => void
-    injectPlayerControls: (doc: Document, volume: number) => void
-    togglePlayerPlayback: (doc: Document) => void
+    enterPlayerWebFullscreen: (doc: Document) => Promise<boolean>
     pausePreviewPlayback: () => void
     resumePreviewPlaybackIfPausedByHide: () => void
     isPreviewDialogOpen: () => boolean
@@ -102,12 +74,6 @@ const readCardInfo = (wrap: Element): { bvid: string, title: string } | null => 
     const title = normalizePreviewTitle(titleSelectorValue ? card?.querySelector(titleSelectorValue)?.textContent : '')
     return { bvid, title }
 }
-/** 用**目标文档**建元素（模板仍走注册表） */
-const createElementIn = (doc: Document, html: string): HTMLElement | null => {
-    const holder = doc.createElement('div')
-    holder.innerHTML = html.trim()
-    return holder.firstElementChild as HTMLElement | null
-}
 /** 给弹窗标题栏加我们的自定义控件（只有一颗「新标签页打开」图标；关闭按钮由弹窗壳自带） */
 const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
     const wrap = document.createElement('div')
@@ -123,42 +89,28 @@ const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
     })
     return wrap
 }
+/** 取预览 iframe 里的播放器 `<video>`（选择器走注册表：`#bilibili-player video`；跨源时返回 null） */
+const previewVideoElement = (frame?: HTMLIFrameElement | null): HTMLVideoElement | null => {
+    const doc = frame?.contentDocument
+    if (!doc) return null
+    const selector = elementSelectors.CSS('video')
+    return (selector ? doc.querySelector(selector) : doc.querySelector('video')) as HTMLVideoElement | null
+}
 /**
- * 等同一源播放页真的出画面；等待期间**持续**套用我们的样式与音量（否则换视频后重新加载的那一瞬间
- * 会有 logo 闪现、音量回到 100%）。超时返回 false（调用方据此回退官方外链播放器）。
- */
-/**
- * 等同一源播放页真的加载出「我们刚设的这个地址」并且出画面；等待期间**持续**套用样式与音量
- * （否则换视频后重新加载的那一瞬间会有 logo 闪现、音量回到 100%）。超时返回 false → 调用方回退官方外链播放器。
+ * 等播放页真的加载出**我们要的那条视频**并且出画面；超时返回 false（调用方据此回退官方外链播放器）。
  *
- * ⚠️ 必须比对文档地址：在**已有 iframe** 上换视频时，一开始 `contentDocument` 还是**上一条视频**的文档
- * （同源、视频已就绪），只判 `video.readyState` 会立刻误判"就绪"，导致新视频加载完成后既没有我们的样式、
- * 音量也回到 100%（2026-09-24 夹具实测踩到）。
+ * ⚠️ 必须确认文档换成新视频：在**已有 iframe** 上换视频时，一开始 `contentDocument` 还是**上一条视频**的文档
+ * （同源、视频已就绪），只判 `video.readyState` 会立刻误判"就绪"（2026-09-24 夹具实测踩到）。
+ * 判据用「文档地址里含目标 bvid」而不是整串 URL 比对 —— 播放页会自己往地址上追加参数、也可能改路径尾斜杠，
+ * 整串比对会莫名其妙判失败并回退兜底播放器。
  */
-const waitForSameOriginPlayer = async (context: HomeVideoPreviewContext, frame: HTMLIFrameElement, volume: number, expectedUrl: string, timeout = SAME_ORIGIN_READY_TIMEOUT_MS): Promise<boolean> => {
+const waitForSameOriginPlayer = async (frame: HTMLIFrameElement, bvid: string, timeout = SAME_ORIGIN_READY_TIMEOUT_MS): Promise<boolean> => {
     const deadline = Date.now() + timeout
-    let expected: URL | null = null
-    try {
-        expected = new URL(expectedUrl, location.href)
-    } catch { /* 模板地址非法时退化为"只等视频就绪" */ }
-    const isExpectedDocument = (doc: Document | null): boolean => {
-        if (!doc) return false
-        const url = doc.URL
-        // 刚设上 src 时 contentDocument 还是初始 about:blank 占位文档（同源，会被立刻替换）
-        if (!url || url === 'about:blank') return false
-        if (!expected) return true
-        try {
-            const actual = new URL(url)
-            return actual.pathname === expected.pathname && actual.search === expected.search
-        } catch {
-            return false
-        }
-    }
     while (Date.now() < deadline) {
         const doc = frame.contentDocument
-        if (isExpectedDocument(doc) && doc) {
-            context.applySameOriginPlayerStyle?.(volume)
-            const video = doc.querySelector('video')
+        // 刚设上 src 时 contentDocument 还是初始 about:blank 占位文档（同源，会被立刻替换）
+        if (doc && doc.URL && doc.URL !== 'about:blank' && doc.URL.includes(bvid)) {
+            const video = previewVideoElement(frame)
             if (video && video.readyState > 0) return true
         }
         await sleep(300)
@@ -226,7 +178,6 @@ export const homeVideoPreviewFeatures = {
         if (!bvid) return
         this._previewBvid = bvid
         this._previewUsingFallback = false
-        const volume = normalizePreviewVolume(this.userConfigs[VOLUME_CONFIG_KEY], DEFAULT_PREVIEW_VOLUME)
         const dialog = openAdjustmentDialog({
             key: 'home-video-preview',
             keepAliveMs: PREVIEW_KEEP_ALIVE_MS,
@@ -269,7 +220,7 @@ export const homeVideoPreviewFeatures = {
             this._previewPausedByHide = false
         }
         this._previewLoading = true
-        const ready = await waitForSameOriginPlayer(this, frame, volume, primaryUrl)
+        const ready = await waitForSameOriginPlayer(frame, bvid)
         this._previewLoading = false
         // 等待期间用户把弹窗关了：别再恢复播放，也别继续加载（否则页面加载完自己就播起来、关了还在响）
         if (!this.isPreviewDialogOpen()) {
@@ -278,9 +229,10 @@ export const homeVideoPreviewFeatures = {
             return
         }
         if (ready) {
-            this.applySameOriginPlayerStyle(volume)
+            const doc = frame.contentDocument
+            if (doc) await this.enterPlayerWebFullscreen(doc)
             this.resumePreviewPlaybackIfPausedByHide()
-            logger.debug(`首页视频预览丨同源播放页已就绪（${bvid}）`)
+            logger.debug(`首页视频预览丨播放页已就绪（${bvid}）`)
             return
         }
         // 兜底：官方外链播放器（跨源，改不了它的内部样式，标题交给它自带的浮层显示）
@@ -292,79 +244,49 @@ export const homeVideoPreviewFeatures = {
         frame.src = fallbackUrl
         if (titleEl) titleEl.textContent = ''
         dialog.root.setAttribute('aria-label', '视频预览')
-        logger.warn(`首页视频预览丨同源播放页不可用，已回退官方外链播放器（${bvid}）`)
-    },
-    /** 给同源播放页注入样式、套用音量，并挂上音量控件与「单击暂停/播放」（跨源时静默跳过） */
-    applySameOriginPlayerStyle (this: HomeVideoPreviewContext, volume: number): void {
-        const doc = this._previewFrame?.contentDocument
-        if (!doc?.head) return
-        if (!doc.getElementById(INJECTED_STYLE_ID)) {
-            const style = doc.createElement('style')
-            style.id = INJECTED_STYLE_ID
-            style.textContent = PLAYER_INJECTED_CSS
-            doc.head.appendChild(style)
-        }
-        const video = doc.querySelector('video')
-        if (video) video.volume = volume
-        // 注入失败不能连累调用方：本方法在等待播放页就绪的轮询里被反复调用，异常会一路穿过
-        // waitForSameOriginPlayer → openVideoPreview，把「恢复播放/回退兜底/清加载标记」全部打断
-        // （2026-09-24 就是这样让音量控件与单击绑定一起消失的）
-        try {
-            this.injectPlayerControls(doc, volume)
-        } catch (error) {
-            logger.error('首页视频预览丨播放器控件注入失败', error)
-        }
+        logger.warn(`首页视频预览丨播放页不可用，已回退官方外链播放器（${bvid}）`)
     },
     /**
-     * 在播放页里挂两样东西（等待播放页就绪期间会被反复调用，故必须幂等）：
-     * - 音量控件：插进**播放器自带的右侧工具栏**（进度条右边、与宽屏/全屏按钮同一条），拖动即改 `<video>.volume`，
-     *   松手才写库（遵守 P0-3 的批量/低频写入约定）；
-     * - 单击视频区暂停/播放：这套 html5 播放页自己**不支持**点击切换（实测 click 后 `paused` 不变），
-     *   所以由我们绑；监听挂在 `.mplayer-video-wrap` 上，控制条在同级的 `.mplayer-display` 里，
-     *   点控件不会误触发。
+     * 让播放器进入 **B 站自己的「网页全屏」**：这是本功能的关键一步 ——
+     * 视频播放页整页塞进弹窗后，只有网页全屏（B 站自己的模式）能让播放器正好铺满 iframe，
+     * 并且完全保留它自己的控制条与原生行为；我们因此不需要自己造音量/单击暂停等任何控件，
+     * 也不需要用 CSS 去钉版面（钉版面会触发它的迷你播放器逻辑，反而把点击吃掉）。
+     *
+     * 控制条是**悬停后才渲染**的，所以先合成一次鼠标进入，再轮询「网页全屏」按钮；进不去也不影响播放
+     * （用户可自己点那个按钮），只是画面尺寸会退回播放页默认版式。
      */
-    injectPlayerControls (this: HomeVideoPreviewContext, doc: Document, volume: number): void {
-        const toolbarSelector = elementSelectors.CSS('previewPlayerRightToolbar')
-        const toolbar = toolbarSelector ? doc.querySelector(toolbarSelector) : null
-        if (toolbar && !toolbar.querySelector(`.${PLAYER_VOLUME_CLASS}`)) {
-            // ⚠️ 必须用 iframe 自己的 document 建元素：`createElementAndInsert` 里的 `target instanceof Node`
-            // 用的是**顶层窗口**的 Node 构造器，跨文档的 iframe 元素一律判定失败并抛
-            // 「Target must be a valid DOM node」—— 2026-09-24 实测就是它让音量控件与单击绑定**双双失效**
-            // （异常从 waitForSameOriginPlayer 的轮询里抛出，后面所有初始化一起中断）
-            const control = createElementIn(doc, getTemplates.homePreviewVolumeControl)
-            const slider = control?.querySelector(`.${PLAYER_VOLUME_SLIDER_CLASS}`) as HTMLInputElement | null
-            if (control && slider) {
-                toolbar.prepend(control)
-                slider.value = String(volume)
-                const applyVolume = (value: number): void => {
-                    const video = doc.querySelector('video')
-                    if (video) video.volume = value
-                }
-                slider.addEventListener('input', () => applyVolume(normalizePreviewVolume(slider.value)))
-                slider.addEventListener('change', () => {
-                    const value = normalizePreviewVolume(slider.value)
-                    applyVolume(value)
-                    // 同步进内存配置：否则同一次会话里再打开预览会用旧值把音量覆盖回去
-                    this.userConfigs[VOLUME_CONFIG_KEY] = value
-                    void storageService.userSet(VOLUME_CONFIG_KEY, value)
-                })
-            } else {
-                logger.warn('首页视频预览丨音量控件模板异常，已跳过注入')
+    async enterPlayerWebFullscreen (this: HomeVideoPreviewContext, doc: Document): Promise<boolean> {
+        const buttonSelector = elementSelectors.CSS('playerWebFullscreenButton')
+        const playerSelector = elementSelectors.CSS('player')
+        const player = playerSelector ? doc.querySelector(playerSelector) : null
+        if (!buttonSelector || !player) return false
+        player.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }))
+        player.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
+        const deadline = Date.now() + WEB_FULLSCREEN_BUTTON_TIMEOUT_MS
+        let button: HTMLElement | null = null
+        while (Date.now() < deadline && !button) {
+            button = doc.querySelector(buttonSelector) as HTMLElement | null
+            if (!button) {
+                player.dispatchEvent(new MouseEvent('mousemove', { bubbles: true }))
+                await sleep(200)
             }
         }
-        const wrapSelector = elementSelectors.CSS('previewPlayerVideoWrap')
-        const videoWrap = wrapSelector ? doc.querySelector(wrapSelector) : null
-        if (videoWrap && !videoWrap.hasAttribute(PLAYER_CLICK_BOUND_ATTR)) {
-            videoWrap.setAttribute(PLAYER_CLICK_BOUND_ATTR, '')
-            videoWrap.addEventListener('click', () => this.togglePlayerPlayback(doc))
+        if (!button) {
+            logger.warn('首页视频预览丨未等到播放器「网页全屏」按钮，保持播放页默认版式')
+            return false
         }
-    },
-    /** 播放器单击切换：按当前状态决定播还是停（自动播放被浏览器拦下时静默忽略） */
-    togglePlayerPlayback (this: HomeVideoPreviewContext, doc: Document): void {
-        const video = doc.querySelector('video')
-        if (!video) return
-        if (video.paused) void video.play().catch(() => { /* 被自动播放策略拦下：保持暂停，用户点播放键即可 */ })
-        else video.pause()
+        button.click()
+        await sleep(400)
+        // 用几何验证是否真的铺满了（不依赖 B 站的态类名）
+        const view = doc.defaultView
+        const rect = player.getBoundingClientRect()
+        const filled = !!view && rect.width >= view.innerWidth - 2 && rect.height >= view.innerHeight - 2
+        if (filled) {
+            logger.debug('首页视频预览丨播放器已进入网页全屏')
+            return true
+        }
+        logger.warn('首页视频预览丨播放器网页全屏未生效，保持播放页默认版式')
+        return false
     },
     /** 预览弹窗当前是否处于打开状态 */
     isPreviewDialogOpen (this: HomeVideoPreviewContext): boolean {
@@ -375,8 +297,8 @@ export const homeVideoPreviewFeatures = {
      *
      * 弹窗按 keepAlive 缓存复用，关闭只是隐藏 —— 不处理的话 iframe 里的播放器会继续播、用户关了还听得见声音。
      * 三种情况分别处理：
-     * - 同源播放页已就绪：直接 `pause()`（保留已加载页面，下次打开接着看）；
-     * - **还在加载中**：暂停旧文档没有意义（新页面加载完会按 `autoplay=1` 自己播），直接卸载成 `about:blank`；
+     * - 播放页已就绪：直接 `pause()`（保留已加载页面，下次打开接着看）；
+     * - **还在加载中**：暂停旧文档没有意义（新页面加载完会自己播起来），直接卸载成 `about:blank`；
      * - 兜底的官方外链播放器（跨源，父页面碰不到它内部）：同样卸载 iframe 来立刻静音。
      */
     pausePreviewPlayback (this: HomeVideoPreviewContext): void {
@@ -388,7 +310,7 @@ export const homeVideoPreviewFeatures = {
             logger.debug('首页视频预览丨加载期间关闭弹窗，已卸载播放器')
             return
         }
-        const video = frame.contentDocument?.querySelector('video')
+        const video = previewVideoElement(frame)
         if (video) {
             if (!video.paused) this._previewPausedByHide = true
             video.pause()
@@ -403,7 +325,7 @@ export const homeVideoPreviewFeatures = {
         if (!this._previewPausedByHide) return
         this._previewPausedByHide = false
         if (!this.isPreviewDialogOpen()) return
-        const video = this._previewFrame?.contentDocument?.querySelector('video')
+        const video = previewVideoElement(this._previewFrame)
         if (!video) return
         void video.play().catch(() => { /* 自动播放被拦时保持暂停，用户点播放即可 */ })
     },

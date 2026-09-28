@@ -2,13 +2,11 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
 import {
-    DEFAULT_PREVIEW_VOLUME,
     FALLBACK_PREVIEW_TITLE,
     PREVIEW_BVID_PLACEHOLDER,
     buildPreviewUrl,
     extractPreviewBvid,
-    normalizePreviewTitle,
-    normalizePreviewVolume
+    normalizePreviewTitle
 } from '@/modules/home/video-preview-pure'
 import { getTemplates } from '@/shared/templates'
 /**
@@ -31,17 +29,17 @@ test('取不到 bvid 时返回 null（该类卡片不注入预览按钮）', () 
 })
 test('按模板拼播放地址：占位符被替换且模板本身可热更', () => {
     const url = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, 'BV1Qq7m6PEuA')
-    assert.match(url, /html5mobileplayer\.html\?bvid=BV1Qq7m6PEuA/)
-    assert.match(url, /autoplay=1/)
     assert.equal(buildPreviewUrl('//x/?bvid=[[BVID]]', 'BV1a'), '//x/?bvid=BV1a')
     assert.equal(buildPreviewUrl('', 'BV1a'), '')
     assert.equal(PREVIEW_BVID_PLACEHOLDER, '[[BVID]]')
+    assert.match(url, /BV1Qq7m6PEuA/)
 })
-test('主用同源播放页、兜底官方外链播放器，两者都是 B 站可用地址', () => {
+test('主用同源视频播放页、兜底官方外链播放器，两者都是 B 站可用地址', () => {
     const primary = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, 'BV1a')
     const fallback = buildPreviewUrl(getTemplates.homePreviewPlayerUrlFallback, 'BV1a')
-    // 同源（与首页同域）才能拿 contentDocument 注入样式 / 控音量
-    assert.match(primary, /^\/\/www\.bilibili\.com\//)
+    // 主用必须是 www.bilibili.com 同源地址：预览靠 B 站自己的「网页全屏」铺满，且要能拿到 contentDocument
+    // 去点击那个「网页全屏」按钮（跨源就完全碰不到）。也别退回成移动播放页 —— 它的控制条只有播放/进度/宽屏。
+    assert.match(primary, /^\/\/www\.bilibili\.com\/video\//)
     assert.notEqual(primary, fallback)
     assert.match(fallback, /player\.bilibili\.com/)
 })
@@ -49,12 +47,4 @@ test('标题清洗：折叠空白、空标题用兜底文案', () => {
     assert.equal(normalizePreviewTitle('  这是\n  标题  '), '这是 标题')
     assert.equal(normalizePreviewTitle(''), FALLBACK_PREVIEW_TITLE)
     assert.equal(normalizePreviewTitle(null), FALLBACK_PREVIEW_TITLE)
-})
-test('音量归一：夹到 0~1，非法值回落默认值', () => {
-    assert.equal(normalizePreviewVolume('0.5'), 0.5)
-    assert.equal(normalizePreviewVolume(1.7), 1)
-    assert.equal(normalizePreviewVolume(-1), 0)
-    assert.equal(normalizePreviewVolume('abc'), DEFAULT_PREVIEW_VOLUME)
-    assert.equal(normalizePreviewVolume(null), DEFAULT_PREVIEW_VOLUME)
-    assert.equal(normalizePreviewVolume(undefined, 0.3), 0.3)
 })
