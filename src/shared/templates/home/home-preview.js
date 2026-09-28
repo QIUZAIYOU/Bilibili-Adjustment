@@ -24,8 +24,9 @@ export const homePreviewTemplates = {
     /**
      * 加载遮罩：盖在 iframe 上，**只有播放器真的进入网页全屏铺满之后**才揭开 ——
      * 否则用户看到的是播放页一点点加载、播放器还没铺满的半成品画面（比干等更难受）。
+     * 内容 = 仿播放器版式的骨架屏（一块「画面」+ 一条「底部控制条」，整体扫光）+ 转圈与文案。
      */
-    homePreviewLoading: '<div class="adj-video-preview-loading" role="status" bilibili-adjustment-element>视频加载中</div>',
+    homePreviewLoading: '<div class="adj-video-preview-loading" role="status" bilibili-adjustment-element><div class="adj-video-preview-skeleton" aria-hidden="true"><div class="adj-video-preview-skeleton-screen"></div><div class="adj-video-preview-skeleton-bar"></div></div><div class="adj-video-preview-loading-status"><div class="loading-spinner" aria-hidden="true"></div><span>视频加载中</span></div></div>',
     homePreviewPlayerUrlFallback: '//player.bilibili.com/player.html?bvid=[[BVID]]&autoplay=1&danmaku=0&high_quality=1&as_wide=1',
     homePreviewVideoPageUrl: '//www.bilibili.com/video/[[BVID]]',
     /**

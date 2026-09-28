@@ -195,7 +195,8 @@ export const homePageStyles = {
             color: var(--adj-text-disabled);
             font-size: var(--adj-font-sm);
         }
-        #indexRecommendVideoHistoryList .loading-state .loading-spinner {
+        #indexRecommendVideoHistoryList .loading-state .loading-spinner,
+        .adj-video-preview-loading .loading-spinner {
             width: 24px;
             height: 24px;
             border: 2px solid var(--adj-border-strong);
@@ -278,18 +279,52 @@ export const homePageStyles = {
             background: var(--adj-bg-page);
         }
         /* 加载遮罩：播放器真的进入网页全屏铺满之后才揭开（否则看到的是播放页一点点加载、
-           播放器还没铺满的半成品画面） */
+           播放器还没铺满的半成品画面）。内容 = 仿播放器版式的骨架屏 + 转圈文案 */
         .adj-video-preview-loading {
             position: absolute;
             inset: 0;
             z-index: var(--adj-z-popover);
+            background: var(--adj-bg-page);
+            transition: var(--adj-motion-normal);
+        }
+        /* 骨架屏：一块「画面」+ 一条「底部控制条」（高度对齐播放器控制条），整体扫光 */
+        .adj-video-preview-skeleton {
+            position: absolute;
+            inset: var(--adj-space-lg);
             display: flex;
+            flex-direction: column;
+            gap: var(--adj-space-md);
+        }
+        .adj-video-preview-skeleton-screen {
+            flex: 1 1 auto;
+            border-radius: var(--adj-radius-lg);
+        }
+        .adj-video-preview-skeleton-bar {
+            flex: none;
+            height: 44px;
+            border-radius: var(--adj-radius-sm);
+        }
+        .adj-video-preview-skeleton-screen,
+        .adj-video-preview-skeleton-bar {
+            background: linear-gradient(90deg, var(--adj-bg-surface) 25%, var(--adj-bg-surface-hover) 37%, var(--adj-bg-surface) 63%);
+            background-size: 400% 100%;
+            animation: adj-preview-skeleton 1.4s ease-in-out infinite;
+        }
+        @keyframes adj-preview-skeleton {
+            from { background-position: 100% 50%; }
+            to { background-position: 0 50%; }
+        }
+        /* 骨架屏之上：转圈 + 文案（居中） */
+        .adj-video-preview-loading-status {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
             align-items: center;
             justify-content: center;
-            background: var(--adj-bg-page);
-            color: var(--adj-text-soft);
+            gap: var(--adj-space-sm);
+            color: var(--adj-text-secondary);
             font-size: var(--adj-font-base);
-            transition: var(--adj-motion-normal);
         }
         .adj-video-preview-loading-hidden {
             opacity: 0;
