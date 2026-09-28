@@ -28,9 +28,9 @@
         "javascript-obfuscator": "^4.1.1",
         "terser": "^5.51.2",
         "typescript": "^6.0.3",
-        "typescript-eslint": "^8.70.0",
+        "typescript-eslint": "^8.70.1",
         "vite": "^6.4.3",
-        "vite-plugin-bundle-obfuscator": "^1.4.2",
+        "vite-plugin-bundle-obfuscator": "^1.13.2",
         "vite-plugin-monkey": "^5.0.8",
         "vue-tsc": "^3.3.11"
     },
