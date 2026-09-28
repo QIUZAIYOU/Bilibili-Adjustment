@@ -242,21 +242,33 @@ export const homePageStyles = {
             color: var(--adj-on-brand);
         }
         /* ========== 首页悬浮按钮组里的「脚本设置」入口（只要图标不要文字） ========== */
-        /* 尺寸/间距对齐 B 站自带子项（实测 40×40、margin-top 6px、色值约 #969696 → 用主题 token） */
+        /* 与 B 站自带的「稍后再看」按钮同款圆角面板（实测 40×40、radius 6px、1px 边框、24px 图标；
+           面板底/边/图标色在「夜间哔哩」下与主题 token 的 bg-surface / border-strong / text-soft 一致，故全部走 var(--adj-*)）。
+           它是父元素第一位：B 站子项各自带 margin-top（首位的稍后再看为 0、其余 6px），
+           故这里用 margin-bottom 与下方「稍后再看」保持其余子项同样的 6px 间距 */
         .adj-palette-settings-btn {
             display: flex;
             align-items: center;
             justify-content: center;
+            box-sizing: border-box;
             width: 40px;
             height: 40px;
-            margin: 6px 0 0;
+            margin: 0 0 6px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-sm);
+            background: var(--adj-bg-surface);
             color: var(--adj-text-soft);
             cursor: pointer;
             user-select: none;
             transition: var(--adj-motion-fast);
         }
         .adj-palette-settings-btn:hover {
-            color: var(--adj-brand);
+            background: var(--adj-bg-surface-hover);
+        }
+        .adj-palette-settings-btn svg {
+            display: block;
+            width: 24px;
+            height: 24px;
         }
         /* ========== 预览弹窗：视频贴边铺满，头部右侧放音量与「新标签页打开」 ========== */
         .adj-video-preview-dialog .adjustment-dialog-body {
