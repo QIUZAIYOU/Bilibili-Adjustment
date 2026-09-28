@@ -54,9 +54,18 @@ export interface HomeVideoPreviewContext {
     _previewBound?: boolean
     _previewBvid?: string
     _previewUsingFallback?: boolean
+    /** 关闭弹窗时是否已绑定"停止播放"监听（只绑一次） */
+    _previewHideBound?: boolean
+    /** 是否是"因为关闭弹窗而暂停"（用于下次打开同一视频时接着播） */
+    _previewPausedByHide?: boolean
+    /** 是否正在等待同源播放页就绪（加载中关弹窗只能卸载 iframe，暂停旧文档没用） */
+    _previewLoading?: boolean
     initVideoPreview: () => Promise<void>
     injectVideoPreviewButtons: () => void
     applySameOriginPlayerStyle: (volume: number) => void
+    pausePreviewPlayback: () => void
+    resumePreviewPlaybackIfPausedByHide: () => void
+    isPreviewDialogOpen: () => boolean
     openVideoPreview: (bvid: string, title: string) => Promise<void>
     destroyVideoPreview: () => void
 }
@@ -238,6 +247,15 @@ export const homeVideoPreviewFeatures = {
             }
         })
         this._previewDialog = dialog
+        // ⚠️ 弹窗按 `keepAliveMs` 缓存复用 —— 关闭只是**隐藏**，iframe 与里面的播放器会继续播（用户能听见声音）。
+        // 弹窗壳的 `onClosed` 只在真正销毁时触发，所以这里直接听 popover 的 toggle：关闭即停止播放。
+        if (!this._previewHideBound) {
+            this._previewHideBound = true
+            dialog.root.addEventListener('toggle', (event: Event) => {
+                if ((event as ToggleEvent).newState !== 'closed') return
+                this.pausePreviewPlayback()
+            })
+        }
         // 复用已存在的弹窗时，标题与「新标签页打开」的目标要跟着换（同 key 单例不会重建 DOM）
         const titleEl = dialog.header.querySelector('.adjustment-dialog-title')
         if (titleEl) titleEl.textContent = title
@@ -249,14 +267,32 @@ export const homeVideoPreviewFeatures = {
         if (slider) slider.value = String(volume)
         const primaryUrl = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, bvid)
         const fallbackUrl = buildPreviewUrl(getTemplates.homePreviewPlayerUrlFallback, bvid)
-        frame.src = primaryUrl
+        // 已是同一地址（缓存复用）就不要重设 src：给 iframe.src 赋相同值也会触发重新加载，
+        // 白白丢掉已缓冲的进度（UP主空间弹窗同款处理）
+        if (frame.getAttribute('src') !== primaryUrl) {
+            frame.src = primaryUrl
+            this._previewPausedByHide = false
+        }
+        this._previewLoading = true
         const ready = await waitForSameOriginPlayer(this, frame, volume, primaryUrl)
+        this._previewLoading = false
+        // 等待期间用户把弹窗关了：别再恢复播放，也别继续加载（否则页面加载完自己就播起来、关了还在响）
+        if (!this.isPreviewDialogOpen()) {
+            frame.src = 'about:blank'
+            logger.debug('首页视频预览丨加载期间弹窗已被关闭，已卸载播放器')
+            return
+        }
         if (ready) {
             this.applySameOriginPlayerStyle(volume)
+            this.resumePreviewPlaybackIfPausedByHide()
             logger.debug(`首页视频预览丨同源播放页已就绪（${bvid}）`)
             return
         }
         // 兜底：官方外链播放器（跨源，改不了它的内部样式，标题交给它自带的浮层显示）
+        if (!this.isPreviewDialogOpen()) {
+            frame.src = 'about:blank'
+            return
+        }
         this._previewUsingFallback = true
         frame.src = fallbackUrl
         if (titleEl) titleEl.textContent = ''
@@ -275,6 +311,47 @@ export const homeVideoPreviewFeatures = {
         }
         const video = doc.querySelector('video')
         if (video) video.volume = volume
+    },
+    /** 预览弹窗当前是否处于打开状态 */
+    isPreviewDialogOpen (this: HomeVideoPreviewContext): boolean {
+        return !!this._previewDialog?.root?.matches(':popover-open')
+    },
+    /**
+     * 关闭弹窗时停止播放。
+     *
+     * 弹窗按 keepAlive 缓存复用，关闭只是隐藏 —— 不处理的话 iframe 里的播放器会继续播、用户关了还听得见声音。
+     * 三种情况分别处理：
+     * - 同源播放页已就绪：直接 `pause()`（保留已加载页面，下次打开接着看）；
+     * - **还在加载中**：暂停旧文档没有意义（新页面加载完会按 `autoplay=1` 自己播），直接卸载成 `about:blank`；
+     * - 兜底的官方外链播放器（跨源，父页面碰不到它内部）：同样卸载 iframe 来立刻静音。
+     */
+    pausePreviewPlayback (this: HomeVideoPreviewContext): void {
+        const frame = this._previewFrame
+        if (!frame) return
+        this._previewPausedByHide = false
+        if (this._previewLoading) {
+            frame.src = 'about:blank'
+            logger.debug('首页视频预览丨加载期间关闭弹窗，已卸载播放器')
+            return
+        }
+        const video = frame.contentDocument?.querySelector('video')
+        if (video) {
+            if (!video.paused) this._previewPausedByHide = true
+            video.pause()
+            logger.debug('首页视频预览丨弹窗已关闭，已暂停播放')
+            return
+        }
+        frame.src = 'about:blank'
+        logger.debug('首页视频预览丨弹窗已关闭，已卸载跨源播放器')
+    },
+    /** 重新打开同一视频时，如果上次是"因为关闭而暂停"、且弹窗确实开着，就接着播 */
+    resumePreviewPlaybackIfPausedByHide (this: HomeVideoPreviewContext): void {
+        if (!this._previewPausedByHide) return
+        this._previewPausedByHide = false
+        if (!this.isPreviewDialogOpen()) return
+        const video = this._previewFrame?.contentDocument?.querySelector('video')
+        if (!video) return
+        void video.play().catch(() => { /* 自动播放被拦时保持暂停，用户点播放即可 */ })
     },
     destroyVideoPreview (this: HomeVideoPreviewContext): void {
         this._previewDialog?.destroy()
