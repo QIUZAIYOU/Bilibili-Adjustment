@@ -7,12 +7,13 @@ import { EVENT_NAMES } from '@/shared/constants'
 import { styles } from '@/shared/styles'
 import { homeHistoryFeatures } from './history'
 import { homePaidMarkFeatures } from './paid-mark'
+import { homeVideoPreviewFeatures } from './video-preview'
+import type { HomeVideoPreviewContext } from './video-preview'
 const logger = new LoggerService('HomeModule')
 /** 首页模块实例上下文（名与方法由本对象与展开的 features 提供） */
-interface HomeModuleContext {
+interface HomeModuleContext extends HomeVideoPreviewContext {
     name: string
     version: string
-    userConfigs: Record<string, unknown>
     _cleanup: Array<() => void>
     _historyListClickBound?: boolean
     _historySearchCleanup?: (() => void) | null
@@ -29,6 +30,7 @@ export default {
     version: '3.35.4',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
+    ...homeVideoPreviewFeatures,
     async install (this: HomeModuleContext): Promise<void> {
         this._cleanup = []
         this._cleanup.push(eventBus.on(EVENT_NAMES.APP_READY, async () => {
@@ -46,6 +48,9 @@ export default {
             (HTMLElement & { __popoverDismissCleanup?: () => void }) | null
         historyPopover?.__popoverDismissCleanup?.()
         historyPopover?.remove()
+        // 视频预览：销毁弹窗/观察者并清掉注入的按钮
+        this.destroyVideoPreview()
+        document.querySelectorAll('.adj-video-preview-btn').forEach(el => el.remove())
         insertStyleToDocument({ 'IndexAdjustmentStyle': '' })
     },
     async preFunctions (this: HomeModuleContext): Promise<void> {
@@ -73,7 +78,9 @@ export default {
             // 按钮插入提前并与其他功能并行，避免等记录完成才出现
             () => this.insertIndexRecommendVideoHistoryPopover(),
             () => this.setRecordRecommendVideoHistory(),
-            () => this.markRecommendVideoPaidStatus()
+            () => this.markRecommendVideoPaidStatus(),
+            // 视频预览按钮（功能关闭时内部直接返回，不产生任何 DOM/监听）
+            () => this.initVideoPreview()
         ]
         executeFunctionsSequentially(functions, { concurrency: 3 })
     }

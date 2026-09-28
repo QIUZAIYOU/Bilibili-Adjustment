@@ -22,6 +22,17 @@ interface RetryTask {
     /** 下一次允许尝试的时间点（退避用） */
     nextAt: number
 }
+/** RetryQueue 的构造选项 */
+export interface RetryQueueOptions {
+    /** 首次重试间隔（毫秒） */
+    intervalMs?: number
+    /** 默认重试预算（毫秒） */
+    budgetMs?: number
+    /** 注入当前时间（测试用假时钟） */
+    now?: () => number
+    /** 是否自行安排定时器（默认 true；测试可关掉改为手动 drain） */
+    autoSchedule?: boolean
+}
 /** register 的可选策略 */
 export interface RetryOptions {
     /** 重试预算（毫秒），默认 3 分钟；传 0 表示不限时（一直重试到成功或页面离开） */
@@ -60,9 +71,15 @@ export class RetryQueue {
     private _drainTimer: ReturnType<typeof setTimeout> | null = null
     /** 并发保护：同一时刻只跑一轮 drain，避免重复累加 attempts */
     private _draining = false
-    constructor (options: { intervalMs?: number, budgetMs?: number } = {}) {
+    /** 当前时间（测试可注入假时钟，避免用真实定时器测策略） */
+    private readonly _now: () => number
+    /** 是否自行安排定时器；测试关掉后可手动调用 drain()，时序完全确定 */
+    private readonly _autoSchedule: boolean
+    constructor (options: RetryQueueOptions = {}) {
         this.intervalMs = options.intervalMs ?? DEFAULT_RETRY_INTERVAL_MS
         this.budgetMs = options.budgetMs ?? DEFAULT_RETRY_BUDGET_MS
+        this._now = options.now ?? Date.now
+        this._autoSchedule = options.autoSchedule ?? true
     }
     /**
      * 注册一个失败任务用于重试（重复注册同 id 会被忽略；注册即安排重试）
@@ -72,7 +89,7 @@ export class RetryQueue {
      */
     register (id: string, retryFn: () => Promise<void> | void, options: RetryOptions = {}): void {
         if (this._tasks.has(id)) return
-        const now = Date.now()
+        const now = this._now()
         const budgetMs = options.budgetMs ?? this.budgetMs
         this._tasks.set(id, { id, retryFn, attempts: 0, registeredAt: now, budgetMs, nextAt: now + this.intervalMs })
         logger.debug(`注册重试任务：${id}（预算 ${describeRetryBudget(budgetMs)}，${this.intervalMs}ms 后开始）`)
@@ -80,12 +97,13 @@ export class RetryQueue {
     }
     /** 安排下一轮 drain：取所有任务中最早到点的时间（队列空则取消安排） */
     private scheduleDrain (): void {
+        if (!this._autoSchedule) return
         if (this._drainTimer !== null) {
             clearTimeout(this._drainTimer)
             this._drainTimer = null
         }
         if (this._tasks.size === 0) return
-        const now = Date.now()
+        const now = this._now()
         let delay = Infinity
         for (const task of this._tasks.values()) delay = Math.min(delay, Math.max(0, task.nextAt - now))
         this._drainTimer = setTimeout(() => {
@@ -101,7 +119,7 @@ export class RetryQueue {
         if (this._draining) return []
         this._draining = true
         const results: RetryResult[] = []
-        const now = Date.now()
+        const now = this._now()
         try {
             for (const [id, task] of [...this._tasks]) {
                 // 退避未到点：本轮跳过，交给下一轮（外部 pump 提前调用也不会打断节奏）
@@ -123,8 +141,8 @@ export class RetryQueue {
                     results.push({ id, success: true })
                 } catch (error) {
                     const message = error instanceof Error ? error.message : String(error)
-                    task.nextAt = Date.now() + retryBackoffDelay(task.attempts, this.intervalMs)
-                    logger.warn(`重试任务 ${id}：第 ${task.attempts} 次失败（${message}），下次间隔 ${Math.round((task.nextAt - Date.now()) / 1000)} 秒`)
+                    task.nextAt = this._now() + retryBackoffDelay(task.attempts, this.intervalMs)
+                    logger.warn(`重试任务 ${id}：第 ${task.attempts} 次失败（${message}），下次间隔 ${Math.round((task.nextAt - this._now()) / 1000)} 秒`)
                     results.push({ id, success: false, error: error instanceof Error ? error : new Error(String(error)) })
                 }
             }

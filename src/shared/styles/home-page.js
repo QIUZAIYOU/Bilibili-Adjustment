@@ -210,5 +210,77 @@ export const homePageStyles = {
             height: 1px;
             width: 100%;
         }
+        /* ========== 首页视频预览按钮（注入卡片封面左上角，与自带「稍后再看」同级） ========== */
+        /* 默认隐藏、鼠标悬停卡片时显示（与 B 站自带「稍后再看」一致的行为）；层级用 token，
+           压在 B 站自己的 hover 内联预览之上，保证点得到 */
+        .adj-video-preview-btn {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: var(--adj-z-popover);
+            display: flex;
+            align-items: center;
+            padding: 3px 9px;
+            border-radius: var(--adj-radius-sm);
+            background: var(--adj-bg-scrim);
+            color: var(--adj-text-strong);
+            font-size: var(--adj-font-sm);
+            line-height: 1.4;
+            cursor: pointer;
+            opacity: 0;
+            pointer-events: none;
+            user-select: none;
+            transition: var(--adj-motion-fast);
+        }
+        .bili-video-card__image--wrap:hover .adj-video-preview-btn,
+        .adj-video-preview-btn:focus-visible {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .adj-video-preview-btn:hover {
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
+        }
+        /* ========== 预览弹窗：视频贴边铺满，头部右侧放音量与「新标签页打开」 ========== */
+        .adj-video-preview-dialog .adjustment-dialog-body {
+            padding: 0;
+            background: var(--adj-bg-page);
+        }
+        .adj-video-preview-frame {
+            display: block;
+            width: 100%;
+            aspect-ratio: 16 / 9;
+            border: 0;
+            background: var(--adj-bg-page);
+        }
+        .adj-video-preview-header-extra {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+            min-width: 0;
+            flex-shrink: 1;
+        }
+        /* 关闭按钮自带 margin-left:auto；这里取消它，让「右对齐」由上面的容器独占，
+           否则两个 auto 外边距会平分空白、把自定义控件挤到中间 */
+        .adj-video-preview-dialog .adjustment-dialog-close {
+            margin-left: 0;
+        }
+        .adj-video-preview-volume-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            color: var(--adj-text-muted);
+            font-size: var(--adj-font-sm);
+            flex-shrink: 0;
+        }
+        .adj-video-preview-volume {
+            width: 72px;
+            accent-color: var(--adj-brand);
+            cursor: pointer;
+        }
+        .adj-video-preview-open {
+            flex-shrink: 0;
+        }
     `
 }

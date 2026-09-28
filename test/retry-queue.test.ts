@@ -13,7 +13,23 @@ const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(r
  *
  * 背景 2（2026-09-24 用户报「重试 3 次太少，网络不好时体验很差」）：
  * 收口口径从「次数」改为「时间预算 + 递增退避」—— 预算内一直重试，只有预算用完才放弃。
+ *
+ * ⚠️ 涉及「退避曲线 / 预算收口」的用例一律**注入假时钟并关掉自动排程**（`now` + `autoSchedule: false`），
+ * 手动调 `drain()` 推进：用真实定时器测这些策略时，并发跑测试会把定时器拖后，断言会随机失败
+ * （2026-09-24 实测在满载机器上连续抖了两次）。
  */
+/** 用假时钟驱动队列：按 step 推进时钟并反复 drain，直到队列清空（或步数用尽） */
+const runWithFakeClock = async (
+    queue: RetryQueue,
+    clock: { now: number },
+    step = 10,
+    maxSteps = 100000
+): Promise<void> => {
+    for (let index = 0; index < maxSteps && queue.pending; index++) {
+        clock.now += step
+        await queue.drain()
+    }
+}
 test('注册后无需外部 pump 也会自动重试，成功即出队', async () => {
     const queue = new RetryQueue({ intervalMs: 20 })
     let attempts = 0
@@ -26,59 +42,53 @@ test('注册后无需外部 pump 也会自动重试，成功即出队', async ()
     assert.equal(attempts, 3, '应自动重试到成功')
     assert.equal(queue.pending, false, '成功后应出队')
 })
-test('不按次数收口：失败次数远超旧上限（3 次）仍继续重试', async () => {
-    const queue = new RetryQueue({ intervalMs: 5, budgetMs: 400 })
-    let attempts = 0
+test('退避曲线与预算收口：预算内一直重试、指数退避、预算用尽即放弃（不按次数）', async () => {
+    const clock = { now: 0 }
+    // intervalMs 100 + 预算 1000：退避 100/200/400/800…，第 5 次尝试落在预算之外
+    const queue = new RetryQueue({ intervalMs: 100, budgetMs: 1000, now: () => clock.now, autoSchedule: false })
+    const attemptsAt: number[] = []
     queue.register('always-fail', async () => {
-        attempts++
+        attemptsAt.push(clock.now)
         throw new Error('始终失败')
     })
-    await sleep(250)
-    assert.ok(attempts > 3, `预算内应远超 3 次，实际 ${attempts} 次`)
-    assert.equal(queue.pending, true, '预算未用完时不应放弃')
-    await sleep(600)
+    await runWithFakeClock(queue, clock)
+    // 旧实现 3 次就放弃；这里在 1 秒预算内试到第 4 次，之后按预算收口
+    assert.deepEqual(attemptsAt, [100, 200, 400, 800], `尝试时间点应为指数退避：${JSON.stringify(attemptsAt)}`)
     assert.equal(queue.pending, false, '预算用尽后应出队')
-    const settled = attempts
-    await sleep(200)
-    assert.equal(attempts, settled, '放弃后不应再尝试')
-})
-test('退避生效：重试间隔逐次变大（不是固定间隔猛刷）', async () => {
-    const queue = new RetryQueue({ intervalMs: 10, budgetMs: 500 })
-    const stamps: number[] = []
-    queue.register('backoff', async () => {
-        stamps.push(Date.now())
-        throw new Error('始终失败')
-    })
-    await sleep(700)
-    assert.ok(stamps.length >= 4, `应至少尝试 4 次，实际 ${stamps.length} 次`)
-    const gaps = stamps.slice(1).map((stamp, index) => stamp - stamps[index])
-    assert.ok(gaps[1] > gaps[0], `间隔应递增：${JSON.stringify(gaps)}`)
-    assert.ok(gaps[gaps.length - 1] >= gaps[1], `间隔不应回落：${JSON.stringify(gaps)}`)
+    // 继续推进时钟也不应再尝试（不会无限重试）
+    clock.now += 5000
+    await queue.drain()
+    assert.equal(attemptsAt.length, 4, '放弃后不应再尝试')
 })
 test('预算足够大时不会因为"次数"提前放弃（旧实现 3 次就放弃）', async () => {
-    const queue = new RetryQueue({ intervalMs: 10, budgetMs: 2000 })
+    const clock = { now: 0 }
+    const queue = new RetryQueue({ intervalMs: 100, budgetMs: 10 * 60 * 1000, now: () => clock.now, autoSchedule: false })
+    const attemptsAt: number[] = []
     let attempts = 0
     queue.register('flaky', async () => {
         attempts++
+        attemptsAt.push(clock.now)
         if (attempts <= 5) throw new Error('前 5 次都失败')
     })
-    await sleep(500)
-    assert.equal(queue.pending, false, '第 6 次成功应出队（旧实现第 3 次就放弃了）')
-    assert.equal(attempts, 6)
+    await runWithFakeClock(queue, clock)
+    assert.equal(attempts, 6, '第 6 次成功（旧实现第 3 次就放弃了）')
+    assert.deepEqual(attemptsAt, [100, 200, 400, 800, 1600, 3200], `退避应逐次翻倍：${JSON.stringify(attemptsAt)}`)
+    assert.equal(queue.pending, false, '成功后应出队')
 })
-test('预算用尽即放弃并出队，之后不再尝试（不会无限重试）', async () => {
-    const queue = new RetryQueue({ intervalMs: 15, budgetMs: 150 })
+test('预算 ≤ 0 表示不限时（一直重试到成功）', async () => {
+    const clock = { now: 0 }
+    const queue = new RetryQueue({ intervalMs: 100, budgetMs: 0, now: () => clock.now, autoSchedule: false })
+    const attemptsAt: number[] = []
     let attempts = 0
-    queue.register('always-fail-budget', async () => {
+    queue.register('unlimited', async () => {
         attempts++
-        throw new Error('始终失败')
+        attemptsAt.push(clock.now)
+        if (attempts <= 8) throw new Error('前 8 次都失败')
     })
-    await sleep(400)
-    assert.equal(queue.pending, false, '预算用尽后应出队')
-    assert.ok(attempts >= 2 && attempts <= 8, `150ms 预算内的尝试次数应有限，实际 ${attempts}`)
-    const settled = attempts
-    await sleep(150)
-    assert.equal(attempts, settled, '放弃后不应再尝试')
+    await runWithFakeClock(queue, clock)
+    assert.equal(attempts, 9, '不受时间限制，重试到成功')
+    assert.equal(queue.pending, false)
+    assert.equal(attemptsAt.length, 9)
 })
 test('同一 id 重复注册被忽略（不会重复重试同一件事）', async () => {
     const queue = new RetryQueue({ intervalMs: 10 })

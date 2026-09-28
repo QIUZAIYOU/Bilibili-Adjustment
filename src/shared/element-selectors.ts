@@ -219,7 +219,14 @@ const CSS_MAP: Record<string, string> = {
     episodeSwitchEntry: '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .bpx-player-ctrl-next, .bpx-player-ctrl-prev, .list-box a[href*="?p="], a[href*="?p="]',
     // 番剧选集链接与折叠面板
     bangumiEpisodeLinks: 'a[href*="/bangumi/play/ep"]',
-    bangumiEpisodeAccordionHeaderActive: '.episode-accordion-header.active'
+    bangumiEpisodeAccordionHeaderActive: '.episode-accordion-header.active',
+    // 首页视频预览（2026-09-24 新增功能）：卡片封面区（按钮就插在这里，与自带稍后再看同级）、
+    // 卡片本体/链接/标题（用来取 bvid 与标题）、卡片内联 hover 预览（打开弹窗时要暂停它）
+    homeVideoCardImageWrap: '.bili-video-card__image--wrap',
+    homeVideoCard: '.bili-video-card',
+    homeVideoCardLink: 'a',
+    homeVideoCardTitle: '.bili-video-card__info--tit',
+    homeVideoCardInlineVideo: '.v-inline-player video'
 }
 // ========== Shadow DOM 选择器 ==========
 export const shadowDomSelectors: Record<string, string> = {
@@ -280,7 +287,12 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'indexRecommendContainer',
         'indexRecommendAdCard',
         'indexRecommendCardLink',
-        'indexRecommendCardTitle'
+        'indexRecommendCardTitle',
+        'homeVideoCardImageWrap',
+        'homeVideoCard',
+        'homeVideoCardLink',
+        'homeVideoCardTitle',
+        'homeVideoCardInlineVideo'
     ]),
     dynamic: new Set([
         'dynamicListItem',

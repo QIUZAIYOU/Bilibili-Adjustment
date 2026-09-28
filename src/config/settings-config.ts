@@ -77,6 +77,14 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 defaultValue: 'follow'
             },
             {
+                id: 'home_video_preview',
+                type: 'checkbox',
+                label: '首页视频预览',
+                tips: '开启后，首页推荐卡片的封面左上角会出现「预览」按钮（鼠标悬停卡片时显示）：点击在当前页面弹窗里播放该视频，有声音、可拖进度，不用跳进视频详情页；弹窗内还有「新标签页打开」与关闭按钮。所有预览共用一个弹窗',
+                category: 'basic',
+                defaultValue: false
+            },
+            {
                 id: 'selected_player_mode',
                 type: 'radio',
                 label: '播放器默认模式',

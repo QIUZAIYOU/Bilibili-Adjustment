@@ -5,11 +5,13 @@ import { buttonTemplates } from './buttons'
 import { historyPopoverTemplate } from './popovers/history-popover'
 import { subtitleSwitchTemplates } from './subtitle/subtitle-switch'
 import { commentWrapperTemplates } from './comment/comment-wrappers'
+import { homePreviewTemplates } from './home/home-preview'
 const templates = {
     ...buttonTemplates,
     ...historyPopoverTemplate,
     ...subtitleSwitchTemplates,
-    ...commentWrapperTemplates
+    ...commentWrapperTemplates,
+    ...homePreviewTemplates
 }
 // 初始化注册所有模板到 TemplateRegistry
 registerTemplates(templates)
