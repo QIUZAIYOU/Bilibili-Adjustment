@@ -26,6 +26,10 @@ const CSS_MAP: Record<string, string> = {
     playerEndingRelateVideo: '.bpx-player-ending-related-item',
     volumeButton: '.bpx-player-ctrl-volume-icon',
     mutedButton: '.bpx-player-ctrl-muted-icon',
+    // 首页视频预览用的「同源 html5 播放页」（blackboard/html5mobileplayer.html）：与桌面播放页的 .bpx-* 不是一套，
+    // 这些元素在**预览 iframe 自己的文档**里查询（故不进 PAGE_TYPE_EXCLUSIVE）
+    previewPlayerRightToolbar: '.mplayer-control-bar-right',
+    previewPlayerVideoWrap: '.mplayer-video-wrap',
     // 右键菜单
     playerContextMenu: '.bpx-player-contextmenu',
     // 视频

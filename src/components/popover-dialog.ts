@@ -110,9 +110,11 @@ const DIALOG_CSS = `
     }
     .adjustment-dialog-header {
         display: flex;
-        align-items: flex-start;
+        /* 头部混排标题与图标按钮：统一垂直居中 + 上下等内边距，否则图标会被拉到与标题基线齐平、
+           上下留白也不对称（标题多行时尤其明显） */
+        align-items: center;
         gap: 12px;
-        padding: 18px 22px 12px;
+        padding: 16px 22px;
         border-bottom: 1px solid var(--adj-border-subtle);
         flex-shrink: 0;
     }

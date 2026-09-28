@@ -295,21 +295,47 @@ export const homePageStyles = {
         .adj-video-preview-dialog .adjustment-dialog-close {
             margin-left: 0;
         }
-        .adj-video-preview-volume-wrap {
-            display: flex;
-            align-items: center;
-            gap: 4px;
-            color: var(--adj-text-muted);
-            font-size: var(--adj-font-sm);
-            flex-shrink: 0;
-        }
-        .adj-video-preview-volume {
-            width: 72px;
-            accent-color: var(--adj-brand);
-            cursor: pointer;
-        }
+        /* 「新标签页打开」：只留图标，文字改为悬浮提示（自绘，不用原生 title —— 两者会同时弹出） */
         .adj-video-preview-open {
+            position: relative;
             flex-shrink: 0;
+            width: 32px;
+            height: 32px;
+            padding: 0;
+            border-radius: var(--adj-radius-sm);
+        }
+        .adj-video-preview-open svg {
+            display: block;
+            width: 18px;
+            height: 18px;
+        }
+        .adj-video-preview-open-tip {
+            position: absolute;
+            top: calc(100% + 8px);
+            left: 50%;
+            z-index: var(--adj-z-tooltip);
+            padding: 6px 10px;
+            border: 1px solid var(--adj-border);
+            border-radius: var(--adj-radius-xs);
+            background: var(--adj-bg-tooltip);
+            color: var(--adj-text-secondary);
+            box-shadow: var(--adj-shadow-float);
+            font-size: var(--adj-font-sm);
+            font-weight: 400;
+            line-height: 1.4;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transform: translate(-50%, 4px);
+            transition: var(--adj-motion-fast);
+            pointer-events: none;
+        }
+        /* 只在悬浮时显示：不加 :focus-visible —— 弹窗打开时会自动聚焦首个可聚焦元素，
+           那样提示会一开就挂在头部（无障碍语义由按钮的 aria-label 承担） */
+        .adj-video-preview-open:hover .adj-video-preview-open-tip {
+            opacity: 1;
+            visibility: visible;
+            transform: translate(-50%, 0);
         }
     `
 }

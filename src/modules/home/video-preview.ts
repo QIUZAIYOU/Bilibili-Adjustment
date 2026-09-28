@@ -34,8 +34,13 @@ const PREVIEW_KEEP_ALIVE_MS = 10 * 60 * 1000
 const PREVIEW_DIALOG_WIDTH = 'min(1100px, 94vw)'
 /** 同源播放页最长等待（超时未出画面就回退官方外链播放器） */
 const SAME_ORIGIN_READY_TIMEOUT_MS = 6000
-/** 同源播放页里要去掉的元素：B 站 logo、评论按钮、调起 APP 提示（改这里即可，无需发版） */
-const PLAYER_HIDE_CSS = `
+/**
+ * 注入同源播放页的样式：
+ * - 去掉 B 站 logo、评论按钮、调起 APP 提示，并让控制条常显（弹窗里不需要"鼠标移入才出现"）；
+ * - 音量控件落在**播放器自带工具栏**里（与宽屏/全屏按钮同级），故这里要覆盖 B 站给 `.mplayer-control-btn`
+ *   定的 44px 固定宽度；图标与滑杆配色一律 `currentColor`（跟随播放器自身配色，也就不需要任何色值字面量）。
+ */
+const PLAYER_INJECTED_CSS = `
     .mplayer-panorama-logo,
     .mplayer-btn-comment,
     .mplayer-btn-comment-middle,
@@ -43,8 +48,19 @@ const PLAYER_HIDE_CSS = `
     .mplayer-comment-text-callapp,
     .mplayer-video-tips { display: none !important; }
     .mplayer-control-bar { opacity: 1 !important; }
+    .mplayer-control-bar-right .adj-preview-volume { width: auto !important; gap: 6px; padding: 0 4px; }
+    .adj-preview-volume svg { display: block; flex: none; }
+    /* 滑杆的 color 必须显式 inherit：表单控件不继承文字色，Chrome 会给它自己的近黑色（#101010），
+       那样 accent-color: currentColor 算出来就是几乎看不见的近黑滑杆 */
+    .adj-preview-volume-slider { width: 72px; margin: 0; color: inherit; accent-color: currentColor; cursor: pointer; }
 `
 const INJECTED_STYLE_ID = 'adj-preview-player-style'
+/** 播放器内音量控件的类名（也是"是否已注入"的幂等判据） */
+const PLAYER_VOLUME_CLASS = 'adj-preview-volume'
+/** 播放器内音量滑杆的类名 */
+const PLAYER_VOLUME_SLIDER_CLASS = 'adj-preview-volume-slider'
+/** 视频区已绑定「单击暂停/播放」的标记（打在 B 站元素上，按文档幂等） */
+const PLAYER_CLICK_BOUND_ATTR = 'data-adj-preview-click-bound'
 /** 首页视频预览特性上下文（由 home.module 的模块实例混入） */
 export interface HomeVideoPreviewContext {
     userConfigs: Record<string, unknown>
@@ -63,6 +79,8 @@ export interface HomeVideoPreviewContext {
     initVideoPreview: () => Promise<void>
     injectVideoPreviewButtons: () => void
     applySameOriginPlayerStyle: (volume: number) => void
+    injectPlayerControls: (doc: Document, volume: number) => void
+    togglePlayerPlayback: (doc: Document) => void
     pausePreviewPlayback: () => void
     resumePreviewPlaybackIfPausedByHide: () => void
     isPreviewDialogOpen: () => boolean
@@ -84,45 +102,19 @@ const readCardInfo = (wrap: Element): { bvid: string, title: string } | null => 
     const title = normalizePreviewTitle(titleSelectorValue ? card?.querySelector(titleSelectorValue)?.textContent : '')
     return { bvid, title }
 }
-/** 给弹窗标题栏加我们的自定义控件（音量 + 新标签页打开；关闭按钮由弹窗壳自带） */
-const buildHeaderExtra = (context: HomeVideoPreviewContext, volume: number): HTMLElement => {
+/** 给弹窗标题栏加我们的自定义控件（只有一颗「新标签页打开」图标；关闭按钮由弹窗壳自带） */
+const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
     const wrap = document.createElement('div')
     wrap.className = 'adj-video-preview-header-extra'
-    const volumeWrap = document.createElement('label')
-    volumeWrap.className = 'adj-video-preview-volume-wrap'
-    volumeWrap.title = '音量'
-    volumeWrap.innerHTML = '<span class="adj-video-preview-volume-icon" aria-hidden="true">♪</span>'
-    const slider = document.createElement('input')
-    slider.type = 'range'
-    slider.className = 'adj-video-preview-volume'
-    slider.min = '0'
-    slider.max = '1'
-    slider.step = '0.05'
-    slider.value = String(volume)
-    slider.setAttribute('aria-label', '音量')
-    volumeWrap.appendChild(slider)
-    const openButton = document.createElement('div')
-    openButton.className = 'adjustment-button secondary adj-video-preview-open'
-    openButton.setAttribute('role', 'button')
-    openButton.textContent = '新标签页打开'
-    openButton.addEventListener('click', () => {
-        if (!context._previewBvid) return
-        window.open(`https://www.bilibili.com/video/${context._previewBvid}`, '_blank')
+    const openButton = createElementAndInsert(getTemplates.homePreviewOpenButton, wrap) as HTMLElement | null
+    openButton?.addEventListener('click', () => {
+        const bvid = context._previewBvid
+        if (!bvid) return
+        // 被浏览器拦截时 window.open 返回 null：这种情况**不关弹窗**，否则用户白丢正在看的画面
+        const opened = window.open(buildPreviewUrl(getTemplates.homePreviewVideoPageUrl, bvid), '_blank')
+        if (opened) context._previewDialog?.close()
+        else logger.warn('首页视频预览丨新标签页被浏览器拦截，已保留预览弹窗')
     })
-    const applyVolume = (value: number): void => {
-        const doc = context._previewFrame?.contentDocument
-        const video = doc?.querySelector('video')
-        if (video) video.volume = value
-    }
-    slider.addEventListener('input', () => applyVolume(normalizePreviewVolume(slider.value)))
-    // 持久化只在 change 时写库（拖动过程中不逐次落库，遵守 P0-3 的批量/低频写入约定）
-    slider.addEventListener('change', () => {
-        const value = normalizePreviewVolume(slider.value)
-        applyVolume(value)
-        void storageService.userSet(VOLUME_CONFIG_KEY, value)
-    })
-    wrap.appendChild(volumeWrap)
-    wrap.appendChild(openButton)
     return wrap
 }
 /**
@@ -235,7 +227,7 @@ export const homeVideoPreviewFeatures = {
             title,
             width: PREVIEW_DIALOG_WIDTH,
             className: 'adj-video-preview-dialog',
-            headerExtra: buildHeaderExtra(this, volume),
+            headerExtra: buildHeaderExtra(this),
             content: body => {
                 const frame = document.createElement('iframe')
                 frame.className = 'adj-video-preview-frame'
@@ -262,9 +254,6 @@ export const homeVideoPreviewFeatures = {
         dialog.root.setAttribute('aria-label', title || '视频预览')
         const frame = this._previewFrame
         if (!frame) return
-        // 换视频时先把音量滑杆同步到当前设置
-        const slider = dialog.header.querySelector('.adj-video-preview-volume') as HTMLInputElement | null
-        if (slider) slider.value = String(volume)
         const primaryUrl = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, bvid)
         const fallbackUrl = buildPreviewUrl(getTemplates.homePreviewPlayerUrlFallback, bvid)
         // 已是同一地址（缓存复用）就不要重设 src：给 iframe.src 赋相同值也会触发重新加载，
@@ -299,18 +288,63 @@ export const homeVideoPreviewFeatures = {
         dialog.root.setAttribute('aria-label', '视频预览')
         logger.warn(`首页视频预览丨同源播放页不可用，已回退官方外链播放器（${bvid}）`)
     },
-    /** 给同源播放页注入样式并套用音量（跨源时静默跳过） */
+    /** 给同源播放页注入样式、套用音量，并挂上音量控件与「单击暂停/播放」（跨源时静默跳过） */
     applySameOriginPlayerStyle (this: HomeVideoPreviewContext, volume: number): void {
         const doc = this._previewFrame?.contentDocument
         if (!doc?.head) return
         if (!doc.getElementById(INJECTED_STYLE_ID)) {
             const style = doc.createElement('style')
             style.id = INJECTED_STYLE_ID
-            style.textContent = PLAYER_HIDE_CSS
+            style.textContent = PLAYER_INJECTED_CSS
             doc.head.appendChild(style)
         }
         const video = doc.querySelector('video')
         if (video) video.volume = volume
+        this.injectPlayerControls(doc, volume)
+    },
+    /**
+     * 在播放页里挂两样东西（等待播放页就绪期间会被反复调用，故必须幂等）：
+     * - 音量控件：插进**播放器自带的右侧工具栏**（进度条右边、与宽屏/全屏按钮同一条），拖动即改 `<video>.volume`，
+     *   松手才写库（遵守 P0-3 的批量/低频写入约定）；
+     * - 单击视频区暂停/播放：这套 html5 播放页自己**不支持**点击切换（实测 click 后 `paused` 不变），
+     *   所以由我们绑；监听挂在 `.mplayer-video-wrap` 上，控制条在同级的 `.mplayer-display` 里，
+     *   点控件不会误触发。
+     */
+    injectPlayerControls (this: HomeVideoPreviewContext, doc: Document, volume: number): void {
+        const toolbarSelector = elementSelectors.CSS('previewPlayerRightToolbar')
+        const toolbar = toolbarSelector ? doc.querySelector(toolbarSelector) : null
+        if (toolbar && !toolbar.querySelector(`.${PLAYER_VOLUME_CLASS}`)) {
+            const control = createElementAndInsert(getTemplates.homePreviewVolumeControl, toolbar, 'prepend') as HTMLElement | null
+            const slider = control?.querySelector(`.${PLAYER_VOLUME_SLIDER_CLASS}`) as HTMLInputElement | null
+            if (slider) {
+                slider.value = String(volume)
+                const applyVolume = (value: number): void => {
+                    const video = doc.querySelector('video')
+                    if (video) video.volume = value
+                }
+                slider.addEventListener('input', () => applyVolume(normalizePreviewVolume(slider.value)))
+                slider.addEventListener('change', () => {
+                    const value = normalizePreviewVolume(slider.value)
+                    applyVolume(value)
+                    // 同步进内存配置：否则同一次会话里再打开预览会用旧值把音量覆盖回去
+                    this.userConfigs[VOLUME_CONFIG_KEY] = value
+                    void storageService.userSet(VOLUME_CONFIG_KEY, value)
+                })
+            }
+        }
+        const wrapSelector = elementSelectors.CSS('previewPlayerVideoWrap')
+        const videoWrap = wrapSelector ? doc.querySelector(wrapSelector) : null
+        if (videoWrap && !videoWrap.hasAttribute(PLAYER_CLICK_BOUND_ATTR)) {
+            videoWrap.setAttribute(PLAYER_CLICK_BOUND_ATTR, '')
+            videoWrap.addEventListener('click', () => this.togglePlayerPlayback(doc))
+        }
+    },
+    /** 播放器单击切换：按当前状态决定播还是停（自动播放被浏览器拦下时静默忽略） */
+    togglePlayerPlayback (this: HomeVideoPreviewContext, doc: Document): void {
+        const video = doc.querySelector('video')
+        if (!video) return
+        if (video.paused) void video.play().catch(() => { /* 被自动播放策略拦下：保持暂停，用户点播放键即可 */ })
+        else video.pause()
     },
     /** 预览弹窗当前是否处于打开状态 */
     isPreviewDialogOpen (this: HomeVideoPreviewContext): boolean {
