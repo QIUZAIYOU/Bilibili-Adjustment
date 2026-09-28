@@ -102,6 +102,12 @@ const readCardInfo = (wrap: Element): { bvid: string, title: string } | null => 
     const title = normalizePreviewTitle(titleSelectorValue ? card?.querySelector(titleSelectorValue)?.textContent : '')
     return { bvid, title }
 }
+/** 用**目标文档**建元素（模板仍走注册表） */
+const createElementIn = (doc: Document, html: string): HTMLElement | null => {
+    const holder = doc.createElement('div')
+    holder.innerHTML = html.trim()
+    return holder.firstElementChild as HTMLElement | null
+}
 /** 给弹窗标题栏加我们的自定义控件（只有一颗「新标签页打开」图标；关闭按钮由弹窗壳自带） */
 const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
     const wrap = document.createElement('div')
@@ -300,7 +306,14 @@ export const homeVideoPreviewFeatures = {
         }
         const video = doc.querySelector('video')
         if (video) video.volume = volume
-        this.injectPlayerControls(doc, volume)
+        // 注入失败不能连累调用方：本方法在等待播放页就绪的轮询里被反复调用，异常会一路穿过
+        // waitForSameOriginPlayer → openVideoPreview，把「恢复播放/回退兜底/清加载标记」全部打断
+        // （2026-09-24 就是这样让音量控件与单击绑定一起消失的）
+        try {
+            this.injectPlayerControls(doc, volume)
+        } catch (error) {
+            logger.error('首页视频预览丨播放器控件注入失败', error)
+        }
     },
     /**
      * 在播放页里挂两样东西（等待播放页就绪期间会被反复调用，故必须幂等）：
@@ -314,9 +327,14 @@ export const homeVideoPreviewFeatures = {
         const toolbarSelector = elementSelectors.CSS('previewPlayerRightToolbar')
         const toolbar = toolbarSelector ? doc.querySelector(toolbarSelector) : null
         if (toolbar && !toolbar.querySelector(`.${PLAYER_VOLUME_CLASS}`)) {
-            const control = createElementAndInsert(getTemplates.homePreviewVolumeControl, toolbar, 'prepend') as HTMLElement | null
+            // ⚠️ 必须用 iframe 自己的 document 建元素：`createElementAndInsert` 里的 `target instanceof Node`
+            // 用的是**顶层窗口**的 Node 构造器，跨文档的 iframe 元素一律判定失败并抛
+            // 「Target must be a valid DOM node」—— 2026-09-24 实测就是它让音量控件与单击绑定**双双失效**
+            // （异常从 waitForSameOriginPlayer 的轮询里抛出，后面所有初始化一起中断）
+            const control = createElementIn(doc, getTemplates.homePreviewVolumeControl)
             const slider = control?.querySelector(`.${PLAYER_VOLUME_SLIDER_CLASS}`) as HTMLInputElement | null
-            if (slider) {
+            if (control && slider) {
+                toolbar.prepend(control)
                 slider.value = String(volume)
                 const applyVolume = (value: number): void => {
                     const video = doc.querySelector('video')
@@ -330,6 +348,8 @@ export const homeVideoPreviewFeatures = {
                     this.userConfigs[VOLUME_CONFIG_KEY] = value
                     void storageService.userSet(VOLUME_CONFIG_KEY, value)
                 })
+            } else {
+                logger.warn('首页视频预览丨音量控件模板异常，已跳过注入')
             }
         }
         const wrapSelector = elementSelectors.CSS('previewPlayerVideoWrap')
