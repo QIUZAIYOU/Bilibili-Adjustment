@@ -10,8 +10,10 @@
  * 调用点 `queryTemplateTextField(el).textContent = '视频加载中'` 填（不填就用模板里的默认文案）。
  *
  * - `loadingOverlay`：播放器版式（一块「画面」+ 一条「底部控制条」）—— 首页视频预览用
- * - `loadingOverlaySpace`：空间页版式（头图 + 头像信息行 + 导航条 + 卡片网格）—— UP 主空间弹窗用，
- *   尺寸对着空间页实测值来：头图 200px、信息行 73px、导航条 64px、内容左右留白 60px、卡片 5 列
+ * - `loadingOverlaySpace`：空间页版式（头图残段 + 头像信息行 + 导航条 + 卡片网格）—— UP 主空间弹窗用。
+ *   尺寸按**弹窗里处理过**的版式来（不是空间页原版）：站点头部隐藏、`#app` 上移 107px，
+ *   于是原版 200px 的头图只露出下沿 93px，信息行 73px 压在其下沿，导航条 64px 紧接，
+ *   内容与导航条隔 30px、左右留白 60px、卡片 5 列
  */
 export const LOADING_OVERLAY_HIDDEN_CLASS = 'adj-loading-overlay-hidden'
 export const loadingTemplates = {

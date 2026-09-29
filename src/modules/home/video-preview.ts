@@ -64,6 +64,11 @@ export interface HomeVideoPreviewContext {
     applyPreviewPlayerStyle: (doc: Document) => void
     setPreviewLoadingVisible: (visible: boolean) => void
     pausePreviewPlayback: () => void
+    guardPreviewPlaybackWhileHidden: () => void
+    /** 已挂过「关闭后禁播」监听的 frame 文档（iframe 每次导航都换文档，故按文档比对避免重复挂） */
+    _previewPlayGuardDoc?: Document | null
+    /** 「关闭后禁播」的 load 监听是否已挂（只挂一次，避免重复开弹窗累积监听） */
+    _previewPlayGuardLoadBound?: boolean
     resumePreviewPlaybackIfPausedByHide: () => void
     isPreviewDialogOpen: () => boolean
     openVideoPreview: (bvid: string, title: string) => Promise<void>
@@ -206,6 +211,8 @@ export const homeVideoPreviewFeatures = {
                 frame.setAttribute(PREVIEW_FRAME_ATTR, '')
                 body.appendChild(frame)
                 this._previewFrame = frame
+                // 「关了就必须静音」的兜底监听（不依赖关闭事件，见方法注释）
+                this.guardPreviewPlaybackWhileHidden()
                 // 遮罩放在 iframe 之后（同层叠靠后 → 盖在上面），铺满后揭开
                 this._previewLoadingEl = createElementAndInsert(getTemplates.loadingOverlay, body) as HTMLElement | null
                 const loadingTextField = queryTemplateTextField(this._previewLoadingEl)
@@ -378,6 +385,38 @@ export const homeVideoPreviewFeatures = {
         }
         frame.src = 'about:blank'
         logger.debug('首页视频预览丨弹窗已关闭，已卸载跨源播放器')
+    },
+    /**
+     * 「关了就必须静音」兜底监听：iframe 里**任何来源**的播放（B 站播放器自己恢复、我们漏掉的关闭事件、
+     * 再次 hover 触发等），只要此刻弹窗没开着，就立刻暂停。
+     *
+     * 与 `toggle` 那次暂停构成双保险：`toggle` 负责"关闭动作发生时"主动暂停（常态路径），
+     * 这里保证的是"只要弹窗没开着就不能有声音"这个**不变量** —— 用户报过"关了还在后台响"，
+     * 只靠事件在异常路径（事件没到、播放器自己又播起来）下会漏。
+     * 同源播放页可直达其文档；跨源兜底播放器读不到文档，仍由 pausePreviewPlayback 卸载 iframe。
+     */
+    guardPreviewPlaybackWhileHidden (this: HomeVideoPreviewContext): void {
+        const frame = this._previewFrame
+        if (!frame) return
+        const bind = (): void => {
+            const doc = frame.contentDocument
+            if (!doc || doc === this._previewPlayGuardDoc) return
+            this._previewPlayGuardDoc = doc
+            doc.addEventListener('play', (event: Event) => {
+                if (this.isPreviewDialogOpen()) return
+                const media = event.target as HTMLMediaElement | null
+                if (!media || typeof media.pause !== 'function') return
+                this._previewPausedByHide = true
+                media.pause()
+                logger.debug('首页视频预览丨弹窗未开启，已拦下后台播放')
+            }, true)
+        }
+        // iframe 每次导航都会换文档，故 load 后重挂一次（同一文档重复挂由上面的文档比对挡住）
+        if (!this._previewPlayGuardLoadBound) {
+            this._previewPlayGuardLoadBound = true
+            frame.addEventListener('load', bind)
+        }
+        bind()
     },
     /** 重新打开同一视频时，如果上次是"因为关闭而暂停"、且弹窗确实开着，就接着播 */
     resumePreviewPlaybackIfPausedByHide (this: HomeVideoPreviewContext): void {

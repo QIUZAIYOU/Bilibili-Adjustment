@@ -1066,15 +1066,17 @@ function generateBilibiliAdjustmentStyle () {
         @keyframes adj-loading-spin {
             to { transform: rotate(360deg); }
         }
-        /* 空间页骨架屏：按空间页实测结构搭（头图 200px → 头像信息行 73px 压在头图下沿 →
-           导航条 64px → 5 列卡片网格；内容左右留白 60px 与空间页一致） */
+        /* 空间页骨架屏：按**弹窗里处理过**的版式搭，而不是空间页原版 ——
+           原版头图 200px，但弹窗里站点头部已隐藏、#app 上移 107px，故头图只露出下沿 200-107=93px；
+           信息行 73px 压在这 93px 的下沿，导航条 64px 紧接其后，内容区与导航条之间原有 30px 间距，
+           左右留白 60px、卡片 5 列 —— 都按处理后的实测版式来（注意：本文件在模板字符串里，注释中不能出现反引号） */
         .adj-loading-space {
             position: absolute;
             inset: 0;
             overflow: hidden;
         }
         .adj-loading-space-banner {
-            height: 200px;
+            height: 93px;
         }
         .adj-loading-space-info {
             display: flex;
@@ -1117,7 +1119,8 @@ function generateBilibiliAdjustmentStyle () {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: var(--adj-space-lg) var(--adj-space-md);
-            padding: var(--adj-space-xxl) 60px 0;
+            /* 与导航条之间留 30px：空间页里 main 与导航条原本就隔这么多 */
+            padding: 30px 60px 0;
         }
         .adj-loading-space-card {
             aspect-ratio: 16 / 9;
