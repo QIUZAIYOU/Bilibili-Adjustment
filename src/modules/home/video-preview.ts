@@ -117,9 +117,8 @@ const openUpSpaceFromPreview = async (context: HomeVideoPreviewContext): Promise
     }
     // ⚠️ 预览里**一律开新标签页**，不走 `open_author_space_mode` 设置：预览弹窗本身已占着屏幕中间，
     //    再叠一个空间弹窗既别扭（看着像"在预览里打开了空间"），两处内容也互相遮挡
-    const opened = openUpSpaceInNewTab(mid)
-    if (opened) context._previewDialog?.close()
-    else logger.warn('首页视频预览丨新标签页被浏览器拦截，已保留预览弹窗')
+    if (!openUpSpaceInNewTab(mid)) logger.warn('首页视频预览丨新标签页被浏览器拦截，未打开 UP 主空间')
+    // 预览**保持打开**：看完空间回来还能接着看（旁边那颗「新标签页打开」才是"离开预览"的语义）
 }
 /** 给弹窗标题栏加我们的自定义控件（「新标签页打开」+「进入UP主空间」两颗图标；关闭按钮由弹窗壳自带） */
 const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
