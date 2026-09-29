@@ -17,7 +17,8 @@
         "check:colors": "python scripts/check-theme-colors.py",
         "test": "node --import ./test/alias-loader.js --test \"test/*.test.js\" \"test/*.test.ts\"",
         "check:hot-config": "node --import ./test/alias-loader.js scripts/check-hot-config.mjs",
-        "check:hot-content": "node scripts/check-hot-content.mjs"
+        "check:hot-content": "node scripts/check-hot-content.mjs",
+        "check:www": "node scripts/check-www-version.mjs"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.5",

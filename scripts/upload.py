@@ -280,6 +280,17 @@ def check_hot_content(root):
     return result.returncode == 0
 
 
+def check_www_version(root):
+    """上传前拦住「落地页忘了跟版本号同步」：上传是"文件没变就跳过"，漏更新会静默通过"""
+    print('--- 校验 www 落地页版本号与当前版本一致 ---')
+    result = subprocess.run(
+        ['node', os.path.join('scripts', 'check-www-version.mjs')],
+        cwd=root, capture_output=True, text=True, timeout=60,
+        encoding='utf-8', errors='replace')
+    print((result.stdout or '').strip() or (result.stderr or '').strip())
+    return result.returncode == 0
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -308,6 +319,11 @@ def main():
     # （两种上传模式都先过这一关：写死的东西只能等发版才能修，属于发布前必须拦住的债）
     if not check_hot_content(root):
         sys.exit('发现硬编码的可热更内容，已中止（未上传任何文件）')
+
+    # ========== 落地页门禁：www/ 的三处版本号必须已跟到当前版本 ==========
+    # （落地页是手工维护的，历史上多次发版忘了同步；而上传是"文件没变就跳过"，漏了不会报错）
+    if not check_www_version(root):
+        sys.exit('www 落地页未与当前版本同步，已中止（未上传任何文件）')
 
     # ========== 提示词热更模式：只生成并上传提示词，不动脚本产物 ==========
     # 用途：改了提示词但不想让用户更新脚本（也就不会触发「同版本内容已更新」的重新安装提示）
