@@ -222,6 +222,9 @@ export const homeVideoPreviewFeatures = {
         const titleEl = dialog.header.querySelector('.adjustment-dialog-title')
         if (titleEl) titleEl.textContent = title
         dialog.root.setAttribute('aria-label', title || '视频预览')
+        // 视频区（body）要落在页面垂直中心：弹窗整体上移 header 高度的一半（标题长度会改 header 高度，故每次量）
+        const headerHalf = Math.round(dialog.header.getBoundingClientRect().height / 2)
+        if (headerHalf > 0) dialog.root.style.setProperty('--adj-preview-header-half', `${headerHalf}px`)
         const frame = this._previewFrame
         if (!frame) return
         const primaryUrl = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, bvid)

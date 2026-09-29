@@ -114,7 +114,7 @@ const DIALOG_CSS = `
            上下留白也不对称（标题多行时尤其明显） */
         align-items: center;
         gap: 12px;
-        padding: 16px 22px;
+        padding: 8px 20px;
         border-bottom: 1px solid var(--adj-border-subtle);
         flex-shrink: 0;
     }

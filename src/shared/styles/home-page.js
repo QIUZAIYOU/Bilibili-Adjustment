@@ -272,6 +272,12 @@ export const homePageStyles = {
             height: 24px;
         }
         /* ========== 预览弹窗：视频贴边铺满，头部右侧放音量与「新标签页打开」 ========== */
+        /* 让**视频区（body）**在页面里居中，而不是整个弹窗居中：弹窗是靠 margin:auto + inset:0 居中的，
+           那居中的是「header + body」，所以视频会被 header 顶得偏下。这里整体上移 header 的一半高度即可。
+           变量由模块在打开/换标题后量出来（header 高度随标题行数变化，写死不可靠） */
+        .adjustment-dialog.adj-video-preview-dialog[popover] {
+            transform: translateY(calc(var(--adj-preview-header-half, 0px) * -1));
+        }
         .adj-video-preview-dialog .adjustment-dialog-body {
             /* 加载遮罩要绝对定位盖在 iframe 上 */
             position: relative;
