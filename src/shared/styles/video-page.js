@@ -1,4 +1,16 @@
 export const videoPageStyles = {
+    /**
+     * UP 主空间弹窗：里面的空间页是**跨源** iframe，它自己的样式得靠 iframe 内的脚本注入
+     * （见 main.ts 的 UP_SPACE_POPUP_FLAG 分支）；父页面这侧只负责给内容区一个定位上下文，
+     * 好让加载骨架屏（.adj-loading-overlay）能盖在 iframe 上。
+     */
+    upSpaceDialog: `
+        .up-space-dialog .adjustment-dialog-body {
+            position: relative;
+            /* 空间页自带内边距，这里再去掉弹窗的内边距，让它铺满弹窗宽度（否则右侧会被裁掉一截） */
+            padding: 0;
+        }
+    `,
     playerControl: `
         .bpx-player-container[data-screen=full] #goToComments {
             opacity: 0.6;

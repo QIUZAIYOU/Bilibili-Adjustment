@@ -1,11 +1,14 @@
 import { LoggerService } from '@/services/logger.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
+import { getTemplates } from '@/shared/templates'
+import { UP_SPACE_POPUP_FLAG } from '@/shared/constants'
+import { createElementAndInsert } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
-const UP_SPACE_POPUP_FLAG = 'bili-adjustment-popup'
 // 关闭后保留弹窗的缓存时长：期间再次打开直接复用已加载的 iframe（不重新加载，
 // 且保留浏览位置）；超过此时长未再打开才销毁，避免重型空间页 iframe 常驻内存
 const UP_SPACE_POPUP_CACHE_MS = 10 * 60 * 1000
 let upSpaceFrame: HTMLIFrameElement | null = null
+let upSpaceLoading: HTMLElement | null = null
 const createUpSpaceFrame = (body: HTMLElement): void => {
     if (!upSpaceFrame) {
         upSpaceFrame = document.createElement('iframe')
@@ -14,12 +17,20 @@ const createUpSpaceFrame = (body: HTMLElement): void => {
         upSpaceFrame.style.cssText = 'width:100%;height:calc(86vh - 150px);border:none;display:block;'
     }
     body.appendChild(upSpaceFrame)
+    if (!upSpaceLoading) {
+        // 骨架屏盖在 iframe 上（容器 position 由 .up-space-dialog 的样式给定），load 事件后揭开。
+        // 占位符在调用点直接替换（不能从 templates barrel 里新增渲染函数：那个导出在生产产物里会被错误绑定）
+        upSpaceLoading = createElementAndInsert(getTemplates.loadingOverlay.replaceAll('[[TEXT]]', '空间加载中'), body) as HTMLElement | null
+    } else {
+        body.appendChild(upSpaceLoading)
+    }
 }
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface UpSpacePopupContext {
     userConfigs: Record<string, unknown>
     _upSpaceDialog?: { body: HTMLElement; destroy: () => void } | null
     openUpSpacePopup: (mid: string | number) => Promise<void>
+    watchUpSpaceFrame: (frame: HTMLIFrameElement) => void
 }
 export const upSpacePopupFeatures = {
     // 路由：按设置项决定新标签页或弹窗
@@ -42,17 +53,32 @@ export const upSpacePopupFeatures = {
             content: createUpSpaceFrame
         })
         this._upSpaceDialog = dialog
-        // 标记参数供 iframe 内的脚本识别并隐藏站点头部
+        // 标记参数供 iframe 内的脚本识别：应用弹窗专用样式（隐藏站点头部、内容区顶上去铺满）
         const targetSrc = `https://space.bilibili.com/${mid}?${UP_SPACE_POPUP_FLAG}=1`
         const frame = dialog.body.querySelector('iframe') as HTMLIFrameElement | null
         // 已加载相同地址（缓存复用）则不重设，保留 iframe 浏览位置
-        if (frame && frame.src !== targetSrc) frame.src = targetSrc
+        if (frame && frame.src !== targetSrc) {
+            // 空间页是**跨源** iframe：父页面既读不到它的文档、也等不到"内容渲染完成"，只能用它自己的 load 事件
+            this.watchUpSpaceFrame(frame)
+            upSpaceLoading?.classList.remove('adj-loading-overlay-hidden')
+            frame.src = targetSrc
+        }
         logger.debug('UP主空间弹窗丨已打开')
+    },
+    /** 监听 iframe 首次加载完成 → 揭开骨架屏（幂等：只在换地址时重新挂一次） */
+    watchUpSpaceFrame (frame: HTMLIFrameElement): void {
+        if ((frame as HTMLIFrameElement & { _adjLoadBound?: boolean })._adjLoadBound) return
+        ;(frame as HTMLIFrameElement & { _adjLoadBound?: boolean })._adjLoadBound = true
+        frame.addEventListener('load', () => {
+            upSpaceLoading?.classList.add('adj-loading-overlay-hidden')
+            logger.debug('UP主空间弹窗丨空间页已加载')
+        })
     },
     destroyUpSpacePopup (this: UpSpacePopupContext): void {
         this._upSpaceDialog?.destroy()
         this._upSpaceDialog = null
         upSpaceFrame = null
+        upSpaceLoading = null
         logger.debug('UP主空间弹窗丨已销毁')
     }
 }

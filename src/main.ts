@@ -3,6 +3,7 @@ import { ConfigService } from '@/services/config.service'
 import { moduleSystem } from '@/core/module-system'
 import { LoggerService } from '@/services/logger.service'
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
+import { elementSelectors } from '@/shared/element-selectors'
 import { initScrollbarHoverWidening } from '@/utils/scrollbar-hover'
 import { updateService } from '@/services/update.service'
 import { applyCachedHotConfig, refreshHotConfig } from '@/services/hot-config.service'
@@ -11,7 +12,7 @@ import { ThemeManager } from '@/shared/theme'
 import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
 import { debounce } from '@/utils/lodash-lite'
 import { perfStart, perfEnd, perfMark } from '@/shared/perf'
-import { EVENT_NAMES } from '@/shared/constants'
+import { EVENT_NAMES, UP_SPACE_POPUP_FLAG } from '@/shared/constants'
 import type { ModuleDefinition } from '@/core/module-system'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
@@ -134,11 +135,20 @@ const initializeApp = async (): Promise<void> => {
         logger.error('应用初始化失败', error)
     }
 }
-// 弹窗内嵌空间主页（跨域 iframe）：检测到脚本标记参数时隐藏站点头部，只保留内容区
-if (window.self !== window.top && location.search.includes('bili-adjustment-popup')) {
+// UP 主空间弹窗内嵌空间主页：**跨源 iframe**（space.bilibili.com ≠ 承载页），父页面拿不到它的 document、
+// 注入不了样式，所以靠地址上的标记参数"自己给自己打标记"——脚本在 iframe 内（油猴默认注入子框架）读到它就应用：
+// 1. 隐藏站点头部（弹窗里不需要）；
+// 2. 顶掉头部让出的高度、并让内容区铺满弹窗宽度。
+//    ⚠️ 这两条都必须 !important：B 站自己写着 `#app { margin-top: -64px; min-width: 1100px }`，
+//    不吃掉它的话既顶不上去、也不会铺满（2026-09-25 实测）。
+// 选择器走注册表（可热更），改服务器上的 hot-config/selectors.js 即可生效。
+if (window.self !== window.top && location.search.includes(UP_SPACE_POPUP_FLAG)) {
+    const headerSelector = elementSelectors.CSS('biliMainHeader')
+    const appSelector = elementSelectors.CSS('spaceApp')
     insertStyleToDocument({
-        'UpSpacePopupHeaderHiddenStyle': `
-            #biliMainHeader { display: none !important; }
+        'UpSpacePopupStyle': `
+            ${headerSelector} { display: none !important; }
+            ${appSelector} { margin-top: -119px !important; min-width: 100% !important; }
             html, body { overflow-x: hidden !important; }
         `
     })

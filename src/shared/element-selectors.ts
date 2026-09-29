@@ -30,6 +30,9 @@ const CSS_MAP: Record<string, string> = {
     // 于是控制条/音量/单击暂停全用播放页原生那一套（这些元素在**预览 iframe 自己的文档**里查询，
     // 故不进 PAGE_TYPE_EXCLUSIVE）
     playerWebFullscreenButton: '.bpx-player-ctrl-web',
+    // UP 主空间页（space.bilibili.com，UP 主空间弹窗内嵌）：弹窗里隐藏站点头部、并把内容区顶上去
+    biliMainHeader: '#biliMainHeader',
+    spaceApp: '#app',
     // 右键菜单
     playerContextMenu: '.bpx-player-contextmenu',
     // 视频

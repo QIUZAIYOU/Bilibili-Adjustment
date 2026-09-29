@@ -21,12 +21,6 @@ export const homePreviewTemplates = {
     /** 图标按钮：**不放 title**（悬浮文本由自绘提示元素提供，两者同时存在会出现两个提示） */
     homePreviewOpenButton: '<div class="adjustment-button secondary adj-video-preview-open" role="button" tabindex="0" aria-label="新标签页打开" bilibili-adjustment-element><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M19 19H5V5h7V3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg><span class="adj-video-preview-open-tip" role="tooltip">新标签页打开</span></div>',
     homePreviewPlayerUrl: '//www.bilibili.com/video/[[BVID]]/?autoplay=1',
-    /**
-     * 加载遮罩：盖在 iframe 上，**只有播放器真的进入网页全屏铺满之后**才揭开 ——
-     * 否则用户看到的是播放页一点点加载、播放器还没铺满的半成品画面（比干等更难受）。
-     * 内容 = 仿播放器版式的骨架屏（一块「画面」+ 一条「底部控制条」，整体扫光）+ 转圈与文案。
-     */
-    homePreviewLoading: '<div class="adj-video-preview-loading" role="status" bilibili-adjustment-element><div class="adj-video-preview-skeleton" aria-hidden="true"><div class="adj-video-preview-skeleton-screen"></div><div class="adj-video-preview-skeleton-bar"></div></div><div class="adj-video-preview-loading-status"><div class="loading-spinner" aria-hidden="true"></div><span>视频加载中</span></div></div>',
     homePreviewPlayerUrlFallback: '//player.bilibili.com/player.html?bvid=[[BVID]]&autoplay=1&danmaku=0&high_quality=1&as_wide=1',
     homePreviewVideoPageUrl: '//www.bilibili.com/video/[[BVID]]',
     /**

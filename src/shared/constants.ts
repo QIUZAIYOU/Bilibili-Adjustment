@@ -26,3 +26,12 @@ export const STORAGE_KEYS = {
     SESSION_VIDEO_INFO: 'bilibili_video_info',
     LOCAL_PLAYBACK_PROGRESS: 'bili_adjustment_playback_progress'
 } as const
+/**
+ * UP 主空间弹窗的 iframe 标记参数
+ *
+ * 空间页在 `space.bilibili.com`，与承载它的视频页（`www.bilibili.com`）**跨源**，
+ * 父页面拿不到它的 document、更注入不了样式；所以改成「自己给自己打标记」：
+ * 父页面在地址上带上这个参数，脚本在 iframe 内（油猴默认会注入子框架）读到它就应用弹窗专用样式。
+ * 父页面与子框架两处必须用同一个常量，故集中放这里（2026-09-25）。
+ */
+export const UP_SPACE_POPUP_FLAG = 'bili-adjustment-popup'

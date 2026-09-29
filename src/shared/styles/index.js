@@ -1000,5 +1000,71 @@ function generateBilibiliAdjustmentStyle () {
             text-overflow: ellipsis;
             white-space: nowrap;
         }
+
+        /* ========== 通用加载态（iframe 弹窗骨架屏） ========== */
+        /* 用法：把 .adj-loading-overlay 作为「定位父容器」（通常给页面内容区加 position:relative）的最后一个子元素，
+           内容区加载完成后加上 .adj-loading-overlay-hidden 揭开（首页视频预览、UP 主空间弹窗共用） */
+        .adj-loading-overlay {
+            position: absolute;
+            inset: 0;
+            z-index: var(--adj-z-popover);
+            background: var(--adj-bg-page);
+            transition: var(--adj-motion-normal);
+        }
+        .adj-loading-overlay-hidden {
+            opacity: 0;
+            visibility: hidden;
+            pointer-events: none;
+        }
+        /* 骨架屏：一块「画面」+ 一条「底部控制条」（高度对齐播放器控制条），整体扫光 */
+        .adj-loading-skeleton {
+            position: absolute;
+            inset: var(--adj-space-lg);
+            display: flex;
+            flex-direction: column;
+            gap: var(--adj-space-md);
+        }
+        .adj-loading-skeleton-screen {
+            flex: 1 1 auto;
+            border-radius: var(--adj-radius-lg);
+        }
+        .adj-loading-skeleton-bar {
+            flex: none;
+            height: 44px;
+            border-radius: var(--adj-radius-sm);
+        }
+        .adj-loading-skeleton-screen,
+        .adj-loading-skeleton-bar {
+            background: linear-gradient(90deg, var(--adj-bg-surface) 25%, var(--adj-bg-surface-hover) 37%, var(--adj-bg-surface) 63%);
+            background-size: 400% 100%;
+            animation: adj-loading-sweep 1.4s ease-in-out infinite;
+        }
+        @keyframes adj-loading-sweep {
+            from { background-position: 100% 50%; }
+            to { background-position: 0 50%; }
+        }
+        /* 骨架屏之上：转圈 + 文案（居中） */
+        .adj-loading-status {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: var(--adj-space-sm);
+            color: var(--adj-text-secondary);
+            font-size: var(--adj-font-base);
+        }
+        .adj-loading-spinner {
+            width: 24px;
+            height: 24px;
+            border: 2px solid var(--adj-border-strong);
+            border-top-color: var(--adj-brand);
+            border-radius: 50%;
+            animation: adj-loading-spin 0.8s linear infinite;
+        }
+        @keyframes adj-loading-spin {
+            to { transform: rotate(360deg); }
+        }
     `.replace(/\s+/g, ' ').trim()
 }

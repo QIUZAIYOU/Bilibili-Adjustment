@@ -204,8 +204,9 @@ export const homeVideoPreviewFeatures = {
                 frame.setAttribute(PREVIEW_FRAME_ATTR, '')
                 body.appendChild(frame)
                 this._previewFrame = frame
-                // 遮罩放在 iframe 之后（同层叠靠后 → 盖在上面），铺满后揭开
-                this._previewLoadingEl = createElementAndInsert(getTemplates.homePreviewLoading, body) as HTMLElement | null
+                // 遮罩放在 iframe 之后（同层叠靠后 → 盖在上面），铺满后揭开。
+                // 占位符在调用点直接替换（不能从 templates barrel 里新增渲染函数：那个导出在生产产物里会被错误绑定）
+                this._previewLoadingEl = createElementAndInsert(getTemplates.loadingOverlay.replaceAll('[[TEXT]]', '视频加载中'), body) as HTMLElement | null
             }
         })
         this._previewDialog = dialog
