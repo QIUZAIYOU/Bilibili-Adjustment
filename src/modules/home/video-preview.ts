@@ -1,6 +1,8 @@
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
+import { openUpSpaceForMid } from '@/modules/video/up-space-popup'
+import { biliApis } from '@/shared/bili-apis'
 import { LOADING_OVERLAY_HIDDEN_CLASS } from '@/shared/templates/loading'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
@@ -47,6 +49,8 @@ export interface HomeVideoPreviewContext {
     _previewFrame?: HTMLIFrameElement | null
     /** 加载遮罩（盖在 iframe 上，铺满后才揭开） */
     _previewLoadingEl?: HTMLElement | null
+    /** 当前预览视频的 UP 主 mid（按 bvid 取一次后缓存，供「进入UP主空间」用） */
+    _previewOwnerMid?: string | number | null
     _previewObserver?: MutationObserver | null
     _previewBound?: boolean
     _previewBvid?: string
@@ -89,7 +93,32 @@ const readCardInfo = (wrap: Element): { bvid: string, title: string } | null => 
     const title = normalizePreviewTitle(titleSelectorValue ? card?.querySelector(titleSelectorValue)?.textContent : '')
     return { bvid, title }
 }
-/** 给弹窗标题栏加我们的自定义控件（只有一颗「新标签页打开」图标；关闭按钮由弹窗壳自带） */
+/**
+ * 预览弹窗里「进入UP主空间」：先取 UP 主 mid（按当前 bvid 缓存一次），
+ * 再按用户设置（`open_author_space_mode`）开弹窗或新标签页 —— 与播放页那颗按钮同一套逻辑。
+ * 打开成功后关掉预览：不然预览里的视频会在背后继续响（这正是本功能要避免的），
+ * 行为与旁边的「新标签页打开」一致。
+ */
+const openUpSpaceFromPreview = async (context: HomeVideoPreviewContext): Promise<void> => {
+    const bvid = context._previewBvid
+    if (!bvid) return
+    if (!context._previewOwnerMid) {
+        try {
+            const info = await biliApis.getVideoInformation('video', bvid) as { owner?: { mid?: string | number }} | null | undefined
+            context._previewOwnerMid = info?.owner?.mid ?? null
+        } catch (error) {
+            logger.warn('首页视频预览丨取 UP 主 mid 失败', error)
+        }
+    }
+    const mid = context._previewOwnerMid
+    if (!mid) {
+        logger.warn('首页视频预览丨未取到 UP 主 mid，无法进入空间')
+        return
+    }
+    const opened = await openUpSpaceForMid(mid, context.userConfigs.open_author_space_mode)
+    if (opened) context._previewDialog?.close()
+}
+/** 给弹窗标题栏加我们的自定义控件（「新标签页打开」+「进入UP主空间」两颗图标；关闭按钮由弹窗壳自带） */
 const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
     const wrap = document.createElement('div')
     wrap.className = 'adj-video-preview-header-extra'
@@ -102,6 +131,8 @@ const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {
         if (opened) context._previewDialog?.close()
         else logger.warn('首页视频预览丨新标签页被浏览器拦截，已保留预览弹窗')
     })
+    const upSpaceButton = createElementAndInsert(getTemplates.homePreviewUpSpaceButton, wrap) as HTMLElement | null
+    upSpaceButton?.addEventListener('click', () => { void openUpSpaceFromPreview(context) })
     return wrap
 }
 /** 取预览 iframe 里的播放器 `<video>`（选择器走注册表：`#bilibili-player video`；跨源时返回 null） */

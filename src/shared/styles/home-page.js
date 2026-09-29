@@ -303,8 +303,9 @@ export const homePageStyles = {
         .adj-video-preview-dialog .adjustment-dialog-close {
             margin-left: 0;
         }
-        /* 「新标签页打开」：只留图标，文字改为悬浮提示（自绘，不用原生 title —— 两者会同时弹出） */
-        .adj-video-preview-open {
+        /* 预览弹窗头部的图标按钮（「新标签页打开」「进入UP主空间」共用）：只留图标，文字改为悬浮提示
+           （自绘提示，不用原生 title —— 两者会同时弹出） */
+        .adj-video-preview-icon-btn {
             position: relative;
             flex-shrink: 0;
             width: 32px;
@@ -312,12 +313,12 @@ export const homePageStyles = {
             padding: 0;
             border-radius: var(--adj-radius-sm);
         }
-        .adj-video-preview-open svg {
+        .adj-video-preview-icon-btn svg {
             display: block;
             width: 18px;
             height: 18px;
         }
-        .adj-video-preview-open-tip {
+        .adj-video-preview-tip {
             position: absolute;
             top: calc(100% + 8px);
             left: 50%;
@@ -340,7 +341,7 @@ export const homePageStyles = {
         }
         /* 只在悬浮时显示：不加 :focus-visible —— 弹窗打开时会自动聚焦首个可聚焦元素，
            那样提示会一开就挂在头部（无障碍语义由按钮的 aria-label 承担） */
-        .adj-video-preview-open:hover .adj-video-preview-open-tip {
+        .adj-video-preview-icon-btn:hover .adj-video-preview-tip {
             opacity: 1;
             visibility: visible;
             transform: translate(-50%, 0);

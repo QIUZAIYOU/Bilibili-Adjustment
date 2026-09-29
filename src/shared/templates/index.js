@@ -6,6 +6,7 @@ import { historyPopoverTemplate } from './popovers/history-popover'
 import { subtitleSwitchTemplates } from './subtitle/subtitle-switch'
 import { commentWrapperTemplates } from './comment/comment-wrappers'
 import { homePreviewTemplates } from './home/home-preview'
+import { upSpaceTemplates } from './video/up-space'
 import { loadingTemplates } from './loading'
 const templates = {
     ...buttonTemplates,
@@ -13,6 +14,7 @@ const templates = {
     ...subtitleSwitchTemplates,
     ...commentWrapperTemplates,
     ...homePreviewTemplates,
+    ...upSpaceTemplates,
     ...loadingTemplates
 }
 // 初始化注册所有模板到 TemplateRegistry
