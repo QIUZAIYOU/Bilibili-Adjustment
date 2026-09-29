@@ -1,7 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
-import { openUpSpaceForMid } from '@/modules/video/up-space-popup'
+import { openUpSpaceInNewTab } from '@/modules/video/up-space-popup'
 import { biliApis } from '@/shared/bili-apis'
 import { LOADING_OVERLAY_HIDDEN_CLASS } from '@/shared/templates/loading'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
@@ -115,8 +115,11 @@ const openUpSpaceFromPreview = async (context: HomeVideoPreviewContext): Promise
         logger.warn('首页视频预览丨未取到 UP 主 mid，无法进入空间')
         return
     }
-    const opened = await openUpSpaceForMid(mid, context.userConfigs.open_author_space_mode)
+    // ⚠️ 预览里**一律开新标签页**，不走 `open_author_space_mode` 设置：预览弹窗本身已占着屏幕中间，
+    //    再叠一个空间弹窗既别扭（看着像"在预览里打开了空间"），两处内容也互相遮挡
+    const opened = openUpSpaceInNewTab(mid)
     if (opened) context._previewDialog?.close()
+    else logger.warn('首页视频预览丨新标签页被浏览器拦截，已保留预览弹窗')
 }
 /** 给弹窗标题栏加我们的自定义控件（「新标签页打开」+「进入UP主空间」两颗图标；关闭按钮由弹窗壳自带） */
 const buildHeaderExtra = (context: HomeVideoPreviewContext): HTMLElement => {

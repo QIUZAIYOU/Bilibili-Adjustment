@@ -69,9 +69,13 @@ const showUpSpacePopup = (mid: string | number): void => {
     }
     logger.debug('UP主空间弹窗丨已打开')
 }
+/** 在新标签页打开 UP 主空间（返回 false = 被浏览器拦截） */
+export const openUpSpaceInNewTab = (mid: string | number | null | undefined): boolean => {
+    if (!mid) return false
+    return !!window.open(buildUpSpaceUrl(mid), '_blank')
+}
 /**
- * 打开 UP 主空间的统一入口：按用户设置决定「弹窗」还是「新标签页」。
- * 播放页侧栏的 UP 按钮与首页预览弹窗头部的按钮共用（预览那侧据此决定要不要关掉预览）。
+ * 打开 UP 主空间的统一入口：按用户设置决定「弹窗」还是「新标签页」（播放页侧栏的 UP 按钮用）。
  * @returns 是否成功打开（新标签页被浏览器拦截时返回 false）
  */
 export const openUpSpaceForMid = async (mid: string | number | null | undefined, mode: unknown): Promise<boolean> => {
@@ -80,7 +84,7 @@ export const openUpSpaceForMid = async (mid: string | number | null | undefined,
         showUpSpacePopup(mid)
         return true
     }
-    return !!window.open(buildUpSpaceUrl(mid), '_blank')
+    return openUpSpaceInNewTab(mid)
 }
 /** 销毁空间弹窗并清掉缓存引用（换页等场景由 video.module 调用） */
 export const destroyUpSpacePopup = (): void => {

@@ -220,17 +220,24 @@ export const homePageStyles = {
             z-index: var(--adj-z-popover);
             display: flex;
             align-items: center;
-            padding: 3px 9px;
+            justify-content: center;
+            /* 只放一颗 18px 图标：方形小按钮（原来是「预览」文字胶囊） */
+            width: 28px;
+            height: 28px;
+            padding: 0;
             border-radius: var(--adj-radius-sm);
             background: var(--adj-bg-scrim);
             color: var(--adj-text-strong);
-            font-size: var(--adj-font-sm);
-            line-height: 1.4;
             cursor: pointer;
             opacity: 0;
             pointer-events: none;
             user-select: none;
             transition: var(--adj-motion-fast);
+        }
+        .adj-video-preview-btn svg {
+            display: block;
+            width: 18px;
+            height: 18px;
         }
         .bili-video-card__image--wrap:hover .adj-video-preview-btn,
         .adj-video-preview-btn:focus-visible {

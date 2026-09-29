@@ -12,7 +12,8 @@
  * - `homePreviewVideoPageUrl`：视频详情页（「新标签页打开」用）
  */
 export const homePreviewTemplates = {
-    homePreviewButton: '<div class="adj-video-preview-btn" role="button" tabindex="0" aria-label="预览视频" title="预览（弹窗播放）" bilibili-adjustment-element>预览</div>',
+    /** 卡片封面左上角的预览按钮：**只要图标不要文字**（播放三角），说明文案走原生 title */
+    homePreviewButton: '<div class="adj-video-preview-btn" role="button" tabindex="0" aria-label="预览视频" title="预览（弹窗播放）" bilibili-adjustment-element><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M8 5.14v13.72a1 1 0 0 0 1.52.85l11-6.86a1 1 0 0 0 0-1.7l-11-6.86A1 1 0 0 0 8 5.14z"/></svg></div>',
     /**
      * 首页右下角悬浮按钮组里的「脚本设置」按钮：**只要图标不要文字**（与番剧页侧栏同一颗齿轮图标），
      * 外形对齐 B 站自带的「稍后再看」按钮（同款 40×40 圆角面板 + 24px 图标，样式见 shared/styles/home-page.js）
