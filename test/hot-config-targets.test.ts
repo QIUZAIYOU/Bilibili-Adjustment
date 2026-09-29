@@ -4,6 +4,7 @@ import { installDomStub } from '../scripts/lib/dom-stub.mjs'
 import {
     analyzeRegexSource,
     checkTemplateOverride,
+    extractTemplateFields,
     isSafeCssColor,
     isSafeCssValue,
     MAX_OVERRIDE_VALUE_LENGTH,
@@ -55,6 +56,14 @@ test('checkTemplateOverride：占位符与 id 是硬契约，脚本/事件一律
     assert.equal(checkTemplateOverride('', builtIn), '空内容')
     assert.equal(checkTemplateOverride(null, builtIn), '不是字符串')
     assert.match(String(checkTemplateOverride(`<div id="box">[[TEXT]]${'x'.repeat(MAX_TEMPLATE_LENGTH)}</div>`, builtIn)), /长度超限/)
+})
+test('checkTemplateOverride：填充钩子（data-adj-field）同样是硬契约', () => {
+    // 运行时文本改由调用点按钩子填（见 shared/templates/buttons.js 顶部约定）：覆盖时丢了钩子就没人填了
+    const builtIn = '<div class="box"><span data-adj-field="text">加载中</span></div>'
+    assert.equal(checkTemplateOverride('<div class="box"><i data-adj-field="text">请稍候</i></div>', builtIn), null)
+    assert.match(String(checkTemplateOverride('<div class="box"><span>加载中</span></div>', builtIn)), /缺少填充钩子/)
+    assert.equal(extractTemplateFields(builtIn).join(','), 'text')
+    assert.deepEqual(extractTemplateFields('<div></div>'), [])
 })
 test('CSS 值校验：只认安全色值，挡住逃出声明/引入外部资源的写法', () => {
     for (const value of ['#fff', '#FFFFFF', '#12345678', 'rgba(0,0,0,0.45)', 'hsl(210,50%,40%)', '0,174,236', '42,200,100']) {

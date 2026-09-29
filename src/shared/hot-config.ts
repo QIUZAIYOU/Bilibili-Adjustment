@@ -99,15 +99,19 @@ export const MAX_REGEX_LENGTH = 500
 export const MAX_TEMPLATE_LENGTH = 20000
 /** 单个 CSS 值（色值/阴影）长度上限 */
 export const MAX_CSS_VALUE_LENGTH = 120
-/** 模板里的占位符（渲染时被替换，如 [[TEXT]]）——覆盖后必须原样保留，否则渲染出字面占位符 */
+/** 模板里的占位符（如 URL 模板的 [[BVID]]，渲染时被替换）——覆盖后必须原样保留 */
 export const extractTemplatePlaceholders = (html: string): string[] =>
     Array.from(new Set(html.match(/\[\[[A-Z0-9_]+\]\]/g) || []))
 /** 模板里声明的 id —— 调用点按 id 取元素，覆盖后必须保留，否则功能静默失效 */
 export const extractTemplateIds = (html: string): string[] =>
     Array.from(new Set(Array.from(html.matchAll(/id="([^"]+)"/g), match => match[1])))
+/** 模板里声明的填充钩子（`data-adj-field="…"`）——调用点按钩子填运行时内容，覆盖后必须保留 */
+export const extractTemplateFields = (html: string): string[] =>
+    Array.from(new Set(Array.from(html.matchAll(/data-adj-field="([^"]+)"/g), match => match[1])))
 /**
  * 模板覆盖的契约校验（返回拒绝原因；null = 通过）
- * 契约 = 内置模板的**占位符**与**id** 必须全部保留；另外拦掉脚本/事件处理器等可执行内容
+ * 契约 = 内置模板的**占位符**、**id**、**填充钩子** 必须全部保留；
+ * 另外拦掉脚本/事件处理器等可执行内容
  */
 export const checkTemplateOverride = (html: unknown, builtIn: string): string | null => {
     if (typeof html !== 'string') return '不是字符串'
@@ -121,6 +125,8 @@ export const checkTemplateOverride = (html: unknown, builtIn: string): string | 
     if (missingPlaceholders.length) return `缺少占位符 ${missingPlaceholders.join(' ')}`
     const missingIds = extractTemplateIds(builtIn).filter(id => !trimmed.includes(`id="${id}"`))
     if (missingIds.length) return `缺少必需 id ${missingIds.join(' ')}`
+    const missingFields = extractTemplateFields(builtIn).filter(field => !trimmed.includes(`data-adj-field="${field}"`))
+    if (missingFields.length) return `缺少填充钩子 data-adj-field=${missingFields.join(' ')}`
     return null
 }
 /**

@@ -4,9 +4,39 @@ import { styles } from '@/shared/styles'
 import { biliApis } from '@/shared/bili-apis'
 import { STORAGE_KEYS } from '@/shared/constants'
 import { getTemplates } from '@/shared/templates'
-import { renderButton } from '@/shared/templates/buttons'
 import { sleep, createElementAndInsert, addEventListenerToElement, insertStyleToDocument, documentScrollTo, getElementOffsetToDocument } from '@/utils/common'
+import type { InsertionMethod } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
+/** 注入按钮的补全项：模板只描述结构，这些运行时值一律用 DOM API 补（不往 HTML 里拼字符串） */
+interface InjectedButtonOptions {
+    /** 追加的类名（空格分隔） */
+    className?: string
+    /** 内联样式（CSS 文本，不含 `style=` 前缀） */
+    style?: string
+    /** B 站作用域样式属性名（如 `data-v-xxxx`，从同级真实元素上抄来才能命中它的 scoped 样式） */
+    dataV?: string
+    /** 按钮文字（追加在图标之后；模板里没有文字节点） */
+    text?: string
+}
+/**
+ * 建并插入注入按钮：类名/内联样式/作用域属性/文字都由这里补
+ * @param key 模板键（templates 注册表）
+ * @param target 插入目标
+ * @param method 插入方式
+ * @param options 需要补的运行时值
+ */
+const insertInjectedButton = (key: string, target: Node, method: InsertionMethod, options: InjectedButtonOptions = {}): HTMLElement | null => {
+    // 模板键是字符串（调用方传入）：按"字符串键表"索引，仅类型层收窄
+    const template = (getTemplates as Record<string, string>)[key]
+    if (!template) return null
+    const element = createElementAndInsert(template, target, method) as HTMLElement | null
+    if (!element) return null
+    if (options.className) element.classList.add(...options.className.split(/\s+/).filter(Boolean))
+    if (options.style) element.setAttribute('style', options.style)
+    if (options.dataV) element.setAttribute(options.dataV, '')
+    if (options.text) element.insertAdjacentText('beforeend', options.text)
+    return element
+}
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface UiButtonsContext {
     userConfigs: Record<string, unknown>
@@ -63,30 +93,24 @@ export const uiButtonsFeatures = {
         let locateButton, videoSettingsOpenButton, upButton
         if (this.userConfigs.page_type === 'video') {
             if (!existingLocateButton) {
-                locateButton = createElementAndInsert(renderButton('locateButton', {
-                    class: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
-                    style: '',
-                    dataV: dataV,
+                locateButton = insertInjectedButton('locateButton', floatNav.lastElementChild as Node, 'prepend', {
+                    className: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
+                    dataV,
                     text: '定位'
-                }), floatNav.lastElementChild as Node, 'prepend')
+                })
                 addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
-                videoSettingsOpenButton = createElementAndInsert(renderButton('videoSettingsOpenButton', {
-                    dataV: dataV,
-                    floatNavMenuItemClass: '',
+                videoSettingsOpenButton = insertInjectedButton('videoSettingsOpenButton', floatNav.lastElementChild as Node, 'prepend', {
+                    dataV,
                     text: '设置'
-                }), floatNav.lastElementChild as Node, 'prepend')
+                })
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
                     await this.settingsComponent.openSettings()
                 })
             }
             if (!existingUpButton && this.userConfigs.page_type === 'video') {
-                upButton = createElementAndInsert(renderButton('upButton', {
-                    style: '',
-                    dataV: dataV,
-                    text: ''
-                }), floatNav.lastElementChild as Node, 'prepend')
+                upButton = insertInjectedButton('upButton', floatNav.lastElementChild as Node, 'prepend', { dataV })
                 addEventListenerToElement(upButton, 'click', async () => {
                     const mid = this._cachedMid || (() => {
                         try {
@@ -104,11 +128,10 @@ export const uiButtonsFeatures = {
             }
             // 插入跳过片段管理按钮（与开关解耦：用于维护手动/共享片段数据，随时可用）
             if (!existingSkipButton) {
-                const skipButton = createElementAndInsert(renderButton('skipSegmentManagerButton', {
-                    style: '',
-                    dataV: dataV,
+                const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav.lastElementChild as Node, 'prepend', {
+                    dataV,
                     text: '片段'
-                }), floatNav.lastElementChild as Node, 'prepend')
+                })
                 addEventListenerToElement(skipButton, 'click', async () => {
                     const bvid = biliApis.getCurrentVideoID(window.location.href)
                     if (bvid && bvid !== 'error') {
@@ -118,32 +141,28 @@ export const uiButtonsFeatures = {
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
-            if (!existingLocateButton) { locateButton = createElementAndInsert(renderButton('locateButton', {
-                class: 'bili-adjustment-icon locate',
-                style: `style="${styles.videoSettingsOpenButton}"`,
-                dataV: dataV,
+            if (!existingLocateButton) { locateButton = insertInjectedButton('locateButton', floatNav, 'append', {
+                className: 'bili-adjustment-icon locate',
+                style: styles.videoSettingsOpenButton,
                 text: '定位'
-            }), floatNav, 'append')
+            })
             addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
-                videoSettingsOpenButton = createElementAndInsert(renderButton('videoSettingsOpenButton', {
-                    floatNavMenuItemClass: '',
-                    style: `style="${styles.videoSettingsOpenButton}"`,
-                    dataV: '',
+                videoSettingsOpenButton = insertInjectedButton('videoSettingsOpenButton', floatNav, 'append', {
+                    style: styles.videoSettingsOpenButton,
                     text: '设置'
-                }), floatNav, 'append')
+                })
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
                     await this.settingsComponent.openSettings()
                 })
             }
             // 插入跳过片段管理按钮（番剧页用于配置片头片尾跳过）
             if (!existingSkipButton) {
-                const skipButton = createElementAndInsert(renderButton('skipSegmentManagerButton', {
-                    style: `style="${styles.videoSettingsOpenButton}"`,
-                    dataV: '',
+                const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav, 'append', {
+                    style: styles.videoSettingsOpenButton,
                     text: '片段'
-                }), floatNav, 'append')
+                })
                 addEventListenerToElement(skipButton, 'click', async () => {
                     const epId = biliApis.getCurrentVideoID(window.location.href)
                     if (epId && epId !== 'error') {

@@ -2,7 +2,8 @@ import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { STORAGE_KEYS } from '@/shared/constants'
-import { renderSubtitleButton } from '@/shared/templates/subtitle/subtitle-switch'
+import { getTemplates } from '@/shared/templates'
+import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { createElementAndInsert, addEventListenerToElement, initializeCheckbox, showPlayerTooltip, hidePlayerTooltip } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
 /** 视频模块特性上下文（由 video.module 的模块实例混入，特性方法以 this 访问） */
@@ -61,12 +62,11 @@ export const subtitleFeatures = {
             logger.debug('自动开启字幕开关丨已存在，跳过插入')
             return
         }
-        const autoEnableSubtitleSwitchButton = createElementAndInsert(renderSubtitleButton('autoEnableSubtitleSwitchButton', {
-            autoSubtitle: this.userConfigs.auto_subtitle
-        }), playerDanmuSetting as Node, 'after') as HTMLElement
-        const autoEnableSubtitleTip = createElementAndInsert(renderSubtitleButton('autoEnableSubtitleSwitchButtonTip', {
-            autoEnableSubtitleSwitchButtonTipText: this.userConfigs.auto_subtitle ? '关闭自动开启字幕' : '开启自动开启字幕'
-        }), playerTooltipArea as Node, 'append') as HTMLElement
+        const autoEnableSubtitleSwitchButton = createElementAndInsert(getTemplates.autoEnableSubtitleSwitchButton, playerDanmuSetting as Node, 'after') as HTMLElement
+        const autoEnableSubtitleTip = createElementAndInsert(getTemplates.autoEnableSubtitleSwitchButtonTip, playerTooltipArea as Node, 'append') as HTMLElement
+        // 提示文案按当前配置填（模板里的是默认文案）；开关的 checked 由下面的 initializeCheckbox 负责
+        const tipTextField = queryTemplateTextField(autoEnableSubtitleTip)
+        if (tipTextField) tipTextField.textContent = this.userConfigs.auto_subtitle ? '关闭自动开启字幕' : '开启自动开启字幕'
         const [AutoEnableSubtitleSwitchInput, AutoEnableSubtitleTooltipTitle] = await elementSelectors.batch(['AutoEnableSubtitleSwitchInput', 'AutoEnableSubtitleTooltipTitle'])
         // batch 返回 Element|null：按各控件的真实类型收窄（缺失时与原实现一样在访问处抛出）
         const switchInput = AutoEnableSubtitleSwitchInput as HTMLInputElement | null

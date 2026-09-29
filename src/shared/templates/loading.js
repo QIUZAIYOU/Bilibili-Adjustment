@@ -5,8 +5,10 @@
  * `shared/styles/index.js` 的「通用加载态」一节（`.adj-loading-*`），随全局样式在任意页面可用。
  *
  * 用法：作为 iframe 容器（需 `position: relative`）的**最后一个子元素**插入，内容就绪后给它加
- * `adj-loading-overlay-hidden` 揭开。首页视频预览与 UP 主空间弹窗共用这一份。
+ * `adj-loading-overlay-hidden` 揭开；文案用填充钩子 `data-adj-field="text"` 标出，
+ * 调用点 `queryTemplateTextField(el).textContent = '视频加载中'` 填（不填就用模板里的默认文案）。
+ * 首页视频预览与 UP 主空间弹窗共用这一份。
  */
 export const loadingTemplates = {
-    loadingOverlay: '<div class="adj-loading-overlay" role="status" bilibili-adjustment-element><div class="adj-loading-skeleton" aria-hidden="true"><div class="adj-loading-skeleton-screen"></div><div class="adj-loading-skeleton-bar"></div></div><div class="adj-loading-status"><div class="adj-loading-spinner" aria-hidden="true"></div><span>[[TEXT]]</span></div></div>'
+    loadingOverlay: '<div class="adj-loading-overlay" role="status" bilibili-adjustment-element><div class="adj-loading-skeleton" aria-hidden="true"><div class="adj-loading-skeleton-screen"></div><div class="adj-loading-skeleton-bar"></div></div><div class="adj-loading-status"><div class="adj-loading-spinner" aria-hidden="true"></div><span data-adj-field="text">加载中</span></div></div>'
 }

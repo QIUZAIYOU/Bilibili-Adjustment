@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { getTemplates } from '@/shared/templates'
+import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { UP_SPACE_POPUP_FLAG } from '@/shared/constants'
 import { createElementAndInsert } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
@@ -18,9 +19,10 @@ const createUpSpaceFrame = (body: HTMLElement): void => {
     }
     body.appendChild(upSpaceFrame)
     if (!upSpaceLoading) {
-        // 骨架屏盖在 iframe 上（容器 position 由 .up-space-dialog 的样式给定），load 事件后揭开。
-        // 占位符在调用点直接替换（不能从 templates barrel 里新增渲染函数：那个导出在生产产物里会被错误绑定）
-        upSpaceLoading = createElementAndInsert(getTemplates.loadingOverlay.replaceAll('[[TEXT]]', '空间加载中'), body) as HTMLElement | null
+        // 骨架屏盖在 iframe 上（容器 position 由 .up-space-dialog 的样式给定），load 事件后揭开
+        upSpaceLoading = createElementAndInsert(getTemplates.loadingOverlay, body) as HTMLElement | null
+        const loadingTextField = queryTemplateTextField(upSpaceLoading)
+        if (loadingTextField) loadingTextField.textContent = '空间加载中'
     } else {
         body.appendChild(upSpaceLoading)
     }

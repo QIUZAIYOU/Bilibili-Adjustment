@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
+import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import type { AdjustmentDialogInstance } from '@/components/popover-dialog'
 import { createElementAndInsert, sleep } from '@/utils/common'
@@ -204,9 +205,10 @@ export const homeVideoPreviewFeatures = {
                 frame.setAttribute(PREVIEW_FRAME_ATTR, '')
                 body.appendChild(frame)
                 this._previewFrame = frame
-                // 遮罩放在 iframe 之后（同层叠靠后 → 盖在上面），铺满后揭开。
-                // 占位符在调用点直接替换（不能从 templates barrel 里新增渲染函数：那个导出在生产产物里会被错误绑定）
-                this._previewLoadingEl = createElementAndInsert(getTemplates.loadingOverlay.replaceAll('[[TEXT]]', '视频加载中'), body) as HTMLElement | null
+                // 遮罩放在 iframe 之后（同层叠靠后 → 盖在上面），铺满后揭开
+                this._previewLoadingEl = createElementAndInsert(getTemplates.loadingOverlay, body) as HTMLElement | null
+                const loadingTextField = queryTemplateTextField(this._previewLoadingEl)
+                if (loadingTextField) loadingTextField.textContent = '视频加载中'
             }
         })
         this._previewDialog = dialog
