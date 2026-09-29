@@ -224,6 +224,8 @@ const CSS_MAP: Record<string, string> = {
     videoDescriptionTextInner: '.desc-info-text',
     // 选集/上下集的点击入口（位置守卫用：选集列表、分P列表、合集、番剧选集、上下集按钮）
     episodeSwitchEntry: '.video-pod__item, .video-pod__list, .bpx-player-ctrl-eplist-multi-menu-item, .episode-item, .eplist_ep_list_item, .bpx-player-ctrl-next, .bpx-player-ctrl-prev, .list-box a[href*="?p="], a[href*="?p="]',
+    // 播完后播放器上出现的「推荐视频」卡片（点它同样会切视频，B 站同样会先 scrollTo(0,0)，故同一套位置守卫）
+    playerEndingRelatedLink: '.bpx-player-ending-related a.bpx-player-ending-related-item',
     // 番剧选集链接与折叠面板
     bangumiEpisodeLinks: 'a[href*="/bangumi/play/ep"]',
     bangumiEpisodeAccordionHeaderActive: '.episode-accordion-header.active',

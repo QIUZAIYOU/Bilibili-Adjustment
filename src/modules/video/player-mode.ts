@@ -7,6 +7,7 @@ import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
+import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
 const logger = new LoggerService('VideoModule', { notify: false })
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface PlayerModeContext {
@@ -89,33 +90,6 @@ const resolvePlayerScrollTarget = (offsetTop: number): PlayerScrollTarget | null
 const isLocatedAtPlayer = (offsetTop: number): boolean => {
     const target = resolvePlayerScrollTarget(offsetTop)
     return target !== null && Math.abs(window.scrollY - target.offset) <= 8
-}
-/**
- * 「切换选集/上下集」的入口元素：选集列表、分P列表、合集、番剧选集，以及上下集按钮。
- *
- * 实测（真实页面取证）：播放器控制栏的上下集按钮是 `.bpx-player-ctrl-next` / `.bpx-player-ctrl-prev`
- * （aria-label「下一个」），点它同样会触发 B 站自己的 `switchVideo` → `window.scrollTo(0,0)`。
- * ⚠️ 这一整套选择器来自注册表键 `episodeSwitchEntry`，**不要在这里写死**：
- * B 站改版时改服务器上的 hot-config/selectors.js 即可生效，不必发版。
- */
-const episodeSwitchEntrySelector = (): string | null => elementSelectors.CSS('episodeSwitchEntry')
-/**
- * 上下集按钮的文案特征：B 站各版式类名不统一（分P 是「下一个」、番剧是「下一话」、合集是「下一集」），
- * 类名命中之外再按标签文本兜底，避免以后版式一改就又漏掉一条入口。
- */
-const EPISODE_SWITCH_LABEL = /^(上一集|下一集|上一话|下一话|上一P|下一P|上一个|下一个|上一期|下一期|上一视频|下一视频|previous|prev|next)$/i
-/** 点击是否命中「切换选集/上下集」的入口（注册表选择器为主、文案兜底） */
-const isEpisodeSwitchElement = (element: Element | null): boolean => {
-    if (!element) return false
-    const entrySelector = episodeSwitchEntrySelector()
-    if (entrySelector && element.closest(entrySelector)) return true
-    // 点在图标/内层元素上时向上找几层，取 aria-label / title / 文本判断
-    let node: Element | null = element
-    for (let depth = 0; node && depth < 4; depth++, node = node.parentElement) {
-        const label = (node.getAttribute('aria-label') || node.getAttribute('title') || node.textContent || '').trim()
-        if (EPISODE_SWITCH_LABEL.test(label)) return true
-    }
-    return false
 }
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
@@ -437,10 +411,11 @@ export const playerModeFeatures = {
         logger.debug('选集定位丨已直接定位到播放器')
     },
     /**
-     * 原生选集/上下集入口的位置守卫（右侧分P列表、合集、番剧选集、播放器上下集按钮）
+     * 会触发 B 站「回到顶部」的入口的位置守卫（选集列表、分P列表、合集、番剧选集、播放器上下集按钮，
+     * 以及**播完后播放器上的推荐视频卡片**）
      *
-     * 这些入口不经过上面的选集菜单回调，但同样会触发 B 站自己的"回到顶部"
-     * （实测：点击播放器控制栏的「下一个」按钮，B 站 `switchVideo` 立刻 `scrollTo(0,0)`）。
+     * 这些入口都会触发 B 站自己的"回到顶部"（实测：点击播放器控制栏的「下一个」按钮，
+     * B 站 `switchVideo` 立刻 `scrollTo(0,0)`；播完后的推荐卡片同样是切视频，行为一致）。
      * 这里用捕获阶段的委托监听，在点击那一刻就把位置守住（**只守位置、不主动定位**，
      * 是否定位仍由视频可播放后的 autoLocateToPlayer 按设置决定）。
      */
@@ -448,12 +423,12 @@ export const playerModeFeatures = {
         if (this._episodeSwitchGuardBound) return
         this._episodeSwitchGuardBound = true
         document.addEventListener('click', (event: Event) => {
-            if (!isEpisodeSwitchElement(event.target as Element | null)) return
+            if (!isScrollToTopEntry(event.target as Element | null)) return
             const offsetTop = Number(this.userConfigs.offset_top) || 0
             if (!isLocatedAtPlayer(offsetTop)) return
             holdScrollPosition(window.scrollY)
         }, true)
-        logger.debug('选集定位丨已监听原生选集入口（分P列表/合集/番剧选集）')
+        logger.debug('选集定位丨已监听原生选集入口（分P列表/合集/番剧选集/播完推荐）')
     },
     async clickPlayerAutoLocate (this: PlayerModeContext): Promise<void> {
         addEventListenerToElement(elementSelectors.get('playerContainer'), 'click', async (e: Event) => {
