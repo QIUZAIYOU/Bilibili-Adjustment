@@ -41,7 +41,8 @@ export const homePreviewTemplates = {
     .bpx-player-toast-wrap,
     .bpx-player-ctrl-wide,
     .bpx-player-ctrl-web,
-    .bpx-player-ctrl-pip { display: none !important; }
+    .bpx-player-ctrl-pip,
+    .bpx-player-ctrl-full { display: none !important; }
     body *:not(#bilibili-player, #bilibili-player *):not(:has(#bilibili-player)) { display: none !important; }
 `
 }

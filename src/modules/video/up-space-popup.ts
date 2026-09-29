@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { getTemplates } from '@/shared/templates'
+import { LOADING_OVERLAY_HIDDEN_CLASS } from '@/shared/templates/loading'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { UP_SPACE_POPUP_FLAG } from '@/shared/constants'
 import { createElementAndInsert } from '@/utils/common'
@@ -19,8 +20,9 @@ const createUpSpaceFrame = (body: HTMLElement): void => {
     }
     body.appendChild(upSpaceFrame)
     if (!upSpaceLoading) {
-        // 骨架屏盖在 iframe 上（容器 position 由 .up-space-dialog 的样式给定），load 事件后揭开
-        upSpaceLoading = createElementAndInsert(getTemplates.loadingOverlay, body) as HTMLElement | null
+        // 骨架屏盖在 iframe 上（容器 position 由 .up-space-dialog 的样式给定），load 事件后揭开；
+        // 结构按空间页实测版式来做（头图/头像信息行/导航条/卡片网格），见 templates/loading.js
+        upSpaceLoading = createElementAndInsert(getTemplates.loadingOverlaySpace, body) as HTMLElement | null
         const loadingTextField = queryTemplateTextField(upSpaceLoading)
         if (loadingTextField) loadingTextField.textContent = '空间加载中'
     } else {
@@ -62,7 +64,7 @@ export const upSpacePopupFeatures = {
         if (frame && frame.src !== targetSrc) {
             // 空间页是**跨源** iframe：父页面既读不到它的文档、也等不到"内容渲染完成"，只能用它自己的 load 事件
             this.watchUpSpaceFrame(frame)
-            upSpaceLoading?.classList.remove('adj-loading-overlay-hidden')
+            upSpaceLoading?.classList.remove(LOADING_OVERLAY_HIDDEN_CLASS)
             frame.src = targetSrc
         }
         logger.debug('UP主空间弹窗丨已打开')
@@ -72,7 +74,7 @@ export const upSpacePopupFeatures = {
         if ((frame as HTMLIFrameElement & { _adjLoadBound?: boolean })._adjLoadBound) return
         ;(frame as HTMLIFrameElement & { _adjLoadBound?: boolean })._adjLoadBound = true
         frame.addEventListener('load', () => {
-            upSpaceLoading?.classList.add('adj-loading-overlay-hidden')
+            upSpaceLoading?.classList.add(LOADING_OVERLAY_HIDDEN_CLASS)
             logger.debug('UP主空间弹窗丨空间页已加载')
         })
     },

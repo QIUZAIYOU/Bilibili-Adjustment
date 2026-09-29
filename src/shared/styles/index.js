@@ -1066,5 +1066,71 @@ function generateBilibiliAdjustmentStyle () {
         @keyframes adj-loading-spin {
             to { transform: rotate(360deg); }
         }
+        /* 空间页骨架屏：按空间页实测结构搭（头图 200px → 头像信息行 73px 压在头图下沿 →
+           导航条 64px → 5 列卡片网格；内容左右留白 60px 与空间页一致） */
+        .adj-loading-space {
+            position: absolute;
+            inset: 0;
+            overflow: hidden;
+        }
+        .adj-loading-space-banner {
+            height: 200px;
+        }
+        .adj-loading-space-info {
+            display: flex;
+            align-items: center;
+            gap: var(--adj-space-md);
+            height: 73px;
+            margin-top: -73px;
+            padding: 0 60px;
+        }
+        .adj-loading-space-avatar {
+            flex: none;
+            width: 64px;
+            height: 64px;
+            border-radius: var(--adj-radius-full);
+        }
+        .adj-loading-space-line {
+            height: 14px;
+            border-radius: var(--adj-radius-xs);
+        }
+        .adj-loading-space-line-name {
+            width: 180px;
+        }
+        .adj-loading-space-line-sub {
+            width: 120px;
+            height: 12px;
+        }
+        .adj-loading-space-nav {
+            display: flex;
+            align-items: center;
+            gap: var(--adj-space-xl);
+            height: 64px;
+            padding: 0 60px;
+        }
+        .adj-loading-space-nav span {
+            width: 56px;
+            height: 16px;
+            border-radius: var(--adj-radius-xs);
+        }
+        .adj-loading-space-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: var(--adj-space-lg) var(--adj-space-md);
+            padding: var(--adj-space-xxl) 60px 0;
+        }
+        .adj-loading-space-card {
+            aspect-ratio: 16 / 9;
+            border-radius: var(--adj-radius-md);
+        }
+        .adj-loading-space-banner,
+        .adj-loading-space-avatar,
+        .adj-loading-space-line,
+        .adj-loading-space-nav span,
+        .adj-loading-space-card {
+            background: linear-gradient(90deg, var(--adj-bg-surface) 25%, var(--adj-bg-surface-hover) 37%, var(--adj-bg-surface) 63%);
+            background-size: 400% 100%;
+            animation: adj-loading-sweep 1.4s ease-in-out infinite;
+        }
     `.replace(/\s+/g, ' ').trim()
 }

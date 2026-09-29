@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
+import { LOADING_OVERLAY_HIDDEN_CLASS } from '@/shared/templates/loading'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import type { AdjustmentDialogInstance } from '@/components/popover-dialog'
@@ -278,7 +279,8 @@ export const homeVideoPreviewFeatures = {
     },
     /** 显示/隐藏加载遮罩（元素由弹窗内容区创建，随弹窗缓存复用） */
     setPreviewLoadingVisible (this: HomeVideoPreviewContext, visible: boolean): void {
-        this._previewLoadingEl?.classList.toggle('adj-video-preview-loading-hidden', !visible)
+        // 类名从模板模块导入（别写字面量：改过名字后这里若没跟着改，遮罩就永远揭不开）
+        this._previewLoadingEl?.classList.toggle(LOADING_OVERLAY_HIDDEN_CLASS, !visible)
     },
     /**
      * 注入"只留视频元素"的样式（幂等）。内容是模板注册表里的 `homePreviewPlayerCss`（可热更）：

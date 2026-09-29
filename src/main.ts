@@ -148,7 +148,7 @@ if (window.self !== window.top && location.search.includes(UP_SPACE_POPUP_FLAG))
     insertStyleToDocument({
         'UpSpacePopupStyle': `
             ${headerSelector} { display: none !important; }
-            ${appSelector} { margin-top: -119px !important; min-width: 100% !important; }
+            ${appSelector} { margin-top: -107px !important; min-width: 100% !important; }
             html, body { overflow-x: hidden !important; }
         `
     })
