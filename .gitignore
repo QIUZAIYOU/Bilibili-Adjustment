@@ -45,3 +45,6 @@ website/
 bili-theme/
 # python 编译缓存
 __pycache__/
+
+# 配套的云端平台项目（独立仓库，勿提交进本仓库）
+Bilibili-Adplatform/

@@ -192,6 +192,7 @@ export default [
             '.history/',
             'node_modules/',
             'dist/',
+            'Bilibili-Adplatform/',
             'webpack.config.js',
             'babel.config.js',
             'build/*.js',
