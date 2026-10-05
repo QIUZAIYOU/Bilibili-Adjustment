@@ -46,6 +46,7 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { sanitizeHttpUrl } from '@/utils/common'
+import { getRegionName } from '@/shared/archive-regions'
 /**
  * 宿主传入的历史记录条目（由 src/modules/home/history.js 采集）
  * 字段与旧命令式实现一致；`_key` 为 url 缺失时的去重键。
@@ -57,6 +58,8 @@ interface HistoryVideoRecord {
     title?: string
     author?: string
     category?: string
+    /** 老体系二级分区 ID（API 已不再返回分区名，旧记录的 category 靠它回填） */
+    tid?: string | number
 }
 /** 预计算安全 URL 后的渲染条目 */
 interface DecoratedHistoryRecord extends HistoryVideoRecord {
@@ -93,6 +96,9 @@ const toSafeUrl = (value?: string) => {
 /** 预计算安全 URL，避免模板里重复调用白名单函数 */
 const decorated = computed<DecoratedHistoryRecord[]>(() => props.records.map(video => ({
     ...video,
+    // 旧记录的分区名可能为空（API 停止返回 tname 之后、修复之前写入的），
+    // 但 tid 一直在库里，用内置分区表回填，历史数据也能正常参与分类筛选。
+    category: video.category || getRegionName(video.tid),
     safeUrl: toSafeUrl(video.url),
     safePic: toSafeUrl(video.pic)
 })))

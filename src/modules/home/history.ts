@@ -1,5 +1,6 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
+import { getRegionName } from '@/shared/archive-regions'
 import { biliApis } from '@/shared/bili-apis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
@@ -95,13 +96,10 @@ export const homeHistoryFeatures = {
                         try {
                             videoInfo = await fetchVideoInfo(url)
                         } catch { /* 获取失败则仅记录 DOM 基础信息，保证不丢记录 */ }
-                        let category = ''
-                        if (videoInfo) {
-                            // 分类名直接取自视频信息（tname_v2 为二级分区，优先）。
-                            // 原实现调用不存在的 biliApis.getVideoDetail(...) → 每次都抛错并被吞掉，
-                            // 导致 category 恒为空、分类栏只剩「全部」（分类筛选形同失效）。
-                            category = videoInfo.tname_v2 || videoInfo.tname || ''
-                        }
+                        // 分类名：B 站 x/web-interface/view 已不再返回 tname / tname_v2（2026-10 实测均为空
+                        // 字符串），只剩数字分区 ID，故用内置分区表按老体系 tid 反查（tid_v2 是另一套
+                        // ID 体系、与老表数值重叠，不能拿来查表）。
+                        const category = videoInfo ? getRegionName(videoInfo.tid) : ''
                         const historyKey = `${videoInfo?.bvid || videoInfo?.aid || url}::${sessionTimestamp}`
                         await storageService.set('index', historyKey, {
                             title,
