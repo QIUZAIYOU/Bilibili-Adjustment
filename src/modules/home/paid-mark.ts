@@ -3,6 +3,7 @@ import { biliApis } from '@/shared/bili-apis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { escapeHtml } from '@/utils/common'
 import { chunk } from '@/utils/lodash-lite'
+import { retryQueue } from '@/utils/retry-queue'
 const logger = new LoggerService('HomeModule')
 export const homePaidMarkFeatures = {
     async markRecommendVideoPaidStatus (): Promise<void> {
@@ -11,6 +12,15 @@ export const homePaidMarkFeatures = {
         const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') || 'a'
         const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') || 'h3'
         const cards = [...allCards].filter(card => !card.querySelector(adCardSelector))
+        // 冷启动时卡片可能尚未渲染：旧实现会因 cards 为空而整段静默跳过（首次打开不标记付费）
+        if (!cards.length) {
+            logger.warn('首页付费标记｜未找到推荐卡片，已加入重试队列（3 分钟内持续重试）')
+            retryQueue.register('homePaidMark', () => {
+                if (!elementSelectors.queryAll('indexRecommendCards').length) throw new Error('推荐卡片仍未就绪')
+                return this.markRecommendVideoPaidStatus()
+            })
+            return
+        }
         // 分批并发查询，避免串行请求拖慢整批标记
         for (const batch of chunk(cards, 4)) {
             await Promise.allSettled(batch.map(async video => {

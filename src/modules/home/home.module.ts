@@ -10,6 +10,7 @@ import { homePaidMarkFeatures } from './paid-mark'
 import { homeVideoPreviewFeatures } from './video-preview'
 import type { HomeVideoPreviewContext } from './video-preview'
 import { insertHomeSettingsButton, removeHomeSettingsButton } from './settings-button'
+import { retryQueue } from '@/utils/retry-queue'
 import { SettingsDialogHost } from '@/components/settings-dialog'
 const logger = new LoggerService('HomeModule')
 /** 设置弹窗宿主：首页也挂一个（复用播放页那套 schema，首页功能开关都在里面） */
@@ -33,7 +34,7 @@ interface HomeModuleContext extends HomeVideoPreviewContext {
 }
 export default {
     name: 'home',
-    version: '3.38.1',
+    version: '3.38.2',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
     ...homeVideoPreviewFeatures,
@@ -64,13 +65,25 @@ export default {
     },
     async preFunctions (this: HomeModuleContext): Promise<void> {
         this.userConfigs = await storageService.getAll('user') as Record<string, unknown>
-        if (document.visibilityState === 'visible') {
-            logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'IndexAdjustmentStyle': styles.IndexAdjustment })
-            this.handleExecuteFunctionsSequentially()
-            await this.initEventListeners()
-            await this.initSettingsEntry()
+        // 冷启动（浏览器刚打开／恢复会话）时标签页可能尚不可见，旧实现直接整段跳过且无补救，
+        // 表现为「首次打开首页功能不生效、刷新后才正常」。改为等到可见再执行一次。
+        if (document.visibilityState !== 'visible') {
+            logger.info('首页模块｜标签页不可见，等待可见后执行')
+            await new Promise<void>(resolve => {
+                const onVisible = (): void => {
+                    if (document.visibilityState !== 'visible') return
+                    document.removeEventListener('visibilitychange', onVisible)
+                    resolve()
+                }
+                document.addEventListener('visibilitychange', onVisible)
+                this._cleanup.push(() => document.removeEventListener('visibilitychange', onVisible))
+            })
         }
+        logger.info('标签页｜已激活')
+        insertStyleToDocument({ 'IndexAdjustmentStyle': styles.IndexAdjustment })
+        this.handleExecuteFunctionsSequentially()
+        await this.initEventListeners()
+        await this.initSettingsEntry()
     },
     /** 首页的设置入口：右下角悬浮按钮组里插一颗图标按钮，点击开与播放页同一套设置弹窗 */
     async initSettingsEntry (this: HomeModuleContext): Promise<void> {
@@ -117,6 +130,7 @@ export default {
             // 视频预览按钮（功能关闭时内部直接返回，不产生任何 DOM/监听）
             () => this.initVideoPreview()
         ]
-        executeFunctionsSequentially(functions, { concurrency: 3 })
+        // 与播放页一致：每批结束后 drain 一次，让 register 的重试任务尽早获得机会
+        executeFunctionsSequentially(functions, { concurrency: 3, onAfterChunk: () => retryQueue.drain() })
     }
 }

@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { getRegionName } from '@/shared/archive-regions'
+import { retryQueue } from '@/utils/retry-queue'
 import { biliApis } from '@/shared/bili-apis'
 import { elementSelectors } from '@/shared/element-selectors'
 import { getTemplates } from '@/shared/templates'
@@ -32,6 +33,8 @@ interface HomeHistoryContext {
     clearRecommendVideoHistory: () => Promise<void>
     setRecordRecommendVideoHistory: () => Promise<void>
     generatorIndexRecommendVideoHistoryContents: () => Promise<void>
+    /** 插入首页推荐历史入口按钮（重试队列在锚点未就绪时会回调它） */
+    insertIndexRecommendVideoHistoryPopover: () => Promise<void>
 }
 /**
  * 清理库里「同一视频的旧记录」（展示侧只认最新一条，留着的旧行永远不可见，只会越积越多）。
@@ -75,6 +78,16 @@ export const homeHistoryFeatures = {
         const recordRecommendVideos = [...allCards]
             .filter(card => !card.querySelector(adCardSelector))
             .map((video, index) => ({ video, order: index }))
+        // 冷启动时首页推荐卡片可能还没渲染出来：旧实现会静默返回，表现为「首次打开不记录」。
+        // 加入重试队列等卡片出现（重试函数在仍未就绪时抛错，以留在队列里继续重试）。
+        if (!recordRecommendVideos.length) {
+            logger.warn('首页视频推荐历史｜未找到推荐卡片，已加入重试队列（3 分钟内持续重试）')
+            retryQueue.register('homeRecordHistory', () => {
+                if (!elementSelectors.queryAll('indexRecommendCards').length) throw new Error('推荐卡片仍未就绪')
+                return this.setRecordRecommendVideoHistory()
+            })
+            return
+        }
         const fetchVideoInfo = async (url: string): Promise<HistoryVideoInfo | null | undefined> => {
             try {
                 return await biliApis.getVideoInformation('video', biliApis.getCurrentVideoID(url)) as HistoryVideoInfo | null | undefined
@@ -140,7 +153,17 @@ export const homeHistoryFeatures = {
             || document.body
         createElementAndInsert(getTemplates.indexRecommendVideoHistoryOpenButton, anchor)
         const indexRecommendVideoHistoryOpenButton = document.getElementById('indexRecommendVideoHistoryOpenButton')
-        if (!indexRecommendVideoHistoryOpenButton) return
+        if (!indexRecommendVideoHistoryOpenButton) {
+            // 同上：冷启动时插入锚点可能尚未出现，失败不要静默放弃
+            logger.warn('首页推荐历史入口｜按钮插入失败，已加入重试队列')
+            retryQueue.register('homeHistoryButton', () => {
+                if (!document.getElementById('indexRecommendVideoHistoryOpenButton')
+                    && !elementSelectors.get('indexRecommendVideoRollButtonWrapper')
+                    && !elementSelectors.get('indexRecommendContainer')) throw new Error('插入锚点仍未就绪')
+                return this.insertIndexRecommendVideoHistoryPopover()
+            })
+            return
+        }
         // 点击打开按钮时创建并显示弹窗
         const cleanup = addEventListenerToElement(indexRecommendVideoHistoryOpenButton, 'click', async () => {
             // 检查是否已存在弹窗，避免重复创建
