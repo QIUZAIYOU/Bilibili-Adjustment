@@ -34,7 +34,7 @@ interface HomeModuleContext extends HomeVideoPreviewContext {
 }
 export default {
     name: 'home',
-    version: '3.38.2',
+    version: '3.38.3',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
     ...homeVideoPreviewFeatures,
