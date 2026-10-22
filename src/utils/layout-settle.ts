@@ -13,6 +13,17 @@ export const isAtScrollEnd = (scrollY: number, scrollHeight: number, clientHeigh
 /** 文档高度是否仍在变化（布局还没稳定） */
 export const isDocumentGrowing = (previousHeight: number, currentHeight: number, tolerance = 1): boolean =>
     Math.abs(currentHeight - previousHeight) > tolerance
+/**
+ * 播放器「自然位置」（文档顶到播放器上沿的距离）是否可信
+ *
+ * 背景（issue #39）：这个值会写进 `player_offset_top`，再显示在设置项「播放器顶部偏移」的说明里
+ * （提示里的那个数字）。它在**全屏/网页全屏/小窗**时读到的是贴视口的小值，在布局中间态也能读到
+ * 半截值 —— 历史上有用户就是因为说明里的数字变成 57 而以为"定位上限只有 57"。
+ * 所以只在合理区间内才采信：下限 40 挡住 0/贴边的瞬时值，上限 800 挡住离谱的中间态。
+ * 区间只是粗糙兜底，真正的把关是「同一位置上连续两次采样一致 + 播放器在文档流里」。
+ */
+export const isPlausibleNaturalOffset = (value: number, min = 40, max = 800): boolean =>
+    Number.isFinite(value) && value >= min && value <= max
 interface PositionCheck {
     /** 播放器容器当前视口位置（getBoundingClientRect().top） */
     playerViewportTop: number

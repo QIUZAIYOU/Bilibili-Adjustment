@@ -197,7 +197,7 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 label: '播放器顶部偏移(px)',
                 inputType: 'number',
                 defaultValue: 5,
-                tips: configs => `播放器距离浏览器窗口默认距离为 ${configs.player_offset_top}；请填写小于 ${configs.player_offset_top} 的正整数或 0；当值为 0 时，播放器上沿将紧贴浏览器窗口上沿;值为 ${configs.player_offset_top} 时，将保持B站默认`,
+                tips: configs => `播放器的自然位置是距文档顶部 ${configs.player_offset_top}px（每次进入视频页时按当前分辨率与窗口宽度自动测量，所以不同屏幕下这个数字不同，不是固定值）；请填写小于 ${configs.player_offset_top} 的正整数或 0；值为 0 时播放器上沿紧贴浏览器窗口上沿，值等于 ${configs.player_offset_top} 时保持B站默认`,
                 category: 'basic'
             },
             {

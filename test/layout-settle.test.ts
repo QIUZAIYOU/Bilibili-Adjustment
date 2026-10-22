@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isAtScrollEnd, isDocumentGrowing, isPositionedAtPlayer } from '@/utils/layout-settle'
+import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer } from '@/utils/layout-settle'
 /**
  * 「定位到位」判定回归（issue #39「播放器定位固定上限变成57」）
  *
@@ -70,4 +70,20 @@ test('isPositionedAtPlayer：既没到目标位置也没到底 → 未到位', (
         clientHeight: 900,
         documentGrowing: false
     }), false)
+})
+/**
+ * 「播放器自然位置」合理性校验（issue #39 用户回复：设置说明里显示的数字被记成了 57）
+ *
+ * 这个值会写进 `player_offset_top` 并直接显示在设置项说明里，所以全屏/小窗/布局中间态
+ * 读到的贴边小值必须挡住；实测各分辨率下的合理值在 168~172 区间。
+ */
+test('isPlausibleNaturalOffset：挡住贴边小值与离谱大值', () => {
+    assert.equal(isPlausibleNaturalOffset(168), true)
+    assert.equal(isPlausibleNaturalOffset(172), true)
+    assert.equal(isPlausibleNaturalOffset(104), true)
+    assert.equal(isPlausibleNaturalOffset(0), false)
+    assert.equal(isPlausibleNaturalOffset(39), false)
+    assert.equal(isPlausibleNaturalOffset(-1), false)
+    assert.equal(isPlausibleNaturalOffset(900), false)
+    assert.equal(isPlausibleNaturalOffset(Number.NaN), false)
 })

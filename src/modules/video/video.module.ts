@@ -73,6 +73,7 @@ interface VideoModuleContext {
     destroyPlaybackMemory: () => void
     autoSelectPlayerMode: () => Promise<unknown>
     autoLocateToPlayer: () => Promise<void>
+    recordNaturalPlayerOffset: () => Promise<void>
     locateToPlayer: () => Promise<void>
     guardEpisodeSwitchClicks: () => void
     handleExecuteFunctionsSequentially: () => Promise<void> | void
@@ -179,6 +180,9 @@ export default {
         }
         await this.registSettings()
         await this.initEventListeners()
+        // 记录「播放器自然位置」（设置项「播放器顶部偏移」说明里显示的那个数字，随分辨率/窗口宽度变化）。
+        // 它内部等布局稳定并复测，不能挡在自动定位前面，所以不 await（内部已兜住异常）
+        void this.recordNaturalPlayerOffset()
         // 官方进度条上给「跳过片段」区间染色（等待进度条出现后自行挂载，幂等）
         initProgressSegmentTint()
         this.initMonitors()

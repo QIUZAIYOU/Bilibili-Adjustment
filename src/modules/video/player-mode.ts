@@ -6,7 +6,7 @@ import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
-import { isDocumentGrowing, isPositionedAtPlayer } from '@/utils/layout-settle'
+import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset } from '@/utils/layout-settle'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
 const logger = new LoggerService('VideoModule', { notify: false })
@@ -66,6 +66,27 @@ const waitForStableDocumentHeight = async (interval = 150, maxWait = 1500): Prom
         if (!isDocumentGrowing(previous, current)) return
         previous = current
     }
+}
+/**
+ * 测一次播放器「自然位置」（文档顶到播放器上沿的距离 = 设置说明里显示的那个数字）
+ *
+ * 为什么要连续采两次：这个值要被写进 `player_offset_top` 并显示给用户看，
+ * 中途布局（选集/切换/收藏夹打开）读到的半截值一旦被记下来，用户会在设置里看到
+ * 一个莫名其妙的数字（issue #39 的「说明里写着 57」就是这么来的）。
+ * 所以要求：播放器在文档流里（非全屏/网页全屏/小窗）、两次采样一致、过合理性校验。
+ * 返回 null 表示这次测不可信，调用方应保持原值。
+ */
+const measureNaturalPlayerOffset = async (interval = 150): Promise<number | null> => {
+    const container = elementSelectors.get('playerContainer')
+    if (!container) return null
+    const playerMode = container.getAttribute('data-screen')
+    if (playerMode === 'full' || playerMode === 'web' || playerMode === 'mini') return null
+    const first = readPlayerOffset()
+    if (first < 0) return null
+    await sleep(interval)
+    const second = readPlayerOffset()
+    if (second < 0 || second !== first) return null
+    return isPlausibleNaturalOffset(second) ? second : null
 }
 /** 等「切换真的发生」（URL 或视频 src 变化），返回是否检测到变化；最多等 maxWait（默认 2.5s） */
 const waitForEpisodeChange = async (beforeHref: string, beforeSrc: string, maxWait = 2500): Promise<boolean> => {
@@ -261,12 +282,9 @@ export const playerModeFeatures = {
         const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return false
         const playerMode = playerContainer.getAttribute('data-screen')
-        // 只记录「播放器确实在文档流里」时的偏移：全屏/网页全屏/小窗时播放器脱离文档流或贴着视口，
-        // 读到的是没有意义的小值（曾把设置项提示里的「定位上限」记成 57 这类数字），
-        // 它还会被小窗模式的定位当成滚动目标，所以这类模式下不写入。
-        if (playerMode !== 'full' && playerMode !== 'web' && playerMode !== 'mini') {
-            await storageService.userSet('player_offset_top', await getElementOffsetToDocument(playerContainer as HTMLElement).top)
-        }
+        // `player_offset_top`（播放器自然位置）的写入统一由 recordNaturalPlayerOffset 负责：
+        // 它在 load 之后测一次并复测，是全流程唯一写入点。这里过去用「切换后立刻读一次」的值，
+        // 会把切换动画/布局中间态的半截值记下来（曾把设置提示里的数字记成 57 这类值）。
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
         return new Promise<boolean>(resolve => {
@@ -284,6 +302,42 @@ export const playerModeFeatures = {
             const timeoutId = setTimeout(() => finish(false), 3000)
             if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
         })
+    },
+    /**
+     * 记录「播放器自然位置」到 `player_offset_top`
+     *
+     * 这个值有两个用途：①迷你模式的滚动目标；②设置项「播放器顶部偏移」说明里显示的那个数字
+     * （"播放器距离浏览器窗口默认距离为 X；请填写小于 X 的正整数"）。
+     *
+     * 它**不是常量**：B 站播放器按宽度算高度（16:9），不同分辨率/窗口宽度下文档顶到播放器上沿的距离不同
+     * （实测 1440×900 → 168、1920×1080 → 172、2560×1440 → 172）。所以每次进入视频页都重新测一次并写库，
+     * 而不是让用户看一个来自别的分辨率、或是内置默认值（168）的数字。
+     * 只在视频可播放、播放器仍在文档流里时测（见 measureNaturalPlayerOffset），测不可信就保持原值。
+     */
+    async recordNaturalPlayerOffset (this: PlayerModeContext): Promise<void> {
+        try {
+            // 首帧时机太早：播放器上方的头部占位/视频信息区在 load 之后还会微调（实测 168 → 172），
+            // 早测出来的值会差几个像素。等 load 再量，但如果资源慢导致 load 迟迟不来，最多等 2.5s，
+            // 免得这个值一直不更新（那个数字只影响设置说明显示与迷你模式滚动目标，不阻塞录像/播放）。
+            if (document.readyState !== 'complete') {
+                await Promise.race([
+                    new Promise<void>(resolve => window.addEventListener('load', () => resolve(), { once: true })),
+                    sleep(2500)
+                ])
+            }
+            let measured = await measureNaturalPlayerOffset()
+            await sleep(1200)
+            const settled = await measureNaturalPlayerOffset()
+            if (settled !== null) measured = settled
+            if (measured === null) return
+            if (Number(this.userConfigs.player_offset_top) === measured) return
+            await storageService.userSet('player_offset_top', measured)
+            // 同步内存里的配置：设置弹窗的说明文案直接读 userConfigs，不刷新页面也要显示新值
+            this.userConfigs.player_offset_top = measured
+            logger.debug(`自动定位丨已记录播放器自然位置：${measured}px（设置项说明里显示的就是这个数字）`)
+        } catch (error) {
+            logger.debug('自动定位丨记录播放器自然位置失败', error)
+        }
     },
     async autoLocateToPlayer (this: PlayerModeContext): Promise<void> {
         // 重复触发（播放器模式选定事件与 SPA 可播放校验可能重叠）时合并为一次定位
@@ -342,9 +396,13 @@ export const playerModeFeatures = {
             const playerOffsetTop = isHeaderOverlaying(headerComputedStyle.position) ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
             const targetOffset = playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)
             const currentScrollTop = window.scrollY
-            // 允许一定的误差范围（50px）
-            if (Math.abs(currentScrollTop - targetOffset) < 50) {
-                logger.debug('自动定位丨当前已在播放器位置附近，跳过定位')
+            // 只有已经精确停在目标位置（±8px）才跳过。
+            // 这里过去用的是 50px 的粗容差，于是**冷启动**（刷新，或从首页/收藏/历史/动态点进来时页面在顶部）
+            // 只要目标滚动量不到 50px 就会被误判成「已在播放器位置」而不做任何滚动 —— 用户表现就是
+            // 「顶部偏移设到某个值以上，自动定位就失效」，且手动点播放器定位（不走这个分支）正常。
+            // 分界点 ≈ 播放器自然位置 - 吸顶头部高度 - 50（issue #39：偏移 ≤57 正常、≥58 失效）。
+            if (isLocatedAtPlayer(Number(this.userConfigs.offset_top) || 0)) {
+                logger.debug(`自动定位丨当前已在播放器位置（${currentScrollTop} ≈ ${targetOffset}），跳过定位`)
                 eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
             }
