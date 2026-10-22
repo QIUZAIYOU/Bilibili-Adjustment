@@ -18,7 +18,6 @@ const isComponent = (value: unknown): boolean => {
  * @param {string} [options.currentVersion]
  * @param {string} [options.latestVersion]
  * @param {Array<{version: string, desc: string}>} [options.items]
- * @param {boolean} [options.isLatest] 已是最新版本（不展示更新列表，只提示已是最新）
  * @returns {Promise<{unmount: Function}>}
  */
 /** 挂载选项 */
@@ -26,8 +25,6 @@ export interface MountUpdateNoticeOptions {
     currentVersion?: string
     latestVersion?: string
     items?: Array<{ version: string; desc: string }>
-    /** 已是最新版本（不展示更新列表，只提示已是最新） */
-    isLatest?: boolean
 }
 /** 挂载结果（弹窗关闭即调用 unmount） */
 export interface PanelHandle {
@@ -37,7 +34,6 @@ export const mountUpdateNoticePanel = async (mountEl: HTMLElement, options: Moun
     const currentVersion = options.currentVersion || ''
     const latestVersion = options.latestVersion || ''
     const items = Array.isArray(options.items) ? options.items : []
-    const isLatest = options.isLatest === true
     const panelModule = await import('./lazy-panel')
     const { UpdateNoticePanelComponent, createApp } = panelModule || {}
     if (!isComponent(UpdateNoticePanelComponent)) {
@@ -52,8 +48,7 @@ export const mountUpdateNoticePanel = async (mountEl: HTMLElement, options: Moun
     const app = createApp(UpdateNoticePanelComponent, {
         currentVersion: String(currentVersion ?? ''),
         latestVersion: String(latestVersion ?? ''),
-        items: Array.isArray(items) ? items : [],
-        isLatest
+        items: Array.isArray(items) ? items : []
     })
     app.mount(mountEl)
     let unmounted = false

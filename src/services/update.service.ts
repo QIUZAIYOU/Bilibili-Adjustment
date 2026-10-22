@@ -131,15 +131,13 @@ export class UpdateService {
      * 弹窗外壳/标题/按钮/a11y 仍由 openAdjustmentDialog 提供，class 契约保持不变，
      * 故 src/shared/styles/index.js 中的更新弹窗样式无需改动。
      */
-    #showUpdatePopover (currentVersion: string, latestVersion: string, updateItems: UpdateItem[], options: { isLatest?: boolean; rebuilt?: boolean } = {}): void {
-        // isLatest：手动检查「已是最新版本」时的反馈弹窗（不展示更新列表，也不需要「更新」按钮）
-        const isLatest = options.isLatest === true
+    #showUpdatePopover (currentVersion: string, latestVersion: string, updateItems: UpdateItem[], options: { rebuilt?: boolean } = {}): void {
         // rebuilt：版本号未变、但线上内容已更新（同版本覆盖发布）——只能重新安装，没有更新日志
         const rebuilt = options.rebuilt === true
         openAdjustmentDialog({
             key: 'update-notice',
-            title: rebuilt ? '哔哩哔哩调整 · 内容已更新' : (isLatest ? '哔哩哔哩调整 · 已是最新版本' : '哔哩哔哩调整 · 有新版本'),
-            subtitle: rebuilt ? '（版本号未变但服务器内容已更新，点击重新安装）' : (isLatest ? '（当前已是最新版本，无需更新）' : '（点击更新按钮安装最新版）'),
+            title: rebuilt ? '哔哩哔哩调整 · 内容已更新' : '哔哩哔哩调整 · 有新版本',
+            subtitle: rebuilt ? '（版本号未变但服务器内容已更新，点击重新安装）' : '（点击更新按钮安装最新版）',
             className: 'update-dialog',
             content: (body: HTMLElement) => {
                 const holder = document.createElement('div')
@@ -147,7 +145,7 @@ export class UpdateService {
                 let handle: Awaited<ReturnType<typeof mountUpdateNoticePanel>> | null = null
                 let disposed = false
                 // 面板懒加载：加载完成后挂载；若期间弹窗已关闭则立即卸载，避免实例泄漏
-                mountUpdateNoticePanel(holder, { currentVersion, latestVersion, items: updateItems, isLatest })
+                mountUpdateNoticePanel(holder, { currentVersion, latestVersion, items: updateItems })
                     .then(created => {
                         if (disposed) created.unmount()
                         else handle = created
@@ -164,19 +162,17 @@ export class UpdateService {
                     holder.remove()
                 }
             },
-            actions: isLatest
-                ? [{ text: '关闭', type: 'info', onClick: (d: { close: () => void }) => d.close() }]
-                : [
-                    { text: '关闭', type: 'info', onClick: (d: { close: () => void }) => d.close() },
-                    {
-                        text: rebuilt ? '重新安装' : '更新',
-                        type: 'primary',
-                        onClick: (d: { close: () => void }) => {
-                            window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
-                            d.close()
-                        }
+            actions: [
+                { text: '关闭', type: 'info', onClick: (d: { close: () => void }) => d.close() },
+                {
+                    text: rebuilt ? '重新安装' : '更新',
+                    type: 'primary',
+                    onClick: (d: { close: () => void }) => {
+                        window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+                        d.close()
                     }
-                ]
+                }
+            ]
         })
     }
     /**
@@ -231,8 +227,7 @@ export class UpdateService {
                 // 已是最新：清掉版本号处的提示（用户可能早已手动更新过）
                 this.#setPendingUpdateVersion('')
                 this.#setPendingRebuild(null)
-                // 手动检查同样弹出反馈弹窗（与「发现新版本」的反馈保持一致）
-                this.#showUpdatePopover(currentVersion, latestVersion, [], { isLatest: true })
+                // 已是最新版本不弹窗：只在设置页版本号处给一条行内状态（见 settings-dialog 的 showStatus）
                 return { type: 'latest', latestVersion }
             }
             logger.info(`检查更新丨发现新版本 v${latestVersion}（当前 v${currentVersion}）`)

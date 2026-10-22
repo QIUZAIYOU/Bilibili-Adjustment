@@ -6,7 +6,7 @@
                 <div>当前版本: {{ currentVersion }}</div>
                 <div>最新版本: {{ latestVersion }}</div>
             </div>
-            <ul v-if="!isLatest && items.length > 0" class="adjustment-update-contents">
+            <ul v-if="items.length > 0" class="adjustment-update-contents">
                 <li
                     v-for="(item, index) in items"
                     :key="index"
@@ -17,7 +17,7 @@
                     <span class="adj-update-desc">{{ item.desc }}</span>
                 </li>
             </ul>
-            <div v-else class="adjustment-update-contents">{{ isLatest ? '当前已是最新版本' : '暂无更新说明' }}</div>
+            <div v-else class="adjustment-update-contents">暂无更新说明</div>
         </div>
     </div>
 </template>
@@ -43,12 +43,9 @@ withDefaults(defineProps<{
     latestVersion?: string
     /** 已解析的更新条目：[{ version, desc }]，version 为空表示该条无版本号 */
     items?: UpdateItem[]
-    /** 已是最新版本（手动检查时的反馈弹窗）：不展示更新列表，只提示已是最新 */
-    isLatest?: boolean
 }>(), {
     currentVersion: '',
     latestVersion: '',
-    items: () => [],
-    isLatest: false
+    items: () => []
 })
 </script>
