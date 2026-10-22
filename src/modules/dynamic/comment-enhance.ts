@@ -2,6 +2,7 @@ import { LoggerService } from '@/services/logger.service'
 import { getTemplates } from '@/shared/templates'
 import { ShadowDOMHelper } from '@/utils/shadow-dom-helper'
 import { elementSelectors, shadowDomSelectors } from '@/shared/element-selectors'
+import { formatVideoCommentContents } from '@/shared/regexps'
 import { createElementAndInsert, addEventListenerToElement } from '@/utils/common'
 const logger = new LoggerService('DynamicModule')
 const shadowDOMHelper = new ShadowDOMHelper()
@@ -33,9 +34,19 @@ export const commentEnhanceFeatures = {
                 tag.remove()
             })
         }
+        // 评论正文链接化：与视频页评论区同一套实现（URL/BV/cv 转可点链接）。
+        // 动态页此前完全没有链接化 —— 评论里的网盘等外链不会变蓝。
+        const formatCommentContents = (host: Element) => {
+            const contents = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.commentContents) as Element | null
+            if (!contents) return
+            // 已链接化过则跳过：多轮处理叠加会产生嵌套链接
+            if (contents.querySelector('bilibili-adjustment-element')) return
+            contents.innerHTML = formatVideoCommentContents(contents)
+        }
         this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentRenderder, renderder => {
             // 自定义元素上挂的 data 由 B 站注入，这里按需收窄
             const data = (renderder as Element & { data?: { reply_control?: { location?: string }}}).data
+            formatCommentContents(renderder)
             if (this.userConfigs.show_comment_location){
                 showLocation(renderder, data?.reply_control?.location ?? 'IP属地：未知')
             }
@@ -45,6 +56,7 @@ export const commentEnhanceFeatures = {
         }, listItem as Element))
         this._cleanup.push(shadowDOMHelper.observeInsertion(shadowDomSelectors.commentReplyRenderder, renderder => {
             const data = (renderder as Element & { data?: { reply_control?: { location?: string }}}).data
+            formatCommentContents(renderder)
             if (this.userConfigs.show_comment_location){
                 showLocation(renderder, data?.reply_control?.location ?? 'IP属地：未知')
             }

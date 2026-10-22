@@ -74,7 +74,7 @@ export const commentFeatures = {
     },
     // 格式化评论内容
     formatCommentContents (this: CommentContext, host: Element): void {
-        const contents = shadowDOMHelper.queryDescendant(host, '#contents') as Element | null
+        const contents = shadowDOMHelper.queryDescendant(host, shadowDomSelectors.commentContents) as Element | null
         if (!contents) return
         // 已链接化过则跳过，防止多轮处理叠加产生嵌套链接
         if (contents.querySelector('bilibili-adjustment-element')) return

@@ -247,6 +247,8 @@ export const shadowDomSelectors: Record<string, string> = {
     commentRenderder: 'bili-comment-renderer',
     commentRepliesRenderer: 'bili-comment-replies-renderer',
     commentReplyRenderder: 'bili-comment-reply-renderer',
+    /** 评论正文容器（视频页与动态页评论区同款结构）：链接化时读取它再整体替换 innerHTML */
+    commentContents: '#contents',
     commentTags: '#tags'
 }
 // ========== 页面类型专属选择器 ==========
