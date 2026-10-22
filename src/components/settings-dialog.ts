@@ -9,7 +9,7 @@ import { SettingsShellRenderer } from '@/components/settings-shell-renderer'
 import { BUILD_SHA } from '@/shared/build-info'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
-import { formatPendingUpdateHint } from '@/utils/update-policy'
+import { formatPendingUpdateHint, isComparableBuildSha } from '@/utils/update-policy'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
@@ -39,9 +39,13 @@ type FeedbackButton = HTMLElement & {
 const logger = new LoggerService('SettingsDialog')
 /**
  * 设置面板显示的版本号：`v3.34.4+a1b2c3d`（构建期注入的 git 短 SHA）。
- * 取不到构建标识时只显示版本号，保持原样。
+ * 只有**可比较的干净构建标识**才拼进去 —— 本地开发、脏工作区（`-dirty`）、取不到标识时
+ * 一律只显示版本号，不把 `v3.38.3+d39d7f1-dirty` 这种调试字串摆给用户；
+ * 完整构建标识改由悬浮提示呈现（见 versionTitle，反馈问题时仍可读到）。
  */
-const versionLabel = (): string => (BUILD_SHA ? `${pkg.version}+${BUILD_SHA}` : pkg.version)
+const versionLabel = (): string => (isComparableBuildSha(BUILD_SHA) ? `${pkg.version}+${BUILD_SHA}` : pkg.version)
+/** 版本号悬浮提示：干净/脏的构建标识都带出来（含 `-dirty`），排查「用户装的是哪一份」时用 */
+const versionTitle = (): string => (BUILD_SHA && BUILD_SHA !== 'unknown' ? `点击检查更新（构建标识 ${BUILD_SHA}）` : '点击检查更新')
 /**
  * 设置弹窗宿主：负责弹窗壳渲染、与 Vue 设置面板的接线（挂载/卸载/配置与动态选项同步）、
  * 特殊联动（AI 凭证与模型、日志级别、字幕开关）、配置导入导出与版本检查。
@@ -287,7 +291,9 @@ export class SettingsDialogHost {
         const popoverHtml = renderer.renderPopover(
             '哔哩哔哩播放页设置',
             versionLabel(),
-            formContent
+            formContent,
+            '',
+            versionTitle()
         )
         createElementAndInsert(popoverHtml, document.body)
         // 获取 popover DOM 元素（需要等 DOM 插入后才能获取）
@@ -819,7 +825,8 @@ export class SettingsDialogHost {
         const popoverHtml = renderer.renderDynamicPopover(
             '哔哩哔哩动态页设置',
             versionLabel(),
-            formContent
+            formContent,
+            versionTitle()
         )
         createElementAndInsert(popoverHtml, document.body)
         const popover = document.getElementById('DynamicSettingsPopover') as SettingsPopover | null

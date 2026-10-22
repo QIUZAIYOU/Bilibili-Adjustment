@@ -14,16 +14,17 @@ export class SettingsShellRenderer {
      * @param {string} version 版本号
      * @param {string} formContent 表单挂载点 HTML（由调用方提供，如 <div class="adjustment-form" id="VideoSettingsFormMount"></div>）
      * @param {string} [extraButtons] 额外按钮 HTML
+     * @param {string} [versionTitle] 版本号悬浮提示（完整构建标识等调试信息放这里，不占可见文案）
      * @returns {string} 弹窗 HTML
      */
-    renderPopover (title: string, version: string, formContent: string, extraButtons = ''): string {
+    renderPopover (title: string, version: string, formContent: string, extraButtons = '', versionTitle = '点击检查更新'): string {
         return `
             <bilibili-adjustment-video-setting id="VideoSettingsPopover" class="adjustment-popover" popover="manual" bilibili-adjustment-element>
                 <div class="adjustment-popover-header">
                     <div class="adjustment-popover-header-top">
                         <div class="adjustment-popover-title">${title}</div>
                         <div class="adjustment-popover-version-wrap">
-                            <div class="adjustment-popover-version" title="点击检查更新">v${version}</div>
+                            <div class="adjustment-popover-version" title="${versionTitle}">v${version}</div>
                             <div class="adjustment-popover-version-status"></div>
                         </div>
                     </div>
@@ -47,16 +48,17 @@ export class SettingsShellRenderer {
      * @param {string} title 标题
      * @param {string} version 版本号
      * @param {string} formContent 表单挂载点 HTML
+     * @param {string} [versionTitle] 版本号悬浮提示（完整构建标识等调试信息放这里，不占可见文案）
      * @returns {string} 弹窗 HTML
      */
-    renderDynamicPopover (title: string, version: string, formContent: string): string {
+    renderDynamicPopover (title: string, version: string, formContent: string, versionTitle = '点击检查更新'): string {
         return `
             <bilibili-adjustment-dynamic-setting id="DynamicSettingsPopover" class="adjustment-popover" popover="manual" bilibili-adjustment-element>
                 <div class="adjustment-popover-header">
                     <div class="adjustment-popover-header-top">
                         <div class="adjustment-popover-title">${title}</div>
                         <div class="adjustment-popover-version-wrap">
-                            <div class="adjustment-popover-version" title="点击检查更新">v${version}</div>
+                            <div class="adjustment-popover-version" title="${versionTitle}">v${version}</div>
                             <div class="adjustment-popover-version-status"></div>
                         </div>
                     </div>
