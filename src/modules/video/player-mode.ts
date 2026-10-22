@@ -6,6 +6,7 @@ import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
+import { isDocumentGrowing, isPositionedAtPlayer } from '@/utils/layout-settle'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
 const logger = new LoggerService('VideoModule', { notify: false })
@@ -45,6 +46,27 @@ const waitForStablePlayerOffset = async (interval = 100, maxWait = 800): Promise
         previous = current
     }
 }
+/** 读文档总高（滚动容器） */
+const readDocumentHeight = (): number => {
+    const scroller = document.scrollingElement || document.documentElement
+    return scroller.scrollHeight
+}
+/**
+ * 等「文档高度」稳定：连续两次采样变化不超过 1px 才算稳定，最多等 maxWait（默认 1.5s）
+ *
+ * 为什么需要：刷新后评论/推荐等异步内容还没渲染完，文档矮、可滚动范围小，
+ * 这时滚到底只是临时上限（issue #39「定位固定上限变成57」），必须等文档长稳后再算目标位置。
+ */
+const waitForStableDocumentHeight = async (interval = 150, maxWait = 1500): Promise<void> => {
+    let previous = readDocumentHeight()
+    const deadline = Date.now() + maxWait
+    while (Date.now() < deadline) {
+        await sleep(interval)
+        const current = readDocumentHeight()
+        if (!isDocumentGrowing(previous, current)) return
+        previous = current
+    }
+}
 /** 等「切换真的发生」（URL 或视频 src 变化），返回是否检测到变化；最多等 maxWait（默认 2.5s） */
 const waitForEpisodeChange = async (beforeHref: string, beforeSrc: string, maxWait = 2500): Promise<boolean> => {
     const deadline = Date.now() + maxWait
@@ -57,10 +79,12 @@ const waitForEpisodeChange = async (beforeHref: string, beforeSrc: string, maxWa
 }
 /** 定位目标：把播放器顶部对齐到视口目标位置所需的滚动位置 */
 interface PlayerScrollTarget {
-    /** 目标滚动位置 */
+    /** 目标滚动位置（已按可滚动范围 clamp） */
     offset: number
     /** 播放器顶部应对齐到的视口位置 */
     viewportTop: number
+    /** 理想滚动位置（未 clamp）：文档太矮时 offset 会比它小，用来判断「定位被布局卡住」 */
+    desiredOffset: number
 }
 /**
  * 计算「定位到播放器」的目标滚动位置；当前不具备定位条件时返回 null。
@@ -84,12 +108,49 @@ const resolvePlayerScrollTarget = (offsetTop: number): PlayerScrollTarget | null
     const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
     const raw = getElementOffsetToDocument(playerContainer as HTMLElement).top - viewportTop
     // 无评论等文档高度不足时目标超出可滚动范围，clamp 到最大滚动位置
-    return { offset: Math.max(0, Math.min(raw, maxScroll)), viewportTop }
+    return { offset: Math.max(0, Math.min(raw, maxScroll)), viewportTop, desiredOffset: Math.max(0, raw) }
 }
 /** 当前是否已经定位在播放器位置（±8px） */
 const isLocatedAtPlayer = (offsetTop: number): boolean => {
     const target = resolvePlayerScrollTarget(offsetTop)
     return target !== null && Math.abs(window.scrollY - target.offset) <= 8
+}
+/**
+ * 文档长高后补一次定位
+ *
+ * 背景（issue #39「播放器定位固定上限变成57」）：刷新视频页时播放器下方的评论/推荐还没渲染完，
+ * 文档只比视口高一点点（用户实测可滚动范围只有 57px），定位只能停在这个临时上限；
+ * 内容加载完、文档长高之后却没人再定位，于是表现成「定位固定在 57，切换分P 才恢复正常」。
+ * 所以收尾时若发现离真实目标还差得远，就盯着文档高度，明显长高后补一次定位；
+ * 用户自己滚动过、或播放器进了全屏/网页全屏/小窗就放弃（不和用户抢滚动）。
+ */
+const scheduleRelocateOnDocumentGrowth = (
+    startHeight: number,
+    locate: () => Promise<void>,
+    options: { interval?: number, maxWait?: number } = {}
+): void => {
+    const interval = options.interval ?? 500
+    const deadline = Date.now() + (options.maxWait ?? 12000)
+    const startScrollY = window.scrollY
+    let previousHeight = startHeight
+    let timerId = 0
+    const stop = (): void => window.clearInterval(timerId)
+    timerId = window.setInterval(() => {
+        const playerContainer = elementSelectors.get('playerContainer')
+        if (!playerContainer || Date.now() > deadline) return stop()
+        const playerMode = playerContainer.getAttribute('data-screen')
+        if (playerMode === 'full' || playerMode === 'web' || playerMode === 'mini') return stop()
+        if (Math.abs(window.scrollY - startScrollY) > 8) return stop()
+        const currentHeight = readDocumentHeight()
+        const grew = currentHeight - previousHeight >= 50
+        previousHeight = currentHeight
+        if (!grew) return
+        logger.debug(`自动定位丨文档高度已增长（${startHeight} → ${currentHeight}），补一次定位`)
+        stop()
+        void locate().catch(error => {
+            logger.warn('自动定位丨补定位失败:', error instanceof Error ? error.message : String(error))
+        })
+    }, interval)
 }
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
@@ -199,8 +260,13 @@ export const playerModeFeatures = {
     async isPlayerModeSwitchSuccess (this: PlayerModeContext, selectedPlayerMode: string, videoElement: HTMLVideoElement | null): Promise<boolean> {
         const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return false
-        await storageService.userSet('player_offset_top', await getElementOffsetToDocument(playerContainer as HTMLElement).top)
         const playerMode = playerContainer.getAttribute('data-screen')
+        // 只记录「播放器确实在文档流里」时的偏移：全屏/网页全屏/小窗时播放器脱离文档流或贴着视口，
+        // 读到的是没有意义的小值（曾把设置项提示里的「定位上限」记成 57 这类数字），
+        // 它还会被小窗模式的定位当成滚动目标，所以这类模式下不写入。
+        if (playerMode !== 'full' && playerMode !== 'web' && playerMode !== 'mini') {
+            await storageService.userSet('player_offset_top', await getElementOffsetToDocument(playerContainer as HTMLElement).top)
+        }
         logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
         if (playerMode === selectedPlayerMode) return true
         return new Promise<boolean>(resolve => {
@@ -265,6 +331,8 @@ export const playerModeFeatures = {
             }
             // 先等布局稳定再测量目标：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
             await waitForStablePlayerOffset()
+            // 再等文档高度稳定：刷新后评论/推荐还没渲染完时文档矮，可滚动范围会被压成临时上限
+            await waitForStableDocumentHeight()
             const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
             const header = elementSelectors.get('headerMini')
             const headerComputedStyle: { position?: string; height?: string } = header
@@ -288,7 +356,9 @@ export const playerModeFeatures = {
                 await this.locateToPlayer()
                 // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
                 const maxRetry = this.userConfigs.page_type === 'bangumi' ? 3 : 2
-                for (let retry = 0; retry < maxRetry; retry++) {
+                let retried = 0
+                // 文档还在长高时（刷新后评论/推荐没渲染完）多给几次机会：那时的「已到底」只是临时上限
+                for (let attempt = 0; attempt < 8; attempt++) {
                     const freshContainer = elementSelectors.get('playerContainer')
                     if (!freshContainer) break
                     const freshMode = freshContainer.getAttribute('data-screen')
@@ -301,17 +371,42 @@ export const playerModeFeatures = {
                     const freshHeaderHeight = parseInt(freshHeaderStyle.height ?? '', 10) || 0
                     const freshTargetViewportTop = isHeaderOverlaying(freshHeaderStyle.position) ? freshHeaderHeight + Number(this.userConfigs.offset_top || 0) : Number(this.userConfigs.offset_top || 0)
                     const scroller = document.scrollingElement || document.documentElement
-                    const atBottom = window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
-                    if (Math.abs(window.scrollY - (freshOffsetTop - freshTargetViewportTop)) < 50 || atBottom) {
-                        logger.debug(`自动定位丨第 ${retry + 1} 次验证已到位`)
+                    // 隔一小段时间再采样文档高度，判断布局是否还在变（同步比较同一帧永远是相等的）
+                    const heightBefore = scroller.scrollHeight
+                    await sleep(150)
+                    const documentGrowing = isDocumentGrowing(heightBefore, readDocumentHeight())
+                    const reachedTarget = Math.abs(window.scrollY - (freshOffsetTop - freshTargetViewportTop)) < 50
+                    const positioned = isPositionedAtPlayer({
+                        playerViewportTop: freshContainer.getBoundingClientRect().top,
+                        targetViewportTop: freshTargetViewportTop,
+                        scrollY: window.scrollY,
+                        scrollHeight: scroller.scrollHeight,
+                        clientHeight: scroller.clientHeight,
+                        documentGrowing
+                    })
+                    if (reachedTarget || positioned) {
+                        logger.debug(`自动定位丨第 ${attempt + 1} 次验证已到位`)
                         break
                     }
-                    logger.debug(`自动定位丨第 ${retry + 1} 次验证未到位（当前 ${window.scrollY}，目标 ${freshOffsetTop - freshTargetViewportTop}），重试`)
-                    await sleep(500 * (retry + 1))
+                    // 布局已稳定且重试机会用尽：不再反复滚动，避免跟用户抢滚动
+                    if (!documentGrowing && retried >= maxRetry) {
+                        logger.debug(`自动定位丨第 ${attempt + 1} 次验证未到位（当前 ${window.scrollY}，目标 ${freshOffsetTop - freshTargetViewportTop}），重试机会用尽`)
+                        break
+                    }
+                    retried += 1
+                    logger.debug(`自动定位丨第 ${attempt + 1} 次验证未到位（当前 ${window.scrollY}，目标 ${freshOffsetTop - freshTargetViewportTop}）${documentGrowing ? '，文档仍在长高' : ''}，重试`)
+                    await sleep(500 * Math.min(retried, 3))
                     await this.locateToPlayer()
                 }
             } finally {
                 insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
+            }
+            // 收尾：目标被文档高度 clamp 过（刷新初期布局还矮，issue #39「定位固定上限变成57」），
+            // 就等文档长高后补一次定位，否则会一直停在那个临时上限
+            const settled = resolvePlayerScrollTarget(Number(this.userConfigs.offset_top) || 0)
+            if (settled && settled.offset < settled.desiredOffset) {
+                logger.debug(`自动定位丨被文档高度限制（可滚 ${settled.offset} < 期望 ${settled.desiredOffset}），等文档长高后补定位`)
+                scheduleRelocateOnDocumentGrowth(readDocumentHeight(), () => this.locateToPlayer({ duration: 0 }))
             }
             logger.info('自动定位丨成功')
             eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
@@ -341,24 +436,30 @@ export const playerModeFeatures = {
         const resolved = resolvePlayerScrollTarget(offsetTop)
         if (!resolved) return
         const targetViewportTop = resolved.viewportTop
-        const isPositioned = (container: Element): boolean => {
-            const rect = container.getBoundingClientRect()
-            // 吸顶（scroll-sticky）时播放器固定在视口目标位置同样视为定位成功
-            if (Math.abs(rect.top - targetViewportTop) <= 8) return true
-            // 文档高度不足（如无评论的视频页）：滚动到底部即为当前最优位置
-            const scroller = document.scrollingElement || document.documentElement
-            return window.scrollY >= scroller.scrollHeight - scroller.clientHeight - 1
-        }
+        // 到底（文档不够高）只有在文档高度不再增长时才算定位成功：刷新后内容还在加载时，
+        // 那个「底部」是临时上限，收工就会把定位固定在偏小的位置（issue #39）
+        const isPositioned = (container: Element, documentGrowing: boolean): boolean => isPositionedAtPlayer({
+            playerViewportTop: container.getBoundingClientRect().top,
+            targetViewportTop,
+            scrollY: window.scrollY,
+            scrollHeight: readDocumentHeight(),
+            clientHeight: (document.scrollingElement || document.documentElement).clientHeight,
+            documentGrowing
+        })
         let targetOffset = resolved.offset
         await documentScrollTo(targetOffset, { duration, behavior: 'instant' }).catch(error => {
             logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
         })
-        // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 5 次
-        for (let attempt = 0; attempt < 5; attempt++) {
+        // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 6 次
+        let lastDocumentHeight = readDocumentHeight()
+        for (let attempt = 0; attempt < 6; attempt++) {
             await sleep(300)
             const freshContainer = elementSelectors.get('playerContainer')
             if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full' || freshContainer.getAttribute('data-screen') === 'web') return
-            if (isPositioned(freshContainer)) return
+            const currentDocumentHeight = readDocumentHeight()
+            const documentGrowing = isDocumentGrowing(lastDocumentHeight, currentDocumentHeight)
+            lastDocumentHeight = currentDocumentHeight
+            if (isPositioned(freshContainer, documentGrowing)) return
             const freshTarget = resolvePlayerScrollTarget(offsetTop)?.offset ?? targetOffset
             if (Math.abs(freshTarget - targetOffset) <= 5) {
                 // 目标未变化但仍未到位：B站 吸顶状态未解除，重复滚动触发其监听器后继续等待
