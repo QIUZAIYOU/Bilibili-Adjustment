@@ -47,7 +47,7 @@ git commit -m "chore: bump to X.Y.Z"
 git push origin main
 ```
 
-**CI（2026-10-23 起机器强制）**：`.github/workflows/build.yml` 在每个 PR 上跑 `npm test` → `typecheck` → `check:www` / `check:hot-content` / `check:hot-config` / `check:colors` → `build` → `stats`（体积门禁）。**依赖升级的自动合并必须等 CI 通过**（`dependabot-auto-merge.yml` 用 `gh pr checks --watch`，失败即不合并 —— 以前是 `--auto` 失败就回退成直接合并，依赖升级能在构建失败的状态下进 main）。所以**提交前先本地跑一遍 `npm test`**。
+**CI（2026-10-23 起机器强制）**：`.github/workflows/build.yml` 在每个 PR 上跑 `npm test` → `typecheck` → `check:www` / `check:hot-content` / `check:hot-config` / `check:colors` → `build` → `stats`（体积门禁）。**依赖升级的自动合并必须等 CI 通过**（`dependabot-auto-merge.yml` 用 `gh pr checks --watch`，失败即不合并 —— 以前是 `--auto` 失败就回退成直接合并，依赖升级能在构建失败的状态下进 main）。所以**发布/推送前先本地跑一遍全量 `npm test`**（日常开发只跑相关用例，见 §6「本地测试只跑与改动相关的部分」）。
 
 ## 4. 构建项目
 
@@ -74,6 +74,7 @@ python scripts/upload.py
 
 ## 6. 开发注意事项
 
+- **本地测试只跑与改动相关的部分（2026-10-24 起，务必遵守）**：开发过程中**不必跑全量 `npm test`**，只跑与本次改动相关的用例文件即可。单文件跑法：`node --import ./test/alias-loader.js --test test/xxx.test.ts`（`.js` 同理，多个文件可并列写在 `--test` 后面）。判定「相关」按改动落到哪个模块/纯函数找对应回归用例（如改 `src/utils/text.ts` 就跑 `test/linkify-xss.test.ts`，改 `src/services/config.service.ts` 就跑 `test/config-normalize*.test.ts`）。**全量 `npm test` 保留给发布/推送前与 CI**，那里必须跑满（CI 已机器强制）。⚠️ 例外：改动触及**共享基础设施**（`src/shared/` 下的注册表、正则、模板、主题 token）、**跨模块公共 API**（`ConfigService`、`elementSelectors`、`getTemplates`）或**构建/发布脚本**时，回归面不可估，跑全量。
 - **B 站吸顶头部与「扣头部高度」判据（3.36.3 起，务必遵守）**：B 站改版后真正吸顶的是**头部条** `#biliMainHeader .bili-header .bili-header__bar`（`position: fixed`、高 64px、始终存在；实测页面顶部/滚动 900/滚动 2500 三处 `rect.top` 均为 0）；容器 `.bili-header.bili-header--mini` 只是**态类**，`position` 为 `relative` 且会随页面滚走；旧的 `.bili-header .mini-header` 已失效。因此：
   - 选择器 `headerMini` 指向 `.bili-header__bar`（可通过 `hot-config/selectors.js` 覆盖表热更；老版本用户正是靠它修好，故该条目在用户普遍升级前**不要删**）；
   - 「头部是否压在内容上方」统一走纯函数 `src/utils/header-offset.ts#isHeaderOverlaying`：**只有 `fixed` / `sticky`（或取值含 `fixed` 字样）才算**，`relative`/`absolute`/`static` 与读不到样式一律不算。**禁止写死 `position === 'fixed'` 之外的判断，也禁止用「非 static 一律算」**（后者 2026-09-21 踩过：开启「夜间哔哩」样式时用户刻意给 `.bili-header--fixed .bili-header__bar` 加了 `position: relative !important`，导航栏随页面滚走（实测滚动 1500 时 rect.top=-1500），若按「非 static」判为固定就会多扣 64px、定位偏上；关闭该样式时同一元素为 `fixed`、各滚动位置 rect.top 恒为 0，必须扣 64px）。`player-mode.ts` 的三处调用点都用它，以后调判据只改这一个函数。
