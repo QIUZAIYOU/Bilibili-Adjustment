@@ -6,7 +6,7 @@ import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
-import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset } from '@/utils/layout-settle'
+import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveScrollOffset } from '@/utils/layout-settle'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
 const logger = new LoggerService('VideoModule', { notify: false })
@@ -107,11 +107,25 @@ interface PlayerScrollTarget {
     /** 理想滚动位置（未 clamp）：文档太矮时 offset 会比它小，用来判断「定位被布局卡住」 */
     desiredOffset: number
 }
+/** 播放器顶部应对齐到的视口位置：吸顶头部压着内容时，要让开头部再叠加用户设的偏移 */
+const resolveViewportTop = (offsetTop: number): number => {
+    const header = elementSelectors.get('headerMini')
+    const headerComputedStyle: { position?: string, height?: string } = header
+        ? getElementComputedStyle(header, ['position', 'height']) as { position?: string, height?: string }
+        : {}
+    const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
+    return isHeaderOverlaying(headerComputedStyle.position) ? headerHeight + offsetTop : offsetTop
+}
+/** 当前可滚动范围 */
+const readMaxScroll = (): number => {
+    const scroller = document.scrollingElement || document.documentElement
+    return Math.max(0, scroller.scrollHeight - scroller.clientHeight)
+}
 /**
  * 计算「定位到播放器」的目标滚动位置；当前不具备定位条件时返回 null。
  *
  * 不具备条件的情形：读不到播放器容器、全屏/网页全屏（播放器占满视口，滚动无效）、
- * mini 模式（播放器靠 transform 悬浮，没有文档流位置可用）。
+ * mini 模式（播放器靠 transform 悬浮，没有文档流位置可用，改由 locateToPlayer 用自然位置估）。
  * 定位流程与「选集切换时的位置守卫」共用这里，避免两处各算一套偏移。
  */
 const resolvePlayerScrollTarget = (offsetTop: number): PlayerScrollTarget | null => {
@@ -119,17 +133,21 @@ const resolvePlayerScrollTarget = (offsetTop: number): PlayerScrollTarget | null
     if (!playerContainer) return null
     const playerMode = playerContainer.getAttribute('data-screen')
     if (playerMode === 'full' || playerMode === 'web' || playerMode === 'mini') return null
-    const header = elementSelectors.get('headerMini')
-    const headerComputedStyle: { position?: string, height?: string } = header
-        ? getElementComputedStyle(header, ['position', 'height']) as { position?: string, height?: string }
-        : {}
-    const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
-    const viewportTop = isHeaderOverlaying(headerComputedStyle.position) ? headerHeight + offsetTop : offsetTop
-    const scroller = document.scrollingElement || document.documentElement
-    const maxScroll = Math.max(0, scroller.scrollHeight - scroller.clientHeight)
-    const raw = getElementOffsetToDocument(playerContainer as HTMLElement).top - viewportTop
-    // 无评论等文档高度不足时目标超出可滚动范围，clamp 到最大滚动位置
-    return { offset: Math.max(0, Math.min(raw, maxScroll)), viewportTop, desiredOffset: Math.max(0, raw) }
+    const viewportTop = resolveViewportTop(offsetTop)
+    // 无评论等文档高度不足时目标超出可滚动范围，resolveScrollOffset 内部会 clamp
+    const resolved = resolveScrollOffset(getElementOffsetToDocument(playerContainer as HTMLElement).top, viewportTop, readMaxScroll())
+    return { ...resolved, viewportTop }
+}
+/** 等播放器退出小窗模式（滚动到播放器后 B站 自己会退出），返回是否已退出 */
+const waitForLeaveMiniMode = async (interval = 100, maxWait = 2000): Promise<boolean> => {
+    const deadline = Date.now() + maxWait
+    while (Date.now() < deadline) {
+        const container = elementSelectors.get('playerContainer')
+        if (!container) return false
+        if (container.getAttribute('data-screen') !== 'mini') return true
+        await sleep(interval)
+    }
+    return false
 }
 /** 当前是否已经定位在播放器位置（±8px） */
 const isLocatedAtPlayer = (offsetTop: number): boolean => {
@@ -482,12 +500,20 @@ export const playerModeFeatures = {
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
         if (playerMode === 'full' || playerMode === 'web') return
         const offsetTop = Number(this.userConfigs.offset_top) || 0
-        // mini 模式播放器 transform 悬浮，无文档流位置可用，滚动到记忆位置即可
+        // mini 模式（滚到评论区后小窗悬浮）量不到播放器在文档流里的位置，只能用实测的自然位置估一个目标。
+        // 不能直接滚到自然位置：那会把播放器顶到视口最上面、藏在吸顶头部后面
+        // （issue #39 用户反馈「下滑到评论区出现小窗后再点定位，位置偏了一截」）。
+        // 滚动本身会触发 B站 退出小窗，退出后继续走下面的正常流程，按真实几何重算并校验。
         if (playerMode === 'mini') {
-            await documentScrollTo(this.userConfigs.player_offset_top as number, { duration, behavior: 'instant' }).catch(error => {
+            const naturalOffset = Number(this.userConfigs.player_offset_top) || 0
+            const estimate = resolveScrollOffset(naturalOffset, resolveViewportTop(offsetTop), readMaxScroll())
+            await documentScrollTo(estimate.offset, { duration, behavior: 'instant' }).catch(error => {
                 logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
             })
-            return
+            if (!(await waitForLeaveMiniMode())) {
+                logger.debug('自动定位丨仍处于小窗模式，本轮不做位置校验')
+                return
+            }
         }
         // 目标滚动位置与「播放器应对齐到的视口位置」统一由 resolvePlayerScrollTarget 计算
         // （与选集切换时的位置守卫共用同一套偏移判据，避免两处各算一套）

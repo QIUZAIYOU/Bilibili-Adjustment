@@ -24,6 +24,23 @@ export const isDocumentGrowing = (previousHeight: number, currentHeight: number,
  */
 export const isPlausibleNaturalOffset = (value: number, min = 40, max = 800): boolean =>
     Number.isFinite(value) && value >= min && value <= max
+interface ScrollOffset {
+    /** 目标滚动位置（已按可滚动范围 clamp） */
+    offset: number
+    /** 理想滚动位置（未 clamp）：文档太矮时 offset 会比它小，用来判断「定位被布局卡住」 */
+    desiredOffset: number
+}
+/**
+ * 由「播放器在文档流里的顶部距离 + 期望对齐到的视口位置」算出目标滚动位置
+ *
+ * 抽成纯函数是因为它有两条使用路径：正常模式直接量播放器的文档流位置；
+ * 小窗（mini）模式量不到（播放器靠 transform 悬浮），只能用实测的自然位置去估 —— 两条都必须
+ * 让开吸顶头部并叠加用户设的偏移，否则点「定位」会停在「播放器贴视口顶部」（issue #39 用户反馈）。
+ */
+export const resolveScrollOffset = (docTop: number, viewportTop: number, maxScroll: number): ScrollOffset => {
+    const raw = docTop - viewportTop
+    return { offset: Math.max(0, Math.min(raw, maxScroll)), desiredOffset: Math.max(0, raw) }
+}
 interface PositionCheck {
     /** 播放器容器当前视口位置（getBoundingClientRect().top） */
     playerViewportTop: number

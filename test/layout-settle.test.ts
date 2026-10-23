@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer } from '@/utils/layout-settle'
+import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, resolveScrollOffset } from '@/utils/layout-settle'
 /**
  * 「定位到位」判定回归（issue #39「播放器定位固定上限变成57」）
  *
@@ -86,4 +86,22 @@ test('isPlausibleNaturalOffset：挡住贴边小值与离谱大值', () => {
     assert.equal(isPlausibleNaturalOffset(-1), false)
     assert.equal(isPlausibleNaturalOffset(900), false)
     assert.equal(isPlausibleNaturalOffset(Number.NaN), false)
+})
+/**
+ * 目标滚动位置换算（issue #39 后续反馈：小窗模式下点「定位」位置偏了一截）
+ *
+ * 实测（1440×900，播放器自然位置 168、吸顶头部 64、用户偏移 80）：
+ * 正确目标 168 − (64 + 80) = 24；旧的小窗分支直接滚到 168，播放器上沿落到 0 被头部挡住。
+ */
+test('resolveScrollOffset：让开头部并叠加偏移', () => {
+    assert.deepEqual(resolveScrollOffset(168, 144, 2874), { offset: 24, desiredOffset: 24 })
+})
+test('resolveScrollOffset：文档太矮时 clamp，但仍保留理想值', () => {
+    assert.deepEqual(resolveScrollOffset(168, 144, 10), { offset: 10, desiredOffset: 24 })
+})
+test('resolveScrollOffset：播放器本身在目标位置上方 → 不滚动', () => {
+    assert.deepEqual(resolveScrollOffset(100, 144, 2874), { offset: 0, desiredOffset: 0 })
+})
+test('resolveScrollOffset：负值不产生负滚动位置', () => {
+    assert.deepEqual(resolveScrollOffset(-5, 0, 100), { offset: 0, desiredOffset: 0 })
 })
