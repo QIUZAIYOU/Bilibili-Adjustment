@@ -8,9 +8,9 @@ const logger = new LoggerService('HomeModule')
 export const homePaidMarkFeatures = {
     async markRecommendVideoPaidStatus (): Promise<void> {
         const allCards = elementSelectors.queryAll('indexRecommendCards')
-        const adCardSelector = elementSelectors.CSS('indexRecommendAdCard') || '[class*="-ad"]'
-        const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') || 'a'
-        const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') || 'h3'
+        const adCardSelector = elementSelectors.CSS('indexRecommendAdCard') as string
+        const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') as string
+        const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') as string
         const cards = [...allCards].filter(card => !card.querySelector(adCardSelector))
         // 冷启动时卡片可能尚未渲染：旧实现会因 cards 为空而整段静默跳过（首次打开不标记付费）
         if (!cards.length) {

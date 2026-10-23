@@ -7,7 +7,6 @@ import { EVENT_NAMES } from '@/shared/constants'
 export interface ModuleDefinition {
     /** 模块名（与页面类型对应） */
     name: string
-    version?: string
     /** 是否支持离线模式（#handleOfflineMode 据此下发） */
     offline?: boolean
     install?: () => Promise<void> | void
@@ -25,7 +24,6 @@ interface ModuleMeta {
     definition: ModuleDefinition
     instance: ModuleInstance | null
     status: ModuleStatus
-    version: string
     timestamp: number
 }
 export class ModuleSystem {
@@ -50,7 +48,6 @@ export class ModuleSystem {
             definition: module,
             instance: null,
             status: 'registered',
-            version: module?.version || '1.0.0',
             timestamp: Date.now()
         })
         eventBus.emit(EVENT_NAMES.MODULE_REGISTERED, { name })

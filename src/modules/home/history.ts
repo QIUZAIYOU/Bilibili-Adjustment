@@ -72,9 +72,9 @@ export const homeHistoryFeatures = {
         }
         const sessionTimestamp = Date.now()
         const allCards = elementSelectors.queryAll('indexRecommendCards')
-        const adCardSelector = elementSelectors.CSS('indexRecommendAdCard') || '[class*="-ad"]'
-        const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') || 'a'
-        const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') || 'h3'
+        const adCardSelector = elementSelectors.CSS('indexRecommendAdCard') as string
+        const cardLinkSelector = elementSelectors.CSS('indexRecommendCardLink') as string
+        const cardTitleSelector = elementSelectors.CSS('indexRecommendCardTitle') as string
         const recordRecommendVideos = [...allCards]
             .filter(card => !card.querySelector(adCardSelector))
             .map((video, index) => ({ video, order: index }))

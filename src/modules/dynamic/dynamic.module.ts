@@ -14,9 +14,7 @@ const logger = new LoggerService('DynamicModule')
 const settingsComponent = new SettingsDialogHost()
 /** 动态模块实例上下文（本对象字段 + 展开的 commentEnhanceFeatures） */
 interface DynamicModuleContext {
-    name: string
-    version: string
-    userConfigs: Record<string, unknown>
+    name: string    userConfigs: Record<string, unknown>
     _cleanup: Array<() => void>
     _dynamicSidebarButtonInserted?: boolean
     preFunctions: () => Promise<void>
@@ -28,9 +26,7 @@ interface DynamicModuleContext {
     handleLoadComments: () => void
 }
 export default {
-    name: 'dynamic',
-    version: '2.0.0',
-    ...commentEnhanceFeatures,
+    name: 'dynamic',    ...commentEnhanceFeatures,
     async install (this: DynamicModuleContext): Promise<void> {
         this._cleanup = []
         this._cleanup.push(eventBus.on(EVENT_NAMES.APP_READY, async () => {

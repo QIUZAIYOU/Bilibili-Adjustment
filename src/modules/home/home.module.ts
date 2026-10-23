@@ -17,9 +17,7 @@ const logger = new LoggerService('HomeModule')
 const settingsComponent = new SettingsDialogHost()
 /** 首页模块实例上下文（名与方法由本对象与展开的 features 提供） */
 interface HomeModuleContext extends HomeVideoPreviewContext {
-    name: string
-    version: string
-    _cleanup: Array<() => void>
+    name: string    _cleanup: Array<() => void>
     _historyListClickBound?: boolean
     _historySearchCleanup?: (() => void) | null
     preFunctions: () => Promise<void>
@@ -33,9 +31,7 @@ interface HomeModuleContext extends HomeVideoPreviewContext {
     handleHomeConfigChanged: (key: string, value: unknown) => Promise<void>
 }
 export default {
-    name: 'home',
-    version: '3.38.8',
-    ...homeHistoryFeatures,
+    name: 'home',    ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
     ...homeVideoPreviewFeatures,
     async install (this: HomeModuleContext): Promise<void> {

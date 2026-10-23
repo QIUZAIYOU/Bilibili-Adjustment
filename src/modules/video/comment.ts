@@ -247,7 +247,7 @@ export const commentFeatures = {
         // 替换原简介区内容为链接化版本（时间锚点/URL/BV号/cv号/@用户），不论简介长短都要执行，
         // 与插入评论区解耦；仅替换 .desc-info-text 内部内容，保留 B 站原始 DOM 结构
         const videoDescriptionInfoElement = elementSelectors.get('videoDescriptionInfo')
-        const descriptionTextElement = videoDescriptionInfoElement?.querySelector(elementSelectors.CSS('videoDescriptionTextInner') || '.desc-info-text')
+        const descriptionTextElement = videoDescriptionInfoElement?.querySelector(elementSelectors.CSS('videoDescriptionTextInner') as string)
         if (descriptionTextElement) {
             // 简介区无 pre-line 样式保证时换行会被 HTML 折叠，显式转为 <br>
             descriptionTextElement.innerHTML = descriptionHtml.replace(/\n/g, '<br>')

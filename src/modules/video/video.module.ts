@@ -31,9 +31,7 @@ const settingsComponent = new SettingsDialogHost()
  * 各 feature 内部用 `this: XxxContext` 声明的成员，必须在这里被覆盖到。
  */
 interface VideoModuleContext {
-    name: string
-    version: string
-    userConfigs: Record<string, unknown>
+    name: string    userConfigs: Record<string, unknown>
     settingsComponent: unknown
     _retryQueue: typeof retryQueue
     _cleanup: Array<() => void>
@@ -113,9 +111,7 @@ interface VideoModuleContext {
     _getPlaybackKey: () => string
 }
 export default {
-    name: 'video',
-    version: '3.38.3',
-    async install (this: VideoModuleContext): Promise<void> {
+    name: 'video',    async install (this: VideoModuleContext): Promise<void> {
         this._cleanup = []
         this._modeObservers = []
         this._retryQueue = retryQueue

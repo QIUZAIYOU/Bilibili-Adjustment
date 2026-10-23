@@ -394,7 +394,7 @@ const toggleEpisode = async (id: string | null): Promise<void> => {
 const scrollToExpanded = () => {
     const el = accordionListEl.value
     if (!el) return
-    const header = el.querySelector(elementSelectors.CSS('bangumiEpisodeAccordionHeaderActive') || '.episode-accordion-header.active')
+    const header = el.querySelector(elementSelectors.CSS('bangumiEpisodeAccordionHeaderActive') as string)
     if (!header) return
     const elRect = el.getBoundingClientRect()
     const headerRect = header.getBoundingClientRect()

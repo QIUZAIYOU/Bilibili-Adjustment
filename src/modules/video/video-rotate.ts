@@ -25,8 +25,8 @@ export const videoRotateFeatures = {
                     return
                 }
                 // 移除旧的旋转菜单项
-                menu.querySelectorAll(elementSelectors.CSS('playerContextMenuRotateItems') || '[data-action^="rotate_"]').forEach(el => el.remove())
-                const oldDivider = menu.querySelector(elementSelectors.CSS('playerContextMenuRotateDivider') || '.bpx-player-contextmenu-rotate-divider')
+                menu.querySelectorAll(elementSelectors.CSS('playerContextMenuRotateItems') as string).forEach(el => el.remove())
+                const oldDivider = menu.querySelector(elementSelectors.CSS('playerContextMenuRotateDivider') as string)
                 if (oldDivider) oldDivider.remove()
                 // 分割线：rgba 白浮色保留字面（嵌入 B 站官方播放器右键菜单，随官方播放器深色皮肤，
                 // 不随脚本主题切换；见 docs/theme-system.md §2 例外清单）
