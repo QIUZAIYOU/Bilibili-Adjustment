@@ -15,3 +15,7 @@ export const dynamicPageStyles = {
            此处不要再给挂载点加 padding，否则会出现双重内边距 */
     `
 }
+/** dynamicStyles */
+export const dynamicStyles = {
+    DynamicSetting: Object.values(dynamicPageStyles).join('')
+}

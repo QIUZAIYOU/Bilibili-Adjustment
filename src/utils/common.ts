@@ -307,31 +307,46 @@ export const isTabActive = (options: IsTabActiveOptions = {}): (() => void) => {
         once = false,
         checkInterval = 1000
     } = options
+    let intervalId: ReturnType<typeof setInterval> | null = null
+    let lastState: string | null = null
+    let stopped = false
+    const stop = (): void => {
+        stopped = true
+        if (intervalId) {
+            clearInterval(intervalId)
+            intervalId = null
+        }
+        if (typeof document?.removeEventListener === 'function') {
+            document.removeEventListener('visibilitychange', onVisibilityChange)
+        }
+    }
     const checkVisibility = (): void => {
         const currentState = document.visibilityState
+        // 状态没变就不重复回调：旧实现每轮轮询都会回调一次，
+        // 隐藏期间会每 100ms 重复执行 onActiveChange(false)（如反复 video.pause()）
+        if (currentState === lastState) return
+        lastState = currentState
         if (currentState === 'visible') {
-            // logger.debug('页面已激活')
             onActiveChange?.(true)
-            if (once) {
-                clearInterval(intervalId ?? undefined)
-                intervalId = null
-            }
+            if (once) stop()
         } else {
             logger.debug('页面未激活')
             onActiveChange?.(false)
         }
     }
-    let intervalId: ReturnType<typeof setInterval> | null = null
+    const onVisibilityChange = (): void => { checkVisibility() }
     if (immediate) checkVisibility()
+    if (stopped) return stop
+    // 事件驱动：标签页可见性变化时立即响应。
+    // 之前是高频轮询（播放页 10ms 一次 = 100Hz），后台标签页也照跑，徒增耗电与掉帧。
+    if (typeof document?.addEventListener === 'function') {
+        document.addEventListener('visibilitychange', onVisibilityChange)
+    }
+    // 兜底轮询：个别内嵌环境不触发 visibilitychange，低频（默认 1s）检查一次即可
     if (!once || document.visibilityState !== 'visible') {
         intervalId = setInterval(checkVisibility, checkInterval)
     }
-    return () => {
-        if (intervalId) {
-            clearInterval(intervalId ?? undefined)
-            intervalId = null
-        }
-    }
+    return stop
 }
 /** URL 变更回调（可返回 Promise，异常会被记录且不影响其它监听者） */
 export type HrefChangeCallback = () => unknown

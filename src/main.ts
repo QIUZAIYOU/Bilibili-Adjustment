@@ -7,7 +7,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { initScrollbarHoverWidening } from '@/utils/scrollbar-hover'
 import { updateService } from '@/services/update.service'
 import { applyCachedHotConfig, refreshHotConfig } from '@/services/hot-config.service'
-import { styles } from '@/shared/styles'
+import { baseStyles } from '@/shared/styles/base'
 import { ThemeManager } from '@/shared/theme'
 import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
 import { debounce } from '@/utils/lodash-lite'
@@ -175,6 +175,6 @@ if (window.self !== window.top && location.search.includes(UP_SPACE_POPUP_FLAG))
 ThemeManager.init()
 // Stylus 夜间哔哩样式检测：开启时强制界面主题 night 并锁定内容文字色（实时跟随增删）
 initStylusNightFollowing()
-insertStyleToDocument({ 'BilibiliAdjustmentStyle': styles.BilibiliAdjustment })
+insertStyleToDocument({ 'BilibiliAdjustmentStyle': baseStyles.BilibiliAdjustment })
 initScrollbarHoverWidening()
 initializeApp()

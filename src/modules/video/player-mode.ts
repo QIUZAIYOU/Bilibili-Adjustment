@@ -2,7 +2,7 @@ import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { styles } from '@/shared/styles'
+import { baseStyles } from '@/shared/styles/base'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
@@ -426,7 +426,7 @@ export const playerModeFeatures = {
             }
             // 定位期间锁定页面滚动（overflow hidden 不影响程序化 scrollTo），避免用户滚动干扰定位；
             // 结束后无论成败都恢复
-            insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
+            insertStyleToDocument({ 'BodyOverflowHiddenStyle': baseStyles.BodyOverflowHidden })
             try {
                 await sleep(300)
                 await this.locateToPlayer()

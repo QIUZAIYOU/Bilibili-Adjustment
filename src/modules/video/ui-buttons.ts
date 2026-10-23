@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { styles } from '@/shared/styles'
+import { baseStyles } from '@/shared/styles/base'
+import { videoStyles } from '@/shared/styles/video-page'
 import { biliApis } from '@/shared/bili-apis'
 import { STORAGE_KEYS } from '@/shared/constants'
 import { getTemplates } from '@/shared/templates'
@@ -143,14 +144,14 @@ export const uiButtonsFeatures = {
         if (this.userConfigs.page_type === 'bangumi') {
             if (!existingLocateButton) { locateButton = insertInjectedButton('locateButton', floatNav, 'append', {
                 className: 'bili-adjustment-icon locate',
-                style: styles.videoSettingsOpenButton,
+                style: baseStyles.videoSettingsOpenButton,
                 text: '定位'
             })
             addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = insertInjectedButton('videoSettingsOpenButton', floatNav, 'append', {
-                    style: styles.videoSettingsOpenButton,
+                    style: baseStyles.videoSettingsOpenButton,
                     text: '设置'
                 })
                 addEventListenerToElement(videoSettingsOpenButton, 'click', async () => {
@@ -160,7 +161,7 @@ export const uiButtonsFeatures = {
             // 插入跳过片段管理按钮（番剧页用于配置片头片尾跳过）
             if (!existingSkipButton) {
                 const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav, 'append', {
-                    style: styles.videoSettingsOpenButton,
+                    style: baseStyles.videoSettingsOpenButton,
                     text: '片段'
                 })
                 addEventListenerToElement(skipButton, 'click', async () => {
@@ -178,7 +179,7 @@ export const uiButtonsFeatures = {
         if (!videoInfo) return
         const { pages = false, ugc_season = false, episodes = false } = videoInfo as { pages?: unknown; ugc_season?: unknown; episodes?: unknown }
         if (pages || ugc_season || episodes) {
-            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': styles.UnlockEpisodeSelector })
+            insertStyleToDocument({ 'UnlockEpisodeSelectorStyle': videoStyles.UnlockEpisodeSelector })
             elementSelectors.each('videoEpisodeListMultiMenuItem', link => {
                 addEventListenerToElement(link, 'click', async () => {
                     // 不能在这里立刻定位：此刻 B 站还没完成切换、布局是中间态，

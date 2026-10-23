@@ -207,20 +207,30 @@ export class SettingsDialogHost {
         }
     }
     /**
-     * 初始化设置宿主
+     * 读取最新配置并合并进宿主对象
+     * 弹窗重建/首次打开时需要最新值：Stylus「夜间哔哩」样式、其它标签页等**外部来源**
+     * 会在设置弹窗关闭期间直接改存储，仅靠内存里的 userConfigs 会显示旧值
+     * （主题二态自动切换依赖这里拿到 follow/night 的最新值）。
+     */
+    async refreshUserConfigs (): Promise<void> {
+        try {
+            const latest = await storageService.getAll('user')
+            if (latest && typeof latest === 'object') Object.assign(this.userConfigs, latest)
+        } catch { /* 读取失败时沿用已有配置 */ }
+    }
+    /**
+     * 初始化设置宿主（**不渲染面板**）
+     *
+     * ⚠️ 这里刻意**不**渲染面板：渲染要加载 Vue 运行时（约 70 KB）并构建上百个设置项 DOM，
+     * 而用户可能一辈子不开设置面板 —— 之前在模块安装时就渲染，等于每次页面加载都付这份代价。
+     * 现在渲染推迟到「首次打开设置」（`openSettings`）。
      * @param userConfigs 用户配置（宿主直接读写同一对象）
      * @param options.pageType 强制指定"按哪类页面渲染设置面板"：首页等**没有自己 schema** 的页面
      *   可传 `'video'` 复用播放页设置（首页功能开关就在那套 schema 里），不传则按当前页型推断
      */
     async init (userConfigs: Record<string, unknown>, options: { pageType?: string } = {}): Promise<void> {
         this.userConfigs = userConfigs
-        // 弹窗重建时重新读取最新配置：Stylus「夜间哔哩」样式、其它标签页等**外部来源**
-        // 会在设置弹窗关闭期间直接改存储，仅靠内存里的 userConfigs 会显示旧值
-        //（主题二态自动切换依赖这里拿到 follow/night 的最新值）
-        try {
-            const latest = await storageService.getAll('user')
-            if (latest && typeof latest === 'object') Object.assign(this.userConfigs, latest)
-        } catch { /* 读取失败时沿用已有配置 */ }
+        await this.refreshUserConfigs()
         this.pageType = options.pageType ?? await detectivePageType()
         // 订阅其他标签页的配置变更，实时同步设置弹窗状态（只订阅一次，SPA 导航重复 init 不重复订阅）
         if (!this._configSyncUnsubscribe) {
@@ -253,16 +263,24 @@ export class SettingsDialogHost {
                 }
             })
         }
-        await this.render(this.pageType)
+        // ⚠️ 不在这里渲染面板（Vue 运行时 + 上百个设置项 DOM 全部推迟到首次打开，见 openSettings）
     }
     /**
-     * 打开设置弹窗：容器已在关闭时销毁，不存在则重新渲染再打开
+     * 打开设置弹窗
+     *
+     * 面板 DOM 与 Vue 实例都在**首次打开时**才创建（懒加载 Vue 运行时）；
+     * 关闭时弹窗壳会被销毁（`closed` 事件），下次打开重新渲染。
      */
     async openSettings (): Promise<void> {
+        if (!this.pageType) await this.init(this.userConfigs)
+        // 打开前刷新一次配置：面板可能已经存在（缓存复用），外部来源（Stylus 夜间样式、其它标签页）
+        // 在关闭期间改过存储，仅靠内存里的 userConfigs 会显示旧值
+        await this.refreshUserConfigs()
         const popoverId = this.pageType === 'dynamic' ? 'DynamicSettingsPopover' : 'VideoSettingsPopover'
         let popover = document.getElementById(popoverId)
         if (!popover) {
-            await this.init(this.userConfigs)
+            // 首次打开：此时才渲染面板（加载 Vue 运行时 + 构建设置项 DOM）
+            await this.render(this.pageType)
             popover = document.getElementById(popoverId)
         }
         if (popover) popover.showPopover()

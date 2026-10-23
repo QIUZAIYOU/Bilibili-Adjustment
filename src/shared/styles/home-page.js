@@ -355,3 +355,7 @@ export const homePageStyles = {
         }
     `
 }
+/** homeStyles */
+export const homeStyles = {
+    IndexAdjustment: Object.values(homePageStyles).join('')
+}

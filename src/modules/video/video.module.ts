@@ -9,7 +9,8 @@ import { sleep, executeFunctionsSequentially, isTabActive, monitorHrefChange, in
 import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
 import { isInsidePreviewFrame } from '@/utils/preview-frame'
-import { styles } from '@/shared/styles'
+import { baseStyles } from '@/shared/styles/base'
+import { videoStyles } from '@/shared/styles/video-page'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { isBangumiPage } from '@/utils/page-type'
 import type { LogLevel } from '@/services/logger.service'
@@ -31,7 +32,8 @@ const settingsComponent = new SettingsDialogHost()
  * 各 feature 内部用 `this: XxxContext` 声明的成员，必须在这里被覆盖到。
  */
 interface VideoModuleContext {
-    name: string    userConfigs: Record<string, unknown>
+    name: string
+    userConfigs: Record<string, unknown>
     settingsComponent: unknown
     _retryQueue: typeof retryQueue
     _cleanup: Array<() => void>
@@ -111,7 +113,8 @@ interface VideoModuleContext {
     _getPlaybackKey: () => string
 }
 export default {
-    name: 'video',    async install (this: VideoModuleContext): Promise<void> {
+    name: 'video',
+    async install (this: VideoModuleContext): Promise<void> {
         this._cleanup = []
         this._modeObservers = []
         this._retryQueue = retryQueue
@@ -182,7 +185,7 @@ export default {
         // 定位前锁定页面滚动，避免用户滚动干扰自动定位；网页全屏解锁场景不执行定位（见 autoLocateToPlayer），
         // 锁定会在定位被跳过时永远无法解除，导致页面卡死无法滚动，故跳过
         if (!this.userConfigs.webfull_unlock) {
-            insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
+            insertStyleToDocument({ 'BodyOverflowHiddenStyle': baseStyles.BodyOverflowHidden })
             this.releaseScrollLockIfNoPlayer()
         }
         await this.registSettings()
@@ -325,19 +328,18 @@ export default {
         // 普通视频页：保留标签页激活检测（防止后台标签页误触发）
         if (this.userConfigs.page_type === 'bangumi') {
             logger.debug('番剧页丨跳过标签页检测，直接检测视频元素')
-            insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
+            insertStyleToDocument({ 'VideoPageAdjustmentStyle': videoStyles.VideoPageAdjustment, 'VideoSettingsStyle': videoStyles.VideoSettings })
             ;(async () => this.checkVideoCanplaythrough(await elementSelectors.wait('video') as HTMLVideoElement | null))()
         } else {
             this._cleanup.push(isTabActive({
                 onActiveChange: async isActive => {
                     if (isActive) {
                         logger.info('标签页｜已激活')
-                        insertStyleToDocument({ 'VideoPageAdjustmentStyle': styles.VideoPageAdjustment, 'VideoSettingsStyle': styles.VideoSettings })
+                        insertStyleToDocument({ 'VideoPageAdjustmentStyle': videoStyles.VideoPageAdjustment, 'VideoSettingsStyle': videoStyles.VideoSettings })
                         this.checkVideoCanplaythrough(elementSelectors.get('video') as HTMLVideoElement | null)
                     }
                 },
                 immediate: true,
-                checkInterval: 10,
                 once: true
             }))
         }
@@ -438,7 +440,7 @@ export default {
                     playFlag = false
                 }
             },
-            checkInterval: 100
+            checkInterval: 1000
         })
         this._pauseVideoCleanup = tabState
         return () => {

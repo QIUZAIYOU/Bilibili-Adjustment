@@ -4,7 +4,7 @@ import { ShadowDOMHelper } from '@/utils/shadow-dom-helper'
 import { elementSelectors, shadowDomSelectors } from '@/shared/element-selectors'
 import { createElementAndInsert, addEventListenerToElement, sleep } from '@/utils/common'
 import { biliApis } from '@/shared/bili-apis'
-import { styles } from '@/shared/styles'
+import { baseStyles } from '@/shared/styles/base'
 import { renderVideoDescription } from '@/shared/templates/comments/video-description'
 import { getDescriptionAvatarSync, refreshDescriptionAvatar } from '@/utils/description-avatar'
 import { formatVideoCommentDescription, formatVideoCommentContents } from '@/shared/regexps'
@@ -182,7 +182,7 @@ export const commentFeatures = {
             if (!videoCommentReplyListShadowRoot) return false
             const template = document.createElement('template')
             template.innerHTML = renderVideoDescription({
-                styleCss: styles.videoCommentDescription,
+                styleCss: baseStyles.videoCommentDescription,
                 avatarDataUri: getDescriptionAvatarSync(),
                 bodyHtml: descriptionHtml
             })

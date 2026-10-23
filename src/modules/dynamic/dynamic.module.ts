@@ -8,7 +8,7 @@ import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequ
 import { waitForCondition } from '@/utils/dom-wait'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
-import { styles } from '@/shared/styles'
+import { dynamicStyles } from '@/shared/styles/dynamic-page'
 import { commentEnhanceFeatures } from './comment-enhance'
 const logger = new LoggerService('DynamicModule')
 const settingsComponent = new SettingsDialogHost()
@@ -48,7 +48,7 @@ export default {
         await this.registSettings()
         if (document.visibilityState === 'visible') {
             logger.info('标签页｜已激活')
-            insertStyleToDocument({ 'DynamicSettingStyle': styles.DynamicSetting })
+            insertStyleToDocument({ 'DynamicSettingStyle': dynamicStyles.DynamicSetting })
             this.handleExecuteFunctionsSequentially()
         }
     },

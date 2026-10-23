@@ -376,7 +376,12 @@ function asyncWait (key: string, timeout = 3000, all = false): Promise<Element |
     }
     // 元素不存在，创建 MutationObserver 等待
     return new Promise<Element | Element[] | null>(resolve => {
-        const observer = new MutationObserver(() => {
+        // 观察器回调做全文档查询，B 站页面每秒产生大量 DOM 变更 —— 不防抖的话每个变更批次
+        // 都会跑一次全文档 querySelector（2026-10-23 审查发现，掉帧主因之一）。
+        // 这里用 80ms 防抖合并批次：等待语义不受影响（元素出现后最多晚 80ms 命中）。
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null
+        const check = (): void => {
+            debounceTimer = null
             if (all) {
                 const els = [...document.querySelectorAll(selector)]
                 if (els.length > 0) {
@@ -392,10 +397,15 @@ function asyncWait (key: string, timeout = 3000, all = false): Promise<Element |
                     resolve(el)
                 }
             }
+        }
+        const observer = new MutationObserver(() => {
+            if (debounceTimer) clearTimeout(debounceTimer)
+            debounceTimer = setTimeout(check, 80)
         })
         observer.observe(document, { childList: true, subtree: true })
         const timer = setTimeout(() => {
             observer.disconnect()
+            if (debounceTimer) clearTimeout(debounceTimer)
             setNegative(key, all)
             resolve(all ? [] : null)
         }, timeout)
@@ -494,19 +504,25 @@ export const elementSelectors: ElementSelectorsApi = {
         // 先同步查询
         let elements: Element[] = [...document.querySelectorAll(combinedSelector)]
         if (elements.length === 0) {
-            // 异步等待（用最长的超时）
+            // 异步等待（用最长的超时）；同样加 80ms 防抖，避免每个 DOM 变更批次都全文档查询
             elements = await new Promise<Element[]>(resolve => {
+                let debounceTimer: ReturnType<typeof setTimeout> | null = null
                 const observer = new MutationObserver(() => {
-                    const els = [...document.querySelectorAll(combinedSelector)]
-                    if (els.length > 0) {
-                        observer.disconnect()
-                        clearTimeout(timer)
-                        resolve(els)
-                    }
+                    if (debounceTimer) clearTimeout(debounceTimer)
+                    debounceTimer = setTimeout(() => {
+                        debounceTimer = null
+                        const els = [...document.querySelectorAll(combinedSelector)]
+                        if (els.length > 0) {
+                            observer.disconnect()
+                            clearTimeout(timer)
+                            resolve(els)
+                        }
+                    }, 80)
                 })
                 observer.observe(document, { childList: true, subtree: true })
                 const timer = setTimeout(() => {
                     observer.disconnect()
+                    if (debounceTimer) clearTimeout(debounceTimer)
                     resolve([])
                 }, 3000)
             })

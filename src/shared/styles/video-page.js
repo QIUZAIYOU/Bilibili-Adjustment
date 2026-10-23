@@ -974,3 +974,9 @@ export const videoPageStyles = {
         }
     `
 }
+/** videoStyles */
+export const videoStyles = {
+    VideoPageAdjustment: Object.values(videoPageStyles).join(''),
+    VideoSettings: videoPageStyles.popoverOverrides,
+    UnlockEpisodeSelector: videoPageStyles.episodeSelector
+}

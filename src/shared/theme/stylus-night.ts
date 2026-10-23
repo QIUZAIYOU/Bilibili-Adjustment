@@ -65,7 +65,10 @@ export const initStylusNightFollowing = (): void => {
         try {
             // Stylus 启用/禁用样式的表现有多种：增删 style 元素、置 disabled 属性、
             // 甚至改写元素文本；childList+subtree 覆盖增删，characterData 覆盖文本改写。
-            observer.observe(document.documentElement, {
+            // ⚠️ 只观察 `document.head`：Stylus 的 style 元素都在 head 里，
+            // 观察整个 documentElement 会让 B 站页面**任何** DOM 变化（弹幕、播放器、评论流）
+            // 都触发回调 → 150ms 防抖 → 全量 querySelectorAll + 全文扫描（2026-10-23 审查发现，掉帧主因之一）。
+            observer.observe(document.head, {
                 childList: true,
                 subtree: true,
                 characterData: true,

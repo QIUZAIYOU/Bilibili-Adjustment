@@ -4,7 +4,7 @@ import { LoggerService } from '@/services/logger.service'
 import { executeFunctionsSequentially, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
-import { styles } from '@/shared/styles'
+import { homeStyles } from '@/shared/styles/home-page'
 import { homeHistoryFeatures } from './history'
 import { homePaidMarkFeatures } from './paid-mark'
 import { homeVideoPreviewFeatures } from './video-preview'
@@ -80,7 +80,7 @@ export default {
             })
         }
         logger.info('标签页｜已激活')
-        insertStyleToDocument({ 'IndexAdjustmentStyle': styles.IndexAdjustment })
+        insertStyleToDocument({ 'IndexAdjustmentStyle': homeStyles.IndexAdjustment })
         this.handleExecuteFunctionsSequentially()
         await this.initEventListeners()
         await this.initSettingsEntry()

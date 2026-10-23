@@ -1,20 +1,23 @@
-import { videoPageStyles } from './video-page'
-import { dynamicPageStyles } from './dynamic-page'
+/**
+ * 基础样式（所有页面都要用，随首屏加载）
+ *
+ * 拆分为独立的 base / video / home / dynamic 四个模块，是为了**让页型专属 CSS 落到各自的异步 chunk**：
+ * 之前 styles/index.js 静态引入了四个页型的样式表，导致首页也白白加载播放页/动态页的 CSS
+ * （首屏 chunk 里约 28% 是与当前页型无关的样式，2026-10-23 审查发现）。
+ *
+ * 约定：
+ * - 每页都要用的 → base.js（main.ts 引入）
+ * - 页型专属的 → video-page.js / home-page.js / dynamic-page.js（对应模块引入）
+ */
 import { commonStyles } from './common'
-import { homePageStyles } from './home-page'
-export const styles = {
+export const baseStyles = {
     BilibiliAdjustment: generateBilibiliAdjustmentStyle(),
-    VideoPageAdjustment: Object.values(videoPageStyles).join(''),
-    DynamicSetting: Object.values(dynamicPageStyles).join(''),
     BodyOverflowHidden: commonStyles.bodyOverflowHidden,
     ResetPlayerLayout: commonStyles.resetPlayerLayout,
     UnlockWebPlayer: commonStyles.unlockWebPlayer,
     FreezeHeaderAndVideoTitle: commonStyles.freezeHeaderAndVideoTitle,
     videoCommentDescription: commonStyles.videoCommentDescription,
-    videoSettingsOpenButton: commonStyles.videoSettingsOpenButton,
-    IndexAdjustment: Object.values(homePageStyles).join(''),
-    VideoSettings: videoPageStyles.popoverOverrides,
-    UnlockEpisodeSelector: videoPageStyles.episodeSelector
+    videoSettingsOpenButton: commonStyles.videoSettingsOpenButton
 }
 function generateBilibiliAdjustmentStyle () {
     return `
