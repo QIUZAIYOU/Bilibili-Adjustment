@@ -5,8 +5,11 @@ import { videoStyles } from '@/shared/styles/video-page'
 import { biliApis } from '@/shared/bili-apis'
 import { STORAGE_KEYS } from '@/shared/constants'
 import { getTemplates } from '@/shared/templates'
-import { sleep, createElementAndInsert, addEventListenerToElement, insertStyleToDocument, documentScrollTo, getElementOffsetToDocument } from '@/utils/common'
+import { queryTemplateTextField } from '@/shared/templates/buttons'
+import { sleep, createElementAndInsert, addEventListenerToElement, insertStyleToDocument, documentScrollTo, getElementOffsetToDocument, sanitizeHttpUrl } from '@/utils/common'
 import type { InsertionMethod } from '@/utils/common'
+import { normalizeUpOwner, resolveAvatarSize, resolveAvatarTip } from './up-avatar-pure'
+import type { UpOwnerInfo } from './up-avatar-pure'
 const logger = new LoggerService('VideoModule')
 /** 注入按钮的补全项：模板只描述结构，这些运行时值一律用 DOM API 补（不往 HTML 里拼字符串） */
 interface InjectedButtonOptions {
@@ -49,6 +52,65 @@ interface UiButtonsContext {
     locateButtonClick: () => Promise<void>
     openUpSpace: (mid: string | number) => Promise<void> | void
     showSkipSegmentManager: (id: string) => Promise<void>
+    /** 刷新侧栏「UP主空间」头像（切视频后作者会变） */
+    refreshUpAvatar: () => Promise<void>
+    /** 点头像进 UP 主空间（mid 取自按钮上记录的作者） */
+    openUpSpaceByAvatar: (button: HTMLElement | null) => void
+}
+/** 侧栏「UP主空间」按钮（作者头像）的类名 —— 脚本自己的 DOM */
+const UP_AVATAR_SELECTOR = '.bili-adjustment-icon.up'
+/**
+ * 读 sessionStorage 里 B 站写的当前视频信息（取 UP 主 mid/昵称/头像，零网络开销）
+ *
+ * B 站播放器会把当前视频的完整信息写进 `bilibili_video_info`，其中 `owner` 就是 UP 主信息。
+ */
+const readSessionOwner = (): UpOwnerInfo => {
+    try {
+        const raw = sessionStorage.getItem(STORAGE_KEYS.SESSION_VIDEO_INFO)
+        if (!raw) return {}
+        const info = JSON.parse(raw) as { owner?: unknown }
+        return normalizeUpOwner(info?.owner)
+    } catch {
+        return {}
+    }
+}
+/**
+ * 把 UP 主信息刷到头像按钮上
+ *
+ * 头像/昵称都是**运行时值**（每个视频的作者不同），故一律用 DOM API 填，不拼 HTML：
+ * - 图片地址来自接口，必须过 `sanitizeHttpUrl`（只放行 http/https，防 `javascript:` 之类）
+ * - 昵称写进模板的文本钩子（`data-adj-field="text"`），同时更新无障碍标签
+ */
+const applyUpOwner = (button: HTMLElement, owner: UpOwnerInfo): void => {
+    const name = owner.name ?? ''
+    const tip = queryTemplateTextField(button)
+    if (tip) tip.textContent = resolveAvatarTip(name)
+    button.setAttribute('aria-label', name ? `UP主空间：${name}` : 'UP主空间')
+    if (owner.mid) button.setAttribute('data-adj-up-mid', String(owner.mid))
+    const image = button.querySelector('img') as HTMLImageElement | null
+    const face = sanitizeHttpUrl(owner.face)
+    if (image) {
+        if (face) {
+            image.src = face
+            image.hidden = false
+            button.classList.add('adj-sidenav-up-avatar-has-image')
+        } else {
+            image.hidden = true
+            image.removeAttribute('src')
+            button.classList.remove('adj-sidenav-up-avatar-has-image')
+        }
+    }
+}
+/**
+ * 量出侧栏按钮的宽度，让头像与**当前那颗按钮**等宽
+ *
+ * 不写死数值：侧栏按钮的盒子由 B 站的样式决定（同一套类名 → 同一个盒子），
+ * 量一次实际渲染宽度即可，改版后也不会跑偏。
+ * 量之前按钮里只有那颗图标（与旧按钮的内容完全一致），量出来的就是旧按钮的宽度。
+ */
+const measureAvatarSize = (button: HTMLElement): number => {
+    const width = button.getBoundingClientRect().width
+    return resolveAvatarSize(width)
 }
 export const uiButtonsFeatures = {
     /**
@@ -91,7 +153,9 @@ export const uiButtonsFeatures = {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
-        let locateButton, videoSettingsOpenButton, upButton
+        let locateButton: HTMLElement | null = null
+        let videoSettingsOpenButton: HTMLElement | null = null
+        let upButton: HTMLElement | null = null
         if (this.userConfigs.page_type === 'video') {
             if (!existingLocateButton) {
                 locateButton = insertInjectedButton('locateButton', floatNav.lastElementChild as Node, 'prepend', {
@@ -110,23 +174,6 @@ export const uiButtonsFeatures = {
                     await this.settingsComponent.openSettings()
                 })
             }
-            if (!existingUpButton && this.userConfigs.page_type === 'video') {
-                upButton = insertInjectedButton('upButton', floatNav.lastElementChild as Node, 'prepend', { dataV })
-                addEventListenerToElement(upButton, 'click', async () => {
-                    const mid = this._cachedMid || (() => {
-                        try {
-                            const info = JSON.parse(sessionStorage.getItem(STORAGE_KEYS.SESSION_VIDEO_INFO) || '{}')
-                            return info.owner?.mid
-                        } catch { /* 忽略解析失败 */ }
-                    })()
-                    if (mid) this.openUpSpace(mid)
-                })
-                // 异步获取 mid 缓存
-                biliApis.getVideoInformation('video', biliApis.getCurrentVideoID()).then(info => {
-                    const detail = info as { owner?: { mid?: string | number }} | null | undefined
-                    if (detail?.owner?.mid) this._cachedMid = detail.owner.mid
-                }).catch(() => {})
-            }
             // 插入跳过片段管理按钮（与开关解耦：用于维护手动/共享片段数据，随时可用）
             if (!existingSkipButton) {
                 const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav.lastElementChild as Node, 'prepend', {
@@ -139,6 +186,20 @@ export const uiButtonsFeatures = {
                         await this.showSkipSegmentManager(bvid)
                     }
                 })
+            }
+            // ⚠️ 「UP主空间」（作者头像）按钮**最后插入**：
+            //    侧栏是纵向排列、插入方式又是 prepend（插到最前面），于是**最后插入的反而排在最上面** ——
+            //    这样它就是侧栏的第一项（在「片段」按钮上方）。
+            if (!existingUpButton) {
+                upButton = insertInjectedButton('upButton', floatNav.lastElementChild as Node, 'prepend', { dataV })
+                addEventListenerToElement(upButton, 'click', () => { this.openUpSpaceByAvatar(upButton) })
+            }
+            const avatarButton = (existingUpButton ?? upButton) as HTMLElement | null
+            if (avatarButton) {
+                // 先量宽度：此刻按钮里只有那颗图标（与旧按钮内容完全一致），量到的就是**旧按钮的宽度**
+                avatarButton.style.setProperty('--adj-up-avatar-size', `${measureAvatarSize(avatarButton)}px`)
+                avatarButton.classList.add('adj-sidenav-up-avatar-ready')
+                await this.refreshUpAvatar()
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
@@ -173,6 +234,46 @@ export const uiButtonsFeatures = {
             }
         }
         logger.debug('侧边栏工具丨插入成功')
+    },
+    /**
+     * 点头像进 UP 主空间
+     *
+     * mid 的取值顺序：按钮上记录的（随视频切换刷新）→ 缓存 → sessionStorage。
+     * 按钮上那个最准 —— 切视频后它会被刷新成新作者的 mid。
+     */
+    openUpSpaceByAvatar (this: UiButtonsContext, button: HTMLElement | null): void {
+        const attr = button?.getAttribute('data-adj-up-mid')
+        const mid = attr || this._cachedMid || readSessionOwner().mid
+        if (mid) this.openUpSpace(mid)
+        else logger.warn('侧边栏工具丨未取到 UP 主 mid，无法打开空间')
+    },
+    /**
+     * 刷新侧栏头像（切视频后作者会变）
+     *
+     * 先用 sessionStorage（B 站播放器写好的当前视频信息）立刻换，再用接口核对 ——
+     * sessionStorage 里可能还留着上一个视频的作者。
+     */
+    async refreshUpAvatar (this: UiButtonsContext): Promise<void> {
+        const floatNav = elementSelectors.get('videoFloatNav')
+        const button = floatNav?.querySelector(UP_AVATAR_SELECTOR) as HTMLElement | null
+        if (!button) return
+        const sessionOwner = readSessionOwner()
+        if (sessionOwner.mid) {
+            this._cachedMid = sessionOwner.mid
+            applyUpOwner(button, sessionOwner)
+        }
+        const videoId = biliApis.getCurrentVideoID()
+        if (!videoId || videoId === 'error') return
+        try {
+            const info = await biliApis.getVideoInformation('video', videoId) as { owner?: unknown } | null | undefined
+            const owner = normalizeUpOwner(info?.owner)
+            if (!owner.mid) return
+            this._cachedMid = owner.mid
+            // 与 sessionStorage 不一致才重刷（避免无谓的 DOM 改动）
+            if (String(owner.mid) !== String(sessionOwner.mid ?? '')) applyUpOwner(button, owner)
+        } catch {
+            // 接口失败就沿用 sessionStorage 的结果
+        }
     },
     async unlockEpisodeSelector (this: UiButtonsContext): Promise<void> {
         const videoInfo = await biliApis.getVideoInformation(String(this.userConfigs.page_type), biliApis.getCurrentVideoID(window.location.href))

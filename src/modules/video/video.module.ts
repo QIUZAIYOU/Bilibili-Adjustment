@@ -96,6 +96,10 @@ interface VideoModuleContext {
     autoEnableHiResMode: () => Promise<void>
     autoSelectVideoHighestQuality: () => Promise<void>
     insertSideFloatNavToolsButtons: () => Promise<void>
+    /** 刷新侧栏「UP主空间」头像（切视频后作者会变） */
+    refreshUpAvatar: () => Promise<void>
+    /** 点头像进 UP 主空间 */
+    openUpSpaceByAvatar: (button: HTMLElement | null) => void
     clickPlayerAutoLocate: () => Promise<void>
     initVideoRotate: () => Promise<void>
     applyVideoRotation: (degrees: number) => void
@@ -483,6 +487,8 @@ export default {
         // 简介/评论等即时功能不等待视频可播放，立即执行，避免切换选集时延迟
         const immediateFunctions = [
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
+            // 侧栏作者头像：切视频后作者可能变了，立刻换成新作者的头像/昵称
+            this.refreshUpAvatar,
             this.doSomethingToCommentElements
         ]
         executeFunctionsSequentially(immediateFunctions, { onAfterChunk: () => retryQueue.drain() })

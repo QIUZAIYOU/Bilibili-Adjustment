@@ -1,24 +1,17 @@
 import { LoggerService } from '@/services/logger.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { getTemplates } from '@/shared/templates'
+import { buildUpSpaceUrl } from '@/shared/templates/video/up-space'
 import { LOADING_OVERLAY_HIDDEN_CLASS } from '@/shared/templates/loading'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
-import { UP_SPACE_POPUP_FLAG } from '@/shared/constants'
 import { createElementAndInsert } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
 // 关闭后保留弹窗的缓存时长：期间再次打开直接复用已加载的 iframe（不重新加载，
 // 且保留浏览位置）；超过此时长未再打开才销毁，避免重型空间页 iframe 常驻内存
 const UP_SPACE_POPUP_CACHE_MS = 10 * 60 * 1000
-/** 空间页地址模板里的 `[[MID]]` 占位符（URL 模板是占位符的合法用途） */
-const UP_SPACE_URL_MID = '[[MID]]'
 let upSpaceFrame: HTMLIFrameElement | null = null
 let upSpaceLoading: HTMLElement | null = null
 let upSpaceDialog: { body: HTMLElement, destroy: () => void } | null = null
-/** 空间页地址（模板来自注册表，可热更；`forPopup` 时带上识别参数供 iframe 内的脚本应用弹窗样式） */
-const buildUpSpaceUrl = (mid: string | number, forPopup = false): string => {
-    const base = String(getTemplates.upSpaceUrl).replaceAll(UP_SPACE_URL_MID, encodeURIComponent(String(mid)))
-    return forPopup ? `${base}?${UP_SPACE_POPUP_FLAG}=1` : base
-}
 const createUpSpaceFrame = (body: HTMLElement): void => {
     if (!upSpaceFrame) {
         upSpaceFrame = document.createElement('iframe')

@@ -11,6 +11,83 @@ export const videoPageStyles = {
             padding: 0;
         }
     `,
+    /**
+     * 侧栏「UP主空间」按钮：改成**作者圆形头像**（2026-10-24）
+     *
+     * - 尺寸：运行时量出**当前那颗按钮**的实际宽度写进 `--adj-up-avatar-size`
+     *   （B 站的盒子尺寸可能变，写死数值会跑偏）；量完之后才加 `adj-sidenav-up-avatar-ready`
+     *   把盒子固定成正方形并清掉内边距 → 头像与按钮等宽。
+     * - 悬浮提示（作者昵称）是**绝对定位**的：既不撑大按钮的盒子，也让它往左展开（侧栏贴着页面右边缘）。
+     */
+    sideNavUpAvatar: `
+        .adj-sidenav-up-avatar {
+            position: relative;
+            cursor: pointer;
+            color: var(--adj-text-soft);
+            transition: var(--adj-motion-fast);
+        }
+        .adj-sidenav-up-avatar.adj-sidenav-up-avatar-ready {
+            box-sizing: border-box;
+            width: var(--adj-up-avatar-size, 50px);
+            height: var(--adj-up-avatar-size, 50px);
+            padding: 0;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: 50%;
+            background: var(--adj-bg-surface);
+            overflow: visible;
+        }
+        .adj-sidenav-up-avatar:hover {
+            border-color: var(--adj-brand);
+            box-shadow: var(--adj-shadow-float);
+        }
+        .adj-sidenav-up-avatar-img {
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+        /* hidden 属性必须显式兜住：上面的 display:block 会盖掉 UA 的 [hidden]{display:none} */
+        .adj-sidenav-up-avatar-img[hidden] {
+            display: none;
+        }
+        /* 没有头像时显示默认人形图标（有头像就把它藏掉） */
+        .adj-sidenav-up-avatar-fallback {
+            display: block;
+            width: 55%;
+            height: 55%;
+            margin: auto;
+        }
+        .adj-sidenav-up-avatar-has-image .adj-sidenav-up-avatar-fallback {
+            display: none;
+        }
+        /* 悬浮提示（作者昵称）：往左展开（侧栏在页面右边缘），绝对定位不撑大按钮 */
+        .adj-sidenav-up-avatar-tip {
+            position: absolute;
+            top: 50%;
+            right: calc(100% + 8px);
+            z-index: var(--adj-z-tooltip);
+            padding: 6px 10px;
+            border: 1px solid var(--adj-border);
+            border-radius: var(--adj-radius-xs);
+            background: var(--adj-bg-tooltip);
+            color: var(--adj-text-secondary);
+            box-shadow: var(--adj-shadow-float);
+            font-size: var(--adj-font-sm);
+            line-height: 1.4;
+            white-space: nowrap;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-50%) translateX(4px);
+            transition: var(--adj-motion-fast);
+            pointer-events: none;
+        }
+        .adj-sidenav-up-avatar:hover .adj-sidenav-up-avatar-tip {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(-50%) translateX(0);
+        }
+    `,
     playerControl: `
         .bpx-player-container[data-screen=full] #goToComments {
             opacity: 0.6;
