@@ -11,7 +11,7 @@ import { retryQueue } from '@/utils/retry-queue'
 import { isInsidePreviewFrame } from '@/utils/preview-frame'
 import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
-import { regexps } from '@/shared/regexps'
+import { isBangumiPage } from '@/utils/page-type'
 import type { LogLevel } from '@/services/logger.service'
 import { playerModeFeatures } from './player-mode'
 import { progressMemoryFeatures } from './progress-memory'
@@ -170,7 +170,7 @@ export default {
             logger.debug('预览窗口丨视频模块不介入播放页')
             return
         }
-        await storageService.userSet('page_type', regexps.common.bangumiPath.test(location.pathname) ? 'bangumi' : 'video')
+        await storageService.userSet('page_type', isBangumiPage(location.pathname) ? 'bangumi' : 'video')
         await sleep(300)
         this.userConfigs = await storageService.getAll('user') as Record<string, unknown>
         logger.debug('播放进度诊断丨userConfigs 已加载, playback_memory=' + this.userConfigs?.playback_memory)

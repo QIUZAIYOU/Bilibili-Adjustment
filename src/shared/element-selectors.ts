@@ -510,6 +510,17 @@ function asyncWait (key: string, timeout = 3000, all = false): Promise<Element |
 }
 // ========== 当前页面类型缓存 ==========
 let _currentPageType: SelectorPageType | null = null
+/**
+ * 清空页型缓存
+ * SPA 路由切换后必须调用：页型缓存一旦写入就永不过期，会把「首次访问时的页型」钉死，
+ * 导致换页后选择器的页型门控仍按旧页型放行/拦截（例如在活动视频页按 home 页型取选择器）。
+ * 同时清空负缓存：被「页型门控」跳过的选择器会写入 5 秒负缓存，换页后那批条目已失效，
+ * 不清会让新页型下本该出现的选择器在 5 秒内一直被跳过。
+ */
+const resetPageType = (): void => {
+    _currentPageType = null
+    negativeCache.clear()
+}
 const getCurrentPageType = (): SelectorPageType => {
     if (_currentPageType !== null) return _currentPageType
     const path = location.pathname
@@ -542,6 +553,8 @@ export interface ElementSelectorsApi {
     queryAll: (key: string) => Element[]
     /** 原始 CSS 选择器映射表（用于需要完整列表的场景） */
     CSS_MAP: Record<string, string>
+    /** 清空页型缓存（SPA 路由切换后调用，否则页型会被永久钉死在首次访问的页型上） */
+    resetPageType: () => void
 }
 export const elementSelectors: ElementSelectorsApi = {
     /**
@@ -637,7 +650,11 @@ export const elementSelectors: ElementSelectorsApi = {
     /**
      * 原始 CSS 选择器映射表（用于需要完整列表的场景）
      */
-    CSS_MAP
+    CSS_MAP,
+    /**
+     * 清空页型缓存（SPA 路由切换后调用）
+     */
+    resetPageType
 }
 // ========== 页面卸载时清理 ==========
 window.addEventListener('unload', () => {

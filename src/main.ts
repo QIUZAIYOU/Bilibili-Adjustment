@@ -107,6 +107,9 @@ const initializeApp = async (): Promise<void> => {
                 return
             }
             lastUrl = currentUrl
+            // 页型缓存是模块级长生命周期变量（不清空就永不过期），换页后必须立刻作废，
+            // 否则选择器的页型门控会继续按上一个页型放行/拦截
+            elementSelectors.resetPageType()
             isProcessingUrlChange = true
             perfMark('spa:navigate')
             try {

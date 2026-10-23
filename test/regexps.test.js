@@ -54,7 +54,9 @@ test('formatVideoCommentDescription 链接里带 bvid=BV… 时不再被二次�
     ].join('\n')
     const result = formatVideoCommentDescription(text, [])
     // href 必须完整：旧实现（连续 replace）会把 href 里的 BV 号再替换一次，产生 `bvid=&lt;a href="…` 这种坏属性
-    assert.ok(result.includes('<a href="https://www.bilibili.com/list/259689/?sid=5095696&spm_id_from=333.1387.0.0&oid=116138549714529&bvid=BV1b5AyzaEQh" target="_blank" bilibili-adjustment-element>'))
+    // ⚠️ href 里的 `&` 现在转义成 `&amp;`（2026-10-23 XSS 修复）：HTML 属性里 `&` 必须转义，
+    // 否则形如 `&copy=` 的参数会被 HTML 解析器当成实体；浏览器解析回来仍是原始 URL。
+    assert.ok(result.includes('<a href="https://www.bilibili.com/list/259689/?sid=5095696&amp;spm_id_from=333.1387.0.0&amp;oid=116138549714529&amp;bvid=BV1b5AyzaEQh" target="_blank" bilibili-adjustment-element>'))
     assert.ok(!result.includes('&lt;a'), '不能出现被转义的 <a')
     assert.equal((result.match(/<a /g) || []).length, 1, '一个 URL 只应产生一个链接')
     assert.ok(!/<a\b[^>]*>[^<]*<a\b/.test(result), '不能出现嵌套链接')

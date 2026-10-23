@@ -3,6 +3,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { httpGet } from '@/utils/http'
 import type { HttpRequestOptions, HttpResponse } from '@/utils/http'
 import { regexps } from '@/shared/regexps'
+import { isNormalVideoPage, isListPage, isBangumiPage, isActivityVideoPage } from '@/utils/page-type'
 import {
     DEFAULT_RETRY_BUDGET_MS,
     describeRequestError,
@@ -99,10 +100,16 @@ export const biliApis = {
             return 'error'
         }
         const { pathname } = parsedUrl
-        if (pathname.startsWith('/video/') || pathname.startsWith('/list/')) {
+        if (isNormalVideoPage(pathname) || isListPage(pathname)) {
             const match = pathname.match(regexps.common.bvidInUrl)
             return match?.[1] || parsedUrl.searchParams.get('bvid') || 'error'
-        } else if (pathname.startsWith('/bangumi/')) {
+        } else if (isActivityVideoPage(pathname)) {
+            // 活动视频页（如 /festival/xxx?bvid=BVxxx）：BV 号在**查询串**里，路径上没有
+            // （2026-10-23 修：此前这里直接落到 'error'，导致活动页上的跳过广告、
+            // 进度条染色、跳过片段管理三条链全部拿不到当前视频 id）
+            const queryMatch = parsedUrl.search.match(regexps.common.bvidInQuery)
+            return queryMatch?.[1] || parsedUrl.searchParams.get('bvid') || 'error'
+        } else if (isBangumiPage(pathname)) {
             const match = pathname.match(regexps.common.bangumiEpInPath)
             if (match?.[1]) return match[1]
             // ss/季链接（如 /bangumi/play/ss12345）

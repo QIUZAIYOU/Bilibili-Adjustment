@@ -1,4 +1,4 @@
-import { getTotalSecondsFromTimeString, generateMentionUserLinks } from '@/utils/text'
+import { getTotalSecondsFromTimeString, generateMentionUserLinks, escapeHtml } from '@/utils/text'
 import { registerHotConfigTarget } from '@/shared/hot-config-registry'
 import { analyzeRegexSource } from '@/shared/hot-config'
 /** 正则分组（video/dynamic 两块的 key → 实例），热更覆盖按 `组.名` 定位并就地替换 */
@@ -456,9 +456,12 @@ const processTextNodes = (element: Element, replacer: TextNodeReplacer): Element
     return clonedElement
 }
 const generateLink = (match: string): string => {
-    if (fileExtensions.includes(match.split('.')[1])) return match
+    if (fileExtensions.includes(match.split('.')[1])) return escapeHtml(match)
     const protocol = match.includes('http') ? '' : 'https://'
-    return `<a href="${protocol}${match}" target="_blank" bilibili-adjustment-element>${match}</a>`
+    // 命中文本要转义后再拼进属性与正文（URL 正则虽不含 " ' < >，但含 & 等实体字符，
+    // 转义成 &amp; 才是正确的 HTML 写法，浏览器解析回原值）
+    const safe = escapeHtml(match)
+    return `<a href="${protocol}${safe}" target="_blank" bilibili-adjustment-element>${safe}</a>`
 }
 /** 一个可链接化模式：`re` 必须是 sticky（y），只在当前位置尝试匹配 */
 interface LinkifyToken {
@@ -475,10 +478,23 @@ const anchored = (source: RegExp): RegExp => new RegExp(source.source, source.fl
  * `url` 替换先生成 `<a href="…&bvid=BV1b5AyzaEQh" …>`，紧接着的 `videoId` 替换又命中
  * **这个 href 里的 BV 号**，把属性值写坏，浏览器解析后整段链接就散了。
  * 另外 URL 模式排在 BV/cv 之前，URL 里带的 `bvid=BV…` 会被整段吃掉，不会再被二次链接化。
+ *
+ * ⚠️ **未命中的片段必须转义后再拼进 HTML**（2026-10-23 审查发现的存储型 XSS）：
+ * 本函数的产物会被 `processTextNodes` 用 `innerHTML` 重新解析，而调用方的输入是
+ * 「简介/评论的纯文本」。不转义时，作者写的 `<img src=x onerror=…>` 会在这一轮
+ * 被解析成**真实元素**并在页面上执行（任意 UP 主/评论者即可对所有访客注入脚本）。
+ * 因此：未命中片段与 token 内的文本都要 `escapeHtml`，只有生成的标签本身保持原样。
  */
 const linkifyTokens = (content: string, tokens: LinkifyToken[]): string => {
     let result = ''
     let index = 0
+    // 未命中的纯文本片段：攒够一段统一转义（逐字符转义会打乱可读性，也更慢）
+    let pending = ''
+    const flushPending = (): void => {
+        if (!pending) return
+        result += escapeHtml(pending)
+        pending = ''
+    }
     while (index < content.length) {
         let hit: { token: LinkifyToken, match: RegExpExecArray } | null = null
         for (const token of tokens) {
@@ -490,19 +506,21 @@ const linkifyTokens = (content: string, tokens: LinkifyToken[]): string => {
             }
         }
         if (!hit) {
-            result += content[index]
+            pending += content[index]
             index += 1
             continue
         }
+        flushPending()
         result += hit.token.render(hit.match)
         index += hit.match[0].length
     }
+    flushPending()
     return result
 }
 const videoIdLink = (match: string): string =>
-    `<a href="https://www.bilibili.com/video/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`
+    `<a href="https://www.bilibili.com/video/${escapeHtml(match)}" target="_blank" bilibili-adjustment-element>${escapeHtml(match)}</a>`
 const readIdLink = (match: string): string =>
-    `<a href="https://www.bilibili.com/read/${match}" target="_blank" bilibili-adjustment-element>${match}</a>`
+    `<a href="https://www.bilibili.com/read/${escapeHtml(match)}" target="_blank" bilibili-adjustment-element>${escapeHtml(match)}</a>`
 /** desc_v2 条目（@ 提及用的官方字段） */
 export interface MentionDescItem {
     raw_text?: string
@@ -513,7 +531,7 @@ const buildDescriptionTokens = (descV2?: MentionDescItem[]): LinkifyToken[] => [
     { re: anchored(regexps.video.url), render: match => generateLink(match[0]) },
     {
         re: anchored(regexps.video.timeString),
-        render: match => `<a data-type="seek" data-video-time="${getTotalSecondsFromTimeString(match[0])}" bilibili-adjustment-element>${match[0]}</a>`
+        render: match => `<a data-type="seek" data-video-time="${getTotalSecondsFromTimeString(match[0])}" bilibili-adjustment-element>${escapeHtml(match[0])}</a>`
     },
     { re: anchored(regexps.video.videoId), render: match => videoIdLink(match[0]) },
     { re: anchored(regexps.video.readId), render: match => readIdLink(match[0]) },

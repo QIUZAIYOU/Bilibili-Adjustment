@@ -495,12 +495,6 @@ export const enablePopoverLightDismiss = (popover: HTMLElement): (() => void) =>
         popover.removeEventListener('toggle', onToggle)
     }
 }
-export const escapeHtml = (value: unknown): string => String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;')
 export const sanitizeHttpUrl = (value: unknown): string => {
     const rawValue = String(value ?? '').trim()
     if (!rawValue) return ''
@@ -616,11 +610,11 @@ export const hidePlayerTooltip = (tooltipElement: HTMLElement): void => {
     })
 }
 /**
- * 这两个纯函数住在叶子模块 `utils/text.ts`（`shared/regexps.ts` 也要用它们，
+ * 这几个纯函数住在叶子模块 `utils/text.ts`（`shared/regexps.ts` 也要用它们，
  * 留在 common.ts 会绕成 common → regexps → common 的循环依赖，详见 utils/text.ts 顶部注释），
  * 这里再导出一次以保持既有引用路径不变。
  */
-export { getTotalSecondsFromTimeString, generateMentionUserLinks } from '@/utils/text'
+export { getTotalSecondsFromTimeString, generateMentionUserLinks, escapeHtml } from '@/utils/text'
 /**
  * 统一的弹窗管理器
  * 所有弹窗应使用此函数创建，以确保行为一致：

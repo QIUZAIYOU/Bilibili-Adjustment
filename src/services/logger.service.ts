@@ -1,4 +1,5 @@
 import { notification } from '@/components/notification'
+import { isNormalVideoPage, isBangumiPage, isActivityVideoPage } from '@/utils/page-type'
 /** 日志级别 */
 export type LogLevel = 'info' | 'error' | 'warn' | 'debug'
 /** 配置服务传入的日志级别开关（字段可缺省） */
@@ -10,14 +11,12 @@ export interface LogLevelConfig {
 }
 const getPageTypePrefix = (): string => {
     const { host, pathname, origin } = window.location
-    const strategies = [
-        { test: () => /^\/video\//.test(pathname), type: '播放页调整' },
-        { test: () => /^\/bangumi\//.test(pathname), type: '番剧页调整' },
-        { test: () => host === 'www.bilibili.com' && pathname === '/', type: '首页调整' },
-        { test: () => origin === 'https://t.bilibili.com', type: '动态页调整' }
-    ]
-    const matched = strategies.find(s => s.test())
-    return matched?.type || '其他页调整'
+    // 页型判据统一走 utils/page-type.ts（唯一实现），别在这里另写一份路径正则
+    if (isNormalVideoPage(pathname) || isActivityVideoPage(pathname)) return '播放页调整'
+    if (isBangumiPage(pathname)) return '番剧页调整'
+    if (host === 'www.bilibili.com' && pathname === '/') return '首页调整'
+    if (origin === 'https://t.bilibili.com') return '动态页调整'
+    return '其他页调整'
 }
 export class LoggerService {
     static LEVELS = {
