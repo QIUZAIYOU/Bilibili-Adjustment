@@ -27,9 +27,6 @@ Thumbs.db
 # Environment variables (local credentials)
 .env
 
-# Agent guidance (local notes, not for the repo)
-AGENTS.md
-
 # Logs
 *.log
 npm-debug.log*
@@ -40,6 +37,10 @@ pnpm-debug.log*
 .history/
 .reasonix/
 .trae/
+
+# 本地分析产物（工具缓存 / 一次性分析快照，不进仓库）
+.codebase-memory/
+docs/script-analysis.md
 
 website/
 bili-theme/
