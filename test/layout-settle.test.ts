@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, resolveScrollOffset } from '@/utils/layout-settle'
+import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 /**
  * 「定位到位」判定回归（issue #39「播放器定位固定上限变成57」）
  *
@@ -104,4 +104,18 @@ test('resolveScrollOffset：播放器本身在目标位置上方 → 不滚动',
 })
 test('resolveScrollOffset：负值不产生负滚动位置', () => {
     assert.deepEqual(resolveScrollOffset(-5, 0, 100), { offset: 0, desiredOffset: 0 })
+})
+/**
+ * 「定位滚动动画」设置 → 动画时长（用户要求把滚动动画做成可配置项）
+ *
+ * 设置只有两种取值：smooth（默认，平滑滚动 300ms）与 instant（直接跳到位，时长 0）。
+ * 未设置或存着历史脏值时必须退回平滑滚动，不能变成「永远瞬移」。
+ */
+test('resolveLocateDuration：instant 为 0，其余退回平滑滚动', () => {
+    assert.equal(resolveLocateDuration('instant'), 0)
+    assert.equal(resolveLocateDuration('smooth'), 300)
+    assert.equal(resolveLocateDuration(undefined), 300)
+    assert.equal(resolveLocateDuration(null), 300)
+    assert.equal(resolveLocateDuration(''), 300)
+    assert.equal(resolveLocateDuration('INSTANT'), 300)
 })

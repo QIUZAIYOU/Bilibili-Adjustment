@@ -6,7 +6,7 @@ import { styles } from '@/shared/styles'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
-import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveScrollOffset } from '@/utils/layout-settle'
+import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
 const logger = new LoggerService('VideoModule', { notify: false })
@@ -491,9 +491,9 @@ export const playerModeFeatures = {
         }
     },
     async locateToPlayer (this: PlayerModeContext, options: { duration?: number } = {}): Promise<void> {
-        // duration 缺省 300ms（平滑动画，适合用户主动触发的定位）；
-        // 选集切换后的纠正传 0：直接到位，避免"先滚到顶部再滚回来"这种可见的二次滚动
-        const duration = options.duration ?? 300
+        // duration 缺省由「定位滚动动画」设置决定（平滑滚动 300ms / 直接到位 0）；
+        // 选集切换后的纠正固定传 0：直接到位，避免"先滚到顶部再滚回来"这种可见的二次滚动
+        const duration = options.duration ?? resolveLocateDuration(this.userConfigs.locate_scroll_animation)
         const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')

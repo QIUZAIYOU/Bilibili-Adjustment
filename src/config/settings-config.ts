@@ -201,6 +201,18 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 category: 'basic'
             },
             {
+                id: 'locate_scroll_animation',
+                type: 'radio',
+                label: '定位滚动动画',
+                options: [
+                    { value: 'smooth', label: '平滑滚动' },
+                    { value: 'instant', label: '直接跳转' }
+                ],
+                defaultValue: 'smooth',
+                tips: '定位到播放器时页面平滑滚动过去，观感更自然；若滚动过程偶发卡顿（低配设备、页面很长或正在加载），可改为「直接跳转」，一步到位、不播放滚动动画',
+                category: 'basic'
+            },
+            {
                 id: 'click_player_auto_locate',
                 type: 'checkbox',
                 label: '点击播放器时定位',

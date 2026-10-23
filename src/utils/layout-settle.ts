@@ -66,3 +66,11 @@ export const isPositionedAtPlayer = (check: PositionCheck): boolean => {
     const atEnd = isAtScrollEnd(check.scrollY, check.scrollHeight, check.clientHeight)
     return atEnd && !check.documentGrowing
 }
+/**
+ * 「定位滚动动画」设置 → `documentScrollTo` 的动画时长
+ *
+ * `instant` 返回 0（直接跳到目标位置，不播放滚动动画）；其余（含未设置）返回默认平滑时长。
+ * 抽成纯函数是为了让设置值到具体参数的映射能被单测钉住 —— 这个设置唯一的实际作用就是这里的 0/300。
+ */
+export const resolveLocateDuration = (mode: unknown, animatedDuration = 300): number =>
+    String(mode ?? '') === 'instant' ? 0 : animatedDuration
