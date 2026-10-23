@@ -2,11 +2,11 @@
 
 > 状态：**已实施（2026-09-07，随 v3.29.0 发布）** · 决策：dec-e5c14463de0f123e（config 持久化 + 切换 API；先文档后实施）
 > 实现偏差记录：
-> - `generateThemeVariables` 实现于 `src/shared/theme/manager.js`（原计划放 style-utils.js；因主题模块自包含、避免循环依赖而调整），style-utils 中原 `generateCssVariables` 已随死代码（generateAllStyles）一并删除；
-> - 旧 `src/shared/theme.js` 兼容层已删除，token 唯一来源为 `src/shared/theme/tokens.js`；`@/shared/theme` 现解析到 `theme/index.js`；
+> - `generateThemeVariables` 实现于 `src/shared/theme/manager.ts`（原计划放 style-utils；因主题模块自包含、避免循环依赖而调整），style-utils 中原 `generateCssVariables` 已随死代码（generateAllStyles）一并删除（该文件整体已不存在）；
+> - 旧的主题兼容层（单文件 `theme.js`）已删除，token 唯一来源为 `src/shared/theme/tokens.ts`；
 > - 迁移中按需新增 token：`switch-track/switch-track-hover`（开关轨道）、`bg-hover-strong`（滚动条滑块 hover 等实色强 hover）、`pink`（B 站官方点缀粉 #fb7299）、`shadow-float`；
-> - 死代码 `popover.js`（popoverStyles）与 style-utils 遗留函数保留但已变量化，无字面色值，待后续清理；
-> - 静态断言落地为 `scripts/check-theme-colors.py` + `npm run check:colors`（替代原计划的 eslint 规则方案，实现成本更低且同样可 gate）。
+> - 死代码 `popover.js`（popoverStyles）与 style-utils 遗留函数**已清理**（2026-10-23 随死代码批次删除），无字面色值；
+> - 静态断言落地为 `scripts/check-theme-colors.py` + `npm run check:colors`（跨平台入口 `scripts/run-color-check.mjs`，替代原计划的 eslint 规则方案，实现成本更低且同样可 gate）。
 > 目标版本：3.29.0（已发布）
 
 ## 1. 目标与验收
@@ -22,15 +22,17 @@
 
 ## 2. 现状摸底（证据摘要）
 
+> ⚠️ 本节是**设计当时的历史快照**，其中提到的文件（单一固定深色常量模块、style-utils、popover.js 等）均已在后续版本中迁移或删除；看现状请以 `src/shared/theme/` 下的 `tokens.ts` / `themes.ts` / `manager.ts` 为准。
+
 | 事实 | 位置 |
 |---|---|
-| 单一固定深色常量，无主题概念 | `src/shared/theme.js`（`theme.colors/...`） |
-| 已有 CSS 变量生成雏形，但只覆盖 colors/spacing/radius，且几乎无人引用 | `src/shared/style-utils.js#generateCssVariables` |
+| 单一固定深色常量，无主题概念 | 单文件主题常量模块（已删除，现为 `src/shared/theme/tokens.ts`） |
+| 已有 CSS 变量生成雏形，但只覆盖 colors/spacing/radius，且几乎无人引用 | style-utils 的 `generateCssVariables`（该文件已删除） |
 | 全部样式为 JS 模板字符串，色值硬编码；`var(--...)` 全仓仅 5 处 | `src/shared/styles/*.js` 等 |
-| 样式注入统一走 `document.head` 的 `<style id>` | `src/utils/common.js#insertStyleToDocument`，main.js / 各 module 调用 |
+| 样式注入统一走 `document.head` 的 `<style id>` | `src/utils/common.ts#insertStyleToDocument`，main.js / 各 module 调用 |
 | 弹窗为原生 popover + 真实 DOM 遮罩 | `styles/index.js#generateBilibiliAdjustmentStyle` |
-| 滚动条伪元素不支持 transition/自定义属性动画，宽度由 JS 逐帧驱动 | `src/utils/scrollbar-hover.js`（只写宽度，颜色在 `index.js` 静态） |
-| 评论区注入用 shadow DOM | `src/utils/shadow-dom-helper.js`、`modules/video/comment.js`（CSS 变量可沿继承穿透 shadow 边界） |
+| 滚动条伪元素不支持 transition/自定义属性动画，宽度由 JS 逐帧驱动 | `src/utils/scrollbar-hover.ts`（只写宽度，颜色在 `index.js` 静态） |
+| 评论区注入用 shadow DOM | `src/utils/shadow-dom-helper.ts`、`modules/video/comment.js`（CSS 变量可沿继承穿透 shadow 边界） |
 | 存在跨域 iframe 弹窗场景 | `main.js` 顶部 `bili-adjustment-popup` 分支（iframe 内脚本独立运行，同样可注入变量） |
 
 **硬编码色值全量清单**（迁移核对基准，按出现文件数排序）：
@@ -172,11 +174,11 @@ src/shared/theme/
 
 ### 5.2 `light` / `dark`（对齐 B 站官方，占位 + 校准流程）
 
-- **占位原则**：B 站官方主要色相已知（主品牌蓝 `#00a1d6`/`#00aeec`、浅色底 `#fff`/`#f1f2f3`、正文 `#18191c`、次级 `#61666d`/`#9499a0`、暗色底 `#18191a` 系、文字 `#f1f2f3`/`#e5e9ef` 等）。占位值写入 `light.js/dark.js`，**每处值必须携带来源注释** `// TODO(official-css): 待官方 css 校准`。
+- **占位原则**：B 站官方主要色相已知（主品牌蓝 `#00a1d6`/`#00aeec`、浅色底 `#fff`/`#f1f2f3`、正文 `#18191c`、次级 `#61666d`/`#9499a0`、暗色底 `#18191a` 系、文字 `#f1f2f3`/`#e5e9ef` 等）。占位值写入 `src/shared/theme/themes.ts` 的 `light` / `dark`，**每处值必须携带来源注释** `// TODO(official-css): 待官方 css 校准`。
 - **校准流程（官方 CSS 到位后，一次性完成，不动组件样式）**：
-  1. 官方 css 放入 `src/shared/theme/official/`（仅作参考来源，不直接引入线上，避免体积）；
-  2. 按 §4.2 语义表人工映射官方色值 → 覆写 `light.js/dark.js` 对应值；
-  3. 若官方引入 CSS 变量体系，`official.js` 提供「值来源 = 官方变量名」的映射表与解析函数；
+  1. 官方 css 放在 **`src/shared/styles/bili-theme/`**（`light_u.css` / `dark.css` / `map.css`；仅作参考来源，不直接引入线上，避免体积）；
+  2. 按 §4.2 语义表人工映射官方色值 → 覆写 `src/shared/theme/themes.ts` 里 `light` / `dark` 的对应值（**每处取值都带官方变量来源注释**）；
+  3. 语义对应关系见同目录的 `map.css`；
   4. 删除占位 `TODO(official-css)` 注释。
 - **light/dark 需要逐语义核对**（不只是换背景）：`hover-overlay` 由浮白改浮黑、文字层级对比度、边框由深灰改浅灰（官方 `#e3e5e7` 系）等，属**同一套语义 token 不同取值**，组件零改动。
 
@@ -190,7 +192,7 @@ src/shared/theme/
 ### 6.1 ThemeManager API
 
 ```js
-// src/shared/theme/manager.js
+// src/shared/theme/manager.ts
 ThemeManager.init({ theme })          // 启动注入；theme 缺省回退 night
 ThemeManager.setTheme(id)             // 切换并写 <style>，触发 'adj:theme-changed' 事件（eventBus 或自定义）
 ThemeManager.getTheme()               // 当前 id

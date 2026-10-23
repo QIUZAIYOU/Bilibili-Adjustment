@@ -26,8 +26,8 @@ export const webfullFeatures = {
             return
         }
         await sleep(100)
-        const player = document.getElementById('bilibili-player')
-        const app = document.getElementById('app')
+        const player = elementSelectors.get('player')
+        const app = elementSelectors.get('app')
         // 将播放器移出 playerWrap → 移到 #app 顶部
         if (player && app && player.parentElement?.id === 'playerWrap') {
             app.prepend(player)
@@ -86,7 +86,7 @@ export const webfullFeatures = {
         this._fullscreenHandler = async () => {
             if (!document.fullscreenElement && this.userConfigs?.webfull_unlock && this.userConfigs?.selected_player_mode === 'web') {
                 // 先立即补上样式 class，防止过渡期间播放器错位闪烁
-                const player = document.getElementById('bilibili-player')
+                const player = elementSelectors.get('player')
                 if (player) player.classList.add('mode-webscreen')
                 document.body.classList.add('webscreen-fix')
                 // 再触发 B 站自身的网页全屏进入流程
@@ -101,8 +101,8 @@ export const webfullFeatures = {
     },
     // 重置播放器布局（移除解锁样式，由 B 站原生 CSS 接管）
     async resetPlayerLayout (this: WebfullContext): Promise<void> {
-        const player = document.getElementById('bilibili-player')
-        const playerWrap = document.getElementById('playerWrap')
+        const player = elementSelectors.get('player')
+        const playerWrap = elementSelectors.get('playerWrap')
         // 移回 playerWrap
         if (player && playerWrap && player.parentElement?.id !== 'playerWrap') {
             playerWrap.append(player)

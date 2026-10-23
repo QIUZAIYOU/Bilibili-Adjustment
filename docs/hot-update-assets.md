@@ -33,10 +33,10 @@
 
 | 表 | 能改什么 | 不能改什么 / 额外护栏 |
 |---|---|---|
-| `selectors` | 覆盖 `src/shared/element-selectors.ts` 里**已存在**的选择器名（175 个） | 不能新增选择器名；值要过 CSS 语法校验、限长 500 |
+| `selectors` | 覆盖 `src/shared/element-selectors.ts` 里**已存在**的选择器名（98 个） | 不能新增选择器名；值要过 CSS 语法校验、限长 500 |
 | `ai-providers` | 覆盖已存在 provider 的 `baseURL` / `defaultModel` | 不能新增 provider、不能改 `name`/`docsUrl`/`pricingUrl` |
-| `regexps` | 覆盖 `src/shared/regexps.ts` 里已有的 17 个正则（`video.*` / `dynamic.*`）的**源串** | **不能改 flags**（与调用点语义绑定）；过 ReDoS 启发式 + `new RegExp` 编译 |
-| `templates` | 覆盖 `src/shared/templates/index.js` 已注册的 10 个模板 HTML | 必须保留内置模板的**全部 `[[占位符]]` 与 `id="..."`**；禁 `<script>`/内联事件/`javascript:` |
+| `regexps` | 覆盖 `src/shared/regexps.ts` 里已有的 30 个正则（`video` 8 个 / `dynamic` 8 个 / `common` 14 个）的**源串** | **不能改 flags**（与调用点语义绑定）；过 ReDoS 启发式 + `new RegExp` 编译 |
+| `templates` | 覆盖 `src/shared/templates/index.js` 已注册的 23 个模板 HTML | 必须保留内置模板的**全部 `[[占位符]]` 与 `id="..."`**；禁 `<script>`/内联事件/`javascript:` |
 | `themes` | 覆盖 `night`/`light`/`dark` 里**已有 token** 的色值、已有阴影值 | 不能新增 token（保证「三主题 token 集合一致」）；值要过色值/CSS 值安全校验 |
 | `ad-detection-prompt` | 整份广告识别提示词 | —— |
 
@@ -160,7 +160,7 @@ npm run build && python scripts/upload.py
 | B 站 URL/结构正则 | `src/shared/regexps.ts`（`video` / `dynamic` / `common` 三组） | `regexps.<group>.<key>` |
 | 注入 B 站页面的 HTML | `src/shared/templates/`（在 `templates/index.js` 合并） | `getTemplates.<key>` |
 
-**门禁**：`npm run check:hot-content`（`scripts/check-hot-content.mjs`）扫描 `src`，拦下 `querySelector/querySelectorAll/closest/matches/queryDescendant` 里的 B 站特征字面选择器与含 `/video/`、`/bangumi/`、`BV`、`bpx-` 等结构 token 的正则；`scripts/upload.py` 在**两种上传模式**下都会先跑它，失败即中止（不会上传任何文件）。
+**门禁**：`npm run check:hot-content`（`scripts/check-hot-content.mjs`）扫描 `src`，拦下 `querySelector/querySelectorAll/closest/matches/queryDescendant/getElementsByClassName` 里的 B 站特征字面选择器与含 `/video/`、`/bangumi/`、`BV`、`bpx-` 等结构 token 的正则；`scripts/upload.py` 在**两种上传模式**下都会先跑它，失败即中止（不会上传任何文件）。
 
 **豁免**：注册表文件本身；脚本自己的 DOM（`adj-*` / `adjustment*` / `ba-*` / `bilibili-adjustment-element`）；纯域名校验（`/bilibili/`、`/space.bilibili.com/` —— 域名变了整个 `@match` 都得改，本就无法靠热更解决）。
 

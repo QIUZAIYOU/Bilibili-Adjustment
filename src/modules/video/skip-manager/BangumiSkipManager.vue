@@ -254,7 +254,7 @@ const resolveCurrentEpId = (episodes: SkipEpisode[]): string | null => {
     } catch { /* 忽略异常 */ }
     // #player-title 为当前播放分集标题（ss 季页也提供），兼容「第N集/上中下/任意集名」
     try {
-        const pt = document.getElementById('player-title')
+        const pt = elementSelectors.get('playerTitle')
         const titleText = pt && pt.textContent ? pt.textContent.trim() : ''
         if (titleText) {
             const hit = matchEpisodeByTitle(titleText)

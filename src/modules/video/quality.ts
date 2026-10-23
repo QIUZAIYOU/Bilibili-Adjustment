@@ -1,5 +1,5 @@
 import { LoggerService } from '@/services/logger.service'
-import { elementSelectors } from '@/shared/element-selectors'
+import { elementSelectors, SITE_CLASS_NAMES } from '@/shared/element-selectors'
 import { getElementComputedStyle } from '@/utils/common'
 const logger = new LoggerService('VideoModule')
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
@@ -61,7 +61,7 @@ export const qualityFeatures = {
     async autoEnableHiResMode (): Promise<void> {
         // const highResButton = await elementSelectors.highResButton
         const highResButton = elementSelectors.get('highResButton') as HTMLElement | null
-        if (highResButton && !highResButton.className.includes('bpx-state-active')){
+        if (highResButton && !highResButton.className.includes(SITE_CLASS_NAMES.activeState)){
             highResButton.click()
             logger.info('Hi-Res无损音质丨已启用')
         }

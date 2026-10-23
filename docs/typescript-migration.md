@@ -4,7 +4,10 @@
 > 发布链路（`dist/*.user.js` → `scripts/upload.py`）完全不变，AGENTS.md 里的产物级红线
 > （禁 `mangle.properties`、SystemJS 命名导出桥、Vue 懒加载）与源码语言无关。
 >
-> 阶段 0（基建 + 护栏）已落地，业务代码尚未迁移。
+> **迁移已完成（阶段 0–5）**：业务代码全部迁到 `.ts`（全仓 92 个 `.ts` + 3 个 `.d.ts`），
+> 剩下的 `.js` 只有 `src/shared/styles/*` 与 `src/shared/templates/*` 这两处**纯字符串常量模块**
+> （永久保持 `.js`，由 `.ts` 静态导入）。
+> `tsconfig.json` 为 `allowJs: true` + `checkJs: true`（`allowJs` 不能关，因为上面两个目录是 `.js`）。
 >
 > **⚠️ 命名已变更（2026-09-16）**：本文下面的阶段记录里出现的旧文件名是**当时的事实**（连同当时的行数），
 > 保留不改。当前对应关系：`components/settings-component-v2` → `components/settings-dialog`、
@@ -69,8 +72,8 @@
    迁移到 `.ts` 时会逐个报 `TS18046` / `TS2339`。推荐统一写法（可先在 utils 加一个 `toError(e: unknown): Error` 归一化函数）。
 2. **`unknown` 沿数据结构传播**：`Map<string, unknown>` 这类容器一旦标注过宽，下游取值立刻报错（阶段 0 探针即复现 `TS18046: 'module' is of type 'unknown'`）。
    真实迁移时应在 `src/core` 定义 `ModuleDefinition` / `ModuleInstance` 接口，而不是到处断言。
-3. **`Object.create(moduleDef)` + 逐方法 `bind` 的动态实例化**（`src/core/module-system.js`）：TS 无法推导，必须显式接口 + 断言。
-4. **配置键与值（`ConfigService.getValue(name)`）**：字符串键、值来自 IndexedDB。建议从 `src/config/settings-config.js` 用 `as const` 派生键/值映射，先 `getValue<T = unknown>` 过渡。
+3. **`Object.create(moduleDef)` + 逐方法 `bind` 的动态实例化**（`src/core/module-system.ts`）：TS 无法推导，必须显式接口 + 断言。
+4. **配置键与值（`ConfigService.getValue(name)`）**：字符串键、值来自 IndexedDB。建议从 `src/config/settings-config.ts` 用 `as const` 派生键/值映射，先 `getValue<T = unknown>` 过渡。
 5. **测试 stub（`test/browser-stubs.js`）**：手工 DOM stub 满足不了 DOM 接口定义。测试侧建议保持 `checkJs: false`，或集中用一次 `as unknown as typeof document` 断言。
 6. **动态属性挂载**（`error.moduleSystemContext = ...`、`el._xxx = ...`）：需在 `src/types/` 里声明，别用 `as any` 铺开。
 
@@ -91,7 +94,7 @@ npm run build && npm run stats     # 产物体积门禁（相对 scripts/build-b
 
 | 文件 | 内容 |
 |---|---|
-| `src/config/settings-schema.d.ts` | 设置项 schema 类型（`SettingItemSchema` / `SettingOption`），供 V3 设置面板消费 |
+| `src/config/settings-config.ts` | 设置项 schema 类型（`SettingItemSchema` / `SettingOption`），供 V3 设置面板消费 |
 | `src/modules/video/skip-manager/types.d.ts` | `SkipSegment` / `SkipCacheEntry` / `SkipEpisode` / `SkipManagerEnv`（含 storage / season / recognize 精确签名） |
 
 实测：`npm run typecheck` 从 **207 个错误 → 0**；`npm test` 146 passed；构建与体积门禁通过
@@ -122,8 +125,8 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 
 ### 7.3 下一步（阶段 2）
 
-`src/shared/`、`src/utils/` 改 `.ts`（叶子模块，有单测兜底）。建议同时把 `src/config/settings-config.js`
-与 `src/utils/update-items.js` 迁到 `.ts`，即可删除本阶段新增的两个 `.d.ts` 契约文件（类型改由事实源导出）。
+`src/shared/`、`src/utils/` 改 `.ts`（叶子模块，有单测兜底）。建议同时把 `src/config/settings-config.ts`
+与 `src/utils/update-items.ts` 迁到 `.ts`，即可删除本阶段新增的两个 `.d.ts` 契约文件（类型改由事实源导出）。
 
 ## 8. 阶段 2 进展：叶子模块迁移（已完成 7 个文件）
 
@@ -131,13 +134,13 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 
 | 原文件 | 产出类型 |
 |---|---|
-| `src/shared/constants.js` → `.ts` | `EventName` / `StorageKey`（`as const` 字面量联合，事件名拼写可静态校验） |
-| `src/utils/update-items.js` → `.ts` | `UpdateItem`（`UpdateNoticePanel.vue` 已改为复用，删掉了重复 interface） |
-| `src/utils/ai-json.js` → `.ts` | 三个解析函数的签名精确化 |
-| `src/utils/lodash-lite.js` → `.ts` | `DebounceOptions` / `DebouncedFn` / `ThrottledFn`，`chunk` 泛型化 |
-| `src/shared/perf.js` → `.ts` | `PerfRecord`（`window.BA_PERF` 已在 `src/types/global.d.ts` 声明） |
-| `src/utils/dom-wait.js` → `.ts` | `WaitForConditionOptions` |
-| `src/utils/retry-queue.js` → `.ts` | `RetryResult` |
+| `src/shared/constants.ts` → `.ts` | `EventName` / `StorageKey`（`as const` 字面量联合，事件名拼写可静态校验） |
+| `src/utils/update-items.ts` → `.ts` | `UpdateItem`（`UpdateNoticePanel.vue` 已改为复用，删掉了重复 interface） |
+| `src/utils/ai-json.ts` → `.ts` | 三个解析函数的签名精确化 |
+| `src/utils/lodash-lite.ts` → `.ts` | `DebounceOptions` / `DebouncedFn` / `ThrottledFn`，`chunk` 泛型化 |
+| `src/shared/perf.ts` → `.ts` | `PerfRecord`（`window.BA_PERF` 已在 `src/types/global.d.ts` 声明） |
+| `src/utils/dom-wait.ts` → `.ts` | `WaitForConditionOptions` |
+| `src/utils/retry-queue.ts` → `.ts` | `RetryResult` |
 
 验收：`npm run typecheck` 0 错误、`npm test` 146 passed、`eslint` / `check:colors` 通过、
 构建与体积门禁通过（主产物 gzip 146.48 KB，迁移前 146.39 KB）。
@@ -145,26 +148,26 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 ### 8.1 迁移期踩到的两个坑（已固化处理方式）
 
 1. **显式带 `.js` 扩展名的导入不会回退到 `.ts`**（vite 与 Node 行为一致）：
-   `test/ai-json.test.js` 原本写 `'../src/utils/ai-json.js'` → 迁移后 `ERR_MODULE_NOT_FOUND`，
+   `test/ai-json.test.js` 原本写 `'../src/utils/ai-json.ts'` → 迁移后 `ERR_MODULE_NOT_FOUND`，
    表现为「单个测试文件整体失败、用例数从 146 掉到 130」。
-   **处理：调用点去掉扩展名**。同类隐患：`src/main.js` 的 3 处 `import('@/modules/*.module.js')`，
+   **处理：调用点去掉扩展名**。同类隐患：`src/main.ts` 的 3 处 `import('@/modules/*.module.js')`，
    迁移 `video/home/dynamic.module.js` 时必须同步改。
 2. **`@typescript-eslint/no-this-alias` 会拦截 lodash 语义**：`lodash-lite` 的 `debounce`/`throttle`
    需要把 `this` 透传给原函数，已在 `eslint.config.js` 的 `.ts` 块显式关闭该规则（附理由注释）。
 
 ### 8.2 阶段 2 剩余
 
-`src/utils/common.js`（664 行，有单测）、`src/shared/regexps.js`（477 行，有单测）、
-`src/shared/element-selectors.js`（521 行）、`src/shared/theme/*`、`src/shared/bili-apis.js`、
-`src/utils/http.js`、`src/utils/dialog-a11y.js` 等。
+`src/utils/common.ts`（664 行，有单测）、`src/shared/regexps.ts`（477 行，有单测）、
+`src/shared/element-selectors.ts`（521 行）、`src/shared/theme/*`、`src/shared/bili-apis.ts`、
+`src/utils/http.ts`、`src/utils/dialog-a11y.ts` 等。
 `src/shared/styles/*`、`src/shared/templates/*` 为纯字符串常量，**保持 `.js` 不迁移**。
 
 ## 9. 阶段 2 续：两个核心工具模块迁移
 
 | 原文件 | 行数 | 产出类型 |
 |---|---|---|
-| `src/utils/common.js` → `.ts` | 664 | `PageType`、`ElementSizeChangeCallback`、`DocumentScrollToOptions`、`ExecuteFunctionsOptions`、`IsTabActiveOptions`、`HrefChangeCallback`、`AdjustmentConfirmButton`、`AdjustmentConfirmOptions`、`InsertionMethod`、`PopoverInstance`、`PopoverInitOptions`、`PopoverManager` |
-| `src/shared/regexps.js` → `.ts` | 477 | `MentionDescItem`（模块内 `TextNodeReplacer`） |
+| `src/utils/common.ts` → `.ts` | 664 | `PageType`、`ElementSizeChangeCallback`、`DocumentScrollToOptions`、`ExecuteFunctionsOptions`、`IsTabActiveOptions`、`HrefChangeCallback`、`AdjustmentConfirmButton`、`AdjustmentConfirmOptions`、`InsertionMethod`、`PopoverInstance`、`PopoverInitOptions`、`PopoverManager` |
+| `src/shared/regexps.ts` → `.ts` | 477 | `MentionDescItem`（模块内 `TextNodeReplacer`） |
 
 `common.ts` 是调用面最广的工具模块（`detectivePageType` / `insertStyleToDocument` / `monitorHrefChange` /
 `adjustmentConfirm` / `popoverManager` 等），所以这轮顺带收敛了几类边界形状：
@@ -186,7 +189,7 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 
 | 原文件 | 行数 | 产出类型 |
 |---|---|---|
-| `src/shared/element-selectors.js` → `.ts` | 521 | `ElementSelectorsApi`（对外 API 接口）、`SelectorPageType`（比 `PageType` 多 `bangumi`）；`CSS_MAP` / `shadowDomSelectors` 标注为 `Record<string, string>` |
+| `src/shared/element-selectors.ts` → `.ts` | 521 | `ElementSelectorsApi`（对外 API 接口）、`SelectorPageType`（比 `PageType` 多 `bangumi`）；`CSS_MAP` / `shadowDomSelectors` 标注为 `Record<string, string>` |
 
 要点：
 
@@ -226,12 +229,12 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 
 | 原文件 | 行数 | 产出类型 |
 |---|---|---|
-| `src/shared/selector-registry.js` → `.ts` | 52 | `SelectorEntry`（名称 → 选择器/分类/说明）；`registerSelector` / `getSelector` / `hasSelector` 签名精确化 |
-| `src/shared/style-utils.js` → `.ts` | 107 | `ifTrue` / `cx`（`Array<string \| false \| null \| undefined>`）/ `scrollbarStyle` / `popoverBaseStyle` / `buttonStyle` |
-| `src/utils/http.js` → `.ts` | 108 | `HttpRequestOptions` / `HttpResponse` / `HttpError`（对齐 axios 形状：`response.status` / `code`） |
-| `src/utils/dialog-a11y.js` → `.ts` | 111 | `DialogA11yOptions`；`getFocusable` 收窄为 `HTMLElement[]`、`previouslyFocused` 收窄为 `HTMLElement` |
-| `src/utils/scrollbar-hover.js` → `.ts` | 178 | `ScrollbarTarget`（Element 或页面滚动条的 unique symbol）、`ScrollbarHoverState` |
-| `src/utils/shadow-dom-helper.js` → `.ts` | 215 | 类字段 `observers` 显式声明；`_traverse` / `querySelector` / `querySelectorAll` / `queryDescendant` / `observeInsertion` 签名精确化 |
+| `src/shared/selector-registry.ts` → `.ts` | 52 | `SelectorEntry`（名称 → 选择器/分类/说明）；`registerSelector` / `getSelector` / `hasSelector` 签名精确化 |
+| style-utils（**已删除**，2026-10-23 随死代码清理） | 107 | `ifTrue` / `cx`（`Array<string \| false \| null \| undefined>`）/ `scrollbarStyle` / `popoverBaseStyle` / `buttonStyle` |
+| `src/utils/http.ts` → `.ts` | 108 | `HttpRequestOptions` / `HttpResponse` / `HttpError`（对齐 axios 形状：`response.status` / `code`） |
+| `src/utils/dialog-a11y.ts` → `.ts` | 111 | `DialogA11yOptions`；`getFocusable` 收窄为 `HTMLElement[]`、`previouslyFocused` 收窄为 `HTMLElement` |
+| `src/utils/scrollbar-hover.ts` → `.ts` | 178 | `ScrollbarTarget`（Element 或页面滚动条的 unique symbol）、`ScrollbarHoverState` |
+| `src/utils/shadow-dom-helper.ts` → `.ts` | 215 | 类字段 `observers` 显式声明；`_traverse` / `querySelector` / `querySelectorAll` / `queryDescendant` / `observeInsertion` 签名精确化 |
 
 两处结构性调整（行为等价）：
 
@@ -247,8 +250,8 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 
 | 原文件 | 行数 | 产出类型 |
 |---|---|---|
-| `src/services/logger.service.js` → `.ts` | 95 | `LogLevel`（`'info'` / `'error'` / `'warn'` / `'debug'`）、`LogLevelConfig`；`ENABLED_LEVELS` 标注为 `Record<LogLevel, boolean \| undefined>`；`module` / `notify` 字段显式声明 |
-| `src/services/storage.service.js` → `.ts` | 138 | `IndexedDbLike`（对尚未迁移的 `index-db.service` 的**显式契约**）；私有字段 `#instance` / `#dbs` / `#logger` 补类型 |
+| `src/services/logger.service.ts` → `.ts` | 95 | `LogLevel`（`'info'` / `'error'` / `'warn'` / `'debug'`）、`LogLevelConfig`；`ENABLED_LEVELS` 标注为 `Record<LogLevel, boolean \| undefined>`；`module` / `notify` 字段显式声明 |
+| `src/services/storage.service.ts` → `.ts` | 138 | `IndexedDbLike`（对尚未迁移的 `index-db.service` 的**显式契约**）；私有字段 `#instance` / `#dbs` / `#logger` 补类型 |
 
 两处值得记录的处置：
 
@@ -270,7 +273,7 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 | `update.service.js` → `.ts` | 490 | 12 处 `error.message` 收窄为 `error instanceof Error ? error.message : String(error)`；复用 `UpdateItem`；`#showUpdatePopover` 的 handle 用 `Awaited<ReturnType<typeof mountUpdateNoticePanel>>` |
 | `ai.service.js` → `.ts` | 511 | `AIProviderConfig` / `AIModelOption`；复用 `HttpError` 做 axios 形状收窄；`getModel` / `getApiKey` / `getProvider` / `getCustomBaseURL` 显式 await 后断言（保持原有 Promise 短路行为） |
 
-顺带修了一处 JSDoc 遗漏：`src/ui/update/index.js` 的 `options.isLatest` 之前没写进 JSDoc（实现里已使用）。
+顺带修了一处 JSDoc 遗漏：`src/ui/update/index.ts` 的 `options.isLatest` 之前没写进 JSDoc（实现里已使用）。
 
 ### 14.2 阶段 4 已迁移（9 个）
 
@@ -334,9 +337,9 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 
 | 原文件 | 行数 | 产出 |
 |---|---|---|
-| `src/config/settings-config.js` → `.ts` | 454 | **schema 类型事实源**：`SettingItemType` / `SettingOption` / `SettingItemSchema` / `SettingGroup` 移入本文件并导出；三个数组显式标注。**删除阶段 1 的临时契约 `src/config/settings-schema.d.ts`**，`SettingItemV3.vue` / `SettingsPanelV3.vue` / `config.service.ts` 改为从本文件导入类型；6 处 `visible: configs => configs.xxx` 补 `Boolean(...)` |
-| `src/core/module-system.js` → `.ts` | 183 | `ModuleDefinition` / `ModuleInstance` / `ModuleStatus` / `ModuleMeta`；`#createModuleInstance` 的 `Object.create` 断言为 `ModuleInstance`；`#enhanceError` 的「任意错误挂属性」按原样断言 |
-| `src/modules/video/video.module.js` → `.ts` | 421 | `VideoModuleContext`（约 60 个成员）—— 完整描述「本对象字段 + 展开的各 feature 提供的方法」，各 feature 的 `this: XxxContext` 因此被满足 |
+| `src/config/settings-config.ts` → `.ts` | 454 | **schema 类型事实源**：`SettingItemType` / `SettingOption` / `SettingItemSchema` / `SettingGroup` 移入本文件并导出；三个数组显式标注。**删除阶段 1 的临时契约 `src/config/settings-config.ts`**，`SettingItemV3.vue` / `SettingsPanelV3.vue` / `config.service.ts` 改为从本文件导入类型；6 处 `visible: configs => configs.xxx` 补 `Boolean(...)` |
+| `src/core/module-system.ts` → `.ts` | 183 | `ModuleDefinition` / `ModuleInstance` / `ModuleStatus` / `ModuleMeta`；`#createModuleInstance` 的 `Object.create` 断言为 `ModuleInstance`；`#enhanceError` 的「任意错误挂属性」按原样断言 |
+| `src/modules/video/video.module.ts` → `.ts` | 421 | `VideoModuleContext`（约 60 个成员）—— 完整描述「本对象字段 + 展开的各 feature 提供的方法」，各 feature 的 `this: XxxContext` 因此被满足 |
 
 三处值得记录的细节：
 
@@ -457,9 +460,9 @@ TS 模式下模板绑定分析更精确，`__returned__` 不再暴露模板未�
 | 原文件 | 行数 | 产出 |
 |---|---|---|
 | `modules/home/history.js` → `.ts` | 183 | `HomeHistoryContext`、`HistoryVideoInfo`；`addEventListenerToElement(..., 'toggle', ...)` 的 `ToggleEvent` 收窄；弹窗元素上的 `__popoverDismissCleanup` 自定义属性用交叉类型断言；`mountHomeHistoryPanel` 的 `searchInput` 收窄为 `HTMLElement \| null` |
-| `src/main.js` → `.ts` | 154 | `moduleMap` 显式 `Record<string, () => Promise<{ default: ModuleDefinition }>>`；`currentModuleType` / `moduleCache` 类型化；`ConfigService.getValue` 取出的 `theme` 与 4 个日志级别断言到具体类型 |
+| `src/main.ts` → `.ts` | 154 | `moduleMap` 显式 `Record<string, () => Promise<{ default: ModuleDefinition }>>`；`currentModuleType` / `moduleCache` 类型化；`ConfigService.getValue` 取出的 `theme` 与 4 个日志级别断言到具体类型 |
 
-**⚠️ 关键一步（改名后必须同步）**：`vite.config.js` 的 `entry: 'src/main.js'` 已改为 `'src/main.ts'`，否则构建直接失败（已同步并验证构建通过）。
+**⚠️ 关键一步（改名后必须同步）**：`vite.config.js` 的 `entry: 'src/main.ts'` 已改为 `'src/main.ts'`，否则构建直接失败（已同步并验证构建通过）。
 另外 `main.ts` 里三处动态导入的 `*.module.js` 显式扩展名已去掉（`.js` 不会回退到 `.ts`，与 §8.1 同因）。
 
 **顺带修正**：`storageService.getAllRaw` 补了参数默认值（`home/history` 只传 `dbName` 调用它）；`SkipCacheEntry.locked` 放宽为 `boolean | number`（服务端与本地面板分别用 `1/0` 与布尔表达）。

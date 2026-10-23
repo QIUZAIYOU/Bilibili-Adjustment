@@ -246,7 +246,7 @@ export default {
                     if (value) {
                         await this.webfullPlayerModeUnlock()
                     } else {
-                        const player = document.getElementById('bilibili-player')
+                        const player = elementSelectors.get('player')
                         if (player?.classList.contains('mode-webscreen') || document.body.classList.contains('webscreen-fix')) {
                             await this.resetPlayerLayout()
                         }

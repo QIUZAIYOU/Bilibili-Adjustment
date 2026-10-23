@@ -1,4 +1,4 @@
-import { elementSelectors } from '@/shared/element-selectors'
+import { elementSelectors, SITE_CLASS_NAMES } from '@/shared/element-selectors'
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface VideoRotateContext {
     userConfigs: Record<string, unknown>
@@ -31,7 +31,7 @@ export const videoRotateFeatures = {
                 // 分割线：rgba 白浮色保留字面（嵌入 B 站官方播放器右键菜单，随官方播放器深色皮肤，
                 // 不随脚本主题切换；见 docs/theme-system.md §2 例外清单）
                 const divider = document.createElement('li')
-                divider.className = 'bpx-player-contextmenu-rotate-divider'
+                divider.className = SITE_CLASS_NAMES.contextMenuRotateDivider
                 divider.style.cssText = 'height:1px;background:rgba(255,255,255,0.12);margin:4px 16px;list-style:none'
                 menu.appendChild(divider)
                 // 旋转选项：复原为绝对值，顺/逆时针为相对当前状态
@@ -47,7 +47,7 @@ export const videoRotateFeatures = {
                     li.addEventListener('click', e => {
                         e.stopPropagation()
                         this.applyVideoRotation(absolute ? deg : this.videoRotateState + deg)
-                        menu.classList.remove('bpx-player-active')
+                        menu.classList.remove(SITE_CLASS_NAMES.playerMenuActive)
                     })
                     menu.appendChild(li)
                 })

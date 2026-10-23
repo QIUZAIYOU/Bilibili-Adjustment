@@ -1,6 +1,6 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
-import { elementSelectors } from '@/shared/element-selectors'
+import { elementSelectors, SITE_CLASS_NAMES } from '@/shared/element-selectors'
 import { STORAGE_KEYS } from '@/shared/constants'
 import { getTemplates } from '@/shared/templates'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
@@ -23,7 +23,7 @@ export const subtitleFeatures = {
             setTimeout(() => {
                 elementSelectors.wait('subtitleLanguageChineseAI').then(el => {
                     if (!el) return
-                    this._lastSubtitleState = el.classList.contains('bpx-state-active') ? 'on' : 'off'
+                    this._lastSubtitleState = el.classList.contains(SITE_CLASS_NAMES.activeState) ? 'on' : 'off'
                     sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_SUBTITLE_STATE, this._lastSubtitleState)
                     logger.debug(`视频字幕丨已记忆字幕开关状态: ${this._lastSubtitleState === 'on' ? '开启' : '关闭'}`)
                 })
@@ -48,7 +48,7 @@ export const subtitleFeatures = {
                 return
             }
             subtitleButton.click()
-            if (subtitleButton.classList.contains('bpx-state-active')) {
+            if (subtitleButton.classList.contains(SITE_CLASS_NAMES.activeState)) {
                 logger.info('视频字幕（中文AI）丨已开启')
             }
         }

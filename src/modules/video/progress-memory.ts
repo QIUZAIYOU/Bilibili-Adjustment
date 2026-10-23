@@ -69,7 +69,7 @@ export const progressMemoryFeatures = {
             this._playbackDiagFlags[type] = true
             const target = event.target as Element | null
             logger.debug('播放进度诊断丨' + type + ' 事件 target=' + target?.tagName +
-                ' matches=' + Boolean(target?.matches?.('#bilibili-player video')) +
+                ' matches=' + Boolean(target?.matches?.(elementSelectors.CSS('video') as string)) +
                 ' instanceof=' + (event.target instanceof HTMLVideoElement))
         }
         this._playbackTimeUpdateHandler = (event: Event) => {

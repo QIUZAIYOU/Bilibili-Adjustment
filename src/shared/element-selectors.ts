@@ -226,6 +226,25 @@ registerHotConfigTarget('selectors', {
         return true
     }
 })
+// ========== B 站状态类名（class 名，不是选择器） ==========
+/**
+ * B 站自己加在元素上的**状态类名**（不是选择器，没法用 CSS_MAP 存）
+ *
+ * 用途：`classList.contains('bpx-state-active')` 这类判断。写成字面量时，
+ * B 站改类名就只能等发版，且 `npm run check:hot-content` 会判为「硬编码 B 站页面特征」而拦下。
+ * 集中在这里后，改类名只需改这一处。
+ *
+ * ⚠️ 这类**暂不支持热更**（热更覆盖表只覆盖选择器）：类名变更频率远低于选择器，
+ * 且集中登记后已经不会再散落在各模块里。
+ */
+export const SITE_CLASS_NAMES = {
+    /** 控件「已激活」状态（字幕开关、高码率按钮等） */
+    activeState: 'bpx-state-active',
+    /** 播放器右键菜单「已激活」状态（点完旋转项后要让 B 站自己收起菜单） */
+    playerMenuActive: 'bpx-player-active',
+    /** 脚本注入右键菜单的分割线（借 B 站官方样式，官方 CSS 管外观） */
+    contextMenuRotateDivider: 'bpx-player-contextmenu-rotate-divider'
+} as const
 // ========== 缓存系统 ==========
 const elementCache = new Map<string, { element: Element; observer: MutationObserver }>()
 const CACHE_MAX_SIZE = 50

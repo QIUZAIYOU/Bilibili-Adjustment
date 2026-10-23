@@ -54,8 +54,12 @@ const rel = full => path.relative(root, full).replace(/\\/g, '/')
 const isRegistry = file => REGISTRY_FILES.includes(file) || REGISTRY_DIRS.some(dir => file.startsWith(dir))
 const files = walk(SRC).filter(full => /\.(ts|js|vue)$/.test(full) && !/\.d\.ts$/.test(full))
 const violations = []
-const domCallRe = /(?:querySelectorAll|querySelector|closest|matches|getElementsByClassName|queryDescendant)\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
+const domCallRe = /(?:querySelectorAll|querySelector|closest|matches|getElementsByClassName|queryDescendant|getElementById)(?:\?\.)?\(\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
 const regexLiteralRe = /(?:^|[=(,:[\s!&|])\/((?:\\.|\[[^\]]*\]|[^/\\\n])+)\/[gimsuy]*/g
+/** B 站路径字面量：字符串形态的路由判据（`startsWith('/video/')` 这类，正则规则管不到） */
+const sitePathLiteralRe = /(['"`])(\/(?:video|bangumi|list|festival)\/[^'"`\s]*)\1/g
+/** B 站 class 名操作：classList.contains / classList.remove / className = '...' */
+const classNameOpRe = /(?:classList\.(?:contains|remove|add|toggle)|className\s*=\s*|className\.includes\()\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g
 for (const full of files) {
     const file = rel(full)
     if (isRegistry(file)) continue
@@ -75,6 +79,20 @@ for (const full of files) {
             const source = match[1]
             if (SITE_REGEX_TOKENS.test(source)) {
                 violations.push(`${where}  硬编码 B 站结构正则 → ${trimmed.slice(0, 100)}`)
+            }
+        }
+        // B 站路径字面量（字符串形态的路由判据）
+        for (const match of line.matchAll(sitePathLiteralRe)) {
+            const literal = match[2]
+            if (!OWN_DOM_TOKENS.test(literal)) {
+                violations.push(`${where}  硬编码 B 站路径字面量 → ${trimmed.slice(0, 100)}`)
+            }
+        }
+        // B 站 class 名操作
+        for (const match of line.matchAll(classNameOpRe)) {
+            const className = match[2]
+            if (SITE_SELECTOR_TOKENS.test(className) && !OWN_DOM_TOKENS.test(className)) {
+                violations.push(`${where}  硬编码 B 站 class 名 → ${trimmed.slice(0, 100)}`)
             }
         }
     })

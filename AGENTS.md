@@ -25,7 +25,7 @@ priority: high
 
 需更新的文件：
 - **`package.json`** 的 `version` 字段
-- 相关模块文件的 `version` 字段（如 `home.module.js`）
+- ~~相关模块文件的 `version` 字段~~ —— **已删除**（2026-10-23）：模块 `version` 字段无人读取、形同虚设，且长期漂移（`video.module` 停在 3.38.3、`dynamic.module` 停在 2.0.0），已连同 `ModuleMeta.version` 一并移除，**发版时不再需要改模块文件**。
 
 ## 2. 添加更新说明
 
@@ -47,6 +47,8 @@ git commit -m "chore: bump to X.Y.Z"
 git push origin main
 ```
 
+**CI（2026-10-23 起机器强制）**：`.github/workflows/build.yml` 在每个 PR 上跑 `npm test` → `typecheck` → `check:www` / `check:hot-content` / `check:hot-config` / `check:colors` → `build` → `stats`（体积门禁）。**依赖升级的自动合并必须等 CI 通过**（`dependabot-auto-merge.yml` 用 `gh pr checks --watch`，失败即不合并 —— 以前是 `--auto` 失败就回退成直接合并，依赖升级能在构建失败的状态下进 main）。所以**提交前先本地跑一遍 `npm test`**。
+
 ## 4. 构建项目
 
 ```bash
@@ -66,7 +68,9 @@ python scripts/upload.py
 
 **上传目录由 `.env` 的 `SERVER_DEPLOY_PATH` 配置，不要硬编码**。
 
-**Why:** 迁移到轻量服务器后，使用 SCP 替代 FTP，更安全稳定。**必须使用 `scripts/upload.py`**，脚本会自动校验远程文件大小。连续失败过多可能触发服务器临时限制，稍等重试即可恢复。
+**上传前会自动跑的门禁（2026-10-23 起全部机器强制，缺一即中止且**不传任何文件**）**：`check:hot-content`（硬编码可热更内容）→ `check:www`（落地页版本号）→ `check:colors`（字面色值）→ **产物与 `package.json` 同版本且比源码新**（防「改了代码忘了 build」把旧产物发上线）→ `check:hot-config`（热更资产合法）→ 体积门禁 `stats`。其中**产物一致性断言与体积门禁放在上传产物之前**，失败时线上不会变成「新脚本 + 旧热更资产」的混合态。www / API 的「是否需要上传」按 **sha256** 比对（不再按字节数，等长编辑曾被静默漏更新）。
+
+**Why:** 迁移到轻量服务器后，使用 SCP 替代 FTP，更安全稳定。**必须使用 `scripts/upload.py`**，脚本会自动校验远程文件 sha256。连续失败过多可能触发服务器临时限制，稍等重试即可恢复。
 
 ## 6. 开发注意事项
 
@@ -75,27 +79,33 @@ python scripts/upload.py
   - 「头部是否压在内容上方」统一走纯函数 `src/utils/header-offset.ts#isHeaderOverlaying`：**只有 `fixed` / `sticky`（或取值含 `fixed` 字样）才算**，`relative`/`absolute`/`static` 与读不到样式一律不算。**禁止写死 `position === 'fixed'` 之外的判断，也禁止用「非 static 一律算」**（后者 2026-09-21 踩过：开启「夜间哔哩」样式时用户刻意给 `.bili-header--fixed .bili-header__bar` 加了 `position: relative !important`，导航栏随页面滚走（实测滚动 1500 时 rect.top=-1500），若按「非 static」判为固定就会多扣 64px、定位偏上；关闭该样式时同一元素为 `fixed`、各滚动位置 rect.top 恒为 0，必须扣 64px）。`player-mode.ts` 的三处调用点都用它，以后调判据只改这一个函数。
 - **主题系统（v3.29.0 起，务必遵守）**：
   - 所有 UI 颜色/阴影/圆角/字号/间距一律通过 CSS 变量 `var(--adj-*)` 引用，**样式与模板代码中严禁出现字面色值**（含内联 style、JS 赋值）；`npm run check:colors` 全仓断言兜底。
-  - 变量唯一来源：`src/shared/theme/tokens.js`（token 清单 + night 默认色板）与 `src/shared/theme/themes.js`（night/light/dark 三主题取值）。**改色或新增 token 必须三主题同步**（缺键会使对应主题下该变量缺失，`test/theme.test.js` 校验全量覆盖）。
+  - 变量唯一来源：`src/shared/theme/tokens.ts`（token 清单 + night 默认色板）与 `src/shared/theme/themes.ts`（night/light/dark 三主题取值）。**改色或新增 token 必须三主题同步**（缺键会使对应主题下该变量缺失，`test/theme.test.js` 校验全量覆盖）。
   - `light`/`dark` 必须完全对齐 B 站官方色值：来源为 `src/shared/styles/bili-theme/` 官方 CSS（**勿改动该目录**）。light=light_u.css 的 `*_u` 变量，dark=dark.css，语义对应关系见 map.css；themes.js 每行已注释官方变量来源，随官方升级时按注释校准。
-  - 设置项 `theme`（视频设置「界面主题」）：`night`=夜间哔哩、`follow`=跟随B站（默认，界面配色与 B 站当前模式匹配）。follow 模式判据：`<html>` 含 `bili_dark`（现版本）或 `night-mode`（旧版本）class → 应用 `dark`，否则 `light`；ThemeManager 用 MutationObserver 监听 class 变化持续跟随。检测到 Stylus「夜间哔哩」样式（`style.stylus` 含 `===StylusNightForBilibili===`）时会实时把主题切为 `night`，关闭后回 `follow`（见 `src/shared/theme/stylus-night.js`）。
-  - 配置变更即时生效链路：`ConfigService.setValue('theme', …)`（本地）与跨标签页同步消息都会 emit `config:changed` → `ThemeManager.setTheme` 应用（见 `src/shared/theme/manager.js`、`config.service.js`）。
+  - 设置项 `theme`（视频设置「界面主题」）：`night`=夜间哔哩、`follow`=跟随B站（默认，界面配色与 B 站当前模式匹配）。follow 模式判据：`<html>` 含 `bili_dark`（现版本）或 `night-mode`（旧版本）class → 应用 `dark`，否则 `light`；ThemeManager 用 MutationObserver 监听 class 变化持续跟随。检测到 Stylus「夜间哔哩」样式（`style.stylus` 含 `===StylusNightForBilibili===`）时会实时把主题切为 `night`，关闭后回 `follow`（见 `src/shared/theme/stylus-night.ts`）。
+  - 配置变更即时生效链路：`ConfigService.setValue('theme', …)`（本地）与跨标签页同步消息都会 emit `config:changed` → `ThemeManager.setTheme` 应用（见 `src/shared/theme/manager.ts`、`config.service.js`）。
   - JS 侧需要色值：`ThemeManager.getColor('brand')`（读 CSS 变量），不要硬编码。
 - **弹窗 UI 配色**：随主题 token 自动变化，勿写死色值。历史层级已语义化：外层底 `--adj-bg-page`、卡片/内部元素底 `--adj-bg-surface`、边框 `--adj-border-strong` 等（见 tokens.js 注释）；按语义选用，勿用 `#212121`/`#2c2c2c`/`#424242` 字面值。
+- **不可信内容进 HTML 前必须消毒（2026-10-23 起，务必遵守）**：凡是「用户/UP 主/评论者可写」的文本（简介、评论、配置值、导入的配置文件、远程共享缓存），进 `innerHTML` 前一律走白名单消毒：
+  - 链接化产物：`src/shared/regexps.ts` 的 `linkifyTokens` 必须把**未命中片段**与 token 内文本都 `escapeHtml`（`src/utils/text.ts`），只有生成的标签本身保持原样 —— 不转义就是**存储型 XSS**（任意 UP 主/评论者即可对所有访客注入脚本，页面无 CSP）；
+  - tooltip 提示：`src/components/tooltip-component.ts` 走 `src/utils/sanitize-html.ts` 的 `sanitizeTooltipHtml`（只放行 `<br>` 与 http(s) 的 `<a>`，其余标签整段丢弃），**禁止直接 `innerHTML = content`** —— 设置项提示里会插值配置值，配置值可来自用户导入的配置文件；
+  - 配置值进 URL：`location.href = …` 前必须过 `sanitizeHttpUrl`（只放行 http/https），否则导入的配置可注入 `javascript:`；
+  - 远程共享缓存（跳过片段）：读回一律过 `sanitizeSegments`，且跳转时间要钳制到 `video.duration`。
 - **popover 弹窗元素上严禁直接设置 `display` 样式**：popover 关闭态的隐藏依赖浏览器 UA 规则 `[popover]:not(:popover-open) { display: none }`（无 `!important`），作者级 `display`（如 `#UpSpacePopover { display: flex }`）会覆盖它，导致关闭后弹窗仍可见。此前弹窗都"关闭即销毁"掩盖了此问题，2026-08-29 弹窗缓存化后暴露。需要 flex 布局时放在弹窗内部容器上；兜底规则：旧类 `.adjustment-popover:not(:popover-open)`（`styles/index.js`）与新组件类 `.adjustment-dialog:not(:popover-open)`（`popover-dialog.js` DIALOG_CSS）均已加 `display: none !important;`，keepAlive 缓存弹窗（如 UP 主空间弹窗）依赖该兜底，改动组件类名/样式时勿移除。
-- **Vue 入口必须懒加载（v3.32.0 起，务必遵守）**：任何新增 Vue island（组件/SFC）**严禁在 `main.js`、模块顶层或其它首屏路径静态 import `vue` 或 `.vue`**——单文件用户脚本无法分包，静态 import 会让 Vue 运行时进入首屏关键路径。统一写法：在用户交互（点击/快捷键）处 `await import('vue')` + 动态导入自己的**桥模块**（见下条），并给弹窗内容区先插入加载态文案。参考 `src/ui/settings/index.js#mountVueSettingsPanel`、`src/modules/video/ad-skip.js#showSkipSegmentManager`、`src/main.js#openVueSampleDialog`。
+- **Vue 入口必须懒加载（v3.32.0 起，务必遵守）**：任何新增 Vue island（组件/SFC）**严禁在 `main.js`、模块顶层或其它首屏路径静态 import `vue` 或 `.vue`**——单文件用户脚本无法分包，静态 import 会让 Vue 运行时进入首屏关键路径。统一写法：在用户交互（点击/快捷键）处 `await import('vue')` + 动态导入自己的**桥模块**（见下条），并给弹窗内容区先插入加载态文案。参考 `src/ui/settings/index.ts#mountVueSettingsPanel`、`src/modules/video/ad-skip.ts#showSkipSegmentManager`、`src/main.ts#openVueSampleDialog`。
 - **严禁开启 terser 的 `mangle.properties`（v3.32.0 起，务必遵守）**：产物是「按 chunk 分别压缩再由 SystemJS 组装」，同名属性在不同 chunk 会被压成**不同名字**，从而破坏跨模块属性协议：
   - Vue 内部属性（`_component`、`_props`、`_container`、`__v_*`、`__vccOpts`…）在 runtime-core / runtime-dom / vue 三个 chunk 间不一致 → **所有 Vue 弹窗 mount 时抛 `TypeError: Cannot read properties of undefined (reading 'render')`**（`vite.config.js` 曾配 `regex: /^_/`，已移除）；
   - 其它依赖 `_` 前缀跨模块约定的对象/元素扩展属性同样会失效。
   - 排查手段：`ADJ_NO_OBF=1 npm run build` 出「不混淆但同结构」的产物；或用 jsdom + `System.registerRegistry` 在 Node 里复现（本项目排查脚本模式）。体积代价约 +4~5 KB gzip，远小于其风险。
 - **动态导入 SFC 必须经「命名导出桥」（v3.32.0 起，务必遵守）**：产物以 **SystemJS**（`@require systemjs` + `named-register`）承载模块，**命名导出是可靠通道**（`import('vue')` 取 `createApp` 即为此路径）。为避免依赖被动态导入模块的 `default` 形状，统一做法：
-  - 动态导入的目标是**自己的 JS 桥模块**（如 `src/ui/settings/lazy-panel.js`、`src/modules/video/skip-manager/lazy-panels.js`），桥内 `import X from './X.vue'` 后 `export const XComponent = X`；
+  - 动态导入的目标是**自己的 JS 桥模块**（如 `src/ui/settings/lazy-panel.ts`、`src/modules/video/skip-manager/lazy-panels.ts`），桥内 `import X from './X.vue'` 后 `export const XComponent = X`；
   - 宿主用命名导出取组件（`mod.XComponent || mod.default`），并做一次「像不像组件」的校验（`render/setup/template/props`）+ 明确报错；
   - **桥模块禁止被静态 import**（它静态引入 SFC 与 Vue，被静态引用会把 Vue 拖进首屏）。
-- **弹窗可访问性统一走 `applyDialogA11y`（`src/utils/dialog-a11y.js`）**：`openAdjustmentDialog` 已内置（role/aria-modal/aria-labelledby、Tab 焦点陷阱、Esc 关闭、关闭后归还焦点、body 滚动锁引用计数）。自建弹窗（不走通用壳）时必须显式调用，并在关闭/destroy 时执行返回的清理函数，否则会出现焦点逃逸或滚动锁泄漏。
-- **层级 z-index 只允许 `var(--adj-z-*)`**：token 定义在 `src/shared/theme/tokens.js` 的 `zIndex`（overlay/popover/header/tooltip/notification），由 ThemeManager 生成 CSS 变量。**禁止写 `999999`、`2147483000` 之类字面值**（历史遗留已全部清理，回潮会被 review 拒绝）。
-- **性能埋点与体积门禁（Sprint 0）**：关键路径统一用 `src/shared/perf.js` 的 `perfStart/perfEnd`（前缀 `adj:`）打点；交付前跑 `npm run build && npm run stats`（相对 `scripts/build-baseline.json` 增长超 +4KB gzip 或 +5% 会失败，发布新版时用 `npm run stats -- --update` 刷新基线）。指标与验收清单见 `docs/performance-guardrails.md`。
-- **更新配置已一刀切（v3.34，勿再加回独立开关）**：「更新检查频率」「自动更新」「跳过更新检查」「自动检查更新」这 4 个语义重叠的设置项已合并为**唯一的 `update_mode`**（`radio`：`auto` / `manual`，默认 `auto`）。两种模式**都会**检查更新，区别只在「是否弹窗」：`auto` 发现**功能级**更新弹窗（**同一版本只弹一次**，`localStorage` 记录；补丁级只走版本号处常驻提示，见下条「更新提示策略、检查源与构建标识」），`manual` **一律不弹窗**，改为在设置面板右上角版本号处**常驻**提示「有新版本 vX.Y.Z」，用户点击版本号才打开更新弹窗。语义要点：不弹 ≠ 不提示，所以「每版本只弹一次」不会造成漏提醒 —— 这是 issue #27 的根治方案，勿自作主张恢复永久去重或重新引入频率设置。老配置在 `ConfigService.#migrateLegacyConfigs` 里按需迁移（旧键指示「手动」才写库，遵守 P0-3 只读不写）。回归防线：`test/update-mode.test.ts`、`test/config-normalize.test.ts`。
+- **弹窗可访问性统一走 `applyDialogA11y`（`src/utils/dialog-a11y.ts`）**：`openAdjustmentDialog` 已内置（role/aria-modal/aria-labelledby、Tab 焦点陷阱、Esc 关闭、关闭后归还焦点、body 滚动锁引用计数）。自建弹窗（不走通用壳）时必须显式调用，并在关闭/destroy 时执行返回的清理函数，否则会出现焦点逃逸或滚动锁泄漏。
+- **层级 z-index 只允许 `var(--adj-z-*)`**：token 定义在 `src/shared/theme/tokens.ts` 的 `zIndex`（overlay/popover/header/tooltip/notification），由 ThemeManager 生成 CSS 变量。**禁止写 `999999`、`2147483000` 之类字面值**（历史遗留已全部清理，回潮会被 review 拒绝）。
+- **性能埋点与体积门禁（Sprint 0）**：关键路径统一用 `src/shared/perf.ts` 的 `perfStart/perfEnd`（前缀 `adj:`）打点；交付前跑 `npm run build && npm run stats`（相对 `scripts/build-baseline.json` 增长超 +4KB gzip 或 +5% 会失败，发布新版时用 `npm run stats -- --update` 刷新基线）。指标与验收清单见 `docs/performance-guardrails.md`。
+- **更新配置已一刀切（v3.34，勿再加回独立开关）**：「更新检查频率」「自动更新」「跳过更新检查」「自动检查更新」这 4 个语义重叠的设置项已合并为**唯一的 `update_mode`**（`radio`：`auto` / `manual`，默认 `auto`）。两种模式**都会**检查更新，区别只在「是否弹窗」：`auto` 发现**功能级**更新弹窗（**同一版本只弹一次**，`localStorage` 记录；补丁级只走版本号处常驻提示，见下条「更新提示策略、检查源与构建标识」），`manual` **一律不弹窗**，改为在设置面板右上角版本号处**常驻**提示「有新版本 vX.Y.Z」，用户点击版本号才打开更新弹窗。语义要点：不弹 ≠ 不提示，所以「每版本只弹一次」不会造成漏提醒 —— 这是 issue #27 的根治方案，勿自作主张恢复永久去重或重新引入频率设置。老配置在 `ConfigService.#migrateLegacyConfigs` 里按需迁移（旧键指示「手动」才写库，遵守 P0-3 只读不写）。回归防线：`test/update-mode.test.js`、`test/config-normalize.test.ts`。
 - **配置读写约定（P0-3）**：`ConfigService.getValue` **只读不写库**（缺失时返回 schema 默认值并进内存缓存）；批量场景用 `ConfigService.setValues`（单事务批量写）或 `storageService.userBatchGet/userBatchSet`，**禁止在循环里逐键 await**（会退化成 N 次 IndexedDB 事务）。
+- **配置归一化必须落在写边界（2026-10-23 修，务必遵守）**：类型归一化（`normalizeConfigValue`）**只在写边界执行** —— `setValue` / `setValues` / `initializeDefaults` / 跨标签页 BroadcastChannel 同步，四条路径都要归一化后再写库与写缓存；`getValue` 命中缓存时也再归一一次（防御性读路径）。⚠️ **旧实现只在 `getValue` 的「缓存未命中」分支归一化**，而 `initializeDefaults` 会把原始值灌进缓存 → 归一化代码永远不执行 → 库里存着字符串 `'false'` 时，开关显示与运行期判断全部反了（issue #27 同类故障）。回归：`test/config-normalize-boundary.test.ts`。
 - **AI 广告识别的输出预算（3.35.2 起，务必遵守）**：`max_tokens` 是「推理 + 答案」的**共享**预算 —— 思考型模型（自定义模型 + deepseek 系会注入 `thinking: {type:'enabled'}` + `reasoning_effort: 'high'`）一旦推理超过预算，接口返回 `finish_reason: "length"` 且 `message.content` 为**空**，表现就是「AI响应内容为空」并且**一个广告段都识别不出**（2026-09-17 用户报的正是此形态；3.31.0 那次「性能优化」给请求加了写死的 `max_tokens: 2048`，此前没有上限，故此前不复现）。现口径：预算按是否思考型给（普通 2048 保持既有成本/延迟特征，思考型 8192），并在「空响应且被截断或有推理内容」或「被 length 截断导致 JSON 解析失败」时**用更大预算重试一次**（2048→4096 / 8192→16384），只在本来就会失败的路径上多花一次调用。预算与判定是纯函数 `src/utils/ai-response.ts`（回归 `test/ai-response.test.ts`）。改这里时注意两条：**不要把预算调小**（等于把故障装回去）；**不要丢掉 `finish_reason` / `usage`（含 `completion_tokens_details.reasoning_tokens`）/ `reasoning_content` 三个诊断字段** —— 「内容为空」的日志没有诊断信息等于没法查（本次就是靠它们定位的）。
 - **热更资产统一放在服务器 `hot-config/` 目录（3.35.5 起，务必遵守）**：所有「改服务器文件即生效、用户无需更新脚本」的资产都在 `{SERVER_DEPLOY_PATH}/hot-config/` 下（`ad-detection-prompt.js` + **五张覆盖表** `selectors.js`/`ai-providers.js`/`regexps.js`/`templates.js`/`themes.js`）。完整说明见 `docs/hot-update-assets.md`，下面只记硬性约束：
   - **扩展名必须是 `.js`（内容其实是 JSON）**：只有 `location ~* ^/UserScripts/.*\.(js|css)$` 带 CORS（`map $http_origin $adj_cors_origin` 回显 `*.bilibili.com`），`.json` 不在其中；脚本按文本读取后自解析。想改 `.json` 必须先给该 location 加 CORS。
@@ -147,4 +157,4 @@ python scripts/upload.py
 - **页型判据只有一处（2026-10-23 起，务必遵守）**：`src/utils/page-type.ts` 是页型判定的**唯一实现**，`utils/common.ts#detectivePageType`（决定加载哪个页面模块）与 `shared/element-selectors.ts#getCurrentPageType`（决定选择器页型门控）都从它取判据。此前两处各判一次且口径不一致，会出现「模块加载了但选择器被当成别的页型跳过」的半残状态。判据的正则在 `src/shared/regexps.ts` 的 `common` 组（`videoPath` / `bangumiPath` / `listPath` / `activityVideoPath`），**必须在调用时读 `regexps.common.xxx`**（不能在模块加载时解构缓存，否则热更覆盖不生效）。**B 站新增活动视频页路径时，改服务器上的 `hot-config/regexps.js` 覆盖 `common.activityVideoPath` 即可，不必等发版**（2026-10-23 修的就是这个：`/festival/xxx?bvid=BVxxx` 这类内嵌标准播放器的活动页，此前判型落到 `other`，视频模块根本不加载，脚本完全不生效）。
   - 依赖方向注意：`shared/regexps.ts` 依赖 `utils/text.ts`（叶子模块），**不要**让 `utils/common.ts` 再反向依赖 regexps —— 2026-10-23 已把 `getTotalSecondsFromTimeString` / `generateMentionUserLinks` 拆到 `src/utils/text.ts` 来避开 `common → regexps → common` 的环。
   - 判型放宽的副作用已兜住：`video.module.ts` 在页面没有播放器时会自动解除 `body{overflow:hidden}` 滚动锁（否则「是播放页但没播放器」的页面会整页卡死滚不动）。
-- **TypeScript 迁移（阶段 0 起）**：可迁移，类型只作用于源码期（`.ts` 入口与 `.js` 入口产物**逐字节相同**，已实测），产物链路与各项产物级红线（禁 mangle.properties、SystemJS 命名导出桥、Vue 懒加载、体积门禁）不受影响。基建：`tsconfig.json`（`allowJs` + `checkJs: false`，`.js`/`.ts` 并存）、`src/types/global.d.ts`（`window.__INITIAL_STATE__`、`window.__TemplateRegistry__`、`unsafeWindow`、`import.meta.env` 全局补丁）；命令 `npm run typecheck`（`vue-tsc --noEmit`，已接入 CI 的 build 步骤之前）。迁移期硬约束：**禁 `enum`/`namespace`/构造函数参数属性**（esbuild 与 Node 的类型剥离都不做类型转换，且 `enum` 会产出 IIFE 运行时代码，实测 `enum` → `var Probe = ((Probe2) => {...})(Probe || {})`，而 `as const` 零运行时开销），统一用 `as const`；`tsconfig` 的 `target` 保持 `ESNext`，语法降级只交给 terser（`ecma: 5`）；不引入 `ts-node`/`tsx`（Node 22.18+ 原生剥离类型，`test/hooks.js` 已按 `.js` → `.ts` 顺序补全省略扩展名的导入）；`.ts`/`.d.ts` 同样受源码风格约束（`no-multiple-empty-lines` 的 `max: 0`，即不写空行）与主题红线（`scripts/check-theme-colors.py` 已覆盖 `.js/.ts/.vue`）。阶段 1（8 个 SFC 加 `lang="ts"` + props/emits 类型化）已完成，typecheck 从 207 → 0 个错误；注意：类型化 `defineProps` 会把 interface 类型推断为 `type: null`（Vue 的 prop 校验仅 dev 构建生效，生产产物行为不变）。**迁移已完成（阶段 0–5）**：全仓 71 个 `.ts`、0 个业务 `.js`；`tsconfig` 为 `allowJs: true` + `checkJs: true`（`allowJs` 不能关，因为 `src/shared/styles/*`、`src/shared/templates/*` 是纯字符串常量模块、永久保持 `.js` 且被 `.ts` 静态导入）。新增代码一律写 `.ts`；改动模板模块时注意它们也在 `checkJs` 范围内（插值函数的参数需 JSDoc 标注）。阶段路径（1 SFC → 2 shared/utils → 3 services → 4 modules/core/main → 5 收尾）与实测阻力（`catch (error)` 变量在 `strict` 下为 `unknown`，全仓 86 处；`unknown` 沿数据结构传播；`module-system.js` 的 `Object.create` 动态实例化）见 `docs/typescript-migration.md`。
+- **TypeScript 迁移（阶段 0 起）**：可迁移，类型只作用于源码期（`.ts` 入口与 `.js` 入口产物**逐字节相同**，已实测），产物链路与各项产物级红线（禁 mangle.properties、SystemJS 命名导出桥、Vue 懒加载、体积门禁）不受影响。基建：`tsconfig.json`（`allowJs` + `checkJs: false`，`.js`/`.ts` 并存）、`src/types/global.d.ts`（`window.__INITIAL_STATE__`、`window.__TemplateRegistry__`、`unsafeWindow`、`import.meta.env` 全局补丁）；命令 `npm run typecheck`（`vue-tsc --noEmit`，已接入 CI 的 build 步骤之前）。迁移期硬约束：**禁 `enum`/`namespace`/构造函数参数属性**（esbuild 与 Node 的类型剥离都不做类型转换，且 `enum` 会产出 IIFE 运行时代码，实测 `enum` → `var Probe = ((Probe2) => {...})(Probe || {})`，而 `as const` 零运行时开销），统一用 `as const`；`tsconfig` 的 `target` 保持 `ESNext`，语法降级只交给 terser（`ecma: 5`）；不引入 `ts-node`/`tsx`（Node 22.18+ 原生剥离类型，`test/hooks.js` 已按 `.js` → `.ts` 顺序补全省略扩展名的导入）；`.ts`/`.d.ts` 同样受源码风格约束（`no-multiple-empty-lines` 的 `max: 0`，即不写空行）与主题红线（`scripts/check-theme-colors.py` 已覆盖 `.js/.ts/.vue`）。阶段 1（8 个 SFC 加 `lang="ts"` + props/emits 类型化）已完成，typecheck 从 207 → 0 个错误；注意：类型化 `defineProps` 会把 interface 类型推断为 `type: null`（Vue 的 prop 校验仅 dev 构建生效，生产产物行为不变）。**迁移已完成（阶段 0–5）**：全仓 92 个 `.ts`、0 个业务 `.js`；`tsconfig` 为 `allowJs: true` + `checkJs: true`（`allowJs` 不能关，因为 `src/shared/styles/*`、`src/shared/templates/*` 是纯字符串常量模块、永久保持 `.js` 且被 `.ts` 静态导入）。新增代码一律写 `.ts`；改动模板模块时注意它们也在 `checkJs` 范围内（插值函数的参数需 JSDoc 标注）。阶段路径（1 SFC → 2 shared/utils → 3 services → 4 modules/core/main → 5 收尾）与实测阻力（`catch (error)` 变量在 `strict` 下为 `unknown`，全仓 86 处；`unknown` 沿数据结构传播；`module-system.js` 的 `Object.create` 动态实例化）见 `docs/typescript-migration.md`。

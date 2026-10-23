@@ -136,7 +136,7 @@
 ## 9. 入口与脚手架约定（后续迁移沿用）
 
 - 模块结构：每个功能模块的 Vue 资源放 `src/modules/<module>/ui/<feature>/`
-- 通用 composable：`useConfig` / `useEvent` / `useCurrentTheme` / `escapeHtml` → 统一放 `src/ui/composables.js`
+- 通用 composable：`useConfig` / `useEvent` / `useCurrentTheme` / `escapeHtml` → **最终没有集中成独立文件**（该文件未落地）：面板直接用桥模块回传的**响应式代理**（`bridge.configs` / `bridge.dynamicOptions`），跨模块共用的少量纯函数放在 `src/utils/`
 - 样式合规：`.vue` 内样式只允许主题变量 `var(--adj-*)` 与布局属性（通过 `check:colors`）
 - 收尾清债：迁移后删除死代码与无引用 import（本次迁移使 `ad-skip.js` 由 1500+ 行降至约 300 行）
 
