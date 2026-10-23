@@ -134,6 +134,23 @@ const _dismiss = (el: Element | null): void => {
     el.classList.add('ba-dismiss')
     setTimeout(() => el.parentNode?.removeChild(el), 300)
 }
+/**
+ * 摘掉超出上限的旧通知（**必须同步摘节点**）
+ *
+ * ⚠️ 2026-10-24 修：原来这里只调 `_dismiss()`（它只是加淡出类、300ms 后才真正移除节点），
+ *    而 `while (container.children.length >= NOTIFICATION_MAX)` 判的是**当前子节点数** ——
+ *    节点没被摘掉，条件就永远成立 → **死循环把整个页面卡死**（100% CPU，标签页无响应）。
+ *    触发路径很现实：任何模块连续 5 次 `logger.warn/error`（都会弹通知）就会踩到。
+ *    现在改为「先淡出、再立即摘除」：节点立刻离场，300ms 后的兜底 remove 因 `parentNode` 已是 null 而空转。
+ */
+const _trimOverflow = (container: HTMLElement): void => {
+    while (container.children.length >= NOTIFICATION_MAX) {
+        const oldest = container.firstElementChild
+        if (!oldest) break
+        _dismiss(oldest)
+        oldest.remove()
+    }
+}
 /** 通知选项 */
 export interface NotificationOptions {
     level?: 'info' | 'warn' | 'error'
@@ -146,9 +163,7 @@ export const notification = {
     /** 显示一条通知（返回通知元素，调用方可自行移除） */
     show ({ level = 'info', title = '', message = '', duration = NOTIFICATION_DURATION }: NotificationOptions = {}): HTMLDivElement {
         const container = _ensureNotificationContainer()
-        while (container.children.length >= NOTIFICATION_MAX) {
-            _dismiss(container.firstElementChild)
-        }
+        _trimOverflow(container)
         const icon = _levelIcons[level] || ''
         const el = document.createElement('div')
         el.className = `ba-notification ba-notification--${level}`
