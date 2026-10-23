@@ -24,6 +24,25 @@ const moduleMap: Record<string, () => Promise<{ default: ModuleDefinition }>> = 
     'home': () => import('@/modules/home/home.module'),
     'dynamic': () => import('@/modules/dynamic/dynamic.module')
 }
+/**
+ * 视频卡片预览（**跨页特性**：所有页型的视频卡片都能预览）
+ *
+ * 按开关**懒加载**：默认关闭 → 这段代码根本不进浏览器；开启时动态 import 出一个独立 chunk，
+ * 既不占首屏，也不拖慢任何页型。因为它与页面模块无关（页面模块会随 SPA 路由反复装卸），
+ * 所以挂在 main 上、由开关驱动，而不是塞进某个页面模块里。
+ */
+let videoPreviewModule: typeof import('@/features/video-preview') | null = null
+const enableVideoPreview = async (): Promise<void> => {
+    try {
+        if (!videoPreviewModule) videoPreviewModule = await import('@/features/video-preview')
+        videoPreviewModule.initVideoPreviewFeature()
+    } catch (error) {
+        logger.warn('视频预览丨加载失败（已忽略）', error instanceof Error ? error.message : error)
+    }
+}
+const disableVideoPreview = (): void => {
+    videoPreviewModule?.destroyVideoPreviewFeature()
+}
 const detectAndLoadModule = async (): Promise<string | null> => {
     const newModuleType = await detectivePageType()
     logger.debug(`页面类型: ${newModuleType}`)
@@ -87,6 +106,15 @@ const initializeApp = async (): Promise<void> => {
         // 热更配置：先用本地缓存**同步**覆盖（零延迟，必须早于功能模块查询选择器），再后台刷新供后续查询使用
         applyCachedHotConfig()
         refreshHotConfig().catch(error => logger.debug('热更配置刷新失败（已忽略）', error instanceof Error ? error.message : error))
+        // 视频卡片预览：跨页特性，按开关懒加载；开关变更即时生效（设置面板里勾上立刻就有按钮）
+        // ⚠️ 必须放在热更覆盖**之后**：卡片选择器可能被热更改写，扫描要用覆盖后的值
+        eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
+            const { key, value } = (args[0] ?? {}) as { key?: string, value?: unknown }
+            if (key !== 'home_video_preview') return
+            if (value) void enableVideoPreview()
+            else disableVideoPreview()
+        })
+        if (await ConfigService.getValue('home_video_preview')) void enableVideoPreview()
         await detectAndLoadModule()
         if (currentModuleType === 'other') return
         await moduleSystem.init()

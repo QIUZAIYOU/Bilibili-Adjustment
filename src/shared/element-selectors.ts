@@ -127,13 +127,23 @@ const CSS_MAP: Record<string, string> = {
     // 番剧选集链接与折叠面板
     bangumiEpisodeLinks: 'a[href*="/bangumi/play/ep"]',
     bangumiEpisodeAccordionHeaderActive: '.episode-accordion-header.active',
-    // 首页视频预览（2026-09-24 新增功能）：卡片封面区（按钮就插在这里，与自带稍后再看同级）、
-    // 卡片本体/链接/标题（用来取 bvid 与标题）、卡片内联 hover 预览（打开弹窗时要暂停它）
-    homeVideoCardImageWrap: '.bili-video-card__image--wrap',
-    homeVideoCard: '.bili-video-card',
-    homeVideoCardLink: 'a',
-    homeVideoCardTitle: '.bili-video-card__info--tit',
-    homeVideoCardInlineVideo: '.v-inline-player video',
+    // 视频卡片（**跨页通用**：首页 / 动态 / 空间 / 热门…，2026-10-24 起不再绑首页）
+    // 封面容器：预览按钮插在它里面。
+    // ⚠️ 同一个类名在不同页型里指的不是同一个东西：
+    //    - 首页：`.bili-video-card__image--wrap`（封面壳，含「稍后再看」与内联预览）
+    //    - 空间页：`.bili-video-card__cover`（封面壳，是个 div）
+    //    - 动态页：`.bili-dyn-card-video__cover`（封面壳）
+    //    故三者都列上，具体命中哪一个由调用点按「链接内 → 链接外」的顺序挑。
+    videoCardCover: '.bili-video-card__image--wrap, .bili-dyn-card-video__cover, .bili-video-card__cover',
+    // 卡片容器：用于「兜底取封面」时确认这个链接确实在一张视频卡片里
+    // （避免误伤播放页右侧那套紧凑的「相关推荐」列表 —— 它的封面太小，塞不下按钮）
+    videoCardContainer: '.bili-video-card, .bili-dyn-list__item, .bili-dyn-card-video, .video-card, .av-item',
+    // 视频链接：预览功能的入口（从 href 取 bvid）
+    videoCardLink: 'a[href*="/video/"]',
+    // 卡片标题：预览弹窗的标题（各页型标题节点类名不统一，都列上）
+    videoCardTitle: '.bili-video-card__info--tit, .bili-dyn-card-video__title, .bili-video-card__title, .video-name',
+    // 卡片内联 hover 预览（打开弹窗时要暂停它，否则两个播放器一起响）
+    videoCardInlineVideo: '.v-inline-player video, .bili-card-inline-player video',
     // 首页右下角悬浮按钮组（稍后再看/刷新/客服/顶部都在这里）：首页自己的脚本设置入口插进去
     homePaletteButtonWrap: '.palette-button-wrap'
 }
@@ -179,11 +189,6 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'indexRecommendAdCard',
         'indexRecommendCardLink',
         'indexRecommendCardTitle',
-        'homeVideoCardImageWrap',
-        'homeVideoCard',
-        'homeVideoCardLink',
-        'homeVideoCardTitle',
-        'homeVideoCardInlineVideo',
         'homePaletteButtonWrap'
     ]),
     dynamic: new Set([

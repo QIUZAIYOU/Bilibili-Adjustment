@@ -79,8 +79,9 @@ export const videoSettingsConfig: SettingItemSchema[] = [
             {
                 id: 'home_video_preview',
                 type: 'checkbox',
-                label: '首页视频预览',
-                tips: '开启后，首页推荐卡片的封面左上角会出现「预览」按钮（鼠标悬停卡片时显示）：点击在当前页面弹窗里播放该视频，有声音、可拖进度，不用跳进视频详情页；弹窗内还有「新标签页打开」与关闭按钮。所有预览共用一个弹窗',
+                label: '视频卡片预览',
+                // 配置键沿用旧的 `home_video_preview`（不重命名：改了会让存量用户的开关直接失效）
+                tips: '开启后，页面里各处的视频卡片（首页推荐、动态、空间视频列表…）封面左上角会出现「预览」按钮（鼠标悬停卡片时显示）：点击在当前页面弹窗里播放该视频，有声音、可拖进度，不用跳进视频详情页；弹窗内还有「新标签页打开」与关闭按钮。所有预览共用一个弹窗',
                 category: 'basic',
                 defaultValue: false
             },

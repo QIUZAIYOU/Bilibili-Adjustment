@@ -1,11 +1,19 @@
 /**
- * 首页视频预览的纯逻辑（零副作用 → 便于单测）
+ * 视频卡片预览的纯逻辑（零副作用 → 便于单测）
  *
  * URL 结构判据一律取 `regexps` 注册表（可热更），别在这里写死 `/video/(BV…)` 之类的正则。
  */
 import { regexps } from '@/shared/regexps'
 /** 播放地址模板里的占位符 */
 export const PREVIEW_BVID_PLACEHOLDER = '[[BVID]]'
+/** 预览按钮自身的类名（事件委托、样式、清理都按它定位） */
+export const PREVIEW_BUTTON_CLASS = 'adj-video-preview-btn'
+/**
+ * 封面容器上打的类名，两个用途：
+ * ① 作为预览按钮绝对定位的参照系；
+ * ② 作为「悬浮封面才显示按钮」的显现规则（跨页通用，不绑定任何页型的类名）。
+ */
+export const PREVIEW_COVER_CLASS = 'adj-video-preview-cover'
 /**
  * 从卡片链接里取 bvid（取不到返回 null → 该卡片不注入预览按钮）
  * @param href 卡片 `<a>` 的 href（可以是相对/绝对地址）

@@ -5,7 +5,8 @@ import { buttonTemplates } from './buttons'
 import { historyPopoverTemplate } from './popovers/history-popover'
 import { subtitleSwitchTemplates } from './subtitle/subtitle-switch'
 import { commentWrapperTemplates } from './comment/comment-wrappers'
-import { homePreviewTemplates } from './home/home-preview'
+import { homeSettingsTemplates } from './home/home-settings'
+import { videoPreviewTemplates } from './video/video-preview'
 import { upSpaceTemplates } from './video/up-space'
 import { loadingTemplates } from './loading'
 const templates = {
@@ -13,7 +14,8 @@ const templates = {
     ...historyPopoverTemplate,
     ...subtitleSwitchTemplates,
     ...commentWrapperTemplates,
-    ...homePreviewTemplates,
+    ...homeSettingsTemplates,
+    ...videoPreviewTemplates,
     ...upSpaceTemplates,
     ...loadingTemplates
 }

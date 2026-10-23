@@ -84,7 +84,10 @@ export default defineConfig(({ mode }) => ({
                     '*://www.bilibili.com/bangumi/play/*',
                     '*://www.bilibili.com/list/*',
                     '*://t.bilibili.com/*',
-                    '*://space.bilibili.com/*'
+                    '*://space.bilibili.com/*',
+                    // 搜索结果页：只有「视频卡片预览」这一项跨页特性用得上（页型判据为 other，
+                    // 不会加载任何页面模块），故单独加进来只为让结果卡片也能预览
+                    '*://search.bilibili.com/*'
                 ],
                 supportURL: 'https://github.com/QIUZAIYOU/Bilibili-Adjustment',
                 homepageURL: 'https://www.asifadeaway.com/bilibili/',

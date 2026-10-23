@@ -4,13 +4,16 @@ import './browser-stubs.js'
 import {
     FALLBACK_PREVIEW_TITLE,
     PREVIEW_BVID_PLACEHOLDER,
+    PREVIEW_BUTTON_CLASS,
+    PREVIEW_COVER_CLASS,
     buildPreviewUrl,
     extractPreviewBvid,
     normalizePreviewTitle
-} from '@/modules/home/video-preview-pure'
+} from '@/features/video-preview/video-preview-pure'
 import { getTemplates } from '@/shared/templates'
+import { videoPreviewStyles } from '@/shared/styles/video-preview'
 /**
- * 首页视频预览的纯逻辑回归（2026-09-24 新增功能）
+ * 视频卡片预览的纯逻辑回归（2026-09-24 新增功能，2026-10-24 扩展为跨页）
  *
  * 这些判据决定了「哪些卡片能预览」「弹窗里加载哪个地址」，出错就是整个功能不工作，故单独钉住。
  */
@@ -28,15 +31,15 @@ test('取不到 bvid 时返回 null（该类卡片不注入预览按钮）', () 
     assert.equal(extractPreviewBvid(undefined), null)
 })
 test('按模板拼播放地址：占位符被替换且模板本身可热更', () => {
-    const url = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, 'BV1Qq7m6PEuA')
+    const url = buildPreviewUrl(getTemplates.videoPreviewPlayerUrl, 'BV1Qq7m6PEuA')
     assert.equal(buildPreviewUrl('//x/?bvid=[[BVID]]', 'BV1a'), '//x/?bvid=BV1a')
     assert.equal(buildPreviewUrl('', 'BV1a'), '')
     assert.equal(PREVIEW_BVID_PLACEHOLDER, '[[BVID]]')
     assert.match(url, /BV1Qq7m6PEuA/)
 })
 test('主用同源视频播放页、兜底官方外链播放器，两者都是 B 站可用地址', () => {
-    const primary = buildPreviewUrl(getTemplates.homePreviewPlayerUrl, 'BV1a')
-    const fallback = buildPreviewUrl(getTemplates.homePreviewPlayerUrlFallback, 'BV1a')
+    const primary = buildPreviewUrl(getTemplates.videoPreviewPlayerUrl, 'BV1a')
+    const fallback = buildPreviewUrl(getTemplates.videoPreviewPlayerUrlFallback, 'BV1a')
     // 主用必须是 www.bilibili.com 同源地址：预览靠 B 站自己的「网页全屏」铺满，且要能拿到 contentDocument
     // 去点击那个「网页全屏」按钮（跨源就完全碰不到）。也别退回成移动播放页 —— 它的控制条只有播放/进度/宽屏。
     assert.match(primary, /^\/\/www\.bilibili\.com\/video\//)
@@ -47,4 +50,23 @@ test('标题清洗：折叠空白、空标题用兜底文案', () => {
     assert.equal(normalizePreviewTitle('  这是\n  标题  '), '这是 标题')
     assert.equal(normalizePreviewTitle(''), FALLBACK_PREVIEW_TITLE)
     assert.equal(normalizePreviewTitle(null), FALLBACK_PREVIEW_TITLE)
+})
+test('预览按钮与封面容器的类名：跨页通用，不绑任何页型的类名', () => {
+    // 按钮类名被事件委托、样式、清理三处依赖
+    assert.equal(PREVIEW_BUTTON_CLASS, 'adj-video-preview-btn')
+    // 封面类名是脚本自己打的：既作绝对定位的参照系，也作「悬浮封面才显示按钮」的显现规则
+    assert.equal(PREVIEW_COVER_CLASS, 'adj-video-preview-cover')
+    const css = videoPreviewStyles.VideoPreview
+    assert.match(css, /\.adj-video-preview-cover:hover \.adj-video-preview-btn/)
+    // 显现规则**不能**再绑首页专属类名（否则换页就再也不显示）
+    assert.doesNotMatch(css, /bili-video-card/)
+})
+test('预览模板都在注册表里（注入页面的 HTML 走模板，便于热更）', () => {
+    assert.ok(getTemplates.videoPreviewButton.includes(PREVIEW_BUTTON_CLASS))
+    assert.ok(getTemplates.videoPreviewOpenButton)
+    assert.ok(getTemplates.videoPreviewUpSpaceButton)
+    assert.ok(getTemplates.videoPreviewPlayerUrl)
+    assert.ok(getTemplates.videoPreviewPlayerUrlFallback)
+    assert.ok(getTemplates.videoPreviewVideoPageUrl)
+    assert.ok(getTemplates.videoPreviewPlayerCss)
 })
