@@ -48,6 +48,10 @@ export default {
     async uninstall (this: HomeModuleContext): Promise<void> {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
+        // 设置弹窗宿主：释放 Vue 实例与 resize/nav 监听（2026-10-23 审查发现）
+        settingsComponent.destroy()
+        // 重试队列是模块级单例：卸载后必须清空，否则旧模块的闭包会在新页面继续写 DOM
+        retryQueue.clear()
         this._historyListClickBound = false
         this._historySearchCleanup?.()
         document.getElementById('indexRecommendVideoHistoryOpenButton')?.remove()

@@ -96,9 +96,14 @@ const initializeApp = async (): Promise<void> => {
         scheduleUpdateCheck()
         let isProcessingUrlChange = false
         let lastUrl = location.href
-        const handleUrlChange = debounce(async () => {
+        // 处理中发生的路由变化挂在这里，本轮结束后补跑（而不是丢弃）
+        let pendingUrl: string | null = null
+        const applyUrlChange = async (): Promise<void> => {
             if (isProcessingUrlChange) {
-                logger.debug('URL变化处理中，跳过重复触发')
+                // 上一轮还在切换模块：记下最新 URL，等它结束后再跑一轮
+                // （2026-10-23 审查发现：旧实现直接丢弃，快速切页会装错模块并残留旧模块 DOM）
+                pendingUrl = location.href
+                logger.debug('URL变化处理中，记下最新地址待补跑')
                 return
             }
             const currentUrl = location.href
@@ -131,8 +136,18 @@ const initializeApp = async (): Promise<void> => {
                 logger.error('URL变化处理失败', error)
             } finally {
                 isProcessingUrlChange = false
+                // 补跑处理期间挂起的那一次路由变化（保证不丢更新）
+                if (pendingUrl && pendingUrl !== lastUrl) {
+                    pendingUrl = null
+                    await applyUrlChange()
+                }
             }
-        }, 500, { 'leading': true, 'trailing': false })
+        }
+        // leading + trailing：窗口内的重复变化会合并成一次「尾部补发」，
+        // 配合上面的 pendingUrl 机制，连续快速切页不会再丢事件
+        const handleUrlChange = debounce(() => {
+            void applyUrlChange()
+        }, 500, { 'leading': true, 'trailing': true })
         monitorHrefChange(handleUrlChange)
     } catch (error) {
         logger.error('应用初始化失败', error)

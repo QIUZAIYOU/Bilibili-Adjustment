@@ -117,8 +117,10 @@ export class ConfigService {
                 if (!key) return
                 // 与本地缓存相同则跳过，避免同标签页自身的写入触发重复刷新
                 if (this.#cache.get(key) === value) return
-                this.#cache.set(key, value)
-                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value })
+                // 跨标签页来的值同样归一化（对方可能是旧版本脚本写入的字符串值）
+                const normalized = ConfigService.#normalizeValue(key, value)
+                this.#cache.set(key, normalized)
+                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value: normalized })
             }
         } catch (error) {
             this.#logger.warn('跨标签页同步通道初始化失败', error)
@@ -144,7 +146,9 @@ export class ConfigService {
                 if (stored[key] === undefined || stored[key] === null) {
                     missing.push({ key, value: defaultValue })
                 } else {
-                    this.#cache.set(key, stored[key])
+                    // 存库值也要归一化后再进缓存：否则缓存里是原始值，
+                    // getValue 命中缓存就直接返回，归一化代码永远不执行（2026-10-23 审查发现）
+                    this.#cache.set(key, ConfigService.#normalizeValue(key, stored[key]))
                 }
             }
             if (missing.length > 0) {
@@ -227,7 +231,9 @@ export class ConfigService {
         }
         try {
             if (this.#cache.has(name)) {
-                return this.#cache.get(name)
+                // 缓存命中也要归一化（写边界已归一，这里是防御性读路径：
+                // 旧版本脚本写入的历史数据 / 跨标签页同步过来的值可能仍是字符串）
+                return ConfigService.#normalizeValue(name, this.#cache.get(name))
             }
             const value = await storageService.userGet(name)
             if (value === null || value === undefined) {
@@ -252,15 +258,21 @@ export class ConfigService {
     }
     static async setValue (name: string, value: unknown): Promise<void> {
         try {
-            await storageService.userSet(name, value)
-            this.#cache.set(name, value)
+            // 写入前归一化：原生 select 的 value 恒为字符串（存的是 '72' 而不是 72），
+            // 历史数据里复选框可能存 'false'，不归一化会让 `Boolean(x)` 判断反了（issue #27）。
+            // 归一化必须落在**写边界**上：只靠读路径归一会被内存缓存绕过
+            // （2026-10-23 审查发现：initializeDefaults / setValue 把原始值灌进缓存，
+            //   getValue 命中缓存就直接返回，归一化代码永远不执行）。
+            const normalized = ConfigService.#normalizeValue(name, value)
+            await storageService.userSet(name, normalized)
+            this.#cache.set(name, normalized)
             this.#ensureSyncChannel()
             // 本地写入也广播事件：**运行时即时生效项**依赖该事件（其余键本页不需要立刻反应，
             // 跨标签页同步由下面的 postMessage 通道负责）
             if (LOCAL_EMIT_CONFIG_KEYS.has(name)) {
-                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key: name, value })
+                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key: name, value: normalized })
             }
-            this.#syncChannel?.postMessage({ key: name, value })
+            this.#syncChannel?.postMessage({ key: name, value: normalized })
         } catch (error) {
             this.#logger.error('配置写入失败', error)
             throw error
@@ -284,9 +296,11 @@ export class ConfigService {
     static async setValues (entries: Array<{ key: string; value: unknown }>): Promise<number> {
         const records = (entries || []).filter(entry => entry && entry.key !== undefined)
         if (records.length === 0) return 0
-        await storageService.userBatchSet(records)
+        // 与 setValue 同口径：写库与写缓存前都归一化（2026-10-23 审查发现）
+        const normalizedRecords = records.map(({ key, value }) => ({ key, value: ConfigService.#normalizeValue(key, value) }))
+        await storageService.userBatchSet(normalizedRecords)
         this.#ensureSyncChannel()
-        for (const { key, value } of records) {
+        for (const { key, value } of normalizedRecords) {
             this.#cache.set(key, value)
             // 主题等运行时即时生效项依赖该事件（与 setValue 保持一致）
             if (key === 'theme') {
@@ -294,7 +308,7 @@ export class ConfigService {
             }
             this.#syncChannel?.postMessage({ key, value })
         }
-        return records.length
+        return normalizedRecords.length
     }
     /**
      * 关闭跨标签页同步通道

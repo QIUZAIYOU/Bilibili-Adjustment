@@ -96,6 +96,21 @@ export class SettingsDialogHost {
         this._vueDynamicOptionsProxy = null
     }
     /**
+     * 销毁宿主持有的全部资源（**模块卸载时必须调用**）
+     *
+     * 不调用会漏：
+     * - Vue 应用实例（挂在已脱离文档的 DOM 上，响应式副作用继续跑）；
+     * - `_settingsNavCleanup` 持有的 window.resize 监听与 nav MutationObserver。
+     * 三个页型各有一份宿主实例，各自漏一份（2026-10-23 审查发现）。
+     */
+    destroy (): void {
+        this.unmountVuePanel()
+        this._configSyncUnsubscribe?.()
+        this._configSyncUnsubscribe = null
+        this._activeSchema = null
+        this.pageType = null
+    }
+    /**
      * 同步动态选项（模型列表等）到 Vue 面板
      *
      * 必须写**代理**（`bridge.dynamicOptions`）：写原始对象不会触发 Vue 的更新。

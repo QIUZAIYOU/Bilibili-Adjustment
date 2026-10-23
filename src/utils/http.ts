@@ -143,3 +143,19 @@ export const httpRequest = async (url: string, options: HttpRequestOptions = {})
 }
 export const httpGet = (url: string, options: HttpRequestOptions = {}): Promise<HttpResponse> => httpRequest(url, { ...options, method: 'GET' })
 export const httpPost = (url: string, body: string | object | null, options: HttpRequestOptions = {}): Promise<HttpResponse> => httpRequest(url, { ...options, method: 'POST', body })
+/**
+ * 给原生 fetch 套一层超时（AbortController）
+ *
+ * 用于「调用点约定就是 fetch（返回 Response）」的注入场景（例如跳过片段管理的 `env.fetchImpl`）：
+ * 裸 fetch 没有超时，服务器/ CDN 挂起时 Promise 永不落定，
+ * 后续逻辑会被永久卡住（2026-10-23 审查发现）。
+ * @param {typeof fetch} fetchImpl 原始 fetch 实现
+ * @param {number} timeout 超时毫秒数（默认 30s）
+ * @returns {typeof fetch} 带超时的 fetch
+ */
+export const withFetchTimeout = (fetchImpl: typeof fetch, timeout = DEFAULT_TIMEOUT): typeof fetch => ((input: RequestInfo | URL, init?: RequestInit) => {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeout)
+    const merged: RequestInit = { ...(init || {}), signal: controller.signal }
+    return fetchImpl(input, merged).finally(() => clearTimeout(timer))
+}) as typeof fetch

@@ -195,10 +195,10 @@ export const biliApis = {
         // 补全协议头
         const fullUrl = subtitleUrl.startsWith('//') ? `https:${subtitleUrl}` : subtitleUrl
         try {
-            // 使用原生 fetch 而非 _apiRequest，避免 withCredentials 导致 CORS 问题
-            const response = await fetch(fullUrl)
-            if (!response.ok) throw new Error(`HTTP ${response.status}`)
-            const data = await response.json()
+            // 使用 httpGet 而非 _apiRequest，避免 withCredentials 导致 CORS 问题；
+            // 裸 fetch 没有超时，字幕 CDN 挂起会永久卡住广告识别流程（2026-10-23 审查发现）
+            const resp = await httpGet(fullUrl, { timeout: 15000 })
+            const data = resp.data as { body?: BiliData[] } | null
             return data?.body || []
         } catch (error) {
             logger.debug('获取字幕内容失败', error)

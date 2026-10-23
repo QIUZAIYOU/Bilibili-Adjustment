@@ -4,7 +4,7 @@ import { LoggerService } from '@/services/logger.service'
 import { SettingsDialogHost } from '@/components/settings-dialog'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES } from '@/shared/constants'
-import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument } from '@/utils/common'
+import { createElementAndInsert, addEventListenerToElement, executeFunctionsSequentially, insertStyleToDocument, sanitizeHttpUrl } from '@/utils/common'
 import { waitForCondition } from '@/utils/dom-wait'
 import { regexps } from '@/shared/regexps'
 import { getTemplates } from '@/shared/templates'
@@ -41,6 +41,8 @@ export default {
     async uninstall (this: DynamicModuleContext): Promise<void> {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
+        // 设置弹窗宿主：释放 Vue 实例与 resize/nav 监听（2026-10-23 审查发现）
+        settingsComponent.destroy()
         document.getElementById('DynamicSettingsOpenButton')?.remove()
         document.getElementById('DynamicSettingsPopover')?.remove()
         insertStyleToDocument({ 'DynamicSettingStyle': '' })
@@ -79,8 +81,15 @@ export default {
         ) {
             return false
         }
-        if (currentHref !== dynamic_video_link) {
-            location.href = dynamic_video_link
+        // 跳转前收口协议：dynamic_video_link 来自配置（可被用户导入的配置文件覆盖），
+        // 未校验时 javascript: / data: 会被浏览器执行（2026-10-23 审查发现）
+        const safeLink = sanitizeHttpUrl(dynamic_video_link)
+        if (!safeLink) {
+            logger.warn('动态页｜「投稿视频」链接不是合法的 http(s) 地址，跳过跳转')
+            return false
+        }
+        if (currentHref !== safeLink) {
+            location.href = safeLink
         } else {
             logger.info('动态页｜已切换至投稿视频')
         }

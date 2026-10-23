@@ -52,6 +52,8 @@ interface VideoModuleContext {
     _adVideo?: HTMLVideoElement | null
     _adTimeUpdateHandler?: (() => void) | null
     _skipCacheApplied?: boolean
+    _advertisementIdentifiedTimer?: ReturnType<typeof setTimeout> | null
+    _skipCacheAppliedTimer?: ReturnType<typeof setTimeout> | null
     _upSpacePopupDismissCleanup?: (() => void) | null
     _remoteConfigSyncUnsubscribe?: (() => void) | null
     _videoRotateFullscreenHandler?: EventListener | null
@@ -68,6 +70,7 @@ interface VideoModuleContext {
     initSubtitleStateMemory: () => void
     registSettings: () => Promise<void>
     initEventListeners: () => Promise<void>
+    observePlayerScreenMode: (container: Element) => void
     initMonitors: () => void
     initRemoteConfigSync: () => void
     initPlaybackMemory: () => void
@@ -128,6 +131,10 @@ export default {
     async uninstall (this: VideoModuleContext): Promise<void> {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
+        // 设置弹窗宿主：释放 Vue 实例与 resize/nav 监听（2026-10-23 审查发现）
+        settingsComponent.destroy()
+        // 重试队列是模块级单例：卸载后必须清空，否则旧模块的闭包会在新页面继续写 DOM
+        retryQueue.clear()
         this._upSpacePopupDismissCleanup?.()
         this._upSpacePopupDismissCleanup = null
         this.destroyUpSpacePopup?.()
@@ -155,6 +162,8 @@ export default {
         if (this._adVideo && this._adTimeUpdateHandler) {
             this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
         }
+        if (this._advertisementIdentifiedTimer) clearTimeout(this._advertisementIdentifiedTimer)
+        if (this._skipCacheAppliedTimer) clearTimeout(this._skipCacheAppliedTimer)
         if (this._descriptionWatchdog) clearTimeout(this._descriptionWatchdog)
         if (this._descriptionFallbackTimer) clearTimeout(this._descriptionFallbackTimer)
         this._descriptionFeedWaitStop?.()
@@ -281,20 +290,31 @@ export default {
         this._lastPlayerMode = (this.userConfigs?.selected_player_mode || 'normal') as string
         elementSelectors.wait('playerContainer').then(container => {
             if (!container) return
-            const observer = new MutationObserver(() => {
-                const mode = container.getAttribute('data-screen')
-                if (mode && mode !== this._lastPlayerMode) {
-                    this._lastPlayerMode = mode
-                    sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, mode)
-                    // 切回网页全屏时自动重新解锁
-                    if (mode === 'web' && this.userConfigs?.webfull_unlock && this.userConfigs?.selected_player_mode === 'web') {
-                        this.webfullPlayerModeUnlock()
-                    }
-                }
-            })
-            this._modeObservers.push(observer)
-            observer.observe(container, { attributeFilter: ['data-screen']})
+            this.observePlayerScreenMode(container)
         })
+    },
+    /**
+     * 监听播放器屏幕模式（data-screen）变化
+     *
+     * 每次只保留**一个**观察者：切集时旧观察者不 disconnect 会无界累积
+     * （看 50 个视频 = 50 个观察器同时监听同一个容器，重复触发解锁逻辑）（2026-10-23 审查发现）
+     */
+    observePlayerScreenMode (this: VideoModuleContext, container: Element): void {
+        this._modeObservers?.forEach(observer => observer.disconnect())
+        this._modeObservers = []
+        const observer = new MutationObserver(() => {
+            const mode = container.getAttribute('data-screen')
+            if (mode && mode !== this._lastPlayerMode) {
+                this._lastPlayerMode = mode
+                sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, mode)
+                // 切回网页全屏时自动重新解锁
+                if (mode === 'web' && this.userConfigs?.webfull_unlock && this.userConfigs?.selected_player_mode === 'web') {
+                    this.webfullPlayerModeUnlock()
+                }
+            }
+        })
+        this._modeObservers.push(observer)
+        observer.observe(container, { attributeFilter: ['data-screen']})
     },
     async registSettings (this: VideoModuleContext): Promise<void> {
         this.settingsComponent = settingsComponent
@@ -459,19 +479,7 @@ export default {
         // 重新绑定播放器模式观察器（SPA 导航后元素可能被替换）
         elementSelectors.wait('playerContainer').then(container => {
             if (!container) return
-            const observer = new MutationObserver(() => {
-                const mode = container.getAttribute('data-screen')
-                if (mode && mode !== this._lastPlayerMode) {
-                    this._lastPlayerMode = mode
-                    sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, mode)
-                    // 切回网页全屏时自动重新解锁
-                    if (mode === 'web' && this.userConfigs?.webfull_unlock && this.userConfigs?.selected_player_mode === 'web') {
-                        this.webfullPlayerModeUnlock()
-                    }
-                }
-            })
-            this._modeObservers.push(observer)
-            observer.observe(container, { attributeFilter: ['data-screen']})
+            this.observePlayerScreenMode(container)
         })
         const hasTitle = await this.hasPlayerTitle()
         // 简介/评论等即时功能不等待视频可播放，立即执行，避免切换选集时延迟

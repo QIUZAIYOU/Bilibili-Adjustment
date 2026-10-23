@@ -2,6 +2,7 @@
  * 简单直接的 Tooltip 组件
  * 直接绑定到每个图标元素
  */
+import { sanitizeTooltipHtml } from '@/utils/sanitize-html'
 /** TooltipComponent 的构造选项 */
 export interface TooltipOptions {
     /** 悬停多久后显示（ms，默认 300） */
@@ -92,8 +93,10 @@ export class TooltipComponent {
         // 取局部引用：类属性收窄会被后续方法调用打断，局部变量更稳且行为一致
         const tooltip = this.tooltip
         if (!tooltip) return
-        // 设置内容（直接使用 data-tooltip 的值）
-        tooltip.innerHTML = content
+        // 设置内容：**必须过白名单消毒** —— content 来自 data-tooltip，
+        // 而设置项提示里会插值配置值（配置值可来自用户导入的配置文件），
+        // 直接 innerHTML 会变成存储型 XSS（2026-10-23 审查发现，已修）。
+        tooltip.innerHTML = sanitizeTooltipHtml(content)
         // 先显示并设置 opacity 0 来获取尺寸
         tooltip.style.display = 'block'
         tooltip.style.opacity = '0'

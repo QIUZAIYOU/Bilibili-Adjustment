@@ -4,6 +4,7 @@ import { biliApis } from '@/shared/bili-apis'
 import { aiService, initializeAIService } from '@/services/ai.service'
 import { storageService } from '@/services/storage.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
+import { httpGet, httpPost, withFetchTimeout } from '@/utils/http'
 import { SKIP_CACHE_API, createCacheEntry, getCurrentUid, createSkipMatcher, sanitizeSegments } from './skip-manager/pure'
 import { perfStart, perfEnd } from '@/shared/perf'
 import type { SkipSegment, SkipCacheEntry, SkipManagerEnv, SkipEpisode } from './skip-manager/types'
@@ -20,6 +21,10 @@ interface AdSkipContext {
     _skipCacheApplied?: boolean
     _adVideo?: HTMLVideoElement | null
     _adTimeUpdateHandler?: (() => void) | null
+    /** 识别窗口的复位定时器句柄：新一轮识别前必须先 clear，否则旧定时器会提前打开窗口 */
+    _advertisementIdentifiedTimer?: ReturnType<typeof setTimeout> | null
+    /** 「缓存片段已应用」标志的复位定时器句柄（同上） */
+    _skipCacheAppliedTimer?: ReturnType<typeof setTimeout> | null
     resolveSkipTargetId: () => Promise<string | null>
     autoSkipAdvertisementSegments: (segments: SkipSegment[] | null | undefined) => void
     _markSkipCacheApplied: () => void
@@ -40,8 +45,12 @@ export const adSkipFeatures = {
             return
         }
         this.advertisementIdentified = true
-        setTimeout(() => {
+        // 复位定时器必须先清掉旧的：上一轮的定时器到点后会把新一轮的标志复位成 false，
+        // 识别窗口被提前打开 → 重复触发 AI 识别与上传（2026-10-23 审查发现）
+        if (this._advertisementIdentifiedTimer) clearTimeout(this._advertisementIdentifiedTimer)
+        this._advertisementIdentifiedTimer = setTimeout(() => {
             this.advertisementIdentified = false
+            this._advertisementIdentifiedTimer = null
         }, 30000)
         // 缓存片段已由 loadCachedSkipSegments 应用过，避免重复绑定跳过监听
         if (this._skipCacheApplied) return
@@ -52,7 +61,9 @@ export const adSkipFeatures = {
             const cached = await storageService.adCacheGet(bvid) as SkipCacheEntry | null
             if (cached) {
                 logger.info('自动跳过广告丨命中本地缓存')
-                const segments = (cached.segments || cached) as SkipSegment[]
+                // 读回必须过校验：缓存里的片段会直接写进 video.currentTime，
+                // 非法值（NaN / 负数 / 超大值）会让播放器乱跳或抛异常（2026-10-23 审查发现）
+                const segments = sanitizeSegments(cached.segments || cached)
                 this.autoSkipAdvertisementSegments(segments)
                 return segments
             }
@@ -60,18 +71,18 @@ export const adSkipFeatures = {
             logger.debug('自动跳过广告丨本地缓存读取失败', error)
         }
         try {
-            const resp = await fetch(`${SKIP_CACHE_API}?bvid=${bvid}`)
-            if (resp.ok) {
-                const result = await resp.json()
-                if (result.ok && result.data) {
-                    const segments = (result.data.segments || []) as SkipSegment[]
-                    logger.info('自动跳过广告丨命中远程缓存')
-                    try {
-                        await storageService.adCacheSet(bvid, result.data)
-                    } catch { /* 忽略异常 */ }
-                    this.autoSkipAdvertisementSegments(segments)
-                    return segments
-                }
+            // 共享缓存查询：走带超时的 httpGet（裸 fetch 挂起会永久卡住识别流程）
+            const resp = await httpGet(`${SKIP_CACHE_API}?bvid=${bvid}`, { timeout: 10000 })
+            const result = resp.data as { ok?: boolean; data?: { segments?: unknown }} | null
+            if (result?.ok && result.data) {
+                // 远程共享缓存对所有用户可见、内容不可信，必须先校验再使用
+                const segments = sanitizeSegments(result.data.segments || [])
+                logger.info('自动跳过广告丨命中远程缓存')
+                try {
+                    await storageService.adCacheSet(bvid, result.data)
+                } catch { /* 忽略异常 */ }
+                this.autoSkipAdvertisementSegments(segments)
+                return segments
             }
         } catch (error) {
             logger.debug('自动跳过广告丨远程缓存查询失败', error)
@@ -117,11 +128,7 @@ export const adSkipFeatures = {
             const uid = getCurrentUid()
             const cacheEntry = createCacheEntry(bvid, adSegments, uid)
             try {
-                await fetch(SKIP_CACHE_API, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(cacheEntry)
-                })
+                await httpPost(SKIP_CACHE_API, cacheEntry, { timeout: 15000 })
                 logger.info('自动跳过广告丨识别结果已上传到远程缓存')
             } catch (error) {
                 logger.debug('自动跳过广告丨远程缓存上传失败', error)
@@ -151,13 +158,27 @@ export const adSkipFeatures = {
             const currentTime = video.currentTime
             const target = matcher.match(currentTime)
             if (target) {
-                logger.info(`自动跳过广告丨从 ${currentTime.toFixed(1)}s 跳转到 ${target.end}s`)
-                video.currentTime = target.skipTo
+                // 目标时间钳制到视频时长：片段数据来自共享缓存（内容不可信），
+                // 异常大的 end 会把播放器直接甩到结尾（2026-10-23 审查发现）
+                const duration = Number(video.duration)
+                const maxTime = Number.isFinite(duration) && duration > 0 ? duration : Number.POSITIVE_INFINITY
+                const skipTo = Math.min(target.skipTo, maxTime)
+                if (Number.isFinite(skipTo) && skipTo > currentTime) {
+                    logger.info(`自动跳过广告丨从 ${currentTime.toFixed(1)}s 跳转到 ${skipTo}s`)
+                    video.currentTime = skipTo
+                }
             }
             if (matcher.isFinishedAt(video.currentTime)) {
                 video.removeEventListener('timeupdate', handleTimeUpdate)
                 logger.info('自动跳过广告丨所有广告已处理完成，移除事件监听器')
             }
+        }
+        // 重复绑定防护：缓存片段 30 秒后会复位并可能再次应用，
+        // 不先摘掉旧 handler 会在同一个 video 上叠加多个监听（重复判定 + 旧 handler 泄漏）
+        if (this._adVideo && this._adTimeUpdateHandler) {
+            this._adVideo.removeEventListener('timeupdate', this._adTimeUpdateHandler)
+            this._adVideo = null
+            this._adTimeUpdateHandler = null
         }
         this._adVideo = video
         this._adTimeUpdateHandler = handleTimeUpdate
@@ -175,7 +196,8 @@ export const adSkipFeatures = {
             : String(bvid)
         const env: SkipManagerEnv = {
             storage: storageService,
-            fetchImpl: fetch,
+            // 注入的 fetch 必须带超时：裸 fetch 挂起时 Promise 永不落定（2026-10-23 审查发现）
+            fetchImpl: withFetchTimeout(fetch, 15000),
             apiUrl: SKIP_CACHE_API,
             uidProvider: getCurrentUid,
             biliApis: biliApis as unknown as SkipManagerEnv['biliApis'],
@@ -277,7 +299,7 @@ export const adSkipFeatures = {
         // 先查本地缓存
         try {
             const cached = await storageService.adCacheGet(bvid) as SkipCacheEntry | null
-            const cachedSegments = cached?.segments ?? []
+            const cachedSegments = sanitizeSegments(cached?.segments ?? [])
             if (cachedSegments.length > 0) {
                 logger.info('跳过片段丨命中本地缓存，共', cachedSegments.length, '个片段')
                 this._markSkipCacheApplied()
@@ -289,18 +311,17 @@ export const adSkipFeatures = {
         }
         // 再查远程缓存
         try {
-            const resp = await fetch(`${SKIP_CACHE_API}?bvid=${bvid}`)
-            if (resp.ok) {
-                const result = await resp.json()
-                if (result.ok && result.data) {
-                    const segments = (result.data.segments || []) as SkipSegment[]
-                    if (segments.length > 0) {
-                        logger.info('跳过片段丨命中远程缓存，共', segments.length, '个片段')
-                        try { await storageService.adCacheSet(bvid, result.data) } catch { /* 忽略异常 */ }
-                        this._markSkipCacheApplied()
-                        this.autoSkipAdvertisementSegments(segments)
-                        return segments
-                    }
+            const resp = await httpGet(`${SKIP_CACHE_API}?bvid=${bvid}`, { timeout: 10000 })
+            const result = resp.data as { ok?: boolean; data?: { segments?: unknown }} | null
+            if (result?.ok && result.data) {
+                // 远程共享缓存内容不可信，读回必须过校验（2026-10-23 审查发现）
+                const segments = sanitizeSegments(result.data.segments || [])
+                if (segments.length > 0) {
+                    logger.info('跳过片段丨命中远程缓存，共', segments.length, '个片段')
+                    try { await storageService.adCacheSet(bvid, result.data) } catch { /* 忽略异常 */ }
+                    this._markSkipCacheApplied()
+                    this.autoSkipAdvertisementSegments(segments)
+                    return segments
                 }
             }
         } catch (error) {
@@ -311,7 +332,12 @@ export const adSkipFeatures = {
     // 标记「缓存片段已应用」：30 秒后自动复位，供本页新增片段后再次应用；SPA 切集时由 video.module 显式复位
     _markSkipCacheApplied (this: AdSkipContext): void {
         this._skipCacheApplied = true
-        setTimeout(() => { this._skipCacheApplied = false }, 30000)
+        // 同上：先清旧定时器，避免旧定时器把新一轮的标志提前复位
+        if (this._skipCacheAppliedTimer) clearTimeout(this._skipCacheAppliedTimer)
+        this._skipCacheAppliedTimer = setTimeout(() => {
+            this._skipCacheApplied = false
+            this._skipCacheAppliedTimer = null
+        }, 30000)
     },
     async recognizeSkipSegments (this: AdSkipContext, bvid: string): Promise<RecognizeResult> {
         const result: RecognizeResult = { segments: [], error: null, bvid }
@@ -374,11 +400,7 @@ export const adSkipFeatures = {
             return null
         }
         try {
-            await fetch(SKIP_CACHE_API, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(entry)
-            })
+            await httpPost(SKIP_CACHE_API, entry, { timeout: 15000 })
             logger.info('跳过片段管理丨缓存已' + (locked ? '锁定' : '解锁'))
         } catch (error) {
             logger.debug('跳过片段管理丨缓存锁定状态远程同步失败', error)
