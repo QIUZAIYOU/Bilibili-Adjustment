@@ -133,15 +133,22 @@ const CSS_MAP: Record<string, string> = {
     //    - 首页：`.bili-video-card__image--wrap`（封面壳，含「稍后再看」与内联预览）
     //    - 空间页：`.bili-video-card__cover`（封面壳，是个 div）
     //    - 动态页：`.bili-dyn-card-video__cover`（封面壳）
-    //    故三者都列上，具体命中哪一个由调用点按「链接内 → 链接外」的顺序挑。
-    videoCardCover: '.bili-video-card__image--wrap, .bili-dyn-card-video__cover, .bili-video-card__cover',
+    //    - 播放页相关推荐：`.b-img`（B 站通用封面盒；2026-10-24 实测：`.card-box > .pic-box > .pic >
+    //      .framepreview-box > a.video-awesome-img > .b-img > img`）
+    //    - 热门排行榜：`.rank-item .img`（封面壳，链接与图片是兄弟结构，只能取外层壳）
+    //    故都列上，具体命中哪一个由调用点按「链接内 → 链接外」的顺序挑。
+    videoCardCover: '.bili-video-card__image--wrap, .bili-dyn-card-video__cover, .bili-video-card__cover, .b-img, .rank-item .img',
     // 卡片容器：用于「兜底取封面」时确认这个链接确实在一张视频卡片里
-    // （避免误伤播放页右侧那套紧凑的「相关推荐」列表 —— 它的封面太小，塞不下按钮）
-    videoCardContainer: '.bili-video-card, .bili-dyn-list__item, .bili-dyn-card-video, .video-card, .av-item',
+    // （避免误伤非视频卡片的链接，比如 UP 主头像、话题入口）
+    // ⚠️ 播放页右侧的「相关推荐」列表（`.card-box`）**要包含进来**：
+    //    2026-10-24 用户反馈「视频页里的视频卡片没有预览按钮」—— 那些卡片的封面（`.b-img`）
+    //    单独存在、且封面比首页小一号，但依然放得下按钮，属于正常视频卡片。
+    videoCardContainer: '.bili-video-card, .bili-dyn-list__item, .bili-dyn-card-video, .video-card, .av-item, .card-box, .rank-item',
     // 视频链接：预览功能的入口（从 href 取 bvid）
     videoCardLink: 'a[href*="/video/"]',
     // 卡片标题：预览弹窗的标题（各页型标题节点类名不统一，都列上）
-    videoCardTitle: '.bili-video-card__info--tit, .bili-dyn-card-video__title, .bili-video-card__title, .video-name',
+    // 播放页与热门页的标题节点都叫 `.title`，故用容器限定，避免误取页面里别的 `.title`
+    videoCardTitle: '.bili-video-card__info--tit, .bili-dyn-card-video__title, .bili-video-card__title, .video-name, .card-box .title, .rank-item .title',
     // 卡片内联 hover 预览（打开弹窗时要暂停它，否则两个播放器一起响）
     videoCardInlineVideo: '.v-inline-player video, .bili-card-inline-player video',
     // 首页右下角悬浮按钮组（稍后再看/刷新/客服/顶部都在这里）：首页自己的脚本设置入口插进去
