@@ -96,6 +96,26 @@ def get_remote_size(ssh_cmd, user, host, remote_path):
         return -1
 
 
+def get_remote_sha256(ssh_cmd, user, host, remote_path):
+    """通过 SSH 获取远程文件的 sha256，不存在返回空串
+
+    比「按字节数比对」可靠：等长编辑（60px -> 58px、参数顺序调换）字节数不变，
+    按大小比对会静默漏更新（与 3.36.5 之后一直停在 v3.36.5 是同一类问题）。
+    """
+    check_cmd = ssh_cmd + [f'{user}@{host}',
+                           f"sha256sum '{remote_path}' 2>/dev/null | cut -d' ' -f1 || true"]
+    result = subprocess.run(check_cmd, capture_output=True, text=True, timeout=60)
+    if result.returncode != 0:
+        return ''
+    return (result.stdout or '').strip().split()[0] if (result.stdout or '').strip() else ''
+
+
+def local_sha256(local_path):
+    """本地文件 sha256"""
+    with open(local_path, 'rb') as f:
+        return hashlib.sha256(f.read()).hexdigest()
+
+
 def upload_file(scp_cmd, local_path, user, host, remote_path):
     """上传单个文件，返回是否成功"""
     dest = f'{user}@{host}:{remote_path}'
@@ -107,7 +127,12 @@ def upload_file(scp_cmd, local_path, user, host, remote_path):
 
 
 def upload_with_check(scp_cmd, ssh_cmd, local_dir, files, remote_dir, user, host, label):
-    """按需上传文件：对比本地与远程大小，有变更才上传"""
+    """按需上传文件：对比本地与远程 sha256，有变更才上传
+
+    ⚠️ 这里**必须**比 sha256 而不是字节数：等长编辑（改了字符但长度不变）
+    按大小比对会被判定成「无变更」而静默漏更新（历史事故：3.36.5 之后一直停在 v3.36.5）。
+    需要强制全部上传时，仍可设置环境变量 UPLOAD_FORCE=1。
+    """
     print(f'\n--- 检查 {label} ---')
     needs_upload = []
 
@@ -118,25 +143,24 @@ def upload_with_check(scp_cmd, ssh_cmd, local_dir, files, remote_dir, user, host
             print(f'跳过 {name}：本地文件不存在')
             continue
         local_size = os.path.getsize(local_path)
-        remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-        # 注意：这里按大小比对，会漏掉「改了字符但字节数不变」的编辑（例如 60px -> 58px）。
-        # 需要强制全部上传时，设置环境变量 UPLOAD_FORCE=1。
-        if local_size != remote_size or os.environ.get('UPLOAD_FORCE') == '1':
-            needs_upload.append((local_path, remote_path, name, local_size))
-            print(f'检测到变更 {name}（本地 {local_size} vs 远程 {remote_size}）')
+        local_hash = local_sha256(local_path)
+        remote_hash = get_remote_sha256(ssh_cmd, user, host, remote_path)
+        if local_hash != remote_hash or os.environ.get('UPLOAD_FORCE') == '1':
+            needs_upload.append((local_path, remote_path, name, local_size, local_hash))
+            print(f'检测到变更 {name}（本地 {local_size} bytes / {local_hash[:12]}…）')
         else:
-            print(f'无变更 {name}（{local_size} bytes）')
+            print(f'无变更 {name}（{local_size} bytes，sha256 {local_hash[:12]}…）')
 
     if needs_upload:
         print(f'上传 {len(needs_upload)} 个变更文件...')
         ok = True
-        for local_path, remote_path, name, size in needs_upload:
+        for local_path, remote_path, name, size, local_hash in needs_upload:
             if upload_file(scp_cmd, local_path, user, host, remote_path):
-                remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-                if remote_size == size:
+                remote_hash = get_remote_sha256(ssh_cmd, user, host, remote_path)
+                if remote_hash == local_hash:
                     print(f'OK {name} {size} bytes')
                 else:
-                    print(f'验证失败 {name} local={size} remote={remote_size}')
+                    print(f'验证失败 {name} 本地 sha256={local_hash[:12]}… 远程={remote_hash[:12] or "无"}…')
                     ok = False
             else:
                 ok = False
@@ -291,6 +315,80 @@ def check_www_version(root):
     return result.returncode == 0
 
 
+def check_build_stats(root):
+    """上传前跑体积门禁：相对基线增长超 +4KB gzip 或 +5% 即失败
+
+    以前这一条只写在 AGENTS.md 里靠人自觉，产物悄悄膨胀无人察觉。
+    """
+    print('--- 校验产物体积预算 ---')
+    result = subprocess.run(
+        ['node', os.path.join('scripts', 'build-stats.mjs')],
+        cwd=root, capture_output=True, text=True, timeout=120,
+        encoding='utf-8', errors='replace')
+    print((result.stdout or '').strip() or (result.stderr or '').strip())
+    return result.returncode == 0
+
+
+def check_theme_colors(root):
+    """上传前跑主题色值门禁：样式里出现字面色值即失败（项目红线）"""
+    print('--- 校验无字面色值 ---')
+    python_cmd = 'python3' if os.name != 'nt' else 'python'
+    result = subprocess.run(
+        [python_cmd, os.path.join('scripts', 'check-theme-colors.py')],
+        cwd=root, capture_output=True, text=True, timeout=120,
+        encoding='utf-8', errors='replace')
+    print((result.stdout or '').strip() or (result.stderr or '').strip())
+    return result.returncode == 0
+
+
+def check_dist_matches_package(root, require_fresh=True):
+    """上传前拦住「改了代码但忘了重新构建」
+
+    上传是「按需上传」，漏构建时旧产物会被原样发到线上，而所有门禁全绿：
+    落地页宣称 vX.Y.Z、服务器上的 user.js 还是上一个版本，用户装到旧版且全程零报错。
+    这里做两道断言：
+    1) 产物里的 @version 必须等于 package.json 的 version；
+    2) 产物必须比源码新（dist 比 src/ 与 package.json 都新）。
+    ⚠️ 第 2 条只在**完整上传**时要求：热更模式（HOT_ONLY=1）本来就不重新构建脚本产物。
+    """
+    print('--- 校验构建产物与当前版本/源码同步 ---')
+    package_path = os.path.join(root, 'package.json')
+    meta_path = os.path.join(root, 'dist', 'bilibili-adjustment.meta.js')
+    user_path = os.path.join(root, 'dist', 'bilibili-adjustment.user.js')
+    for path in (package_path, meta_path, user_path):
+        if not os.path.isfile(path):
+            print(f'⚠️ 缺少 {os.path.relpath(path, root)}（请先 npm run build）')
+            return False
+    with open(package_path, encoding='utf-8') as f:
+        package_version = (json.load(f) or {}).get('version', '')
+    with open(meta_path, encoding='utf-8') as f:
+        meta = f.read()
+    version_match = re.search(r'//\s*@version\s+([\d.]+)', meta)
+    meta_version = version_match.group(1) if version_match else ''
+    if meta_version != package_version:
+        print(f'⚠️ 构建产物版本 v{meta_version or "未知"} ≠ package.json v{package_version}：'
+              '产物是旧的，请重新 npm run build')
+        return False
+    # 新鲜度：产物必须比源码与 package.json 新
+    if not require_fresh:
+        print(f'产物版本 v{meta_version}，与 package.json 一致')
+        return True
+    newest_source = 0
+    for base in (os.path.join(root, 'src'), os.path.join(root, 'package.json')):
+        if os.path.isfile(base):
+            newest_source = max(newest_source, os.path.getmtime(base))
+        elif os.path.isdir(base):
+            for dirpath, _dirnames, filenames in os.walk(base):
+                for filename in filenames:
+                    newest_source = max(newest_source, os.path.getmtime(os.path.join(dirpath, filename)))
+    dist_time = min(os.path.getmtime(meta_path), os.path.getmtime(user_path))
+    if dist_time < newest_source:
+        print('⚠️ 构建产物比源码旧：源码有改动但没重新构建（npm run build）')
+        return False
+    print(f'产物版本 v{meta_version}，与 package.json 一致且比源码新')
+    return True
+
+
 def main():
     root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     env = load_env(os.path.join(root, '.env'))
@@ -325,9 +423,21 @@ def main():
     if not check_www_version(root):
         sys.exit('www 落地页未与当前版本同步，已中止（未上传任何文件）')
 
+    # ========== 主题色值门禁：样式里出现字面色值即失败（项目红线） ==========
+    if not check_theme_colors(root):
+        sys.exit('存在字面色值，已中止（未上传任何文件）')
+
     # ========== 提示词热更模式：只生成并上传提示词，不动脚本产物 ==========
     # 用途：改了提示词但不想让用户更新脚本（也就不会触发「同版本内容已更新」的重新安装提示）
     prompt_only = os.environ.get('HOT_ONLY', os.environ.get('PROMPT_ONLY')) == '1'
+    # 热更模式不重新构建脚本产物，故不校验产物新鲜度（只校验版本号一致）
+    if not check_dist_matches_package(root, require_fresh=not prompt_only):
+        sys.exit('构建产物与当前版本不同步，已中止（未上传任何文件）')
+
+    # ========== 热更资产门禁：放在**上传产物之前**，避免校验失败时线上已是混合态 ==========
+    if not check_hot_config(root):
+        sys.exit('热更资产校验失败，已中止（未上传任何文件）')
+
     if prompt_only:
         print('--- 热更模式（HOT_ONLY=1，PROMPT_ONLY=1 为旧名）：只重新生成并上传 hot-config/ 资产，不动脚本产物 ---')
         generated = subprocess.run(['node', os.path.join(root, 'scripts', 'build-hot-config.mjs')],
@@ -348,6 +458,10 @@ def main():
     for path in dist_files:
         if not os.path.isfile(path):
             sys.exit('缺少构建产物: ' + path + '（请先 npm run build）')
+
+    # 体积门禁：产物相对基线增长超预算即中止（放在上传之前，避免把超预算产物发上去）
+    if not check_build_stats(root):
+        sys.exit('产物体积超出预算，已中止（未上传任何文件）')
 
     for path in dist_files:
         name = os.path.basename(path)
@@ -385,9 +499,8 @@ def main():
         ok = False
 
     # ========== 上传远程热更资产（脚本运行时优先读它们） ==========
+    # （校验已在上传产物之前做过；这里只负责真正上传）
     print('\n--- 上传热更资产（hot-config/）---')
-    if not check_hot_config(root):
-        sys.exit('热更资产校验失败，已中止（脚本产物与 version.json 已上传，热更资产未上传）')
     if not upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
         ok = False
 

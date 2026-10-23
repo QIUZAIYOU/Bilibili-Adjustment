@@ -13,6 +13,19 @@ jobs:
         with:
           node-version: 22
           cache: 'npm'
+      # 颜色门禁是 Python 脚本：ubuntu runner 只有 python3
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
       - run: npm ci
+      # 单元测试：以前完全不在 CI 里，289+ 个用例只靠本地手工跑
+      - run: npm test
       - run: npm run typecheck
+      # 门禁脚本（与 upload.py 上传前跑的是同一套）
+      - run: npm run check:www
+      - run: npm run check:hot-content
+      - run: npm run check:hot-config
+      - run: npm run check:colors
       - run: npm run build
+      # 体积门禁：相对 scripts/build-baseline.json 增长超 +4KB gzip 或 +5% 即失败
+      - run: npm run stats

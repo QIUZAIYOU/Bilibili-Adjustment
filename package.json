@@ -14,7 +14,7 @@
         "preview": "vite preview",
         "stats": "node scripts/build-stats.mjs",
         "lint:fix": "eslint . --ext .js,.ts --fix",
-        "check:colors": "python scripts/check-theme-colors.py",
+        "check:colors": "node scripts/run-color-check.mjs",
         "test": "node --import ./test/alias-loader.js --test \"test/*.test.js\" \"test/*.test.ts\"",
         "check:hot-config": "node --import ./test/alias-loader.js scripts/check-hot-config.mjs",
         "check:hot-content": "node scripts/check-hot-content.mjs",
