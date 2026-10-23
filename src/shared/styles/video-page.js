@@ -18,15 +18,21 @@ export const videoPageStyles = {
      *   （B 站的盒子尺寸可能变，写死数值会跑偏）；量完之后才加 `adj-sidenav-up-avatar-ready`
      *   把盒子固定成正方形并清掉内边距 → 头像与按钮等宽。
      * - 悬浮提示（作者昵称）是**绝对定位**的：既不撑大按钮的盒子，也让它往左展开（侧栏贴着页面右边缘）。
+     *
+     * ⚠️ 特异性必须压过 B 站的侧栏样式：
+     *   B 站写的是 `.fixed-sidenav-storage .fixed-sidenav-storage-item[data-v-6203194a]`（0,3,0）
+     *   —— 圆角 8px、内边距 6px、白底、1px 边框都是它给的。我们要的是**圆形**头像，
+     *   故规则里带上同样的祖先链并多加一层类（0,4,0）才压得住；
+     *   只写 `.adj-sidenav-up-avatar.adj-sidenav-up-avatar-ready`（0,2,0）会被它反超
+     *   （2026-10-24 实测：圆角退回 8px、头像图被内边距挤成 26px）。
      */
     sideNavUpAvatar: `
         .adj-sidenav-up-avatar {
             position: relative;
             cursor: pointer;
-            color: var(--adj-text-soft);
             transition: var(--adj-motion-fast);
         }
-        .adj-sidenav-up-avatar.adj-sidenav-up-avatar-ready {
+        .fixed-sidenav-storage .fixed-sidenav-storage-item.adj-sidenav-up-avatar.adj-sidenav-up-avatar-ready {
             box-sizing: border-box;
             width: var(--adj-up-avatar-size, 50px);
             height: var(--adj-up-avatar-size, 50px);
@@ -34,9 +40,10 @@ export const videoPageStyles = {
             border: 1px solid var(--adj-border-strong);
             border-radius: 50%;
             background: var(--adj-bg-surface);
+            color: var(--adj-text-soft);
             overflow: visible;
         }
-        .adj-sidenav-up-avatar:hover {
+        .fixed-sidenav-storage .fixed-sidenav-storage-item.adj-sidenav-up-avatar.adj-sidenav-up-avatar-ready:hover {
             border-color: var(--adj-brand);
             box-shadow: var(--adj-shadow-float);
         }
