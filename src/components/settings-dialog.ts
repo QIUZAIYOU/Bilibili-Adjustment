@@ -10,6 +10,7 @@ import { BUILD_SHA } from '@/shared/build-info'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
 import { formatPendingUpdateHint, isComparableBuildSha } from '@/utils/update-policy'
+import { parseSettingsPayload, splitKnownEntries, buildSettingsExportPayload, formatImportSummary, formatLocalDateStamp, MAX_IMPORT_ENTRIES } from '@/utils/settings-transfer'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
@@ -888,35 +889,36 @@ export class SettingsDialogHost {
     }
     /**
      * 导出用户配置
-     * 合并已存储的配置与默认值，确保所有已知配置项都被导出
+     * 合并已存储的配置与默认值，确保所有已知配置项都被导出（纯逻辑见 utils/settings-transfer.ts）
      */
     async exportUserConfigs (): Promise<void> {
         try {
-            // 获取所有已存储的配置
+            // 获取所有已存储的配置（storageService.getAll 返回 {key: value} 形态）
             const storedSettings = await storageService.getAll('user')
-            const storedMap = new Map(Object.entries(storedSettings || {}))
-            // 合并默认值与已存值，确保每项都被导出
-            const mergedConfigs: Record<string, unknown> = {}
-            for (const [key, defaultValue] of ConfigService.DEFAULT_VALUES.entries()) {
-                mergedConfigs[key] = storedMap.has(key) ? storedMap.get(key) : defaultValue
-            }
+            const storedMap = (storedSettings && typeof storedSettings === 'object' ? storedSettings : {}) as Record<string, unknown>
+            const mergedConfigs = buildSettingsExportPayload(storedMap, ConfigService.DEFAULT_VALUES.entries())
             const configCount = Object.keys(mergedConfigs).length
             const blob = new Blob([JSON.stringify(mergedConfigs, null, 2)], { type: 'application/json' })
             const url = URL.createObjectURL(blob)
             const a = document.createElement('a')
             a.href = url
-            a.download = `bilibili_adjustment_settings_${new Date().toISOString().slice(0, 10)}.json`
+            a.download = `bilibili_adjustment_settings_${formatLocalDateStamp()}.json`
+            document.body.appendChild(a)
             a.click()
-            URL.revokeObjectURL(url)
+            a.remove()
+            // 立即 revokeObjectURL 会在部分浏览器（Firefox）里打断刚开始的下载，延后释放
+            setTimeout(() => URL.revokeObjectURL(url), 1000)
             logger.info(`配置已导出，共 ${configCount} 项`)
         } catch (error) {
             logger.error('导出设置失败:', error)
+            alert('导出设置失败: ' + (error instanceof Error ? error.message : String(error)))
         }
     }
     /**
      * 导入用户配置
-     * 兼容新版 {key: value} 和旧版 [{key, value, timestamp}] 两种格式
-     * 只导入已知的有效配置项，忽略未知键
+     * 兼容新版 {key: value} 和旧版 [{key, value, timestamp}] 两种格式（解析见 utils/settings-transfer.ts）
+     * 当前版本认识的配置项立即生效；不认识的键原样保留写入（当前版本不读，但用户降级/升级回来还能找回），
+     * 并在提示里说清有几项没生效 —— 不静默丢数据。
      */
     async importUserConfigs (event: Event): Promise<void> {
         const file = (event?.target as HTMLInputElement | null)?.files?.[0]
@@ -925,34 +927,27 @@ export class SettingsDialogHost {
             const reader = new FileReader()
             reader.onload = async (e: ProgressEvent<FileReader>) => {
                 try {
-                    const data = JSON.parse(String(e.target?.result ?? ''))
-                    let configEntries: Array<{ key: string; value: unknown }> = []
-                    if (Array.isArray(data)) {
-                        // 兼容旧版导出格式: [{key, value, timestamp}]
-                        configEntries = data
-                            .filter(item => item && item.key)
-                            .map(item => ({ key: item.key, value: item.value }))
-                    } else if (typeof data === 'object' && data !== null) {
-                        // 新版格式: {key: value}
-                        configEntries = Object.entries(data).map(([key, value]) => ({ key, value }))
-                    } else {
+                    const parsed = parseSettingsPayload(String(e.target?.result ?? ''))
+                    if (parsed.malformed) {
                         alert('导入失败：文件格式不正确')
                         return
                     }
-                    // 只导入已知的配置项，过滤掉未知的键
-                    const validKeys = new Set(ConfigService.DEFAULT_VALUES.keys())
-                    const validEntries = configEntries.filter(entry => validKeys.has(entry.key))
-                    const skippedCount = configEntries.length - validEntries.length
-                    if (validEntries.length === 0) {
-                        alert('导入失败：文件中没有有效的配置项')
+                    if (parsed.tooLarge) {
+                        alert(`导入失败：文件配置项过多（上限 ${MAX_IMPORT_ENTRIES} 项）`)
                         return
                     }
-                    await storageService.batchSet('user', validEntries)
-                    let message = `成功导入 ${validEntries.length} 项配置`
-                    if (skippedCount > 0) {
-                        message += `，已忽略 ${skippedCount} 项未知配置`
+                    if (parsed.entries.length === 0) {
+                        alert('导入失败：文件中没有配置项')
+                        return
                     }
-                    alert(message)
+                    const { knownEntries, unknownKeys } = splitKnownEntries(parsed.entries, ConfigService.DEFAULT_VALUES.keys())
+                    if (knownEntries.length === 0) {
+                        alert('导入失败：文件中的配置项当前版本均不识别')
+                        return
+                    }
+                    // 已知项立即生效，未知项一并保留（当前版本不读取，但用户数据不丢）
+                    await storageService.batchSet('user', parsed.entries)
+                    alert(formatImportSummary(knownEntries.length, unknownKeys))
                     location.reload()
                 } catch (parseError) {
                     logger.error('解析设置文件失败:', parseError)

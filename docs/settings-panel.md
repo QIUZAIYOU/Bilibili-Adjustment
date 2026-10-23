@@ -19,6 +19,7 @@
 | `src/ui/settings/index.ts` | `mountVueSettingsPanel`：懒加载 Vue + SFC，建立响应式桥，返回 `bridge` / `unmount` |
 | `src/ui/settings/lazy-panel.ts` | 懒加载桥：导出面板组件与**同源** Vue API（只能被动态 import） |
 | `src/ui/settings/nav-scroll-spy.ts` | 左侧悬浮导航的「当前分组」判定（纯函数，回归用例 `test/settings-nav-spy.test.ts`） |
+| `src/utils/settings-transfer.ts` | 配置导入/导出的纯逻辑：解析文件、区分当前版本认识/不认识的键、生成导出载荷、组织提示文案（纯函数，回归用例 `test/settings-transfer.test.ts`） |
 
 数据源唯一：`src/config/settings-config.ts` 的 schema（`videoSettingsConfig` / `dynamicSettingsConfig`）。
 新增设置项只改 schema，不要往宿主或渲染器里加实现。
