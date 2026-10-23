@@ -1,0 +1,86 @@
+/**
+ * 视频卡片夹具页（复刻 B 站各页型的真实卡片结构）
+ *
+ * 结构来自 2026-10-24 在真实 B 站页面上实测的 DOM（puppeteer 抓取）：
+ * - 首页卡片：`.bili-video-card > __wrap > a.bili-video-card__image--link > .bili-video-card__image >
+ *   .bili-video-card__image--wrap > picture.bili-video-card__cover`
+ * - 播放页相关推荐：`.card-box > .pic-box > .pic > .framepreview-box > a.video-awesome-img > .b-img > img`
+ * - 热门排行榜：`li.rank-item > .content > .img > a > img.lazy-image.cover`
+ *
+ * 夹具的作用：把「预览按钮该出现在哪」这件事变成**可离线复现**的断言，
+ * 不受 B 站渲染时序与网络影响。
+ */
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>视频卡片夹具</title>
+<style>
+    body { margin: 0; font-family: sans-serif; background: #f6f7f8; }
+    .section { margin: 24px; }
+    .section h2 { font-size: 15px; color: #61666d; }
+    /* 模拟 B 站封面的尺寸与定位上下文 */
+    .bili-video-card__image--wrap, .b-img, .rank-item .img { position: relative; width: 240px; height: 135px; background: #d6d9de; display: block; }
+    .rank-item { display: flex; gap: 8px; margin-bottom: 8px; }
+    .card-box { display: flex; gap: 12px; margin-bottom: 12px; }
+    .pic-box { width: 168px; height: 95px; }
+</style>
+</head>
+<body>
+<div class="section" id="home-cards">
+    <h2>首页推荐卡片</h2>
+    <div class="bili-video-card">
+        <div class="bili-video-card__wrap">
+            <a class="bili-video-card__image--link" href="//www.bilibili.com/video/BV1GJ411x7h7/">
+                <div class="bili-video-card__image">
+                    <div class="bili-video-card__image--wrap">
+                        <picture class="bili-video-card__cover">
+                            <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt="">
+                        </picture>
+                    </div>
+                </div>
+            </a>
+            <div class="bili-video-card__info">
+                <h3 class="bili-video-card__info--tit" title="首页卡片标题">首页卡片标题</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="section" id="video-page-cards">
+    <h2>播放页相关推荐（.card-box）</h2>
+    <div class="card-box">
+        <div class="pic-box">
+            <div class="pic">
+                <div class="framepreview-box">
+                    <a href="/video/BV1V4UYY5EhD/?spm_id_from=333.788.recommend_more_video.-1" class="video-awesome-img">
+                        <div class="b-img">
+                            <img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" class="b-img__inner" alt="">
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="info">
+            <a href="/video/BV1V4UYY5EhD/?spm_id_from=333.788.recommend_more_video.-1"><p title="播放页推荐标题" class="title">播放页推荐标题</p></a>
+        </div>
+    </div>
+</div>
+
+<div class="section" id="rank-cards">
+    <h2>热门排行榜（.rank-item）</h2>
+    <ul class="rank-list">
+        <li class="rank-item">
+            <div class="content">
+                <div class="img">
+                    <a href="//www.bilibili.com/video/BV1xrnz6gEVD" target="_blank"><img class="lazy-image cover" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==" alt=""></a>
+                </div>
+            </div>
+            <div class="info">
+                <a href="//www.bilibili.com/video/BV1xrnz6gEVD" target="_blank" title="排行榜视频标题" class="title">排行榜视频标题</a>
+            </div>
+        </li>
+    </ul>
+</div>
+</body>
+</html>
