@@ -11,7 +11,6 @@ import { spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
 import fs from 'node:fs'
-
 const here = path.dirname(fileURLToPath(import.meta.url))
 const script = path.join(here, 'check-theme-colors.py')
 if (!fs.existsSync(script)) {
