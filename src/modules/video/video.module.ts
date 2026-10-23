@@ -64,6 +64,7 @@ interface VideoModuleContext {
     videoRotateState?: number
     _fullscreenHandler?: EventListener | null
     preFunctions: () => Promise<void>
+    releaseScrollLockIfNoPlayer: () => void
     initSubtitleStateMemory: () => void
     registSettings: () => Promise<void>
     initEventListeners: () => Promise<void>
@@ -177,6 +178,7 @@ export default {
         // 锁定会在定位被跳过时永远无法解除，导致页面卡死无法滚动，故跳过
         if (!this.userConfigs.webfull_unlock) {
             insertStyleToDocument({ 'BodyOverflowHiddenStyle': styles.BodyOverflowHidden })
+            this.releaseScrollLockIfNoPlayer()
         }
         await this.registSettings()
         await this.initEventListeners()
@@ -188,6 +190,24 @@ export default {
         this.initMonitors()
         this.initRemoteConfigSync()
         this.initPlaybackMemory()
+    },
+    /**
+     * 滚动锁安全网。
+     *
+     * 背景：页型判定可能命中「是播放页、但页面上没有播放器」的页面（活动视频页判据是按路径走的，
+     * 将来热更扩到别的活动路径时可能出现这种情况）。此时没有 video 元素 → 不会触发
+     * 「可播放 → 选模式 → 定位」流程 → 定位里那句「先解锁」也就永远不会执行，
+     * preFunctions 注入的 `body{overflow:hidden}` 会把整页锁死、用户滚不动。
+     * 所以超时后若仍找不到播放器，就主动把这把锁解开（有播放器的正常页面不受影响）。
+     */
+    releaseScrollLockIfNoPlayer (this: VideoModuleContext): void {
+        const timer = window.setTimeout(() => {
+            const hasPlayer = elementSelectors.get('playerContainer') || elementSelectors.get('video')
+            if (hasPlayer) return
+            logger.warn('页面未找到播放器，已解除滚动锁定（避免整页无法滚动）')
+            insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
+        }, 8000)
+        this._cleanup.push(() => window.clearTimeout(timer))
     },
     // 跨标签页配置同步：其他标签页修改设置后，当前页立即应用可即时生效的行为
     initRemoteConfigSync (this: VideoModuleContext): void {

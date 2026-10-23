@@ -1,4 +1,4 @@
-import { getTotalSecondsFromTimeString, generateMentionUserLinks } from '@/utils/common'
+import { getTotalSecondsFromTimeString, generateMentionUserLinks } from '@/utils/text'
 import { registerHotConfigTarget } from '@/shared/hot-config-registry'
 import { analyzeRegexSource } from '@/shared/hot-config'
 /** 正则分组（video/dynamic 两块的 key → 实例），热更覆盖按 `组.名` 定位并就地替换 */
@@ -370,6 +370,13 @@ export const regexps = {
         listPath: /^\/list\//,
         /** 番剧页路径片段 */
         bangumiPath: /^\/bangumi\//,
+        /**
+         * 活动视频页路径片段（/festival/ 等）。
+         * 这类页面内嵌 B 站**标准播放器**（#bilibili-player）+ 评论区 + 弹幕，功能上等同播放页，
+         * 但路径不是 /video/ —— 2026-10-23 用户实测 `/festival/xxx?bvid=BVxxx` 上脚本完全不生效。
+         * B 站再加新的活动视频路径时，改服务器上的 hot-config/regexps.js 覆盖本键即可（不用等发版）。
+         */
+        activityVideoPath: /^\/festival\//,
         /** URL 里的 BV 号 */
         bvidInUrl: /\/video\/(BV[0-9A-Za-z]+)/i,
         /** 查询串里的 bvid */

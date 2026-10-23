@@ -1,6 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { isRetryBudgetExhausted, retryBackoffDelay } from '@/utils/retry-policy'
 import { chunk as chunkArray, pick, reduce, snakeCase } from '@/utils/lodash-lite'
+import { isVideoModulePage } from '@/utils/page-type'
 const logger = new LoggerService('Common')
 /** 页面类型（决定加载哪个页面模块） */
 export type PageType = 'video' | 'home' | 'dynamic' | 'other'
@@ -15,8 +16,8 @@ export const detectivePageType = (): PageType => {
         return 'other'
     }
     logger.debug(`检测页面类型: host=${host}, pathname=${pathname}, origin=${origin}`)
-    // 视频播放页（包括普通视频、番剧、列表）
-    if (pathname.startsWith('/video/') || pathname.startsWith('/bangumi/') || pathname.startsWith('/list/')) {
+    // 视频播放页（普通视频、番剧、列表，以及内嵌标准播放器的活动视频页如 /festival/xxx?bvid=BVxxx）
+    if (isVideoModulePage(pathname)) {
         logger.debug('匹配到 video 类型页面')
         return 'video'
     }
@@ -551,20 +552,6 @@ export const createElementAndInsert = (HtmlString: string, target: Node, method:
         throw error
     }
 }
-export const getTotalSecondsFromTimeString = (timeString?: string | null): number => {
-    if (!timeString) return 0
-    const parts = timeString.split(':')
-    if (parts.length === 1) {
-        return parseInt(parts[0], 10)
-    } else if (parts.length === 2) {
-        const [minutes, seconds] = parts.map(Number)
-        return minutes * 60 + seconds
-    } else if (parts.length === 3) {
-        const [hours, minutes, seconds] = parts.map(Number)
-        return hours * 3600 + minutes * 60 + seconds
-    }
-    return 0
-}
 export const insertStyleToDocument = (styles: Record<string, string>): void => {
     if (typeof styles === 'object' && !Array.isArray(styles)) {
         for (const [id, cssString] of Object.entries(styles)) {
@@ -628,13 +615,12 @@ export const hidePlayerTooltip = (tooltipElement: HTMLElement): void => {
         `
     })
 }
-export const generateMentionUserLinks = (username: string, desc_v2?: Array<{ raw_text?: string; biz_id?: string | number }>): string => {
-    // desc_v2 的 raw_text 自带 @ 前缀（如 '@量子位'），且旧接口可能不下发 desc_v2
-    const matchedItem = desc_v2?.find(item => item.raw_text === `@${username}`)
-    return matchedItem
-        ? `<a target="_blank" href="//space.bilibili.com/${matchedItem.biz_id}" class="mention-user" data-v-8ced1e78="">@${username} </a>`
-        : `@${username}`
-}
+/**
+ * 这两个纯函数住在叶子模块 `utils/text.ts`（`shared/regexps.ts` 也要用它们，
+ * 留在 common.ts 会绕成 common → regexps → common 的循环依赖，详见 utils/text.ts 顶部注释），
+ * 这里再导出一次以保持既有引用路径不变。
+ */
+export { getTotalSecondsFromTimeString, generateMentionUserLinks } from '@/utils/text'
 /**
  * 统一的弹窗管理器
  * 所有弹窗应使用此函数创建，以确保行为一致：

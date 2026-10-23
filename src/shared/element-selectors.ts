@@ -2,6 +2,7 @@ import { LoggerService } from '@/services/logger.service'
 import { registerSelector, getSelector, hasSelector } from './selector-registry'
 import { registerHotConfigTarget } from './hot-config-registry'
 import { MAX_OVERRIDE_VALUE_LENGTH } from './hot-config'
+import { isBangumiPage, isVideoPage } from '@/utils/page-type'
 const logger = new LoggerService('ElementSelectors')
 // ========== 选择器定义 ==========
 const CSS_MAP: Record<string, string> = {
@@ -512,8 +513,10 @@ let _currentPageType: SelectorPageType | null = null
 const getCurrentPageType = (): SelectorPageType => {
     if (_currentPageType !== null) return _currentPageType
     const path = location.pathname
-    if (path.startsWith('/bangumi/')) _currentPageType = 'bangumi'
-    else if (path.startsWith('/video/')) _currentPageType = 'video'
+    if (isBangumiPage(path)) _currentPageType = 'bangumi'
+    // 普通视频页 + 活动视频页（/festival/ 等内嵌标准播放器的活动页）都按 video 页型处理，
+    // 否则 video 独占选择器（标题/悬浮导航/上下集按钮…）会被当成别的页型直接跳过
+    else if (isVideoPage(path)) _currentPageType = 'video'
     // 首页：B 站首页可能是 `/`、`/home`，也可能是 `/index.html`（Firefox 下用户从
     // 历史记录/index.html 进入很常见）；漏判会让 home 专属选择器被页型门控直接拦成 null，
     // 导致首页历史记录按钮插入失败（Target must be a valid DOM node）
