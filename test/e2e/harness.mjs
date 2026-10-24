@@ -29,8 +29,8 @@ export const loadUserscript = async page => {
         readText(path.join(ROOT, 'node_modules/systemjs/dist/extras/named-register.min.js')),
         readText(BUILD_PATH)
     ])
-    await page.evaluateOnNewDocument(() => {
-        // GM 桩：油猴沙箱里这两个是脚本管理器提供的，裸页面里没有
+    // GM 桩：油猴沙箱里这两个是脚本管理器提供的，裸页面里没有
+    const installGmStubs = () => {
         window.unsafeWindow = window
         window.GM_addStyle = css => {
             const style = document.createElement('style')
@@ -38,7 +38,13 @@ export const loadUserscript = async page => {
             ;(document.head || document.documentElement).appendChild(style)
             return style
         }
-    })
+    }
+    // ⚠️ 必须**立刻**在当前文档里装上：产物是导航之后才注入的，
+    //    此时 evaluateOnNewDocument 已经错过本次导航（它只对之后的导航生效）。
+    //    少这一步 `unsafeWindow` 会是 undefined（脚本会退化成用页面 window，多数功能仍正常，
+    //    但与真实油猴环境不一致，容易掩盖问题）。
+    await page.evaluate(installGmStubs)
+    await page.evaluateOnNewDocument(installGmStubs)
     await page.addScriptTag({ content: systemJs })
     await page.addScriptTag({ content: namedRegister })
     // meta 里 @require 的 data: URI：换一个新的 System 实例，避免与页面自身的 SystemJS 冲突

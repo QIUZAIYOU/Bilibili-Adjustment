@@ -17,6 +17,7 @@
         "check:colors": "node scripts/run-color-check.mjs",
         "test": "node --import ./test/alias-loader.js --test \"test/*.test.js\" \"test/*.test.ts\"",
         "test:e2e": "node --test test/e2e/userscript.test.mjs",
+        "verify:real": "node test/e2e/verify-real-browser.mjs",
         "check:hot-config": "node --import ./test/alias-loader.js scripts/check-hot-config.mjs",
         "check:hot-content": "node scripts/check-hot-content.mjs",
         "check:www": "node scripts/check-www-version.mjs"

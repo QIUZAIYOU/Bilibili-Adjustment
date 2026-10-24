@@ -19,6 +19,7 @@
 | `userscript.test.mjs` | 正式用例（`npm run test:e2e`） |
 | `fixtures/cards.html` | 卡片夹具页：复刻首页 / 播放页相关推荐 / 热门榜三种真实卡片结构 |
 | `serve-dist.mjs` | 带 CORS 的本地静态服务（供「在真页面里手动注入」用） |
+| `verify-real-browser.mjs` | **真实 B 站页面**核查（`npm run verify:real`） |
 | `live-check.mjs` | 真实页面核查脚本（需联网 + 登录态，手工排查用） |
 
 ## 跑法
@@ -69,3 +70,43 @@ node test/e2e/live-check.mjs          # 真页面核查（需联网 + 登录态�
 ```
 
 `serve-dist.mjs` 起的服务带 CORS，是为了能跨源从 `www.bilibili.com` 取产物 —— 服务端对 `*.bilibili.com` 回显 ACAO。
+
+## 真页面核查（自动，推荐）
+
+```bash
+npm run build
+npm run verify:real          # 默认跑播放页 + 首页
+```
+
+`verify-real-browser.mjs` 把**最新构建产物**注入**真实的 bilibili.com 页面**并在真实 DOM 上核查：
+
+- 起一个**独立实例**并 `--disable-extensions` → 油猴扩展不加载，**只有我们注入的这一份脚本在跑**，
+  不存在「旧脚本（已安装在扩展里）+ 新注入脚本」双实例打架；
+- 按油猴加载顺序注入产物（SystemJS + `unsafeWindow` 桩 + IndexedDB 播种 `home_video_preview`）；
+- 输出：预览按钮数 / 封面容器数 / 按钮上的 bvid / 侧栏头像的 margin、圆角、尺寸 / 页面异常。
+
+2026-10-24 实测（3.40.1）：
+
+```
+播放页 BV1GJ411x7h7：预览按钮 20、封面容器 20、头像 margin "0px 0px 6px"、圆角 50%、尺寸 40×40
+首页：             预览按钮 8、封面容器 8
+```
+
+⚠️ **登录态默认不复制**：运行中的 Chrome **独占锁**着 `Cookies`，复制会 EBUSY（无管理员权限时无法绕过）。
+验证「预览按钮 / 侧栏头像」这类功能不需要登录；确需登录态时，关掉浏览器后再复制，或用 `ADJ_E2E_PROFILE` 指向一份静态副本。
+
+## 装到油猴扩展里人工验证（ScriptCat）
+
+想验证「**真正安装进扩展**」的形态（脚本管理器沙箱、`@require` data: URI、GM API），走这条：
+
+1. 打开 ScriptCat 扩展的设置页 → 点右上角**新建脚本**；
+2. 点**本地导入** → 选 `dist/bilibili-adjustment.user.js`；
+3. 在打开的新标签页里点**更新**；
+4. 回 B 站刷新页面。
+
+⚠️ 这条流程**无法自动化**：脚本管理器是 `chrome-extension://` 页面，而
+- BrowserSkill（`bsk`）的 Agent Window 沙箱**明确拒绝** `chrome-extension://` 页（`evaluate`/`snapshot`/`get-html` 全被拒）；
+- 浏览器没开 `--remote-debugging-port`，无法从外部直连 CDP；
+- 原生「选择文件」对话框同样够不着（`bsk upload` 也受沙箱限制）。
+
+所以扩展页那 3 下点击只能人工做；**装完之后**的验证（刷新 B 站、查 DOM）是可以自动的。
