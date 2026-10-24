@@ -13,25 +13,36 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchBrowser, loadUserscript, seedConfig, waitFor, BUILD_PATH } from './harness.mjs'
+import { launchBrowser, loadUserscript, seedConfig, seedLegacyConfig, readGmConfig, readGmRecords, waitFor, BUILD_PATH } from './harness.mjs'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURE = path.join(HERE, 'fixtures', 'cards.html')
 let server
+let server2
 let browser
 let port
+let port2
 before(async () => {
     const html = await readFile(FIXTURE, 'utf8')
-    server = http.createServer((req, res) => {
-        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-        res.end(html)
-    })
-    await new Promise(resolve => server.listen(0, '127.0.0.1', resolve))
+    const listen = async () => {
+        const srv = http.createServer((req, res) => {
+            res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+            res.end(html)
+        })
+        await new Promise(resolve => srv.listen(0, '127.0.0.1', resolve))
+        return srv
+    }
+    server = await listen()
     port = server.address().port
+    // 第二个源（另一个 origin）：迁移幂等标记写在按源隔离的 IndexedDB 里，
+    // 各源各迁各的 —— 迁移用例必须用独立 origin，否则会被前一个用例写下的标记挡住
+    server2 = await listen()
+    port2 = server2.address().port
     browser = await launchBrowser()
 })
 after(async () => {
     await browser?.close()
     await new Promise(resolve => server?.close(resolve))
+    await new Promise(resolve => server2?.close(resolve))
 })
 /** 打开夹具页并注入产物（开启视频卡片预览） */
 const openFixture = async () => {
@@ -210,5 +221,24 @@ test('功能关闭时页面上不留任何预览痕迹', async () => {
     assert.equal(report.style, false, '关闭时不该注入预览样式')
     assert.equal(report.buttons, 0, '关闭时不该有预览按钮')
     assert.equal(report.covers, 0, '关闭时不该有封面标记')
+    await page.close()
+})
+test('迁移：旧库（IndexedDB）里的用户设置被搬进 GM 存储，默认值补齐的不算用户设置', async () => {
+    const page = await browser.newPage()
+    await page.setViewport({ width: 1400, height: 900 })
+    // 用第二个 origin（独立 IndexedDB，避免被其它用例写下的迁移标记挡住）
+    await page.goto(`http://127.0.0.1:${port2}/cards.html`, { waitUntil: 'domcontentloaded' })
+    // 旧库（按源隔离的 IndexedDB）里：用户显式设的主题 + 用户显式开的预览开关
+    await seedLegacyConfig(page, { theme: 'night', home_video_preview: true })
+    await loadUserscript(page)
+    await waitFor(async () => (await readGmConfig(page)).theme === 'night', { label: '旧库配置迁移到 GM 存储' })
+    const config = await readGmConfig(page)
+    assert.equal(config.theme, 'night', '用户显式设的主题应迁入 GM 存储')
+    assert.equal(config.home_video_preview, true, '用户显式开的预览开关应迁入 GM 存储')
+    const records = await readGmRecords(page)
+    assert.equal(records.theme?.d, null, '迁入的用户设置不该带「默认值补齐」标记')
+    assert.equal(records.home_video_preview?.d, null, '迁入的用户设置不该带「默认值补齐」标记')
+    // 注：夹具页属「other」页型，页面模块不加载 → initializeDefaults 不跑 → 没有默认值补齐项；
+    // 「默认值补齐带 d 标记」这条由单测（gm-storage / config-migration）覆盖
     await page.close()
 })

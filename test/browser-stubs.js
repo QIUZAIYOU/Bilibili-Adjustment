@@ -51,7 +51,8 @@ const createElement = () => ({
 globalThis.NodeFilter = { SHOW_TEXT: 1 }
 globalThis.document = {
     createElement: () => createElement(),
-    // 通知条等组件会把节点挂到 body 上；Node 环境没有 body，给个最小桩
+    // 通知条等组件会把节点挂到 body / head 上；Node 环境没有，给个最小桩
+    head: { appendChild: () => {} },
     body: { appendChild: () => {} },
     createTreeWalker: root => {
         const queue = [...root._children]

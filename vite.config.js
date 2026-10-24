@@ -92,7 +92,18 @@ export default defineConfig(({ mode }) => ({
                 supportURL: 'https://github.com/QIUZAIYOU/Bilibili-Adjustment',
                 homepageURL: 'https://www.asifadeaway.com/bilibili/',
                 grant: [
-                    'unsafeWindow'
+                    'unsafeWindow',
+                    // GM 存储：用户配置从 IndexedDB 迁到脚本管理器存储（脚本级，跨全部匹配页面共享一份）。
+                    // 声明同步版 API —— 油猴 v4/v5、ScriptCat、Violentmonkey 全都提供；
+                    // 代码里另有一套 Promise 版回落（GM.getValue 等），两套都没有时继续用 IndexedDB。
+                    'GM_getValue',
+                    'GM_setValue',
+                    'GM_deleteValue',
+                    'GM_listValues',
+                    'GM_getValues',
+                    'GM_setValues',
+                    'GM_addValueChangeListener',
+                    'GM_removeValueChangeListener'
                 ]
             },
             format: {

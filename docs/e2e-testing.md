@@ -43,7 +43,9 @@ npm run test:e2e
 3. `System = new System.constructor()`（换新实例，避免与页面自身冲突）
 4. 产物本体（内部 chunk 已内联）
 
-再补上油猴沙箱里才有的东西：`unsafeWindow`、`GM_addStyle`（GM 桩）、以及 `IndexedDB` 里的用户配置（播种 `BilibiliAdjustmentUserConfigs` v2 → `keyval` 仓库 → `{key, value, timestamp}`）。
+再补上油猴沙箱里才有的东西：`unsafeWindow`、`GM_addStyle`（GM 桩）、以及 **GM 存储**（用户配置，键 `adj.cfg.<配置键>` → 值 `{ v: 裸值, t: 写入时间戳, d?: 1 }`）。`d` 标记「这条是默认值补齐，不是用户显式设置」—— 迁移期靠它让位（见「配置迁移」一节）。
+
+用户配置自 3.41.0 起存脚本管理器存储（脚本级，跨全部匹配页面共享一份）；`seedConfig` 播的就是 GM 存储，`seedLegacyConfig` 播的是**旧库**（按源隔离的 IndexedDB），用来验证迁移。
 
 产物的 `System.import("./__entry.js", "./")` 故意传了非法父 URL，解析失败后回落到命名注册表 —— 所以**不依赖页面真实地址**，夹具页上照样能跑。
 
@@ -83,7 +85,7 @@ npm run verify:real          # 默认跑播放页 + 首页
 
 - 起一个**独立实例**并 `--disable-extensions` → 油猴扩展不加载，**只有我们注入的这一份脚本在跑**，
   不存在「旧脚本（已安装在扩展里）+ 新注入脚本」双实例打架；
-- 按油猴加载顺序注入产物（SystemJS + `unsafeWindow` 桩 + IndexedDB 播种 `home_video_preview`）；
+- 按油猴加载顺序注入产物（SystemJS + `unsafeWindow` 桩 + GM 存储播种 `home_video_preview`）；
 - 输出：预览按钮数 / 封面容器数 / 按钮上的 bvid / 侧栏头像的 margin、圆角、尺寸 / 页面异常。
 
 2026-10-24 实测（3.40.2，发布到线上之后复跑）：
@@ -95,6 +97,34 @@ npm run verify:real          # 默认跑播放页 + 首页
 
 ⚠️ **登录态默认不复制**：运行中的 Chrome **独占锁**着 `Cookies`，复制会 EBUSY（无管理员权限时无法绕过）。
 验证「预览按钮 / 侧栏头像」这类功能不需要登录；确需登录态时，关掉浏览器后再复制，或用 `ADJ_E2E_PROFILE` 指向一份静态副本。
+
+## 跨源共享与跨源实时生效（3.41.0 新增）
+
+```bash
+npm run build
+npm run verify:cross-origin        # 真实 B 站页面，验证「配置全局一份 + 实时跟随」
+```
+
+`verify-gm-cross-origin.mjs` 验的是本次存储改造的核心承诺：
+
+1. **各源读到同一份配置** —— `www` / `search` / `t` 三个不同源各开一页，主题与预览开关完全一致；
+2. **已打开的其它源标签页实时跟随** —— 改配置后无需刷新，另一源的 `data-adj-theme` 立刻变。
+
+**怎么模拟脚本管理器**：真实 GM 存储是**脚本级**的（跨全部匹配页面共享一份），而页面之间没有同步的 JS 全局。这里把存储放在 **Node 侧**，通过 `page.exposeFunction` 暴露一个 **Promise 版 GM API** 给页面，再由 Node 侧把变更**广播回各页**（模拟 `GM_addValueChangeListener` 的跨上下文回调）。顺带也覆盖了适配层的 Promise 版分支（同步版分支由单测覆盖）。
+
+2026-10-24 实测（3.41.0）：
+
+```
+www     ：主题=night 预览按钮=13 视频链接=24
+search  ：主题=night 预览按钮=35 视频链接=71
+dynamic ：主题=night 预览按钮=0  视频链接=0   ← 未登录的动态页没有卡片，0 按钮是正常的
+断言②：dynamic 主题 night → light（改配置后已打开的另一源标签页实时跟随，无需刷新）
+```
+
+> 迁移前，搜索页读的是**自己源里的默认值**（`home_video_preview` 默认 `false`）→ 预览按钮一个都不会出现；
+> 迁移后它读到的是同一份配置 → 35 个按钮。**这就是「设置按站点分」这个历史问题的实测对照。**
+
+⚠️ `t.bilibili.com` 加载后会自己 reload，注入的产物会随旧文档一起消失 —— 所以这个脚本用 `persistUserscript`（注册到 `evaluateOnNewDocument`）做**跨导航持久注入**。且持久注入必须等 DOM 就绪：文档起始阶段 `document.head` 还是 `null`，脚本里的样式注入会直接抛错、一进页面就死。
 
 ## 装到油猴扩展里人工验证（ScriptCat）
 

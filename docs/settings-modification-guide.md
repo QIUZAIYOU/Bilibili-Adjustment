@@ -13,7 +13,7 @@ schema 在 [`src/config/settings-config.ts`](../src/config/settings-config.ts)�
 
 | 字段 | 作用 |
 |---|---|
-| `id` | 配置键名，**同时是存储键**（IndexedDB `user` 表） |
+| `id` | 配置键名，**同时是存储键**（GM 存储，键 `adj.cfg.<id>`；3.41.0 起不再用 IndexedDB） |
 | `type` | 控件类型：`checkbox` / `select` / `input` / `radio` / `button` 等 |
 | `label` | 显示名 |
 | `tips` | 说明文字。**可以是字符串，也可以是函数** `(configs) => string`（用于插值其它配置值） |

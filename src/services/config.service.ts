@@ -1,5 +1,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
+import { gmStorageService } from '@/services/gm-storage.service'
+import { planConfigMigration } from '@/utils/config-migration'
 import { normalizeConfigValue } from '@/config/config-normalize'
 import { eventBus } from '@/core/event-bus'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
@@ -23,6 +25,11 @@ const RUNTIME_DEFAULTS = {
  * - `home_video_preview`：首页视频预览开关（首页设置面板里一开就要立刻给卡片加按钮）
  */
 const LOCAL_EMIT_CONFIG_KEYS = new Set(['theme', 'home_video_preview'])
+/**
+ * 迁移幂等标记（写在**旧库** IndexedDB 里，每个源各一份）
+ * 不放在 GM 存储里：只看 GM 的标记会让第二个源误判「已迁移」而跳过自己库里的数据。
+ */
+const MIGRATION_MARKER_KEY = 'adj.meta.migrated'
 export class ConfigService {
     static #logger = new LoggerService('ConfigService')
     static #initialized = false
@@ -30,6 +37,8 @@ export class ConfigService {
     // 跨标签页配置同步（IndexedDB 不触发跨标签 storage 事件，需 BroadcastChannel）
     static #syncChannelName = 'bili-adjustment-config-sync'
     static #syncChannel: BroadcastChannel | null = null
+    /** 同步通道是否已建立（GM 模式下 #syncChannel 恒为 null，需要单独标记） */
+    static #syncChannelStarted = false
     // 从设置 schema 派生默认值：新增设置项只需在 settings-config.js 定义 defaultValue，
     // 这里无需再手动维护；defaultValue 为函数时惰性求值（如 log_level_debug 依赖构建环境）
     static DEFAULT_VALUES: Map<string, unknown> = ConfigService.#buildDefaultValues()
@@ -57,12 +66,55 @@ export class ConfigService {
         try {
             await storageService.init()
             this.#initialized = true
+            // 迁移必须早于 initializeDefaults：默认值补齐会写进 GM 存储（写入时间更新），
+            // 若先跑，用户显式设过的值会被默认值按时间戳压掉。
+            await this.#migrateUserConfigsToGm()
             this.#ensureSyncChannel()
             await this.#migrateLegacyConfigs()
         } catch (error) {
             this.#logger.error('配置服务初始化失败', error)
             throw error
         }
+    }
+    /**
+     * 把 IndexedDB 里的用户配置迁移到 GM 存储（一次性、幂等）
+     *
+     * 为什么：IndexedDB 按源隔离（www / t / search / space 各一份同名库），
+     * 用户在 www 设的「视频卡片预览」「界面主题」在搜索页/空间页读到的仍是默认值 ——
+     * 功能半残、配色分裂。GM 存储是脚本级的，迁移后一份配置全局生效（且跨源实时同步）。
+     *
+     * 合并规则见 utils/config-migration.ts：默认值让位、未知键不搬、冲突按时间戳裁决。
+     */
+    static async #migrateUserConfigsToGm (): Promise<void> {
+        if (!gmStorageService.available) return
+        try {
+            const legacyEntries = await storageService.legacyUserEntries()
+            if (legacyEntries.some(entry => entry.key === MIGRATION_MARKER_KEY)) {
+                this.#logger.debug('配置迁移丨已完成（幂等标记存在），跳过')
+                return
+            }
+            const remote = await gmStorageService.readAll()
+            const plan = planConfigMigration(legacyEntries, remote, this.DEFAULT_VALUES, normalizeConfigValue)
+            if (plan.writes.length > 0) {
+                await gmStorageService.writeMany(plan.writes.map(write => ({
+                    key: write.key,
+                    value: write.value,
+                    timestamp: write.timestamp
+                })))
+            }
+            await storageService.legacyUserSet(MIGRATION_MARKER_KEY, Date.now())
+            this.#logger.info(`配置迁移丨写入 ${plan.writes.length} 项，跳过 ${plan.skips.length} 项（默认值让位 / 未知键 / 远端更新）`)
+        } catch (error) {
+            this.#logger.warn('配置迁移失败（已忽略，继续用当前后端）', error)
+        }
+    }
+    /**
+     * 读「当前版本已移除」的历史配置键
+     * 这些键不在 schema 默认值表里 → 不会被迁到 GM 存储 → GM 模式下只能从旧库快照里读
+     */
+    static async #readRemovedKey (name: string): Promise<unknown> {
+        if (gmStorageService.available) return storageService.legacyUserGet(name)
+        return storageService.userGet(name)
     }
     /**
      * 迁移已移除的配置项
@@ -74,8 +126,8 @@ export class ConfigService {
             // 合并为 update_mode。老用户若曾关掉自动检查或勾选跳过检查，迁移为「手动」，避免升级后被弹窗骚扰
             const storedUpdateMode = await storageService.userGet('update_mode')
             if (storedUpdateMode === null || storedUpdateMode === undefined) {
-                const legacyAutoCheck = await storageService.userGet('auto_check_update')
-                const legacySkipCheck = await storageService.userGet('skip_update_check')
+                const legacyAutoCheck = await this.#readRemovedKey('auto_check_update')
+                const legacySkipCheck = await this.#readRemovedKey('skip_update_check')
                 const legacyManual = legacySkipCheck === true || legacySkipCheck === 'true' ||
                     legacyAutoCheck === false || legacyAutoCheck === 'false'
                 // 仅在老配置确实表示「手动」时落库；否则沿用 schema 默认值 auto，避免无谓写入
@@ -105,26 +157,51 @@ export class ConfigService {
         }
     }
     /**
-     * 建立跨标签页同步通道
-     * 收到其他标签页写入的配置时更新本地缓存，并广播事件供设置 UI 刷新
+     * 建立跨标签页 / 跨源同步通道
+     *
+     * 优先用 GM 存储的变更监听（GM_addValueChangeListener）：它是**脚本级**的，
+     * 能跨源（www 改设置 → 已开着的 space/search 标签页立刻生效）。
+     * 旧的 BroadcastChannel 只通同源，跨源收不到 —— 这正是「设置按站点分裂」的另一半原因。
+     * GM 不可用（老管理器）时回落 BroadcastChannel（至少同源内还能同步）。
      */
     static #ensureSyncChannel (): void {
-        if (this.#syncChannel || typeof BroadcastChannel === 'undefined') return
+        if (ConfigService.#syncChannelStarted) return
+        ConfigService.#syncChannelStarted = true
+        if (gmStorageService.available) {
+            const keys = Array.from(ConfigService.DEFAULT_VALUES.keys())
+            const handler = (key: string, record: { v: unknown } | null): void => {
+                ConfigService.#applyRemoteChange(key, record ? record.v : undefined)
+            }
+            gmStorageService.watch(keys, handler)
+            // 补监听 GM 里存在但不在 schema 里的键（如用户导入的未知键）
+            void gmStorageService.readAll()
+                .then(records => {
+                    const extra = Array.from(records.keys()).filter(key => !keys.includes(key))
+                    if (extra.length > 0) gmStorageService.watch(extra, handler)
+                })
+                .catch(() => { /* 补监听失败不影响主流程 */ })
+            return
+        }
+        if (typeof BroadcastChannel === 'undefined') return
         try {
             this.#syncChannel = new BroadcastChannel(this.#syncChannelName)
             this.#syncChannel.onmessage = event => {
                 const { key, value } = event.data || {}
                 if (!key) return
-                // 与本地缓存相同则跳过，避免同标签页自身的写入触发重复刷新
-                if (this.#cache.get(key) === value) return
-                // 跨标签页来的值同样归一化（对方可能是旧版本脚本写入的字符串值）
-                const normalized = ConfigService.#normalizeValue(key, value)
-                this.#cache.set(key, normalized)
-                eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value: normalized })
+                ConfigService.#applyRemoteChange(key, value)
             }
         } catch (error) {
             this.#logger.warn('跨标签页同步通道初始化失败', error)
         }
+    }
+    /** 应用来自其它标签页 / 其它源的配置变更（更新缓存 + 广播事件） */
+    static #applyRemoteChange (key: string, value: unknown): void {
+        // 与本地缓存相同则跳过，避免同标签页自身的写入触发重复刷新
+        if (this.#cache.get(key) === value) return
+        // 跨标签页来的值同样归一化（对方可能是旧版本脚本写入的字符串值）
+        const normalized = ConfigService.#normalizeValue(key, value)
+        this.#cache.set(key, normalized)
+        eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value: normalized })
     }
     static async initializeDefaults (): Promise<void> {
         if (!this.#initialized) {
@@ -152,7 +229,8 @@ export class ConfigService {
                 }
             }
             if (missing.length > 0) {
-                await storageService.userBatchSet(missing)
+                // 标记为「默认值补齐」：迁移期与用户显式设置冲突时，默认值必须让位
+                await storageService.userBatchSet(missing, { isDefault: true })
                 for (const { key, value } of missing) {
                     this.#cache.set(key, value)
                 }
@@ -319,5 +397,7 @@ export class ConfigService {
             this.#syncChannel?.close()
         } catch { /* 忽略关闭异常 */ }
         this.#syncChannel = null
+        this.#syncChannelStarted = false
+        gmStorageService.unwatchAll()
     }
 }

@@ -22,29 +22,107 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 /** 产物路径（默认构建产物；可用 ADJ_E2E_BUILD 指定别的） */
 export const BUILD_PATH = process.env.ADJ_E2E_BUILD || path.join(ROOT, 'dist', 'bilibili-adjustment.user.js')
 const readText = p => readFile(p, 'utf8')
-/** 载入 SystemJS 运行时 + named-register 扩展 + 产物 */
-export const loadUserscript = async page => {
+/**
+ * GM 桩：油猴沙箱里这些是脚本管理器提供的，裸页面里没有
+ *
+ * 除 unsafeWindow / GM_addStyle 外，还桩出**GM 存储**（GM_getValue/GM_setValue/...）：
+ * 用户配置现在存在脚本管理器存储里（脚本级，跨全部匹配页面共享一份），
+ * 不桩的话脚本会判定 GM 不可用并回落 IndexedDB —— e2e 就测不到真实路径了。
+ *
+ * 语义对齐真实 GM：只有别的上下文写入才回调监听器（remote=true）。
+ */
+const installGmStubsOn = () => {
+    const scope = window
+    scope.unsafeWindow = scope
+    scope.GM_addStyle = css => {
+        const style = scope.document.createElement('style')
+        style.textContent = css
+        ;(scope.document.head || scope.document.documentElement).appendChild(style)
+        return style
+    }
+    if (!scope.__gmStore) {
+        scope.__gmStore = { values: new Map(), listeners: new Map(), nextId: 1 }
+    }
+    const store = scope.__gmStore
+    scope.GM_getValue = key => store.values.get(key)
+    scope.GM_setValue = (key, value) => { store.values.set(key, value) }
+    scope.GM_deleteValue = key => { store.values.delete(key) }
+    scope.GM_listValues = () => Array.from(store.values.keys())
+    scope.GM_getValues = keys => {
+        const out = {}
+        for (const key of keys) if (store.values.has(key)) out[key] = store.values.get(key)
+        return out
+    }
+    scope.GM_setValues = entries => {
+        for (const [key, value] of Object.entries(entries)) store.values.set(key, value)
+    }
+    scope.GM_addValueChangeListener = (key, handler) => {
+        const id = store.nextId++
+        if (!store.listeners.has(key)) store.listeners.set(key, new Map())
+        store.listeners.get(key).set(id, handler)
+        return id
+    }
+    scope.GM_removeValueChangeListener = id => {
+        for (const map of store.listeners.values()) map.delete(id)
+    }
+}
+/** 装 GM 桩（当前文档 + 之后的所有导航） */
+export const installGmStubs = async (page, installer = installGmStubsOn) => {
+    // ⚠️ 必须**立刻**在当前文档里装上：产物是导航之后才注入的，
+    //    此时 evaluateOnNewDocument 已经错过本次导航（它只对之后的导航生效）。
+    //    少这一步 `unsafeWindow` 会是 undefined（脚本会退化成用页面 window，多数功能仍正常，
+    //    但与真实油猴环境不一致，容易掩盖问题）。
+    await page.evaluate(installer)
+    await page.evaluateOnNewDocument(installer)
+}
+/**
+ * 把产物注册为「每次导航都注入」
+ *
+ * 用途：像 t.bilibili.com 这种页面会在加载后自己 reload/重定向，
+ * 用 addScriptTag 注入的产物会随旧文档一起消失（探针读不到任何脚本痕迹）。
+ * 注册到 evaluateOnNewDocument 后，每次导航都会重新注入。
+ *
+ * 注意：当前文档仍需再走一次 loadUserscript（evaluateOnNewDocument 只对之后的导航生效）。
+ */
+export const persistUserscript = async (page, options = {}) => {
+    const gmInstaller = options.gmInstaller || installGmStubsOn
     const [systemJs, namedRegister, userJs] = await Promise.all([
         readText(path.join(ROOT, 'node_modules/systemjs/dist/system.min.js')),
         readText(path.join(ROOT, 'node_modules/systemjs/dist/extras/named-register.min.js')),
         readText(BUILD_PATH)
     ])
-    // GM 桩：油猴沙箱里这两个是脚本管理器提供的，裸页面里没有
-    const installGmStubs = () => {
-        window.unsafeWindow = window
-        window.GM_addStyle = css => {
-            const style = document.createElement('style')
-            style.textContent = css
-            ;(document.head || document.documentElement).appendChild(style)
-            return style
+    await installGmStubs(page, gmInstaller)
+    await page.evaluateOnNewDocument(payload => {
+        const inject = content => {
+            const script = document.createElement('script')
+            script.textContent = content
+            ;(document.head || document.documentElement).appendChild(script)
         }
-    }
-    // ⚠️ 必须**立刻**在当前文档里装上：产物是导航之后才注入的，
-    //    此时 evaluateOnNewDocument 已经错过本次导航（它只对之后的导航生效）。
-    //    少这一步 `unsafeWindow` 会是 undefined（脚本会退化成用页面 window，多数功能仍正常，
-    //    但与真实油猴环境不一致，容易掩盖问题）。
-    await page.evaluate(installGmStubs)
-    await page.evaluateOnNewDocument(installGmStubs)
+        // ⚠️ 必须等 DOM 就绪：文档起始阶段 document.head 还是 null，
+        //    脚本里的样式注入（document.head.appendChild）会直接抛错，一进页面就死
+        const start = () => {
+            inject(payload.systemJs)
+            inject(payload.namedRegister)
+            window.System = new window.System.constructor()
+            inject(payload.userJs)
+        }
+        if (document.head) start()
+        else document.addEventListener('DOMContentLoaded', start, { once: true })
+    }, { systemJs, namedRegister, userJs })
+}
+/**
+ * 载入 SystemJS 运行时 + named-register 扩展 + 产物
+ * @param {import('puppeteer').Page} page
+ * @param {{ gmInstaller?: Function }} options 自定义 GM 桩安装函数（默认用页面内的 Map 版）
+ */
+export const loadUserscript = async (page, options = {}) => {
+    const gmInstaller = options.gmInstaller || installGmStubsOn
+    const [systemJs, namedRegister, userJs] = await Promise.all([
+        readText(path.join(ROOT, 'node_modules/systemjs/dist/system.min.js')),
+        readText(path.join(ROOT, 'node_modules/systemjs/dist/extras/named-register.min.js')),
+        readText(BUILD_PATH)
+    ])
+    await installGmStubs(page, gmInstaller)
     await page.addScriptTag({ content: systemJs })
     await page.addScriptTag({ content: namedRegister })
     // meta 里 @require 的 data: URI：换一个新的 System 实例，避免与页面自身的 SystemJS 冲突
@@ -52,7 +130,24 @@ export const loadUserscript = async page => {
     await page.addScriptTag({ content: userJs })
 }
 /**
- * 播种用户配置（IndexedDB）
+ * 播种用户配置（GM 存储）
+ *
+ * 存储格式见 src/services/gm-storage.service.ts：
+ *   键 `adj.cfg.<配置键>` → 值 `{ v: 裸值, t: 写入时间戳 }`
+ * @param {import('puppeteer').Page} page
+ * @param {Record<string, unknown>} entries 键值对
+ */
+export const seedConfig = async (page, entries) => {
+    await page.evaluate(installGmStubsOn)
+    await page.evaluate(entries => {
+        const store = window.__gmStore
+        for (const [key, value] of Object.entries(entries)) {
+            store.values.set('adj.cfg.' + key, { v: value, t: Date.now() })
+        }
+    }, entries)
+}
+/**
+ * 播种**旧库**（IndexedDB）里的用户配置 —— 用于验证「IndexedDB → GM 存储」迁移
  *
  * 存储结构见 src/services/storage.service.ts：
  *   库 `BilibiliAdjustmentUserConfigs` v2 → 对象仓库 `keyval`（keyPath 'key'）
@@ -60,7 +155,7 @@ export const loadUserscript = async page => {
  * @param {import('puppeteer').Page} page
  * @param {Record<string, unknown>} entries 键值对
  */
-export const seedConfig = async (page, entries) => {
+export const seedLegacyConfig = async (page, entries) => {
     await page.evaluate(async entries => {
         await new Promise((resolve, reject) => {
             const request = indexedDB.open('BilibiliAdjustmentUserConfigs', 2)
@@ -84,6 +179,33 @@ export const seedConfig = async (page, entries) => {
             request.onerror = () => reject(request.error)
         })
     }, entries)
+}
+/** 读取 GM 存储里的全部配置（键 → 裸值） */
+export const readGmConfig = async page => {
+    await page.evaluate(installGmStubsOn)
+    return page.evaluate(() => {
+        const out = {}
+        for (const [key, record] of window.__gmStore.values.entries()) {
+            if (!key.startsWith('adj.cfg.')) continue
+            out[key.slice('adj.cfg.'.length)] = record?.v
+        }
+        return out
+    })
+}
+/**
+ * 读取 GM 存储里的原始记录（键 → { v, t, d? }）
+ * d 标记「这条是默认值补齐，不是用户显式设置」—— 迁移裁决靠它让位
+ */
+export const readGmRecords = async page => {
+    await page.evaluate(installGmStubsOn)
+    return page.evaluate(() => {
+        const out = {}
+        for (const [key, record] of window.__gmStore.values.entries()) {
+            if (!key.startsWith('adj.cfg.')) continue
+            out[key.slice('adj.cfg.'.length)] = { v: record?.v, t: record?.t, d: record?.d ?? null }
+        }
+        return out
+    })
 }
 /** 播种 sessionStorage（B 站播放器写的当前视频信息，用于侧栏头像的作者昵称/头像） */
 export const seedSessionStorage = async (page, entries) => {
