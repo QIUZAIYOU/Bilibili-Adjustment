@@ -13,7 +13,7 @@ import http from 'node:http'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { launchBrowser, loadUserscript, seedConfig, BUILD_PATH } from './harness.mjs'
+import { launchBrowser, loadUserscript, seedConfig, waitFor, BUILD_PATH } from './harness.mjs'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const FIXTURE = path.join(HERE, 'fixtures', 'cards.html')
 let server
@@ -94,6 +94,71 @@ test('预览功能开启后：首页 / 播放页 / 热门页的卡片都注入�
         assert.ok(report.coverClasses.some(c => c.includes('bili-video-card__image--wrap')), '首页卡片封面没被标记')
         // 播放页相关推荐：封面壳是 .b-img
         assert.ok(report.coverClasses.some(c => c.includes('b-img')), '播放页卡片封面没被标记')
+    } finally {
+        await page.close()
+    }
+})
+test('封面图晚到（先插壳后填图）：按钮照样出现（2026-10-24 真实缺陷回归）', async () => {
+    const page = await openFixture()
+    try {
+        const before = await page.evaluate(() => ({
+            buttons: document.querySelectorAll('.adj-video-preview-btn').length,
+            lateButtons: document.querySelectorAll('#late-card-link .adj-video-preview-btn').length
+        }))
+        assert.equal(before.buttons, 3, '填图之前只该有首页/播放页/热门页三个按钮')
+        assert.equal(before.lateButtons, 0, '壳里还没有封面图，不该有按钮')
+        // 模拟 B 站「先插壳、后填图」：几百毫秒后封面图才插进壳里
+        await page.evaluate(() => {
+            const link = document.getElementById('late-card-link')
+            const box = document.createElement('div')
+            box.className = 'b-img'
+            const img = document.createElement('img')
+            img.className = 'b-img__inner'
+            img.alt = '晚到封面标题'
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=='
+            box.appendChild(img)
+            link.appendChild(box)
+        })
+        // 增量扫描的合并窗口是 100ms，等按钮出现
+        await waitFor(
+            async () => await page.evaluate(() => document.querySelectorAll('#late-card-link .adj-video-preview-btn').length === 1),
+            { label: '晚到封面的预览按钮' }
+        )
+        const info = await page.evaluate(() => {
+            const button = document.querySelector('#late-card-link .adj-video-preview-btn')
+            const cover = button.closest('.b-img')
+            return {
+                bvid: button.getAttribute('data-adj-preview-bvid'),
+                title: button.getAttribute('data-adj-preview-title'),
+                // 封面标记：data 属性（Vue 不会重置）+ 类名
+                hasAttr: cover.hasAttribute('data-adj-preview-cover'),
+                hasClass: cover.classList.contains('adj-video-preview-cover')
+            }
+        })
+        assert.equal(info.bvid, 'BV1mZ8e5Qw9d', '晚到的卡片按钮带了错的 bvid')
+        assert.equal(info.title, '晚到封面标题', '晚到的卡片标题取错了')
+        assert.equal(info.hasAttr, true, '封面没有 data 属性标记')
+        assert.equal(info.hasClass, true, '封面没有类名标记')
+    } finally {
+        await page.close()
+    }
+})
+test('悬停封面时预览按钮显现：即便 Vue 把封面的 class 重置了也要能显现', async () => {
+    const page = await openFixture()
+    try {
+        const selector = '.bili-video-card__image--wrap .adj-video-preview-btn'
+        const hidden = await page.evaluate(sel => getComputedStyle(document.querySelector(sel)).opacity, selector)
+        assert.equal(hidden, '0', '未悬停时按钮应该是隐藏的')
+        // 模拟 Vue 重渲染：B 站是 Vue 渲染的，重渲染会把封面的 class 整体重置 ——
+        // 显现规则若只认 class，按钮就永远不显现（2026-10-24 实测：20 个按钮只有 3 个封面还带类名）
+        await page.evaluate(() => {
+            document.querySelectorAll('.adj-video-preview-cover').forEach(el => el.classList.remove('adj-video-preview-cover'))
+        })
+        await page.hover('.bili-video-card__image--wrap')
+        await waitFor(
+            async () => await page.evaluate(sel => getComputedStyle(document.querySelector(sel)).opacity === '1', selector),
+            { label: '悬停后按钮显现' }
+        )
     } finally {
         await page.close()
     }

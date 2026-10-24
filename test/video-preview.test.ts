@@ -6,6 +6,7 @@ import {
     PREVIEW_BVID_PLACEHOLDER,
     PREVIEW_BUTTON_CLASS,
     PREVIEW_COVER_CLASS,
+    PREVIEW_COVER_ATTR,
     buildPreviewUrl,
     extractPreviewBvid,
     normalizePreviewTitle
@@ -51,15 +52,23 @@ test('标题清洗：折叠空白、空标题用兜底文案', () => {
     assert.equal(normalizePreviewTitle(''), FALLBACK_PREVIEW_TITLE)
     assert.equal(normalizePreviewTitle(null), FALLBACK_PREVIEW_TITLE)
 })
-test('预览按钮与封面容器的类名：跨页通用，不绑任何页型的类名', () => {
+test('预览按钮与封面容器的标记：跨页通用，不绑任何页型的类名', () => {
     // 按钮类名被事件委托、样式、清理三处依赖
     assert.equal(PREVIEW_BUTTON_CLASS, 'adj-video-preview-btn')
     // 封面类名是脚本自己打的：既作绝对定位的参照系，也作「悬浮封面才显示按钮」的显现规则
     assert.equal(PREVIEW_COVER_CLASS, 'adj-video-preview-cover')
     const css = videoPreviewStyles.VideoPreview
-    assert.match(css, /\.adj-video-preview-cover:hover \.adj-video-preview-btn/)
     // 显现规则**不能**再绑首页专属类名（否则换页就再也不显示）
     assert.doesNotMatch(css, /bili-video-card/)
+})
+test('显现规则不能只靠 class：Vue 重渲染会重置 class，按钮会永远不显现', () => {
+    const css = videoPreviewStyles.VideoPreview
+    // 主规则用 :has()（不依赖任何标记）—— 封面 class 被 Vue 抹掉也不影响显现
+    assert.match(css, /:has\(> \.adj-video-preview-btn\):hover/)
+    // 退路走 data 属性标记（Vue 不重置 data-*），类名规则保留给旧浏览器
+    assert.equal(PREVIEW_COVER_ATTR, 'data-adj-preview-cover')
+    assert.ok(css.includes(`[${PREVIEW_COVER_ATTR}]:hover`), '显现规则缺少 data 属性标记的退路')
+    assert.match(css, /\.adj-video-preview-cover:hover \.adj-video-preview-btn/)
 })
 test('预览模板都在注册表里（注入页面的 HTML 走模板，便于热更）', () => {
     assert.ok(getTemplates.videoPreviewButton.includes(PREVIEW_BUTTON_CLASS))

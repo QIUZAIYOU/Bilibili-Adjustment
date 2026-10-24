@@ -15,6 +15,15 @@ export const PREVIEW_BUTTON_CLASS = 'adj-video-preview-btn'
  */
 export const PREVIEW_COVER_CLASS = 'adj-video-preview-cover'
 /**
+ * 封面容器上打的**属性**标记（显现规则的依据）
+ *
+ * ⚠️ 为什么不用类名当主依据：B 站是 Vue 渲染的，重渲染时 Vue 会执行 `el.className = value`
+ * 把封面的 class **整体重置** —— 我们打的类名会被抹掉（2026-10-24 实测：20 个按钮里只有 3 个
+ * 封面还带着类名），于是按钮虽然注入成功、却永远命中不了显现规则（opacity 恒为 0，用户看不见）。
+ * `data-*` 属性不受 Vue 重渲染影响（Vue 只写自己 vnode 里有的属性），用它当标记才稳。
+ */
+export const PREVIEW_COVER_ATTR = 'data-adj-preview-cover'
+/**
  * 从卡片链接里取 bvid（取不到返回 null → 该卡片不注入预览按钮）
  * @param href 卡片 `<a>` 的 href（可以是相对/绝对地址）
  */

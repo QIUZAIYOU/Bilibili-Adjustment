@@ -20,6 +20,8 @@ const ROUTES = {
     '/named-register.min.js': path.join(ROOT, 'node_modules/systemjs/dist/extras/named-register.min.js'),
     // 样式源码：验证「CSS 特异性能不能压过 B 站」时需要原文（产物里的 CSS 是转义过的字符串）
     '/video-page.js': path.join(ROOT, 'src', 'shared', 'styles', 'video-page.js'),
+    // 预览功能的样式源码：验证「显现规则在真实页面上生效」（产物里是转义过的字符串）
+    '/video-preview-styles.js': path.join(ROOT, 'src', 'shared', 'styles', 'video-preview.js'),
     '/element-selectors.ts': path.join(ROOT, 'src', 'shared', 'element-selectors.ts'),
     // 模板源码：验证「按钮 HTML 能不能注入到真实卡片上」
     '/video-preview-templates.js': path.join(ROOT, 'src', 'shared', 'templates', 'video', 'video-preview.js')

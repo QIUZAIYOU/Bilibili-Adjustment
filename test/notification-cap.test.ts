@@ -34,7 +34,10 @@ test('通知超过上限时不会死循环', () => {
     const out = execFileSync(process.execPath, ['--import', './test/alias-loader.js', '--input-type=module', '-e', CHILD], {
         cwd: ROOT,
         encoding: 'utf8',
-        timeout: 10000
+        // 超时要给足余量：全量测试并行跑时机器负载高，子进程光启动（jsdom + TS 转译）就要好几秒，
+        // 10s 会偶发 ETIMEDOUT（假失败）。回归时子进程是**同步死循环**、永远不会自己退出，
+        // 所以超时放长不影响它「被抓住」——只会让失败来得晚一点。
+        timeout: 60000
     })
     const matched = /COUNT=(\d+)/.exec(out)
     assert.ok(matched, `子进程没有输出统计结果：${out}`)

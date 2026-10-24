@@ -14,8 +14,10 @@ import {
     buildPreviewUrl,
     extractPreviewBvid,
     normalizePreviewTitle,
+    FALLBACK_PREVIEW_TITLE,
     PREVIEW_BUTTON_CLASS,
-    PREVIEW_COVER_CLASS
+    PREVIEW_COVER_CLASS,
+    PREVIEW_COVER_ATTR
 } from './video-preview-pure'
 const logger = new LoggerService('VideoPreview')
 /**
@@ -92,8 +94,6 @@ interface PreviewState {
     pendingRoots: Set<Element>
     /** 合并窗口的定时器 */
     flushTimer: ReturnType<typeof setTimeout> | null
-    /** 已处理过的封面容器（幂等：同一封面不重复注入） */
-    processedCovers: WeakSet<Element>
 }
 const state: PreviewState = {
     enabled: false,
@@ -111,42 +111,110 @@ const state: PreviewState = {
     playGuardDoc: null,
     playGuardLoadBound: false,
     pendingRoots: new Set<Element>(),
-    flushTimer: null,
-    processedCovers: new WeakSet<Element>()
+    flushTimer: null
+}
+/**
+ * 封面容器的「像不像封面」判据（按**尺寸比例**，不认 B 站类名）
+ *
+ * 为什么要它：结构兜底会命中页面里各种图片（UP 主头像 1:1、右上角入口 9.4:1、页脚二维码 5:1），
+ * 真封面的比例稳定在 16:9（1.77 左右），按比例筛一遍最省事，也不会随 B 站改版失效。
+ * 尺寸拿不到（懒加载中还没布局）时先放行 —— 宁可多试一次，也不要把卡片永久漏掉。
+ */
+const COVER_RATIO_MIN = 1.3
+const COVER_RATIO_MAX = 2.3
+const looksLikeCover = (el: HTMLElement): boolean => {
+    const rect = el.getBoundingClientRect()
+    if (!rect.width || !rect.height) return true
+    const ratio = rect.width / rect.height
+    return ratio >= COVER_RATIO_MIN && ratio <= COVER_RATIO_MAX
+}
+/**
+ * 把命中的元素转成「能装下按钮的盒子」
+ *
+ * `<picture>` 只允许 `<source>`/`<img>` 子元素，往里塞按钮**不会渲染** → 上移到它的父容器。
+ */
+const toCoverBox = (el: Element | null | undefined): HTMLElement | null => {
+    if (!(el instanceof HTMLElement)) return null
+    if (el.tagName === 'PICTURE') {
+        const parent = el.parentElement
+        return parent instanceof HTMLElement ? parent : null
+    }
+    return el
+}
+/**
+ * 祖先里是否还有**别的**视频链接
+ *
+ * 有 → 说明已经爬出这张卡片了（祖先是「整页/整列」这种容器）。
+ * 这种情况下绝不能拿祖先里的图当封面 —— 否则会把 A 卡的按钮按到 B 卡的封面上
+ * （点击时打开的是 A 的视频，而按钮长在 B 的图上）。
+ */
+const hasOtherVideoLink = (ancestor: Element, link: Element, linkSelector: string): boolean => {
+    const links = ancestor.querySelectorAll(linkSelector)
+    for (const other of links) {
+        if (other !== link) return true
+    }
+    return false
 }
 /**
  * 解析封面容器（预览按钮插在它里面）
  *
- * 三条路，按可靠性排序：
+ * 按可靠性排序，逐级兜底（**不认 B 站类名**，类名只作为精确匹配的第一优先）：
  * ① **注册表里的封面类名**：链接**内部**的封面（首页就是这种：`<a class="…__image--link">` 里包着
- *    `.bili-video-card__image--wrap`）或链接**外部**的封面（有的页型是卡片包着链接）；
- * ② **兜底：封面图所在链接的图片父元素** —— 各页卡片结构不同，但「封面图在链接里」是共性。
- *    兜底只在**已知卡片容器**内生效，避免把播放页「相关推荐」这类紧凑列表也塞进按钮。
+ *    `.bili-video-card__image--wrap`）或链接**外部**的封面（有的页型是卡片包着链接）——可热更；
+ * ② **结构兜底：链接里的第一张图 → 它的容器**（各页卡片结构不同，但「封面图在链接里」是共性）；
+ * ③ **再兜底：链接外** —— 最近的、含图片的祖先（卡片包着链接的那种）。
+ *
+ * ②③ 走结构推导，必须用比例筛掉头像/横幅（见 looksLikeCover）。
  */
 const resolveCover = (link: Element): HTMLElement | null => {
     const coverSelector = elementSelectors.CSS('videoCardCover')
     if (coverSelector) {
         // 封面在链接内部（首页等）
-        const inner = link.querySelector(coverSelector)
-        if (inner instanceof HTMLElement) return inner
+        const inner = toCoverBox(link.querySelector(coverSelector))
+        if (inner) return inner
         // 封面在链接外部（有的页型是卡片包着链接）
-        const outer = link.closest(coverSelector)
-        if (outer instanceof HTMLElement) return outer
+        const outer = toCoverBox(link.closest(coverSelector))
+        if (outer) return outer
     }
-    const containerSelector = elementSelectors.CSS('videoCardContainer')
-    if (containerSelector && !link.closest(containerSelector)) return null
+    // 结构兜底：链接里的第一张图 → 它的容器
     const image = link.querySelector('img')
-    const parent = image?.parentElement
-    return parent instanceof HTMLElement ? parent : null
+    const box = toCoverBox(image?.parentElement)
+    if (box && looksLikeCover(box)) return box
+    // 再兜底：链接外 —— 最近的、含图片的祖先（最多 4 层，避免一路爬到整页）
+    // ⚠️ 取的是「祖先里**第一张图**的盒子」，不是祖先本身：祖先往往是整张卡片（宽高比不对，
+    //    按比例筛会被误杀），而它里面的第一张图才是封面。
+    const linkSelector = elementSelectors.CSS('videoCardLink')
+    let ancestor = link.parentElement
+    for (let depth = 0; depth < 4 && ancestor; depth++) {
+        const ancestorImage = ancestor.querySelector('img')
+        if (ancestorImage) {
+            // 已经爬出这张卡片 → 停，别把按钮按到隔壁卡片的封面上
+            if (linkSelector && hasOtherVideoLink(ancestor, link, linkSelector)) break
+            const outer = toCoverBox(ancestorImage.parentElement)
+            if (outer && looksLikeCover(outer)) return outer
+            break
+        }
+        ancestor = ancestor.parentElement
+    }
+    return null
 }
-/** 读卡片标题（取不到用兜底文案） */
+/**
+ * 读卡片标题
+ *
+ * ① 注册表里的标题选择器（限定在卡片范围内，避免误取页面里别的 `.title`）；
+ * ② **兜底：封面图的 alt** —— B 站把视频标题写在封面图的 alt 里，各页型通用，不用维护类名。
+ */
 const readCardTitle = (cover: HTMLElement): string => {
     const titleSelector = elementSelectors.CSS('videoCardTitle')
-    if (!titleSelector) return normalizePreviewTitle('')
-    const containerSelector = elementSelectors.CSS('videoCardContainer')
-    const card = containerSelector ? cover.closest(containerSelector) : null
-    const titleEl = (card ?? cover).querySelector(titleSelector)
-    return normalizePreviewTitle(titleEl?.textContent)
+    if (titleSelector) {
+        const containerSelector = elementSelectors.CSS('videoCardContainer')
+        const card = containerSelector ? cover.closest(containerSelector) : null
+        const titleEl = (card ?? cover).querySelector(titleSelector)
+        const title = normalizePreviewTitle(titleEl?.textContent)
+        if (title !== FALLBACK_PREVIEW_TITLE) return title
+    }
+    const image = cover.querySelector('img')
+    return normalizePreviewTitle(image?.getAttribute('alt'))
 }
 /**
  * 保证封面是绝对定位的参照系
@@ -163,12 +231,16 @@ const ensurePositioned = (el: HTMLElement): void => {
 }
 /** 给封面注入预览按钮（幂等：已有按钮就跳过） */
 const injectPreviewButton = (cover: HTMLElement, bvid: string): void => {
+    // 标记**每次都补**：Vue 重渲染会把封面的 class 属性整体重置，标记被抹掉后
+    // 按钮虽在、却不再被样式命中（老浏览器退路失效）—— 补一次成本极低。
+    // ⚠️ 显现规则的主依据是 **data 属性**（Vue 不重置 data-*），类名只作退路。
+    if (!cover.classList.contains(PREVIEW_COVER_CLASS)) cover.classList.add(PREVIEW_COVER_CLASS)
+    if (!cover.hasAttribute(PREVIEW_COVER_ATTR)) cover.setAttribute(PREVIEW_COVER_ATTR, '')
     if (cover.querySelector(`.${PREVIEW_BUTTON_CLASS}`)) return
     const button = createElementAndInsert(getTemplates.videoPreviewButton, cover) as HTMLElement | null
     if (!button) return
     button.setAttribute('data-adj-preview-bvid', bvid)
     button.setAttribute('data-adj-preview-title', readCardTitle(cover))
-    cover.classList.add(PREVIEW_COVER_CLASS)
     ensurePositioned(cover)
 }
 /** 处理单个视频链接（取 bvid → 定位封面 → 注入按钮） */
@@ -178,8 +250,6 @@ const processLink = (link: Element): void => {
     if (!bvid) return
     const cover = resolveCover(link)
     if (!cover) return
-    if (state.processedCovers.has(cover)) return
-    state.processedCovers.add(cover)
     injectPreviewButton(cover, bvid)
 }
 /** 全文档扫一遍（初始化时用一次；之后交给观察者增量处理） */
@@ -188,7 +258,15 @@ const scanDocument = (): void => {
     if (!linkSelector) return
     document.querySelectorAll(linkSelector).forEach(link => processLink(link))
 }
-/** 增量扫描：只扫新增的那几棵子树 */
+/**
+ * 增量扫描：只扫新增的那几棵子树
+ *
+ * ⚠️ **必须同时向上找链接祖先**（2026-10-24 修的真实缺陷）：
+ *   B 站的卡片是「先插壳、后填图」——播放页右侧推荐（`.rec-list > .card-box`）先把卡片盒子插进 DOM，
+ *   几百毫秒后才把封面图（`.b-img > img`）填进去。而封面图是**链接的后代**、链接是它的**祖先**，
+ *   只扫新增节点的**后代**就永远扫不到那个链接 → 预览按钮永远不出现（首页不犯是因为整棵卡片子树是一起插入的）。
+ *   所以每个新增节点都要做两件事：向上找「包含它的视频链接」，向下找「它里面的视频链接」。
+ */
 const flushPending = (): void => {
     if (!state.enabled) {
         state.pendingRoots.clear()
@@ -201,7 +279,10 @@ const flushPending = (): void => {
     for (const root of roots) {
         // 节点可能已被移除（列表重渲染）：跳过
         if (!root.isConnected) continue
-        if (root.matches(linkSelector)) processLink(root)
+        // 向上找：新增的封面/图片是链接的后代，链接是它的祖先
+        const ancestorLink = root.closest(linkSelector)
+        if (ancestorLink) processLink(ancestorLink)
+        // 向下找：新增的子树里带着视频链接
         root.querySelectorAll(linkSelector).forEach(link => processLink(link))
     }
 }
@@ -594,14 +675,13 @@ export const destroyVideoPreviewFeature = (): void => {
         state.flushTimer = null
     }
     state.pendingRoots.clear()
-    // 已处理过的封面要**清空**：按钮被移除后若直接重新开启，靠这张表跳过旧封面会导致不再注入
-    state.processedCovers = new WeakSet<Element>()
     state.dialog?.destroy()
     state.dialog = null
     state.frame = null
     state.loadingEl = null
     document.querySelectorAll(`.${PREVIEW_BUTTON_CLASS}`).forEach(el => el.remove())
     document.querySelectorAll(`.${PREVIEW_COVER_CLASS}`).forEach(el => el.classList.remove(PREVIEW_COVER_CLASS))
+    document.querySelectorAll(`[${PREVIEW_COVER_ATTR}]`).forEach(el => el.removeAttribute(PREVIEW_COVER_ATTR))
     insertStyleToDocument({ [PREVIEW_STYLE_BLOCK_ID]: '' })
     logger.debug('视频预览丨已销毁')
 }

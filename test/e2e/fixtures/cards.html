@@ -7,6 +7,9 @@
  * - 播放页相关推荐：`.card-box > .pic-box > .pic > .framepreview-box > a.video-awesome-img > .b-img > img`
  * - 热门排行榜：`li.rank-item > .content > .img > a > img.lazy-image.cover`
  *
+ * 另有一张「先插壳、后填图」的卡片（#late-card）：壳先在、封面图由用例在运行时补上 ——
+ * 复刻播放页右侧推荐的真实渲染时序（壳 3s 到、封面图 4~5s 到）。
+ *
  * 夹具的作用：把「预览按钮该出现在哪」这件事变成**可离线复现**的断言，
  * 不受 B 站渲染时序与网络影响。
  */
@@ -81,6 +84,23 @@
             </div>
         </li>
     </ul>
+</div>
+
+<div class="section" id="late-image-cards">
+    <h2>先插壳、后填图（播放页推荐的渲染时序）</h2>
+    <div class="card-box" id="late-card">
+        <div class="pic-box">
+            <div class="pic">
+                <div class="framepreview-box">
+                    <!-- 封面容器 .b-img 由用例在运行时补上（模拟 B 站几百毫秒后才填图） -->
+                    <a href="/video/BV1mZ8e5Qw9d/" class="video-awesome-img" id="late-card-link"></a>
+                </div>
+            </div>
+        </div>
+        <div class="info">
+            <a href="/video/BV1mZ8e5Qw9d/"><p title="晚到封面标题" class="title">晚到封面标题</p></a>
+        </div>
+    </div>
 </div>
 </body>
 </html>

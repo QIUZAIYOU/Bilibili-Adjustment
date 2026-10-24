@@ -38,7 +38,13 @@ export const videoPreviewPageStyles = {
             width: 18px;
             height: 18px;
         }
-        /* 显现规则挂在「封面容器」上（脚本自己打的类名），不绑任何页型的类名 → 跨页通用 */
+        /* 显现规则：鼠标悬停**封面容器**时显示预览按钮（与 B 站自带「稍后再看」一致的行为）。
+           ⚠️ 主规则用 :has()（不依赖任何标记）：B 站是 Vue 渲染的，重渲染时会把封面的 class
+           **整体重置** —— 靠 class 命中就会「按钮注入成功、却永远不显现」（2026-10-24 实测：
+           20 个按钮里只有 3 个封面还带着类名）。下面两条是**退路**（不支持 :has() 的旧浏览器）：
+           data 属性标记（Vue 不重置 data-*，稳）+ 类名标记。 */
+        *:has(> .adj-video-preview-btn):hover .adj-video-preview-btn,
+        [data-adj-preview-cover]:hover .adj-video-preview-btn,
         .adj-video-preview-cover:hover .adj-video-preview-btn,
         .adj-video-preview-btn:focus-visible {
             opacity: 1;
