@@ -112,11 +112,16 @@ const selector = CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
 
 ```bash
 # ① 只改热更资产（含提示词）：不碰 user.js/meta.js/version.json，用户无感、不触发重新安装提示
-HOT_ONLY=1 python scripts/upload.py
+HOT_ONLY=1 python scripts/upload-workbench.py    # workbench 通道（无需 SSH 私钥，本机可用）
+HOT_ONLY=1 python scripts/upload.py              # SCP 通道（需服务器认得本机私钥）
 
 # ② 正常发版（改了脚本代码时）：版本号 → 更新说明 → 推送 → 构建 → 上传
-npm run build && python scripts/upload.py
+npm run build && python scripts/upload-workbench.py
 ```
+
+> 两条通道发布物、门禁、sha256 校验完全一致（`upload-workbench.py` import `upload.py` 的门禁，只换传输层）：
+> workbench 走**阿里云云助手 API**（文件经 OSS 中转，不依赖 SSH 私钥），SCP 走 SSH。
+> 详见 `AGENTS.md` §5 —— ⚠️ `.env` 里那套 FTP 凭据指向的是废弃的虚拟主机副本（v3.21.0），**不要用它发布**。
 
 - 两种模式都会先跑 `npm run check:hot-config`（发布侧校验，见 §4.4），失败即中止、不上传任何热更文件；
 - `HOT_ONLY=1`（别名 `PROMPT_ONLY=1`）会先 `npm run build:hot-config` 重新生成提示词资产，再**只**上传 `hot-config/` 下的文件（远程 `mkdir -p`、逐个校验大小）；

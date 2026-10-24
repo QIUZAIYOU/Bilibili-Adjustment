@@ -57,20 +57,33 @@ npm run build
 
 **打包前必须提交干净的锁文件**：`npm install`（尤其依赖升级、`git rebase` 到 dependabot 提交之后）会改写 `package-lock.json` —— 版本号字段、`libc` 之类的包元数据 —— 此时工作区就是脏的。若先 `build` + `upload`，`vite.config.js` 注入的 `@build-sha` 会带 `-dirty`，后果有两个：设置页版本号变成 `vX.Y.Z+sha-dirty`（既丑又像未完成品），且该构建的「同版本覆盖发布」感知会被 `isComparableBuildSha` 关掉（3.38.3 真实踩过，见 `docs/hot-update-assets.md` 之外的本次复盘）。正确顺序：`npm install → git add package-lock.json && git commit → npm run build → python scripts/upload.py`。显示口径：脏标识/取不到标识时 UI 只显示 `vX.Y.Z`，完整构建标识放进版本号悬浮提示（`src/components/settings-dialog.ts` 的 `versionTitle`）；干净构建才显示 `vX.Y.Z+sha`。
 
-## 5. SCP 上传到阿里云轻量服务器
+## 5. 上传到阿里云轻量服务器
 
-构建后一条命令完成上传（脚本读取项目根 `.env` 凭据，内置 SSH 验证，绝不打印凭据）：
+构建后一条命令完成上传（脚本读取项目根 `.env` 凭据，内置远端校验，绝不打印凭据）：
 
 ```bash
 npm run build
-python scripts/upload.py
+python scripts/upload-workbench.py   # workbench 通道（本机可用，见下）
+# 或
+python scripts/upload.py             # SCP 通道（需要服务器私钥）
 ```
 
-**上传目录由 `.env` 的 `SERVER_DEPLOY_PATH` 配置，不要硬编码**。
+**上传目录由 `.env` 的 `SERVER_DEPLOY_PATH` 配置，不要硬编码**（实测现网 = `/www/wwwroot/www.asifadeaway.com/UserScripts/bilibili`）。
+
+**⚠️ 两条通道，优先用 workbench（2026-10-24 实测修正）**：
+
+| 通道 | 脚本 | 前置 | 说明 |
+|---|---|---|---|
+| **workbench** | `scripts/upload-workbench.py` | workbench CLI 已登录（凭据在它自己的 profile 里） | 走**阿里云云助手 API**（文件经 OSS 中转），**不需要 SSH 私钥**；本机只有 GitHub 用的密钥 → 这条才是本机可用的通道 |
+| SCP | `scripts/upload.py` | `.env` 里有 `SERVER_HOST/SERVER_USER/SERVER_DEPLOY_PATH` 且**服务器认得本机私钥** | 轻量服务器 SSH 只认密钥；本机 `~/.ssh` 里只有 GitHub 的 id_ed25519/tms，服务器 `authorized_keys` 里没有 → 直接跑会 `Permission denied` |
+
+两条通道的**发布物、目录布局、门禁、sha256 校验完全一致**（`upload-workbench.py` 直接 import `upload.py` 的门禁函数，只换传输层），线上状态无差别。`HOT_ONLY=1` 两边都支持（只刷 hot-config/，不触发用户更新提示）。
+
+**⚠️ `.env` 里那套 FTP 凭据（`bxu2359070606.my3w.com`）已作废**：它指向的是**另一个阿里云虚拟主机**（花生壳穿透），那棵树上是 **v3.21.0 的老脚本**，既没有 `hot-config/`、`version.json`，也没有落地页目录 —— 上传到那里用户根本拿不到。别再用 FTP 发布。
 
 **上传前会自动跑的门禁（2026-10-23 起全部机器强制，缺一即中止且**不传任何文件**）**：`check:hot-content`（硬编码可热更内容）→ `check:www`（落地页版本号）→ `check:colors`（字面色值）→ **产物与 `package.json` 同版本且比源码新**（防「改了代码忘了 build」把旧产物发上线）→ `check:hot-config`（热更资产合法）→ 体积门禁 `stats`。其中**产物一致性断言与体积门禁放在上传产物之前**，失败时线上不会变成「新脚本 + 旧热更资产」的混合态。www / API 的「是否需要上传」按 **sha256** 比对（不再按字节数，等长编辑曾被静默漏更新）。
 
-**Why:** 迁移到轻量服务器后，使用 SCP 替代 FTP，更安全稳定。**必须使用 `scripts/upload.py`**，脚本会自动校验远程文件 sha256。连续失败过多可能触发服务器临时限制，稍等重试即可恢复。
+**Why:** 迁移到轻量服务器后不再走 FTP（FTP 那套是废弃副本）；workbench 走云助手 API 比 SSH 更稳（不依赖私钥、不受 SSH 端口/安全组限制），文件传输经 OSS 中转。两条通道都自动校验远端文件 sha256。连续失败过多可能触发服务器临时限制，稍等重试即可恢复。
 
 ## 6. 开发注意事项
 
