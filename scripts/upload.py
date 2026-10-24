@@ -404,9 +404,9 @@ def main():
     remote_dir = env['SERVER_DEPLOY_PATH']
     ssh_key = env.get('SERVER_SSH_KEY', '')
 
-    # 远程路径
-    remote_www_dir = '/www/wwwroot/www.asifadeaway.com/UserScripts/bilibili/www'
-    remote_api_dir = '/www/wwwroot/www.asifadeaway.com/UserScripts/bilibili/api'
+    # 远程路径：www 与 api 目录**从部署目录派生**（不要写死 —— 换部署根时写死会静默传到别处）
+    remote_www_dir = f'{remote_dir}/www'
+    remote_api_dir = f'{remote_dir}/api'
 
     scp_cmd = build_scp_cmd(ssh_key)
     ssh_cmd = build_ssh_cmd(ssh_key)

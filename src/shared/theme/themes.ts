@@ -4,7 +4,8 @@
  * 色值来源：
  * - night：脚本既有自研配色（重构前全仓核对值，视觉零回归，tokens.js）；
  * - light / dark：完全对齐 B 站官方 @bilibili/bili-theme(v12.0.0) 色值
- *   （src/shared/styles/bili-theme/ 下的官方 CSS，勿改动该目录）。
+ *   （逐条抄自官方包里的 light_u.css / dark.css，语义对应关系见 map.css；
+ *    官方包**不入库**，故这里以字面量 + 逐行官方变量注释的形式保存，随官方升级时按注释校准）。
  *   - dark 模式 = dark.css（无后缀变量）
  *   - light 模式 = light_u.css（*_u 后缀变量）
  *   - 语义对应关系 = map.css（如 text1=Ga10、bg1_float=Ga11、line_regular=Ga2、

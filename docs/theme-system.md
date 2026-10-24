@@ -22,6 +22,8 @@
 
 ## 2. 现状摸底（证据摘要）
 
+> ⚠️ **整篇是设计当时的历史快照**（文件名、目录结构、模块 version 字段均已随重构变化；现状以 `src/shared/theme/` 下的 `tokens.ts` / `themes.ts` / `manager.ts` 为准）。
+>
 > ⚠️ 本节是**设计当时的历史快照**，其中提到的文件（单一固定深色常量模块、style-utils、popover.js 等）均已在后续版本中迁移或删除；看现状请以 `src/shared/theme/` 下的 `tokens.ts` / `themes.ts` / `manager.ts` 为准。
 
 | 事实 | 位置 |
@@ -176,9 +178,9 @@ src/shared/theme/
 
 - **占位原则**：B 站官方主要色相已知（主品牌蓝 `#00a1d6`/`#00aeec`、浅色底 `#fff`/`#f1f2f3`、正文 `#18191c`、次级 `#61666d`/`#9499a0`、暗色底 `#18191a` 系、文字 `#f1f2f3`/`#e5e9ef` 等）。占位值写入 `src/shared/theme/themes.ts` 的 `light` / `dark`，**每处值必须携带来源注释** `// TODO(official-css): 待官方 css 校准`。
 - **校准流程（官方 CSS 到位后，一次性完成，不动组件样式）**：
-  1. 官方 css 放在 **`src/shared/styles/bili-theme/`**（`light_u.css` / `dark.css` / `map.css`；仅作参考来源，不直接引入线上，避免体积）；
+  1. 官方 css 来自 **`@bilibili/bili-theme`** 包（`light_u.css` / `dark.css` / `map.css`；**该包不入库**，色值逐条抄进 `src/shared/theme/themes.ts`线上，避免体积）；
   2. 按 §4.2 语义表人工映射官方色值 → 覆写 `src/shared/theme/themes.ts` 里 `light` / `dark` 的对应值（**每处取值都带官方变量来源注释**）；
-  3. 语义对应关系见同目录的 `map.css`；
+  3. 语义对应关系见官方包的 `map.css`；
   4. 删除占位 `TODO(official-css)` 注释。
 - **light/dark 需要逐语义核对**（不只是换背景）：`hover-overlay` 由浮白改浮黑、文字层级对比度、边框由深灰改浅灰（官方 `#e3e5e7` 系）等，属**同一套语义 token 不同取值**，组件零改动。
 
@@ -251,7 +253,7 @@ ThemeManager.followOfficial({ enable }) // 预留：跟随官方深浅（§6.4�
 - [ ] `theme.js` 兼容层导出核对，确认无遗漏 `theme.colors` 消费方后删除或改为 token 派生；
 - [ ] 全仓 grep 断言：`#[0-9a-fA-F]{3,6}` 与 `rgba(` 仅允许出现在 `theme/` 内与 §2 例外清单内（可加 eslint 规则或脚本检查）；
 - [ ] `light/dark` 占位色值 + `TODO(official-css)` 全量标注；
-- [ ] 文档同步：README 更新日志按发布流程追加（`MM.DD HH:MM` 实际时间）；发布流程见 AGENTS.md（版本号 `3.29.0`，package.json + home.module.js 等模块 version）。
+- [ ] 文档同步：README 更新日志按发布流程追加（`MM.DD HH:MM` 实际时间）；发布流程见 AGENTS.md（版本号只看 `package.json` —— 模块的 `version` 字段已于 2026-10-23 删除）。
 
 ## 8. 风险与对策
 

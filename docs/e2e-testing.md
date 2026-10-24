@@ -21,6 +21,7 @@
 | `serve-dist.mjs` | 带 CORS 的本地静态服务（供「在真页面里手动注入」用） |
 | `verify-real-browser.mjs` | **真实 B 站页面**核查（`npm run verify:real`） |
 | `live-check.mjs` | 真实页面核查脚本（需联网 + 登录态，手工排查用） |
+| `probe-dom.mjs` | DOM 探针：打开真实页面打印某个选择器命中的结构（B 站改版后重查卡片结构用） |
 
 ## 跑法
 
@@ -85,11 +86,11 @@ npm run verify:real          # 默认跑播放页 + 首页
 - 按油猴加载顺序注入产物（SystemJS + `unsafeWindow` 桩 + IndexedDB 播种 `home_video_preview`）；
 - 输出：预览按钮数 / 封面容器数 / 按钮上的 bvid / 侧栏头像的 margin、圆角、尺寸 / 页面异常。
 
-2026-10-24 实测（3.40.1）：
+2026-10-24 实测（3.40.2，发布到线上之后复跑）：
 
 ```
 播放页 BV1GJ411x7h7：预览按钮 20、封面容器 20、头像 margin "0px 0px 6px"、圆角 50%、尺寸 40×40
-首页：             预览按钮 8、封面容器 8
+首页：             预览按钮 10、封面容器 10
 ```
 
 ⚠️ **登录态默认不复制**：运行中的 Chrome **独占锁**着 `Cookies`，复制会 EBUSY（无管理员权限时无法绕过）。

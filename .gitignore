@@ -42,8 +42,12 @@ pnpm-debug.log*
 .codebase-memory/
 docs/script-analysis.md
 
-website/
-bili-theme/
+# 本机 AI 工具的沙箱配置（写死了别的仓库的绝对路径，机器本地用，不该进版本库）
+reasonix.toml
+
+# 编辑器/工具的备份文件
+*.bak
+
 # python 编译缓存
 __pycache__/
 

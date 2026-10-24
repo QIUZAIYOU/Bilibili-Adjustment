@@ -33,7 +33,7 @@
 
 | 表 | 能改什么 | 不能改什么 / 额外护栏 |
 |---|---|---|
-| `selectors` | 覆盖 `src/shared/element-selectors.ts` 里**已存在**的选择器名（98 个） | 不能新增选择器名；值要过 CSS 语法校验、限长 500 |
+| `selectors` | 覆盖 `src/shared/element-selectors.ts` 里**已存在**的选择器名（当前 92 个，随注册表增减） | 不能新增选择器名；值要过 CSS 语法校验、限长 500 |
 | `ai-providers` | 覆盖已存在 provider 的 `baseURL` / `defaultModel` | 不能新增 provider、不能改 `name`/`docsUrl`/`pricingUrl` |
 | `regexps` | 覆盖 `src/shared/regexps.ts` 里已有的 30 个正则（`video` 8 个 / `dynamic` 8 个 / `common` 14 个）的**源串** | **不能改 flags**（与调用点语义绑定）；过 ReDoS 启发式 + `new RegExp` 编译 |
 | `templates` | 覆盖 `src/shared/templates/index.js` 已注册的 23 个模板 HTML | 必须保留内置模板的**全部 `[[占位符]]` 与 `id="..."`**；禁 `<script>`/内联事件/`javascript:` |

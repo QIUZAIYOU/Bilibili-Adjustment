@@ -1,6 +1,8 @@
 # TypeScript 迁移方案
 
 > 结论：**可行**，且只作用于源码期 —— 产物仍是「vite + terser + obfuscator」单文件用户脚本，
+> ⚠️ **本文档记录的是迁移当时的文件名（大量 .js 后缀），现状以仓库实际文件为准**（业务代码已全部 .ts）。
+>
 > 发布链路（`dist/*.user.js` → `scripts/upload.py`）完全不变，AGENTS.md 里的产物级红线
 > （禁 `mangle.properties`、SystemJS 命名导出桥、Vue 懒加载）与源码语言无关。
 >
