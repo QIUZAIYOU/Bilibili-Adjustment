@@ -51,6 +51,13 @@ document.addEventListener('DOMContentLoaded', () => {
         })
     }, { threshold: 0.08, rootMargin: '0px 0px -40px 0px' })
     revealTargets.forEach(el => revealObs.observe(el))
+    // 兜底：3 秒后仍在视口内、却没进场的元素强制显示。
+    // 进场动画只是增强，不能因为观察器异常就让首屏留白
+    setTimeout(() => {
+        document.querySelectorAll('[data-reveal]:not(.visible)').forEach(el => {
+            if (el.getBoundingClientRect().top < window.innerHeight) el.classList.add('visible')
+        })
+    }, 3000)
     // ---- 指针光照：光标附近的网格被照亮 ----
     // 仅精确指针设备启用；尊重 prefers-reduced-motion；缓动跟随，静止后停止 rAF 不空转
     const gridLayer = document.querySelector('.bg-grid')

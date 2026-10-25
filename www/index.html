@@ -7,6 +7,7 @@
     <meta name="description" content="Bilibili Adjustment 开源用户脚本：界面主题、网页全屏、播放器定位、进度记忆、评论增强、片段管理等播放页能力，全部按需配置。">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎬</text></svg>">
     <link rel="stylesheet" href="style.css">
+    <script>document.documentElement.classList.add('js')</script>
 </head>
 <body>
     <!-- 背景：网格 + 辉光 -->
@@ -39,11 +40,7 @@
     <!-- Hero -->
     <section class="hero">
         <div class="hero-content">
-            <div class="hero-eyebrow mono">BILIBILI-ADJUSTMENT / USERSCRIPT</div>
-            <h1 class="hero-title">
-                <span class="title-line">播放页增强，</span>
-                <span class="title-line title-accent">逐项可配置。</span>
-            </h1>
+            <h1 class="hero-title"><span class="title-line">播放页增强，</span><span class="title-line title-accent">逐项可配置。</span></h1>
             <p class="hero-sub">界面主题、播放器模式、画质字幕、评论与片段管理 —— 需要的功能按需开启，改动即时生效。</p>
             <div class="hero-actions">
                 <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary">
@@ -53,11 +50,10 @@
                 <a href="#features" class="btn btn-ghost">查看功能</a>
             </div>
             <div class="hero-meta mono">
-                <span>MIT + 附加条款</span>
-                <span class="meta-sep">/</span>
                 <span>v3.41.0</span>
-                <span class="meta-sep">/</span>
-                <span>Tampermonkey · Violentmonkey · ScriptCat</span>
+                <span class="meta-chip">Tampermonkey</span>
+                <span class="meta-chip">Violentmonkey</span>
+                <span class="meta-chip">ScriptCat</span>
             </div>
         </div>
 
@@ -66,7 +62,7 @@
             <div class="demo-player-full">
                 <div class="demo-player-chrome">
                     <div class="chrome-dots"><span></span><span></span><span></span></div>
-                    <span class="demo-player-title mono">bilibili.com/video/BV1xx411c7mD</span>
+                    <small class="demo-player-title mono">bilibili.com/video/BV1xx411c7mD</small>
                 </div>
                 <div class="demo-player-viewport">
                     <div class="demo-player-content">
@@ -112,8 +108,8 @@
     <section class="features" id="features">
         <div class="container">
             <div class="section-head">
-                <span class="section-label mono">CORE FEATURES</span>
                 <h2>播放页增强能力</h2>
+                <p class="section-lead">每一项都能单独开关，默认全部关闭；开了才生效，改完立即生效。</p>
             </div>
 
             <!-- 主功能：界面主题 -->
@@ -132,7 +128,7 @@
                 </div>
                 <div class="feature-primary-visual">
                     <div class="visual-card">
-                        <div class="visual-title mono">THEME / MODE</div>
+                        <div class="visual-title">主题模式</div>
                         <div class="visual-row">
                             <span class="visual-provider">跟随 B 站</span>
                             <span class="visual-tag visual-tag--ok">夜间模式 ON</span>
@@ -164,7 +160,7 @@
                 </div>
                 <div class="feature-primary-visual">
                     <div class="visual-card">
-                        <div class="visual-title mono">SEGMENTS / SKIP</div><div class="visual-row"><span class="visual-provider">片段 1</span><span class="visual-tag mono">00:12 → 00:48</span></div><div class="visual-row"><span class="visual-provider">片段 2</span><span class="visual-tag mono">01:20 → 01:35</span></div><div class="visual-row"><span class="visual-provider">共享缓存</span><span class="visual-status visual-status--ok">已命中</span></div><div class="visual-row"><span class="visual-provider">应用规则</span><span class="visual-status">自动跳过</span></div>
+                        <div class="visual-title">片段跳过</div><div class="visual-row"><span class="visual-provider">片段 1</span><span class="visual-tag mono">00:12 → 00:48</span></div><div class="visual-row"><span class="visual-provider">片段 2</span><span class="visual-tag mono">01:20 → 01:35</span></div><div class="visual-row"><span class="visual-provider">共享缓存</span><span class="visual-status visual-status--ok">已命中</span></div><div class="visual-row"><span class="visual-provider">应用规则</span><span class="visual-status">自动跳过</span></div>
                     </div>
                 </div>
             </div>
@@ -179,7 +175,7 @@
                 </div>
                 <div class="feature-primary-visual">
                     <div class="visual-card">
-                        <div class="visual-title mono">COMMENTS / EMBED</div><div class="visual-row"><span class="visual-provider">IP 属地</span><span class="visual-status visual-status--ok">已展示</span></div><div class="visual-row"><span class="visual-provider">评论标签</span><span class="visual-status">已清理</span></div><div class="visual-row"><span class="visual-provider">简介嵌入</span><span class="visual-tag mono">00:34 可跳转</span></div>
+                        <div class="visual-title">评论增强</div><div class="visual-row"><span class="visual-provider">IP 属地</span><span class="visual-status visual-status--ok">已展示</span></div><div class="visual-row"><span class="visual-provider">评论标签</span><span class="visual-status">已清理</span></div><div class="visual-row"><span class="visual-provider">简介嵌入</span><span class="visual-tag mono">00:34 可跳转</span></div>
                     </div>
                 </div>
             </div>
@@ -194,7 +190,7 @@
                 </div>
                 <div class="feature-primary-visual">
                     <div class="visual-card">
-                        <div class="visual-title mono">PLAYER / MODE</div><div class="visual-row"><span class="visual-provider">网页全屏</span><span class="visual-status visual-status--ok">已解锁</span></div><div class="visual-row"><span class="visual-provider">自动定位</span><span class="visual-status visual-status--ok">已成功</span></div><div class="visual-row"><span class="visual-provider">进度记忆</span><span class="visual-tag mono">已恢复</span></div>
+                        <div class="visual-title">播放器模式</div><div class="visual-row"><span class="visual-provider">网页全屏</span><span class="visual-status visual-status--ok">已解锁</span></div><div class="visual-row"><span class="visual-provider">自动定位</span><span class="visual-status visual-status--ok">已成功</span></div><div class="visual-row"><span class="visual-provider">进度记忆</span><span class="visual-tag mono">已恢复</span></div>
                     </div>
                 </div>
             </div>
@@ -251,8 +247,8 @@
     <section class="install" id="install">
         <div class="container">
             <div class="section-head">
-                <span class="section-label mono">QUICK START</span>
                 <h2>安装三步</h2>
+                <p class="section-lead">装完不用配置任何东西，打开播放页按需开启即可。</p>
             </div>
             <div class="install-steps">
                 <div class="install-step">
@@ -290,8 +286,8 @@
     <section class="changelog" id="changelog">
         <div class="container">
             <div class="section-head">
-                <span class="section-label mono">CHANGELOG</span>
                 <h2>最近更新</h2>
+                <p class="section-lead">脚本会自己检查更新；下面是最近 8 条改动，完整历史在仓库里。</p>
             </div>
             <div class="changelog-list">
                 <div class="changelog-item">
@@ -299,328 +295,60 @@
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-24</span>
                         <p>用户配置改存脚本管理器存储，各子域共用同一份设置并支持跨源实时生效，旧设置自动迁移</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.40.2</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-24</span>
                         <p>修复视频卡片预览按钮不出现与悬停不显示，统一适配首页/播放页/热门/每周精选/搜索/动态/空间的卡片结构</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.40.1</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-24</span>
                         <p>修复视频页与热门页的卡片没有预览按钮、修复侧栏头像与下一个按钮之间没有间隔、修复通知条过多时页面卡死</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.40.0</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-24</span>
                         <p>视频卡片预览扩展到所有页面的视频卡片（首页/动态/空间/热门/搜索结果）并改为增量扫描，侧栏「UP主空间」按钮改为作者圆形头像（hover 显示作者名）并移到侧栏首位</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.39.0</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-24</span>
                         <p>修复活动视频页不生效、简介与评论链接化的 XSS 风险、换页丢更新、配置归一化失效，配置导入导出改进，设置面板改为首次打开才渲染，清理死代码与过时文档</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.38.7</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-23</span>
                         <p>新增「定位滚动动画」设置，定位时可选平滑滚动或直接跳转</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.38.6</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-23</span>
                         <p>修复小窗状态下点「定位」播放器位置偏移（issue #39）</p>
-                    </div>
-                </div>
+                    </div></div>
                 <div class="changelog-item">
                     <span class="cl-version mono">v3.38.5</span>
                     <div class="cl-body">
                         <span class="cl-date mono">2026-10-22</span>
                         <p>修复播放器顶部偏移较大时刷新页面自动定位失效（issue #39），设置说明里的自然位置改为按当前分辨率自动测量</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.38.4</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-10-22</span>
-                        <p>动态页评论区支持链接化，版本号只在正式构建时拼接构建标识</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.38.3</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-10-22</span>
-                        <p>修复刷新页面后自动定位可能停在临时上限（等布局稳定、文档变高后补一次定位），点版本号检查更新时已是最新版本不再弹窗</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.38.2</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-10-09</span>
-                        <p>修复首页功能在浏览器首次打开时不生效（接入重试队列并在标签页可见后再执行）</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.38.1</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-10-05</span>
-                        <p>修复首页推荐历史弹窗的分类筛选失效（B 站接口不再返回分区名，改用内置分区映射表反查并回填历史记录）</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.38.0</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-10-04</span>
-                        <p>视频简介君头像改为远程获取（远程→本地缓存→内置兜底三级取值），后台换头像后无需更新脚本即可生效</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.37.0</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-29</span>
-                        <p>UP 主空间弹窗新增骨架屏并铺满窗口，首页预览弹窗新增「进入UP主空间」按钮、关闭后不再后台播放，卡片预览按钮改为图标，播完推荐视频点击不再先滚回顶部</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.13</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-24</span>
-                        <p>修复切换选集、上下集时页面先滚到顶部与失败重试过少，清理无用代码并把更多页面特征改为热更</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.6</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-23</span>
-                        <p>热更覆盖表与远程提示词的请求统一绕过浏览器缓存，修复跨 B 站子域缓存串号导致热更全部加载失败</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.5</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-22</span>
-                        <p>修复功能重试队列不生效</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.4</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-21</span>
-                        <p>修复开启夜间哔哩样式后自动定位偏上</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.3</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-21</span>
-                        <p>适配 B 站改版后的吸顶头部</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.2</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-20</span>
-                        <p>修复简介区替换后链接乱码</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36.1</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-18</span>
-                        <p>修复已是最新版本时版本号仍显示绿色</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.36</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-18</span>
-                        <p>更新提示文案改为「- 内容补丁可更新 -」</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.9</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-18</span>
-                        <p>修复刚升级到最新版却提示内容可更新</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.8</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-18</span>
-                        <p>清理服务器上遗留的提示词副本</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.7</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>版本号处的新版本提示改用成功色并居中</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.6</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>新增解析正则、注入模板与主题色值三类热更</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.5</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>新增元素选择器与 AI 配置的远程热更</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.4</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>广告识别提示词改为远程下发</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.3</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>修复电影解说被误判为电影宣传</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.2</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>修复 AI 识别报「响应内容为空」</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35.1</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-17</span>
-                        <p>更新检查改为直连并新增 Gitee 兜底源</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.35</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-16</span>
-                        <p>更新提示改为分级：功能级弹窗、小修复只在版本号处提示</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.34.4</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-16</span>
-                        <p>修复首页历史记录按钮与「换一换」按钮未对齐</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.34.3</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-16</span>
-                        <p>修复首页推荐历史记录重复展示</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.34.2</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-16</span>
-                        <p>修复设置弹窗分组导航高亮错位</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.34.1</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-14</span>
-                        <p>修复更新方式选「自动」时不弹窗</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.34</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-14</span>
-                        <p>设置项重新分类并新增弹窗左侧分组导航</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.33.1</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-11</span>
-                        <p>修复片段编辑与识别结果展示的多处问题</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.33</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-11</span>
-                        <p>新增进度条片段染色</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.32</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-11</span>
-                        <p>修复首页历史按钮失效并优化主题跟随</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.31</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-08</span>
-                        <p>主题默认跟随B站，跳过广告拆分为总开关与子开关</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.29</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-07</span>
-                        <p>新增主题系统与界面主题设置</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.27</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-09-04</span>
-                        <p>修复弹窗遮罩穿透，片段管理新增剧集视图</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.26</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-08-30</span>
-                        <p>重构元素选择器系统（同步查询取代10秒等待）</p>
-                    </div>
-                </div>
-                <div class="changelog-item">
-                    <span class="cl-version mono">v3.25</span>
-                    <div class="cl-body">
-                        <span class="cl-date mono">2026-08-20</span>
-                        <p>番剧页片段管理重构（剧集列表视图）</p>
-                    </div>
-                </div>
+                    </div></div>
             </div>
             <div class="changelog-more">
-                <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment/releases" target="_blank">查看完整更新历史 →</a>
+                <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment/releases" target="_blank">查看完整更新历史</a>
             </div>
-        </div>
     </section>
 
     <!-- CTA -->
     <section class="cta">
         <div class="container">
             <h2>开源脚本，按需安装</h2>
-            <p>开源 · 免费 · 无内置广告 · 配置可导入导出</p>
+            <p>开源、免费、无内置广告，配置可导入导出</p>
             <a href="https://www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js" class="btn btn-primary btn-lg">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                 一键安装
@@ -633,8 +361,7 @@
         <div class="container footer-inner">
             <div class="footer-left">
                 <span>Bilibili Adjustment</span>
-                <span class="footer-sep">·</span>
-                <span><a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment/blob/main/LICENSE" target="_blank" rel="noopener">MIT License + 附加条款</a> · 开源</span>
+                <span><a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment/blob/main/LICENSE" target="_blank" rel="noopener">MIT License + 附加条款</a></span>
             </div>
             <div class="footer-right">
                 <a href="https://github.com/QIUZAIYOU/Bilibili-Adjustment" target="_blank">GitHub</a>
