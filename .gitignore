@@ -53,3 +53,6 @@ __pycache__/
 
 # 配套的云端平台项目（独立仓库，勿提交进本仓库）
 Bilibili-Adplatform/
+
+# 落地页设计过程稿（草稿、截图、被否方向，不进仓库）
+design-demos/

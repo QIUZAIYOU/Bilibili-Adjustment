@@ -21,7 +21,8 @@
         "verify:cross-origin": "node test/e2e/verify-gm-cross-origin.mjs",
         "check:hot-config": "node --import ./test/alias-loader.js scripts/check-hot-config.mjs",
         "check:hot-content": "node scripts/check-hot-content.mjs",
-        "check:www": "node scripts/check-www-version.mjs"
+        "check:www": "node scripts/check-www-version.mjs",
+        "check:landing": "node test/e2e/audit-contrast.mjs www/index.html"
     },
     "devDependencies": {
         "@eslint/js": "^9.39.5",
