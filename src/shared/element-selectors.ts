@@ -162,7 +162,9 @@ export const shadowDomSelectors: Record<string, string> = {
     commentReplyRenderder: 'bili-comment-reply-renderer',
     /** 评论正文容器（视频页与动态页评论区同款结构）：链接化时读取它再整体替换 innerHTML */
     commentContents: '#contents',
-    commentTags: '#tags'
+    commentTags: '#tags',
+    /** 楼层容器（一个主评论 + 它的楼中楼都挂在它下面）：鱼塘扫描按它分组，避免漏掉楼中楼 */
+    commentThreadRenderder: 'bili-comment-thread-renderer'
 }
 // ========== 页面类型专属选择器 ==========
 // 用于 wait() 判断：如果选择器属于其他页面类型，直接跳过不等待

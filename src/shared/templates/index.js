@@ -9,6 +9,7 @@ import { homeSettingsTemplates } from './home/home-settings'
 import { videoPreviewTemplates } from './video/video-preview'
 import { upSpaceTemplates } from './video/up-space'
 import { loadingTemplates } from './loading'
+import { fishPondTemplates } from './fish-pond'
 const templates = {
     ...buttonTemplates,
     ...historyPopoverTemplate,
@@ -17,7 +18,8 @@ const templates = {
     ...homeSettingsTemplates,
     ...videoPreviewTemplates,
     ...upSpaceTemplates,
-    ...loadingTemplates
+    ...loadingTemplates,
+    ...fishPondTemplates
 }
 // 初始化注册所有模板到 TemplateRegistry
 registerTemplates(templates)

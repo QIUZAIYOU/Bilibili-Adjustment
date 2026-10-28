@@ -56,6 +56,8 @@ interface UiButtonsContext {
     refreshUpAvatar: () => Promise<void>
     /** 点头像进 UP 主空间（mid 取自按钮上记录的作者） */
     openUpSpaceByAvatar: (button: HTMLElement | null) => void
+    /** 打开「鱼塘」弹窗（大肥鱼识别结果） */
+    openFishPond: () => void
 }
 /** 侧栏「UP主空间」按钮（作者头像）的类名 —— 脚本自己的 DOM */
 const UP_AVATAR_SELECTOR = '.bili-adjustment-icon.up'
@@ -149,7 +151,8 @@ export const uiButtonsFeatures = {
         const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
         const existingUpButton = floatNav.querySelector('.bili-adjustment-icon.up')
         const existingSkipButton = floatNav.querySelector('.bili-adjustment-icon.skip')
-        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton) {
+        const existingFishPondButton = floatNav.querySelector('.bili-adjustment-icon.fishpond')
+        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton && existingFishPondButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
@@ -186,6 +189,14 @@ export const uiButtonsFeatures = {
                         await this.showSkipSegmentManager(bvid)
                     }
                 })
+            }
+            // 「鱼塘」按钮：查看本页被识别出来的大肥鱼评论（与"是否移除"开关解耦，随时可查看）
+            if (!existingFishPondButton) {
+                const fishPondButton = insertInjectedButton('fishPondButton', floatNav.lastElementChild as Node, 'prepend', {
+                    dataV,
+                    text: '鱼塘'
+                })
+                addEventListenerToElement(fishPondButton, 'click', () => { this.openFishPond() })
             }
             // ⚠️ 「UP主空间」（作者头像）按钮**最后插入**：
             //    侧栏是纵向排列、插入方式又是 prepend（插到最前面），于是**最后插入的反而排在最上面** ——

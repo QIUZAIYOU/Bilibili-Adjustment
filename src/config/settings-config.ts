@@ -322,6 +322,14 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 tips: '显示评论用户的IP属地信息',
                 category: 'basic',
                 defaultValue: true
+            },
+            {
+                id: 'remove_fish_comments',
+                type: 'checkbox',
+                label: '移除大肥鱼评论',
+                tips: '识别播放页评论区里由 AI 账号（「大肥鱼」）发出的评论并隐藏，可在侧栏「鱼塘」按钮里查看命中的评论与判定依据',
+                category: 'basic',
+                defaultValue: false
             }
         ]
     },

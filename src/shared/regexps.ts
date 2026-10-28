@@ -392,7 +392,11 @@ export const regexps = {
         /** 链接里的 ep 数字 */
         epInHref: /ep(\d+)/,
         /** 激活态类名 token（B 站各版式用 active/current/on/selected/playing 之一） */
-        activeClassToken: /(^|\s)(active|current|on|selected|playing)(\s|$)/
+        activeClassToken: /(^|\s)(active|current|on|selected|playing)(\s|$)/,
+        /** 弹幕刷屏次数（「×12」「x8」）—— 「大肥鱼」识别的弱特征 */
+        fishDanmakuCount: /[×x✕]\s?\d{1,3}(?!\d)/,
+        /** 视频时间点引用（「05:32」）—— 「大肥鱼」识别的弱特征 */
+        fishTimeCallout: /(?:^|[^\d:])\d{1,2}:\d{2}(?![:\d])/
     }
 }
 /**

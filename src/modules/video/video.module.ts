@@ -19,6 +19,7 @@ import { progressMemoryFeatures } from './progress-memory'
 import { adSkipFeatures } from './ad-skip'
 import { subtitleFeatures } from './subtitle'
 import { commentFeatures } from './comment'
+import { fishPondFeatures } from '@/features/fish-pond'
 import { qualityFeatures } from './quality'
 import { webfullFeatures } from './webfull'
 import { uiButtonsFeatures } from './ui-buttons'
@@ -110,6 +111,13 @@ interface VideoModuleContext {
     hasPlayerTitle: () => Promise<boolean>
     handleJumpToVideoTime: (video: HTMLVideoElement, target: HTMLElement) => void
     doSomethingToCommentElements: (...args: unknown[]) => Promise<void>
+    /** 监听评论区插入（大肥鱼识别） */
+    observeFishComments: () => void
+    scheduleFishScan: () => void
+    refreshFishPond: () => Promise<void>
+    openFishPond: () => void
+    _fishObservationCleanups?: Array<() => void>
+    _fishDebounceTimer?: ReturnType<typeof setTimeout> | null
     destroyUpSpacePopup: () => void
     openUpSpace: (mid: string | number) => Promise<void>
     openUpSpacePopup: (mid: string | number) => Promise<void>
@@ -532,6 +540,8 @@ export default {
             [this.handleVideoPauseOnTabSwitch, Boolean(this.userConfigs.pause_video)],
             [this.insertVideoDescriptionToComment, Boolean(this.userConfigs.insert_video_description_to_comment && this.userConfigs.page_type === 'video')],
             this.doSomethingToCommentElements,
+            // 评论区大肥鱼识别：跟着评论区插入节奏跑（不开关开关，开关在扫描时判断）
+            [this.observeFishComments, Boolean(this.userConfigs.page_type === 'video')],
             // 普通视频页：先应用缓存中的跳过片段（手动添加/共享缓存），再按需用 AI 识别补全缺失片段
             [this.loadCachedSkipSegments, Boolean(this.userConfigs.auto_skip && !hasTitle && this.userConfigs.page_type === 'video')],
             [this.identifyAdvertisementTimestamps, Boolean(this.userConfigs.auto_skip && this.userConfigs.ai_auto_identify && !hasTitle && this.userConfigs.page_type === 'video')],
@@ -550,5 +560,6 @@ export default {
     ...webfullFeatures,
     ...uiButtonsFeatures,
     ...upSpacePopupFeatures,
+    ...fishPondFeatures,
     ...videoRotateFeatures
 }

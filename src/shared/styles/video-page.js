@@ -1056,6 +1056,138 @@ export const videoPageStyles = {
             gap: 6px;
             align-items: flex-end;
         }
+    `,
+    /**
+     * 「鱼塘」弹窗（被识别出来的大肥鱼评论列表）
+     *
+     * 列表行是**DOM API 拼出来**的（昵称/评论正文是用户可写文本，绝不能进 innerHTML）。
+     */
+    fishPond: `
+        .adj-fish-pond {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            min-height: 120px;
+        }
+
+        .adj-fish-pond-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--adj-border-strong);
+        }
+
+        .adj-fish-pond-count {
+            font-size: 13px;
+            color: var(--adj-text-muted);
+        }
+
+        .adj-fish-pond-rescan {
+            flex: none;
+            padding: 4px 10px;
+            font-size: 12px;
+            color: var(--adj-text-soft);
+            background: var(--adj-bg-surface);
+            border: 1px solid var(--adj-border-strong);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .adj-fish-pond-rescan:hover {
+            color: var(--adj-brand);
+            border-color: var(--adj-brand);
+        }
+
+        .adj-fish-pond-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            max-height: min(58vh, 520px);
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .adj-fish-pond-row {
+            display: flex;
+            gap: 10px;
+            padding: 8px 10px;
+            background: var(--adj-bg-surface);
+            border: 1px solid var(--adj-border-strong);
+            border-radius: 6px;
+        }
+
+        .adj-fish-pond-avatar {
+            flex: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            object-fit: cover;
+            background: var(--adj-bg-page);
+        }
+
+        .adj-fish-pond-main {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            min-width: 0;
+            flex: 1;
+        }
+
+        .adj-fish-pond-head {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .adj-fish-pond-name {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--adj-text-primary);
+            text-decoration: none;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .adj-fish-pond-name:hover {
+            color: var(--adj-brand);
+        }
+
+        .adj-fish-pond-score {
+            flex: none;
+            padding: 1px 6px;
+            font-size: 11px;
+            color: var(--adj-brand);
+            background: rgba(var(--adj-brand-rgb), 0.15);
+            border-radius: 3px;
+            cursor: help;
+        }
+
+        .adj-fish-pond-text {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--adj-text-soft);
+            word-break: break-word;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .adj-fish-pond-meta {
+            font-size: 11px;
+            color: var(--adj-text-muted);
+        }
+
+        .adj-fish-pond-empty {
+            padding: 24px 0;
+            text-align: center;
+            font-size: 13px;
+            color: var(--adj-text-muted);
+        }
     `
 }
 /** videoStyles */
