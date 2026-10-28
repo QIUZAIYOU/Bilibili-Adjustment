@@ -272,6 +272,29 @@ export const scanFishComments = async (options: { threshold?: number } = {}): Pr
     return lastScan
 }
 /**
+ * 当前被隐藏的容器（用于「捞鱼」关掉时恢复显示）
+ */
+const hiddenTargets = new Set<HTMLElement>()
+/**
+ * 取元素的 shadow 宿主（顶层评论的宿主是整层 `bili-comment-thread-renderer`）
+ * @param el 评论渲染元素
+ */
+const shadowHostOf = (el: Element): Element | null => {
+    const root = el.getRootNode()
+    return root instanceof ShadowRoot && root.host ? (root.host as Element) : null
+}
+/**
+ * 该藏到哪一层
+ *
+ * 只藏 `bili-comment-renderer` 会留下楼层容器的边框与占位高度（页面上表现为几条空横线），
+ * 所以顶层评论直接把整层 `bili-comment-thread-renderer` 藏掉；楼中楼藏它自己（宿主是楼层回复容器）。
+ * @param renderer 评论渲染元素
+ */
+const hideTargetOf = (renderer: Element): Element => {
+    const host = shadowHostOf(renderer)
+    return host && host.localName === shadowDomSelectors.commentThreadRenderder ? host : renderer
+}
+/**
  * 把命中的评论标出来并从页面移除
  *
  * 用 `display: none` 隐藏（不删节点）：B 站自己会重渲染评论区，我们删了它会重新长回来，
@@ -284,16 +307,32 @@ export const hideFishComments = (items: FishComment[]): number => {
     for (const item of items) {
         const renderer = item.renderer as HTMLElement
         if (!renderer || !renderer.style) continue
-        renderer.setAttribute(FISH_MARK_ATTR, String(item.score))
-        if (renderer.getAttribute(FISH_REMOVED_ATTR) === '1') continue
-        renderer.setAttribute(FISH_REMOVED_ATTR, '1')
-        renderer.style.setProperty('display', 'none', 'important')
+        const target = hideTargetOf(renderer) as HTMLElement
+        if (!target || !target.style) continue
+        target.setAttribute(FISH_MARK_ATTR, String(item.score))
+        if (target.getAttribute(FISH_REMOVED_ATTR) === '1') continue
+        target.setAttribute(FISH_REMOVED_ATTR, '1')
+        target.style.setProperty('display', 'none', 'important')
+        hiddenTargets.add(target)
         hidden++
     }
     if (hidden) logger.debug(`鱼塘丨已移除 ${hidden} 条大肥鱼评论`)
     return hidden
 }
+/** 把之前隐藏的评论恢复显示（「捞鱼」被关掉时用） */
+export const restoreFishComments = (): number => {
+    if (!hiddenTargets.size) return 0
+    for (const target of hiddenTargets) {
+        target.style.removeProperty('display')
+        target.removeAttribute(FISH_REMOVED_ATTR)
+        target.removeAttribute(FISH_MARK_ATTR)
+    }
+    const count = hiddenTargets.size
+    hiddenTargets.clear()
+    logger.debug(`鱼塘丨已恢复 ${count} 条评论的显示`)
+    return count
+}
 /** 统计当前页被移除的评论条数（供「鱼塘」标题展示） */
-export const countHiddenComments = (): number => document.querySelectorAll(`[${FISH_REMOVED_ATTR}]`).length
+export const countHiddenComments = (): number => hiddenTargets.size
 /** 评论区的存在性（没有评论区的页面不扫描） */
 export const hasCommentArea = (): boolean => Boolean(elementSelectors.get('videoComment'))

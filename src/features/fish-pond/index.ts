@@ -7,7 +7,7 @@
 import { LoggerService } from '@/services/logger.service'
 import { ShadowDOMHelper } from '@/utils/shadow-dom-helper'
 import { shadowDomSelectors } from '@/shared/element-selectors'
-import { countCommentRenderers, hideFishComments, scanFishComments } from './collect'
+import { countCommentRenderers, hideFishComments, restoreFishComments, scanFishComments } from './collect'
 import { openFishPondDialog } from './dialog'
 const logger = new LoggerService('VideoModule')
 const shadowDOMHelper = new ShadowDOMHelper()
@@ -48,6 +48,11 @@ export const fishPondFeatures = {
         let signature = -1
         const tick = (): void => {
             timer = null
+            if (!this.userConfigs.catch_fish) {
+                restoreFishComments()
+                timer = setTimeout(tick, SIGNATURE_POLL_MS)
+                return
+            }
             if (document.hidden) {
                 timer = setTimeout(tick, SIGNATURE_POLL_MS)
                 return
@@ -76,18 +81,13 @@ export const fishPondFeatures = {
         }, SCAN_DEBOUNCE_MS)
     },
     /**
-     * 扫描一次；按开关决定是否移除命中评论
-     *
-     * 开关关着也照样扫描（「鱼塘」弹窗要能查看识别结果），只是不动 DOM。
+     * 扫描一次并移除命中评论（「捞鱼」关着时直接返回，不扫也不动 DOM）
      */
     async refreshFishPond (this: FishPondContext): Promise<void> {
+        if (!this.userConfigs.catch_fish) return
         try {
             const scan = await scanFishComments()
             if (!scan.items.length) return
-            if (!this.userConfigs.remove_fish_comments) {
-                logger.debug(`大肥鱼丨识别到 ${scan.items.length} 条，移除开关未开启`)
-                return
-            }
             const hidden = hideFishComments(scan.items)
             logger.debug(`大肥鱼丨识别 ${scan.items.length} 条，本次移除 ${hidden} 条`)
         } catch (error) {

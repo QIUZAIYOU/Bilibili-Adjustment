@@ -152,7 +152,13 @@ export const uiButtonsFeatures = {
         const existingUpButton = floatNav.querySelector('.bili-adjustment-icon.up')
         const existingSkipButton = floatNav.querySelector('.bili-adjustment-icon.skip')
         const existingFishPondButton = floatNav.querySelector('.bili-adjustment-icon.fishpond')
-        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton && existingFishPondButton) {
+        const catchFishEnabled = Boolean(this.userConfigs.catch_fish)
+        if (!catchFishEnabled && existingFishPondButton) {
+            existingFishPondButton.remove()
+            logger.debug('侧边栏工具丨捞鱼已关闭，移除「鱼塘」按钮')
+        }
+        const fishPondButtonReady = Boolean(existingFishPondButton) === catchFishEnabled
+        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton && fishPondButtonReady) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
@@ -190,8 +196,8 @@ export const uiButtonsFeatures = {
                     }
                 })
             }
-            // 「鱼塘」按钮：查看本页被识别出来的大肥鱼评论（与"是否移除"开关解耦，随时可查看）
-            if (!existingFishPondButton) {
+            // 「鱼塘」按钮：「捞鱼」开着才有意义（关着时按钮都不插，避免留一个永远空的入口）；已插入但配置被关掉时顺手移除
+            if (catchFishEnabled && !existingFishPondButton) {
                 const fishPondButton = insertInjectedButton('fishPondButton', floatNav.lastElementChild as Node, 'prepend', {
                     dataV,
                     text: '鱼塘'

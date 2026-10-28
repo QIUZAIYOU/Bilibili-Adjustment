@@ -324,10 +324,10 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 defaultValue: true
             },
             {
-                id: 'remove_fish_comments',
+                id: 'catch_fish',
                 type: 'checkbox',
-                label: '移除大肥鱼评论',
-                tips: '识别播放页评论区里由 AI 账号（「大肥鱼」）发出的评论并隐藏，可在侧栏「鱼塘」按钮里查看命中的评论与判定依据',
+                label: '捞鱼',
+                tips: '识别播放页评论区里的 AI 账号（大肥鱼）并隐藏它们的评论；开启后侧栏会出现「鱼塘」按钮，可查看命中的评论与判定依据',
                 category: 'basic',
                 defaultValue: false
             }
