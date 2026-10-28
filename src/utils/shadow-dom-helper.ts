@@ -31,6 +31,16 @@ export function assertValidSelector (selector: string): void {
     }
 }
 /**
+ * 取元素**自身**的 ShadowRoot。
+ * ⚠️ `collectShadowRoots` 靠 TreeWalker 遍历后代，而 TreeWalker **不包含根节点自身**，
+ * 所以「宿主自己就是 shadow host」的情况（评论区 `bili-comment-renderer` 正是如此）
+ * 必须在这里单独取，否则 `queryDescendant(host, …)` 查不到自己 shadow 树里的内容
+ * （真实故障：评论区的 IP 属地消失，2026-10-28）。
+ */
+function ownShadowRoot (root: QueryRoot): ShadowRoot | null {
+    return root instanceof Element ? root.shadowRoot : null
+}
+/**
  * 收集 `root` 的**直属**树里所有的 ShadowRoot（不进入 shadow 树内部，由调用方决定递归顺序）。
  * 用 TreeWalker 替代手写栈：单次原生迭代，省掉大量 push/pop 与数组增长。
  */
@@ -62,6 +72,8 @@ export function traverseFirst (root: QueryRoot, selector: string): Element | nul
         visited.add(boundary)
         const found = boundary.querySelector(selector)
         if (found) return found
+        const boundaryShadow = ownShadowRoot(boundary)
+        if (boundaryShadow) queue.push(boundaryShadow)
         for (const shadowRoot of collectShadowRoots(boundary)) queue.push(shadowRoot)
     }
     return null
@@ -81,6 +93,8 @@ export function traverseAll (root: QueryRoot, selector: string): Element[] {
         if (visited.has(boundary)) continue
         visited.add(boundary)
         for (const el of boundary.querySelectorAll(selector)) results.push(el)
+        const boundaryShadow = ownShadowRoot(boundary)
+        if (boundaryShadow) queue.push(boundaryShadow)
         for (const shadowRoot of collectShadowRoots(boundary)) queue.push(shadowRoot)
     }
     return results
@@ -121,8 +135,6 @@ function observeInsertionInternal (selector: string, callback: (el: Element) => 
             for (const node of mutation.addedNodes) {
                 if (node.nodeType !== Node.ELEMENT_NODE) continue
                 queue.push(node as Element)
-                const shadowRoot = (node as Element).shadowRoot
-                if (shadowRoot) queue.push(shadowRoot)
             }
         }
         if (flushTimer) return

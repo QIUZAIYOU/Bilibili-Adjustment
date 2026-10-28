@@ -127,3 +127,32 @@ test('querySelector/querySelectorAll/queryDescendant 三个入口结果一致', 
     assert.equal(helper.queryDescendant(document.body, '.target'), shadowNode)
     assert.deepEqual(helper.queryDescendant(document.body, '.target', true), [shadowNode])
 })
+/**
+ * 回归：查询根**自己就是 shadow host** 时必须能查到它 shadow 树里的内容。
+ *
+ * 真实故障（2026-10-28）：评论区 IP 属地消失。`showLocation(renderder, …)` 用
+ * `queryDescendant(bili-comment-renderer, '#location' / 发布时间)` 找插入点，
+ * 而 `bili-comment-renderer` 自己就是 shadow host —— TreeWalker 不包含根节点自身，
+ * 旧实现只收集后代的 ShadowRoot，于是查不到 → 属地永远插不进去。
+ */
+test('查询根自身是 shadow host 时，也能查到其 shadow 树内的节点', () => {
+    document.body.innerHTML = ''
+    const { host, shadow } = createHost()
+    const location = createSpan('location', 'IP属地：浙江')
+    shadow.append(location)
+    assert.equal(traverseFirst(host, '.location'), location)
+    assert.deepEqual(traverseAll(host, '.location'), [location])
+    assert.equal(helper.queryDescendant(host, '.location'), location)
+})
+test('根自身 shadow 树优先于其后代的 shadow 树，且不会重复命中', () => {
+    document.body.innerHTML = ''
+    const { host, shadow } = createHost()
+    const selfNode = createSpan('target', 'self')
+    shadow.append(selfNode)
+    const child = createHost()
+    const childNode = createSpan('target', 'child')
+    child.shadow.append(childNode)
+    document.body.append(host)
+    shadow.append(child.host)
+    assert.deepEqual(traverseAll(host, '.target'), [selfNode, childNode])
+})
