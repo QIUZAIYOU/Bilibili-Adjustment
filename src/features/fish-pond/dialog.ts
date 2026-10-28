@@ -11,7 +11,10 @@ import { videoPageStyles } from '@/shared/styles/video-page'
 import { insertStyleToDocument, createElementAndInsert, sanitizeHttpUrl } from '@/utils/common'
 import { countHiddenComments, getLastScan, scanFishComments } from './collect'
 import type { FishComment } from './collect'
+import { createScoreTip } from './score-tip'
 const logger = new LoggerService('VideoModule')
+/** 当前弹窗的悬浮说明实例（整张列表共用一个，弹窗销毁时一起收掉） */
+let activeTip: ReturnType<typeof createScoreTip> | null = null
 /** 弹窗内容里各段的 `data-adj-field` 标记 */
 const FIELD = {
     count: '[data-adj-field="count"]',
@@ -19,8 +22,6 @@ const FIELD = {
     empty: '[data-adj-field="empty"]',
     rescan: '[data-adj-field="rescan"]'
 } as const
-/** 分数徽章上悬浮显示几条理由 */
-const REASON_LIMIT = 3
 /**
  * 把一条命中评论建成列表行
  * @param item 命中评论
@@ -52,11 +53,8 @@ const createRow = (item: FishComment): HTMLElement => {
     const score = document.createElement('span')
     score.className = 'adj-fish-pond-score'
     score.textContent = `${item.score} 分`
-    // 悬浮说明「为什么认它是鱼」：只放纯文本，交给 title（不解析 HTML）
-    score.title = item.reasons
-        .slice(0, REASON_LIMIT)
-        .map(reason => `${reason.w > 0 ? '+' : ''}${reason.w} ${reason.why}`)
-        .join('\n')
+    // 悬浮说明「为什么认它是鱼」：自绘卡片（原生 title 出现慢、长理由挤一行读不动）
+    activeTip?.attach(score, item)
     head.appendChild(score)
     main.appendChild(head)
     const text = document.createElement('div')
@@ -125,13 +123,18 @@ export const openFishPondDialog = (): void => {
         width: 'min(560px, 92vw)',
         className: 'fish-pond-dialog',
         content: body => {
+            activeTip?.destroy()
+            activeTip = createScoreTip()
             const root = createElementAndInsert(getTemplates.fishPondDialog, body) as HTMLElement | null
             if (!root) return undefined
             const rescanButton = root.querySelector(FIELD.rescan) as HTMLButtonElement | null
             rescanButton?.addEventListener('click', () => { void rescan(root) })
             renderPond(root)
             void rescan(root)
-            return undefined
+            return () => {
+                activeTip?.destroy()
+                activeTip = null
+            }
         }
     })
     logger.debug(`鱼塘丨已打开${dialog ? '' : '（弹窗未创建）'}`)

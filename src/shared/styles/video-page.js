@@ -1163,7 +1163,18 @@ export const videoPageStyles = {
             color: var(--adj-brand);
             background: rgba(var(--adj-brand-rgb), 0.15);
             border-radius: 3px;
-            cursor: help;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .adj-fish-pond-score:hover,
+        .adj-fish-pond-score[aria-expanded="true"] {
+            background: rgba(var(--adj-brand-rgb), 0.28);
+        }
+
+        .adj-fish-pond-score:focus-visible {
+            outline: 2px solid var(--adj-brand);
+            outline-offset: 1px;
         }
 
         .adj-fish-pond-text {
@@ -1182,6 +1193,83 @@ export const videoPageStyles = {
             color: var(--adj-text-muted);
         }
 
+        /* 分数构成面板：点分数徽章在该行下面就地展开（弹窗是 popover，浮层会被顶层盖住） */
+        .adj-fish-pond-tip {
+            margin: 6px 0 10px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            background: var(--adj-bg-page);
+            border: 1px solid var(--adj-border-strong);
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--adj-text-secondary);
+        }
+
+        .adj-fish-pond-tip-head {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 10px;
+            padding-bottom: 6px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid var(--adj-border-strong);
+        }
+
+        .adj-fish-pond-tip-title {
+            font-weight: 600;
+            color: var(--adj-text-primary);
+        }
+
+        .adj-fish-pond-tip-score {
+            color: var(--adj-brand);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .adj-fish-pond-tip-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin: 0;
+            padding: 0;
+            list-style: none;
+        }
+
+        .adj-fish-pond-tip-row {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            align-items: baseline;
+            column-gap: 8px;
+        }
+
+        .adj-fish-pond-tip-weight {
+            min-width: 34px;
+            padding: 0 4px;
+            border-radius: 3px;
+            text-align: center;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            color: var(--adj-brand);
+            background: rgba(var(--adj-brand-rgb), 0.15);
+        }
+
+        .adj-fish-pond-tip-why {
+            color: var(--adj-text-soft);
+        }
+
+        .adj-fish-pond-tip-hit {
+            grid-column: 2;
+            font-size: 11px;
+            color: var(--adj-text-muted);
+            overflow-wrap: anywhere;
+        }
+
+        .adj-fish-pond-tip-foot {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid var(--adj-border-strong);
+            font-size: 11px;
+            color: var(--adj-text-muted);
+        }
         .adj-fish-pond-empty {
             padding: 24px 0;
             text-align: center;
