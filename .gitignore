@@ -56,3 +56,6 @@ Bilibili-Adplatform/
 
 # 落地页设计过程稿（草稿、截图、被否方向，不进仓库）
 design-demos/
+
+# 本地参考用的 B 站官方主题 CSS（docs/theme-system.md：该包不入库）
+src/shared/styles/bili-theme/
