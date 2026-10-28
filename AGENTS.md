@@ -66,6 +66,8 @@ npm run build
 
 **打包前必须提交干净的锁文件**：`npm install`（尤其依赖升级、`git rebase` 到 dependabot 提交之后）会改写 `package-lock.json` —— 版本号字段、`libc` 之类的包元数据 —— 此时工作区就是脏的。若先 `build` + `upload`，`vite.config.js` 注入的 `@build-sha` 会带 `-dirty`，后果有两个：设置页版本号变成 `vX.Y.Z+sha-dirty`（既丑又像未完成品），且该构建的「同版本覆盖发布」感知会被 `isComparableBuildSha` 关掉（3.38.3 真实踩过，见 `docs/hot-update-assets.md` 之外的本次复盘）。正确顺序：`npm install → git add package-lock.json && git commit → npm run build → python scripts/upload-workbench.py`。显示口径：脏标识/取不到标识时 UI 只显示 `vX.Y.Z`，完整构建标识放进版本号悬浮提示（`src/components/settings-dialog.ts` 的 `versionTitle`）；干净构建才显示 `vX.Y.Z+sha`。
 
+**脚本猫（ScriptCat）自动同步**：`npm run build` 末尾会跑 `scripts/sync-scriptcat.mjs`，把 `dist/bilibili-adjustment.user.js` 直接装进本机脚本猫。前提：本机有 `sctl`（`%LOCALAPPDATA%\sctl\bin\sctl.exe`，或环境变量 `SCTL_BIN` 指定）、`sctl serve` 常驻、且脚本猫已在「设置 → 工具 → 外部接入」与 sctl 配对过（一次性；配对码用 `sctl connect` 生成，2 分钟内有效）。任一条件不满足都会静默跳过（退出 0，不打断构建），所以 CI 和其它机器不受影响；需要「必须同步成功」时用 `npm run sync:scriptcat:strict`。核对是否装上：`sctl get <uuid>` 看表格里的版本号。⚠️ 慎用 `sctl get <uuid> -o json` / `sctl grep`：产物是单行压缩代码，这两个命令会把整份源码打印出来（一次上万字符，直接刷爆终端）。
+
 ## 5. 上传到阿里云轻量服务器
 
 构建后一条命令完成上传（脚本读取项目根 `.env` 凭据，内置远端校验，绝不打印凭据）：
