@@ -22,6 +22,46 @@ const AVATAR_SAMPLE_SIZE = 32
 const AVATAR_SAMPLE_LIMIT = 12
 /** 头像色号缓存：同一 URL 只取一次色（翻页/重扫都会命中） */
 const avatarBlueCache = new Map<string, number | null>()
+/** 头像色号缓存上限：翻很多视频也不会无限增长 */
+const AVATAR_CACHE_LIMIT = 300
+/** 一次账号判定的缓存（输入没变就复用，省掉最贵的正则打分） */
+interface CachedVerdict {
+    sig: string
+    score: number
+    raw: number
+    reasons: DetectionReason[]
+}
+/** 账号判定缓存：按 mid 存，签名不符即重算 */
+const verdictCache = new Map<string, CachedVerdict>()
+/** 判定缓存上限 */
+const VERDICT_CACHE_LIMIT = 400
+/**
+ * 拼一个「判定输入」的指纹：其中任何一项变化都要重新算分
+ * @param inputs 参与判分的所有输入
+ */
+const verdictSignature = (inputs: {
+    uname: string
+    sign: string
+    level: number
+    verify: number
+    vip: number
+    textCount: number
+    textLength: number
+    calledOut: number
+    priorPages: number
+    avatarBlue?: number
+}): string => [
+    inputs.uname,
+    inputs.sign.length,
+    inputs.level,
+    inputs.verify,
+    inputs.vip,
+    inputs.textCount,
+    inputs.textLength,
+    inputs.calledOut,
+    inputs.priorPages,
+    inputs.avatarBlue ?? ''
+].join('|')
 /**
  * 账号在**本次会话**里的前科：SPA 内切换视频时脚本不会重载，可跨视频累计
  * （只存内存，不写存储：这不是用户配置，且页面刷新后重新学习成本很低）
@@ -122,6 +162,7 @@ const sampleAvatarBlue = (url: string): Promise<number | null> => new Promise(re
     // 头像域名支持 CORS；不支持时图片会因为 crossOrigin 直接失败，走 catch 返回 null
     img.crossOrigin = 'anonymous'
     const finish = (value: number | null): void => {
+        if (avatarBlueCache.size >= AVATAR_CACHE_LIMIT) avatarBlueCache.clear()
         avatarBlueCache.set(url, value)
         resolve(value)
     }
@@ -159,18 +200,23 @@ const getUpMid = (): string => {
 const collectRenderers = (): Element[] => {
     const feed = shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)
     if (!feed) return []
-    const threads = shadowDOMHelper.queryDescendant(feed, shadowDomSelectors.commentThreadRenderder, true) as Element[] | null
-    const roots = threads && threads.length ? threads : [feed]
+    const rendererSelector = `${shadowDomSelectors.commentRenderder}, ${shadowDomSelectors.commentReplyRenderder}`
+    // 楼层是 #feed 的普通子节点，评论在其 open shadow root 里（原生选择器比逐个穿透快得多）
+    const threads = Array.from(feed.querySelectorAll(shadowDomSelectors.commentThreadRenderder))
+    if (!threads.length) return Array.from(feed.querySelectorAll(rendererSelector))
     const renderers: Element[] = []
-    for (const root of roots) {
-        const items = shadowDOMHelper.queryDescendant(root, `${shadowDomSelectors.commentRenderder}, ${shadowDomSelectors.commentReplyRenderder}`, true) as Element[] | null
+    for (const thread of threads) {
+        const root = thread.shadowRoot
+        if (root) {
+            for (const item of root.querySelectorAll(rendererSelector)) renderers.push(item)
+            continue
+        }
+        // 没有 open shadow root 的兜底（B 站若改成 closed shadow / 直接铺在 light DOM）
+        const items = shadowDOMHelper.queryDescendant(thread, rendererSelector, true) as Element[] | null
         if (items) renderers.push(...items)
     }
-    // 同一元素可能被两层 roots 各查到一次
-    return Array.from(new Set(renderers))
+    return renderers
 }
-/** 当前评论区里可参与判定的渲染元素数量（给轮询做变化签名用） */
-export const countCommentRenderers = (): number => collectRenderers().length
 /**
  * 扫描播放页评论区，判定哪些评论来自「大肥鱼」
  *
@@ -214,11 +260,33 @@ export const scanFishComments = async (options: { threshold?: number } = {}): Pr
     const upMid = getUpMid()
     const session = pageKey()
     const candidates: Array<{ group: Group, score: number, reasons: DetectionReason[], raw: number, verdict: FishLevel }> = []
+    /** 取（或算）一个账号的判定结果，输入没变就直接复用缓存 */
+    const judge = (mid: string, group: Group, calledOut: number, priorPages: number, avatarBlue?: number): { score: number, raw: number, reasons: DetectionReason[] } => {
+        const sig = verdictSignature({
+            uname: group.facts.uname,
+            sign: group.facts.sign ?? '',
+            level: Number(group.facts.level ?? 0),
+            verify: Number(group.facts.verify ?? -1),
+            vip: Number(group.facts.vip ?? 0),
+            textCount: group.texts.length,
+            textLength: group.texts.reduce((sum, item) => sum + item.text.length, 0),
+            calledOut,
+            priorPages,
+            avatarBlue
+        })
+        const cached = verdictCache.get(mid)
+        if (cached && cached.sig === sig) return cached
+        const facts: AccountFacts = avatarBlue === undefined ? group.facts : { ...group.facts, avatarBlue }
+        const verdict = judgeAccount(facts, group.texts, { upMid, calledOut, priorPages })
+        if (verdictCache.size >= VERDICT_CACHE_LIMIT) verdictCache.clear()
+        const entry: CachedVerdict = { sig, score: verdict.score, raw: verdict.raw, reasons: verdict.reasons }
+        verdictCache.set(mid, entry)
+        return entry
+    }
     for (const [mid, group] of groups) {
         const priorPages = sessionHistory.get(mid)?.size ?? 0
-        const verdict = judgeAccount(group.facts, group.texts, { upMid, calledOut: callouts.get(mid) ?? 0, priorPages })
-        const level = levelOf(verdict.score, threshold)
-        candidates.push({ group, score: verdict.score, reasons: verdict.reasons, raw: verdict.raw, verdict: level })
+        const verdict = judge(mid, group, callouts.get(mid) ?? 0, priorPages)
+        candidates.push({ group, score: verdict.score, reasons: verdict.reasons, raw: verdict.raw, verdict: levelOf(verdict.score, threshold) })
         // 只有本来就像鱼的账号才记前科（避免把普通人越记越像）
         if (verdict.raw >= threshold - 10) {
             const pages = sessionHistory.get(mid) ?? new Set<string>()
@@ -226,16 +294,15 @@ export const scanFishComments = async (options: { threshold?: number } = {}): Pr
             sessionHistory.set(mid, pages)
         }
     }
-    // 头像取色：只给「已经有点像鱼」的账号做，且限制次数
+    // 头像取色：只给「再加满头像信号就可能过线」的账号做（低于 threshold-22 时取了也没用），且限制次数
     const needAvatar = candidates
-        .filter(item => item.raw >= threshold - 20 && item.group.avatar && !avatarBlueCache.has(item.group.avatar))
+        .filter(item => item.raw >= threshold - 22 && item.group.avatar && !avatarBlueCache.has(item.group.avatar))
         .slice(0, AVATAR_SAMPLE_LIMIT)
     await Promise.all(needAvatar.map(async item => {
         const ratio = await sampleAvatarBlue(item.group.avatar)
         if (ratio === null) return
-        const facts: AccountFacts = { ...item.group.facts, avatarBlue: ratio }
         const priorPages = sessionHistory.get(item.group.facts.mid)?.size ?? 0
-        const verdict = judgeAccount(facts, item.group.texts, { upMid, calledOut: callouts.get(item.group.facts.mid) ?? 0, priorPages })
+        const verdict = judge(item.group.facts.mid, item.group, callouts.get(item.group.facts.mid) ?? 0, priorPages, ratio)
         item.score = verdict.score
         item.reasons = verdict.reasons
         item.raw = verdict.raw
