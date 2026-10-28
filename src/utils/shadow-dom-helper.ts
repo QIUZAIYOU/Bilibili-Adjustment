@@ -1,218 +1,237 @@
 import { LoggerService } from '@/services/logger.service'
 const logger = new LoggerService('ShadowDOMHelper')
-/* global */
+/** 可穿透 Shadow DOM 的查询根节点 */
+export type QueryRoot = Element | Document | DocumentFragment
+/** 单批回调的条目数：避免一次性处理大量匹配元素阻塞主线程 */
+const CALLBACK_CHUNK_SIZE = 100
+/** 变更合并窗口（ms）：一批插入只扫描一次 */
+const MUTATION_DELAY_MS = 50
+/** requestIdleCallback 的超时兜底（ms）：页面繁忙时最多等这么久就必须开始首次扫描 */
+const IDLE_TIMEOUT_MS = 1000
+/**
+ * 校验根节点是否合法。
+ * 用 `typeof` 守卫是因为部分运行环境（与裁剪过的 JSDOM）不一定暴露 `ShadowRoot` 全局，
+ * 直接 `instanceof ShadowRoot` 会抛 ReferenceError。
+ */
+export function isValidQueryRoot (root: unknown): root is QueryRoot {
+    if (root instanceof Element || root instanceof Document) return true
+    return typeof DocumentFragment !== 'undefined' && root instanceof DocumentFragment
+}
+/**
+ * 统一的 CSS 选择器校验：遍历与监听共用同一套判定，避免两处逻辑漂移。
+ */
+export function assertValidSelector (selector: string): void {
+    if (typeof selector !== 'string' || selector.length === 0) {
+        throw new TypeError('selector must be a non-empty string')
+    }
+    try {
+        document.createDocumentFragment().querySelector(selector)
+    } catch {
+        throw new TypeError(`Invalid CSS selector: "${selector}"`)
+    }
+}
+/**
+ * 收集 `root` 的**直属**树里所有的 ShadowRoot（不进入 shadow 树内部，由调用方决定递归顺序）。
+ * 用 TreeWalker 替代手写栈：单次原生迭代，省掉大量 push/pop 与数组增长。
+ */
+export function collectShadowRoots (root: QueryRoot): ShadowRoot[] {
+    if (typeof document.createTreeWalker !== 'function') return []
+    const found: ShadowRoot[] = []
+    const walker = document.createTreeWalker(root as Node, NodeFilter.SHOW_ELEMENT)
+    let node = walker.nextNode() as Element | null
+    while (node) {
+        const shadowRoot = node.shadowRoot
+        if (shadowRoot) found.push(shadowRoot)
+        node = walker.nextNode() as Element | null
+    }
+    return found
+}
+/**
+ * 跨 Shadow DOM 边界按序查询（`first` 模式）：命中即返回。
+ * 顺序约定：当前边界的光照 DOM（原生 querySelector 的文档序）优先，
+ * 其后按同样规则深入各个 ShadowRoot，因此**先说光照 DOM，再是 shadow 树**。
+ */
+export function traverseFirst (root: QueryRoot, selector: string): Element | null {
+    assertValidSelector(selector)
+    if (!isValidQueryRoot(root)) throw new TypeError(`Invalid root: ${String(root)}`)
+    const queue: QueryRoot[] = [root]
+    const visited = new WeakSet<object>()
+    while (queue.length) {
+        const boundary = queue.shift()!
+        if (visited.has(boundary)) continue
+        visited.add(boundary)
+        const found = boundary.querySelector(selector)
+        if (found) return found
+        for (const shadowRoot of collectShadowRoots(boundary)) queue.push(shadowRoot)
+    }
+    return null
+}
+/**
+ * 跨 Shadow DOM 边界按序查询（`all` 模式）：结果按「边界先后 + 边界内文档序」排列，
+ * 同一棵边界内由原生 querySelectorAll 保证不重复。
+ */
+export function traverseAll (root: QueryRoot, selector: string): Element[] {
+    assertValidSelector(selector)
+    if (!isValidQueryRoot(root)) throw new TypeError(`Invalid root: ${String(root)}`)
+    const queue: QueryRoot[] = [root]
+    const visited = new WeakSet<object>()
+    const results: Element[] = []
+    while (queue.length) {
+        const boundary = queue.shift()!
+        if (visited.has(boundary)) continue
+        visited.add(boundary)
+        for (const el of boundary.querySelectorAll(selector)) results.push(el)
+        for (const shadowRoot of collectShadowRoots(boundary)) queue.push(shadowRoot)
+    }
+    return results
+}
+/**
+ * 跨 Shadow DOM 的插入监听器实现。
+ * 每个监听器独立持有自己的「已处理元素」集合与扫描队列，生命周期与返回的 stop 函数绑定。
+ */
+function observeInsertionInternal (selector: string, callback: (el: Element) => void, root: QueryRoot): () => void {
+    const processed = new WeakSet<Element>()
+    const observedRoots = new WeakSet<object>()
+    const queue: QueryRoot[] = []
+    let flushTimer: ReturnType<typeof setTimeout> | null = null
+    let cancelled = false
+    let draining = false
+    const scheduleIdle: (fn: () => void) => void = (typeof requestIdleCallback === 'function')
+        ? fn => requestIdleCallback(fn, { timeout: IDLE_TIMEOUT_MS })
+        : fn => setTimeout(fn, 0)
+    const observer = new MutationObserver((mutations: MutationRecord[]) => {
+        // 新出现的 ShadowRoot 必须立刻被观察，否则它内部后续的插入（例如展开楼中楼）会漏掉
+        let hasNewNodes = false
+        for (const mutation of mutations) {
+            if (mutation.type !== 'childList') continue
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType !== Node.ELEMENT_NODE) continue
+                const element = node as Element
+                hasNewNodes = true
+                // 元素自身的 shadowRoot 必须单独处理：TreeWalker 只走光照子树，不会进入它自己的 shadow tree
+                const ownShadowRoot = element.shadowRoot
+                if (ownShadowRoot) observeRoot(ownShadowRoot)
+                for (const shadowRoot of collectShadowRoots(element)) observeRoot(shadowRoot)
+            }
+        }
+        if (!hasNewNodes) return
+        // 把整棵新增子树入队，由统一遍历器负责穿透其内部的 Shadow DOM（含新增元素自身的 shadowRoot）
+        for (const mutation of mutations) {
+            if (mutation.type !== 'childList') continue
+            for (const node of mutation.addedNodes) {
+                if (node.nodeType !== Node.ELEMENT_NODE) continue
+                queue.push(node as Element)
+                const shadowRoot = (node as Element).shadowRoot
+                if (shadowRoot) queue.push(shadowRoot)
+            }
+        }
+        if (flushTimer) return
+        flushTimer = setTimeout(() => {
+            flushTimer = null
+            if (!cancelled) drain().catch(error => logger.error('插入队列处理失败:', error))
+        }, MUTATION_DELAY_MS)
+    })
+    const observeRoot = (target: QueryRoot): void => {
+        if (observedRoots.has(target)) return
+        observedRoots.add(target)
+        observer.observe(target as Node, { childList: true, subtree: true })
+    }
+    const drain = async (): Promise<void> => {
+        if (draining || cancelled) return
+        draining = true
+        try {
+            while (queue.length && !cancelled) {
+                const node = queue.shift()!
+                const batch: Element[] = []
+                // 元素自身也可能是目标（例如插入的就是标题节点）
+                if (node.nodeType === Node.ELEMENT_NODE && (node as Element).matches(selector)) {
+                    batch.push(node as Element)
+                }
+                for (const el of traverseAll(node, selector)) {
+                    if (!processed.has(el)) batch.push(el)
+                }
+                for (let i = 0; i < batch.length && !cancelled; i += CALLBACK_CHUNK_SIZE) {
+                    for (const el of batch.slice(i, i + CALLBACK_CHUNK_SIZE)) {
+                        if (cancelled) return
+                        if (processed.has(el)) continue
+                        processed.add(el)
+                        try {
+                            callback(el)
+                        } catch (error) {
+                            logger.error('插入回调执行失败:', error)
+                        }
+                    }
+                    if (i + CALLBACK_CHUNK_SIZE < batch.length) await new Promise<void>(r => setTimeout(r, 0))
+                }
+            }
+        } finally {
+            draining = false
+        }
+    }
+    observeRoot(root)
+    const rootShadowRoot = (root as Element).shadowRoot
+    if (rootShadowRoot) observeRoot(rootShadowRoot)
+    for (const shadowRoot of collectShadowRoots(root)) observeRoot(shadowRoot)
+    queue.push(root)
+    scheduleIdle(() => {
+        if (!cancelled) drain().catch(error => logger.error('插入队列处理失败:', error))
+    })
+    return () => {
+        if (cancelled) return
+        cancelled = true
+        if (flushTimer) {
+            clearTimeout(flushTimer)
+            flushTimer = null
+        }
+        queue.length = 0
+        observer.disconnect()
+    }
+}
 export class ShadowDOMHelper {
-    /** 已注册的 MutationObserver（WeakSet 仅用于保持引用/去重） */
-    private observers = new WeakSet<MutationObserver>()
-    /**
-     * 校验根节点是否合法
-     */
-    _isValidRoot (root: unknown): boolean {
-        return root instanceof Element || root instanceof Document || root instanceof DocumentFragment
-    }
-    /**
-     * 通用遍历器：负责发现 ShadowRoot 边界，在每个边界内使用原生查询
-     * 优化点：避免对每个子节点重复调用原生 querySelector，仅在 ShadowRoot 切换时遍历
-     * @param {Element|Document|DocumentFragment} root - 查询根节点
-     * @param {string} selector - CSS 选择器
-     * @param {'first'|'all'} mode - 查询模式
-     * @returns {Element|null|Element[]}
-     */
-    _traverse (root: Element | Document | DocumentFragment, selector: string, mode: 'first' | 'all' = 'first'): Element | Element[] | null {
-        if (!this._isValidRoot(root)) {
-            throw new TypeError(`Invalid root: ${root}`)
-        }
-        const isAll = mode === 'all'
-        const results: Set<Element> | null = isAll ? new Set<Element>() : null
-        const stack: Array<Element | Document | DocumentFragment> = [root]
-        const processed = new WeakSet()
-        while (stack.length) {
-            const node = stack.pop()!
-            if (processed.has(node)) continue
-            processed.add(node)
-            // 仅在根节点与 ShadowRoot 边界执行原生查询，避免对每个子节点重复 querySelector
-            if (node === root || node instanceof ShadowRoot) {
-                try {
-                    if (isAll) {
-                        for (const el of node.querySelectorAll(selector)) results?.add(el)
-                    } else {
-                        const found = node.querySelector(selector)
-                        if (found) return found
-                    }
-                } catch (e) {
-                    if (e instanceof DOMException && e.name === 'SyntaxError') {
-                        throw new TypeError(`Invalid CSS selector: "${selector}"`)
-                    }
-                    continue
-                }
-            }
-            // shadowRoot / children 只存在于 Element（Document 与 DocumentFragment 上分别缺失/等价），统一按 Element 读取
-            const nodeEl = node as Element
-            if (nodeEl.shadowRoot && !processed.has(nodeEl.shadowRoot)) {
-                stack.push(nodeEl.shadowRoot)
-            }
-            if (nodeEl.children) {
-                for (let i = nodeEl.children.length - 1; i >= 0; i--) {
-                    stack.push(nodeEl.children[i])
-                }
-            }
-        }
-        return isAll && results ? Array.from(results) : null
-    }
     /**
      * 通过 CSS 选择器获取指定的元素，穿透 Shadow DOM。
-     * @param {string} selector - CSS 选择器
-     * @param {Element|Document} [root=document] - 开始查找的根节点
-     * @returns {Element|null} - 匹配的第一个元素或 null
+     * @param selector - CSS 选择器
+     * @param root - 开始查找的根节点（默认 document）
+     * @returns 匹配的第一个元素或 null
      */
-    querySelector (selector: string, root: Element | Document = document): Element | null {
-        return this._traverse(root, selector, 'first') as Element | null
+    querySelector (selector: string, root: QueryRoot = document): Element | null {
+        return traverseFirst(root, selector)
     }
     /**
      * 获取所有匹配的元素，穿透 Shadow DOM，结果去重。
-     * @param {string} selector - CSS 选择器
-     * @param {Element|Document} [root=document] - 开始查找的根节点
-     * @returns {Element[]} - 所有匹配的唯一元素
+     * @param selector - CSS 选择器
+     * @param root - 开始查找的根节点（默认 document）
+     * @returns 所有匹配的唯一元素
      */
-    querySelectorAll (selector: string, root: Element | Document = document): Element[] {
-        return this._traverse(root, selector, 'all') as Element[]
+    querySelectorAll (selector: string, root: QueryRoot = document): Element[] {
+        return traverseAll(root, selector)
     }
     /**
      * 在指定节点及其后代中查询匹配 CSS 选择器的元素，穿透 Shadow DOM。
-     * @param {Element|ShadowRoot} element - 开始查询的节点
-     * @param {string} selector - CSS 选择器
-     * @param {boolean} [all=false] - 是否返回所有匹配元素
-     * @returns {Element|null|Element[]} - 第一个匹配元素（all=false）或所有匹配元素数组（all=true）
+     * @param element - 开始查询的节点
+     * @param selector - CSS 选择器
+     * @param all - 是否返回所有匹配元素
      */
-    queryDescendant (element: Element | ShadowRoot, selector: string, all = false): Element | Element[] | null {
-        return this._traverse(element, selector, all ? 'all' : 'first')
+    queryDescendant (element: QueryRoot, selector: string, all?: false): Element | null
+    queryDescendant (element: QueryRoot, selector: string, all: true): Element[]
+    queryDescendant (element: QueryRoot, selector: string, all = false): Element | null | Element[] {
+        return all ? traverseAll(element, selector) : traverseFirst(element, selector)
     }
     /**
-     * 监控元素插入并处理现有元素，异步化并优化性能。
-     * @param {string} selector - CSS 选择器
-     * @param {function} callback - 回调函数，接收匹配元素
-     * @param {Element|Document} [root=document] - 监控的根节点
-     * @returns {Function} - 停止监控的函数
+     * 监控元素插入并处理现有元素（异步、分批、可停止）。
+     * @param selector - CSS 选择器
+     * @param callback - 回调函数，接收匹配元素（同一元素只会回调一次）
+     * @param root - 监控的根节点（默认 document）
+     * @returns 停止监控的函数（可重复调用）
      */
-    observeInsertion (selector: string, callback: (el: Element) => void, root: Element | Document = document): () => void {
+    observeInsertion (selector: string, callback: (el: Element) => void, root: QueryRoot = document): () => void {
         if (typeof callback !== 'function') {
             throw new TypeError('callback must be a function')
         }
-        if (!this._isValidRoot(root)) {
-            throw new TypeError(`Invalid root: ${root}`)
+        if (!isValidQueryRoot(root)) {
+            throw new TypeError(`Invalid root: ${String(root)}`)
         }
-        try {
-            document.createElement('div').matches(selector)
-        } catch {
-            throw new TypeError(`Invalid CSS selector: "${selector}"`)
-        }
-        const processed = new WeakSet<Element>()
-        let pendingMutations: MutationRecord[][] = []
-        let timeoutId: ReturnType<typeof setTimeout> | null = null
-        let cancelled = false
-        const processQueue: Array<Element | Document | DocumentFragment> = []
-        let isDraining = false
-        const scheduleIdle: (fn: () => void) => void = (typeof requestIdleCallback === 'function')
-            ? fn => requestIdleCallback(fn)
-            : fn => setTimeout(fn, 1)
-        const processBatch = (elements: Iterable<Element>): void => {
-            for (const el of elements) {
-                if (!processed.has(el)) {
-                    processed.add(el)
-                    try {
-                        callback(el)
-                    } catch (e) {
-                        logger.error('插入回调执行失败:', e)
-                    }
-                }
-            }
-        }
-        const drainQueue = async (): Promise<void> => {
-            if (isDraining) return
-            isDraining = true
-            while (processQueue.length && !cancelled) {
-                const node = processQueue.shift()!
-                const batch: Element[] = []
-                // 复用 _traverse 的边界查询，避免逐节点重复 querySelector
-                // 注：nodeType 判断在前，非元素节点（Document/DocumentFragment）不会走到 matches
-                const nodeEl = node as Element
-                if (nodeEl.nodeType === Node.ELEMENT_NODE && nodeEl.matches(selector)) {
-                    batch.push(nodeEl)
-                }
-                for (const el of this._traverse(node, selector, 'all') as Element[]) {
-                    batch.push(el)
-                }
-                while (batch.length) {
-                    if (cancelled) break
-                    processBatch(batch.splice(0, 100))
-                    if (batch.length) await new Promise(r => setTimeout(r, 0))
-                }
-            }
-            isDraining = false
-        }
-        const initProcess = (): void => {
-            processQueue.push(root)
-            drainQueue().catch(error => logger.error('插入队列处理失败:', error))
-        }
-        scheduleIdle(initProcess)
-        const observer = new MutationObserver((mutations: MutationRecord[]) => {
-            pendingMutations.push(mutations)
-            if (!timeoutId) {
-                timeoutId = setTimeout(() => {
-                    const batches = pendingMutations
-                    pendingMutations = []
-                    timeoutId = null
-                    const batch = new Set<Element>()
-                    for (const mutationList of batches) {
-                        for (const mutation of mutationList) {
-                            if (mutation.type !== 'childList') continue
-                            for (const node of mutation.addedNodes) {
-                                if (node.nodeType !== Node.ELEMENT_NODE) continue
-                                const nodeEl = node as Element
-                                if (nodeEl.matches(selector)) batch.add(nodeEl)
-                                try {
-                                    const matches = nodeEl.querySelectorAll(selector)
-                                    for (const el of matches) batch.add(el)
-                                } catch { /* ignore */ }
-                                if (nodeEl.shadowRoot) {
-                                    // 新挂载的 shadow root 必须纳入观察，否则其内部后续插入无法触发回调
-                                    observeShadowRoots(nodeEl)
-                                    processQueue.push(nodeEl.shadowRoot)
-                                    drainQueue().catch(error => logger.error('插入队列处理失败:', error))
-                                }
-                            }
-                        }
-                    }
-                    processBatch(batch)
-                }, 50)
-            }
-        })
-        observer.observe(root, { childList: true, subtree: true })
-        this.observers.add(observer)
-        const observeShadowRoots = (node: Element | Document | DocumentFragment): void => {
-            const stack: Array<Element | Document | DocumentFragment> = [node]
-            const seen = new WeakSet<Element | Document | DocumentFragment>()
-            while (stack.length) {
-                const current = stack.pop()!
-                if (seen.has(current)) continue
-                seen.add(current)
-                const currentEl = current as Element
-                if (currentEl.shadowRoot) {
-                    observer.observe(currentEl.shadowRoot, { childList: true, subtree: true })
-                    stack.push(currentEl.shadowRoot)
-                }
-                if (currentEl.children) {
-                    for (const child of currentEl.children) stack.push(child)
-                }
-            }
-        }
-        observeShadowRoots(root)
-        return () => {
-            cancelled = true
-            observer.disconnect()
-            this.observers.delete(observer)
-            clearTimeout(timeoutId ?? undefined)
-            pendingMutations = []
-        }
+        assertValidSelector(selector)
+        return observeInsertionInternal(selector, callback, root)
     }
 }
