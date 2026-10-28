@@ -9,7 +9,9 @@
     "scripts": {
         "typecheck": "vue-tsc --noEmit",
         "dev": "vite",
-        "build": "vite build && node scripts/build-hot-config.mjs",
+        "build": "vite build && node scripts/build-hot-config.mjs && node scripts/sync-scriptcat.mjs",
+        "sync:scriptcat": "node scripts/sync-scriptcat.mjs",
+        "sync:scriptcat:strict": "node scripts/sync-scriptcat.mjs --strict",
         "build:hot-config": "node scripts/build-hot-config.mjs",
         "preview": "vite preview",
         "stats": "node scripts/build-stats.mjs",
