@@ -58,6 +58,8 @@ interface UiButtonsContext {
     openUpSpaceByAvatar: (button: HTMLElement | null) => void
     /** 打开「鱼塘」弹窗（大肥鱼识别结果） */
     openFishPond: () => void
+    /** 「鱼塘」按钮按需显示（仅在本页命中大肥鱼评论时出现） */
+    syncFishPondButton: (visible: boolean) => void
 }
 /** 侧栏「UP主空间」按钮（作者头像）的类名 —— 脚本自己的 DOM */
 const UP_AVATAR_SELECTOR = '.bili-adjustment-icon.up'
@@ -152,13 +154,13 @@ export const uiButtonsFeatures = {
         const existingUpButton = floatNav.querySelector('.bili-adjustment-icon.up')
         const existingSkipButton = floatNav.querySelector('.bili-adjustment-icon.skip')
         const existingFishPondButton = floatNav.querySelector('.bili-adjustment-icon.fishpond')
-        const catchFishEnabled = Boolean(this.userConfigs.catch_fish)
-        if (!catchFishEnabled && existingFishPondButton) {
+        // 「鱼塘」按钮是**按需出现**的：只有扫描真的命中大肥鱼评论才插入（见 syncFishPondButton），
+        // 所以这里只在功能被关掉时清残留，且不把它当作「已插齐」的判据
+        if (!this.userConfigs.catch_fish && existingFishPondButton) {
             existingFishPondButton.remove()
             logger.debug('侧边栏工具丨捞鱼已关闭，移除「鱼塘」按钮')
         }
-        const fishPondButtonReady = Boolean(existingFishPondButton) === catchFishEnabled
-        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton && fishPondButtonReady) {
+        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             return
         }
@@ -196,14 +198,8 @@ export const uiButtonsFeatures = {
                     }
                 })
             }
-            // 「鱼塘」按钮：「捞鱼」开着才有意义（关着时按钮都不插，避免留一个永远空的入口）；已插入但配置被关掉时顺手移除
-            if (catchFishEnabled && !existingFishPondButton) {
-                const fishPondButton = insertInjectedButton('fishPondButton', floatNav.lastElementChild as Node, 'prepend', {
-                    dataV,
-                    text: '鱼塘'
-                })
-                addEventListenerToElement(fishPondButton, 'click', () => { this.openFishPond() })
-            }
+            // 「鱼塘」按钮**不在这里插**：只有扫描命中大肥鱼评论时才出现（`syncFishPondButton`），
+            // 平时不占位，避免侧栏常年挂一个空入口
             // ⚠️ 「UP主空间」（作者头像）按钮**最后插入**：
             //    侧栏是纵向排列、插入方式又是 prepend（插到最前面），于是**最后插入的反而排在最上面** ——
             //    这样它就是侧栏的第一项（在「片段」按钮上方）。
@@ -251,6 +247,35 @@ export const uiButtonsFeatures = {
             }
         }
         logger.debug('侧边栏工具丨插入成功')
+    },
+    /**
+     * 「鱼塘」按钮按需出现：命中大肥鱼评论才插入，没有就移除
+     *
+     * 侧栏其它按钮是固定项，这一个只在「本页确实有鱼」时才有意义 —— 平时不显示，避免干扰。
+     * 插入位置：紧跟「UP主空间」头像下方（侧栏是 prepend 语义，直接 prepend 会跑到头像上面）。
+     * @param visible 当前是否命中至少 1 条大肥鱼评论
+     */
+    syncFishPondButton (this: UiButtonsContext, visible: boolean): void {
+        const floatNav = this.userConfigs.page_type === 'video' ? elementSelectors.get('videoFloatNav') : null
+        const existing = floatNav?.querySelector('.bili-adjustment-icon.fishpond') ?? null
+        if (!visible) {
+            if (existing) {
+                existing.remove()
+                logger.debug('侧边栏工具丨本页已无大肥鱼，移除「鱼塘」按钮')
+            }
+            return
+        }
+        if (!floatNav || existing) return
+        const dataV = floatNav.lastElementChild?.attributes?.[1]?.name || ''
+        const fishPondButton = insertInjectedButton('fishPondButton', floatNav.lastElementChild as Node, 'prepend', {
+            dataV,
+            text: '鱼塘'
+        })
+        if (!fishPondButton) return
+        addEventListenerToElement(fishPondButton, 'click', () => { this.openFishPond() })
+        const upButton = floatNav.querySelector(UP_AVATAR_SELECTOR)
+        if (upButton) upButton.after(fishPondButton)
+        logger.debug('侧边栏工具丨命中大肥鱼，插入「鱼塘」按钮')
     },
     /**
      * 点头像进 UP 主空间

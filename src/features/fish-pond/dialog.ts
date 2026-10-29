@@ -12,6 +12,7 @@ import { insertStyleToDocument, createElementAndInsert, sanitizeHttpUrl } from '
 import { countHiddenComments, getLastScan, scanFishComments } from './collect'
 import type { FishComment } from './collect'
 import { createScoreTip } from './score-tip'
+import { syncFishButtonByCount } from './button-sync'
 const logger = new LoggerService('VideoModule')
 /** 当前弹窗的悬浮说明实例（整张列表共用一个，弹窗销毁时一起收掉） */
 let activeTip: ReturnType<typeof createScoreTip> | null = null
@@ -101,7 +102,9 @@ const rescan = async (root: HTMLElement): Promise<void> => {
     const count = root.querySelector(FIELD.count) as HTMLElement | null
     if (count) count.textContent = '正在扫描…'
     try {
-        await scanFishComments()
+        const scan = await scanFishComments()
+        // 重扫结果可能变成 0 条：侧栏「鱼塘」按钮跟着收起（它本来就是按需出现的）
+        syncFishButtonByCount(scan.items.length)
     } catch (error) {
         logger.error('鱼塘丨扫描失败:', error)
         if (count) count.textContent = '扫描失败，可稍后重试'

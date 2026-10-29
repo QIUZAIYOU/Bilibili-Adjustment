@@ -116,6 +116,8 @@ interface VideoModuleContext {
     scheduleFishScan: () => void
     refreshFishPond: () => Promise<void>
     openFishPond: () => void
+    /** 「鱼塘」按钮按需显示（仅在本页命中大肥鱼评论时出现） */
+    syncFishPondButton: (visible: boolean) => void
     _fishObservationCleanups?: Array<() => void>
     _fishDebounceTimer?: ReturnType<typeof setTimeout> | null
     destroyUpSpacePopup: () => void

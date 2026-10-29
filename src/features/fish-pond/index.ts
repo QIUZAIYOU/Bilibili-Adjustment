@@ -14,6 +14,7 @@ import { EVENT_NAMES } from '@/shared/constants'
 import { eventBus } from '@/core/event-bus'
 import { hideFishComments, restoreFishComments, scanFishComments } from './collect'
 import { openFishPondDialog } from './dialog'
+import { registerFishButtonSyncer, syncFishButtonByCount } from './button-sync'
 const logger = new LoggerService('VideoModule')
 const shadowDOMHelper = new ShadowDOMHelper()
 /** 评论连续插入时的合并窗口：一批插入只扫一次 */
@@ -30,6 +31,8 @@ interface FishPondContext {
     _fishDebounceTimer?: ReturnType<typeof setTimeout> | null
     scheduleFishScan: () => void
     refreshFishPond: () => Promise<void>
+    /** 侧栏「鱼塘」按钮按需显示：命中到大肥鱼时才出现 */
+    syncFishPondButton: (visible: boolean) => void
 }
 export const fishPondFeatures = {
     /**
@@ -63,6 +66,9 @@ export const fishPondFeatures = {
             if (heartbeat) clearInterval(heartbeat)
             heartbeat = null
         })
+        // 把「按钮同步」交给弹窗共用（弹窗里的「重新扫描」也要能立刻更新按钮显隐）
+        registerFishButtonSyncer((visible: boolean) => this.syncFishPondButton(visible))
+        addCleanup(() => registerFishButtonSyncer(null))
         /** 评论区一出现就挂上监听（评论区是懒加载的，要等 #feed 出现） */
         const attachFeed = (): void => {
             if (stopFeedWatch) stopFeedWatch()
@@ -102,7 +108,10 @@ export const fishPondFeatures = {
             const payload = (args[0] ?? {}) as { key?: string, value?: unknown }
             if (payload.key !== 'catch_fish') return
             if (payload.value) this.scheduleFishScan()
-            else restoreFishComments()
+            else {
+                restoreFishComments()
+                syncFishButtonByCount(0)
+            }
         }
         addCleanup(eventBus.on(EVENT_NAMES.CONFIG_CHANGED, onConfigChanged))
     },
@@ -118,12 +127,18 @@ export const fishPondFeatures = {
      * 扫描一次并移除命中评论（「捞鱼」关着时直接返回，不扫也不动 DOM）
      */
     async refreshFishPond (this: FishPondContext): Promise<void> {
-        if (!this.userConfigs.catch_fish) return
+        if (!this.userConfigs.catch_fish) {
+            // 功能关掉时按钮也不该留着（可能上一秒还命中过）
+            syncFishButtonByCount(0)
+            return
+        }
         if ((this as FishPondContext & { _fishScanning?: boolean })._fishScanning) return
         const context = this as FishPondContext & { _fishScanning?: boolean }
         context._fishScanning = true
         try {
             const scan = await scanFishComments()
+            // 「鱼塘」按钮只在真的命中大肥鱼评论时出现，平时不显示（减少侧栏干扰）
+            syncFishButtonByCount(scan.items.length)
             if (!scan.items.length) return
             const hidden = hideFishComments(scan.items)
             if (hidden) logger.debug(`大肥鱼丨识别 ${scan.items.length} 条，本次移除 ${hidden} 条`)
