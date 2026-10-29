@@ -327,7 +327,7 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 id: 'catch_fish',
                 type: 'checkbox',
                 label: '捞鱼',
-                tips: '识别播放页评论区里的 AI 账号（大肥鱼）并隐藏它们的评论；开启后侧栏会出现「鱼塘」按钮，可查看命中的评论与判定依据',
+                tips: '自动识别播放页评论区里的 AI/机器人账号（如「大肥鱼」）并隐藏它们的评论；只有识别到这类账号时，侧栏才会出现「鱼塘」按钮，点开可查看命中的评论与判定依据',
                 category: 'basic',
                 defaultValue: false
             }
