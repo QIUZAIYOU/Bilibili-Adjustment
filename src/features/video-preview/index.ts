@@ -51,6 +51,18 @@ const PREVIEW_KEEP_ALIVE_MS = 10 * 60 * 1000
 const PREVIEW_DIALOG_WIDTH = 'min(1100px, 94vw)'
 /** 播放页最长等待（超时未出画面就回退官方外链播放器）—— 视频播放页比移动播放页慢，留宽一点 */
 const SAME_ORIGIN_READY_TIMEOUT_MS = 12000
+/** 跨源探测窗口：这么久还拿不到 contentDocument 就认定跨源（同源文档在 1s 内必然可读） */
+const CROSS_ORIGIN_PROBE_MS = 1000
+/**
+ * 预览能不能用「整页播放页 iframe」。
+ *
+ * ⚠️ 播放页在 `www.bilibili.com`，而预览入口主要在 `search.` / `t.` / `space.` / 首页 —— 那些页面里
+ * iframe 内的播放页**天然跨源**：`contentDocument` 恒为 null，等 12s 超时后再回退外链播放器，
+ * 用户看到的就是「弹窗打开后要等十几秒才有画面」（2026-10-31 实测：整页 iframe 1.5s 只完成导航，
+ * 内部视频 readyState 永远读不到；外链播放器 0.6s 就有画面）。
+ * 所以只有当前页面本身就在 www 站内时才走整页方案，其余站点直接用轻量外链播放器。
+ */
+const canUseSameOriginPlayer = (): boolean => location.hostname === 'www.bilibili.com'
 /** 注入播放页样式的 `<style>` id（幂等判据） */
 const PREVIEW_STYLE_ID = 'adj-preview-style'
 /** 等播放器渲染出「网页全屏」按钮的上限（控制条是悬停后才渲染的） */
@@ -372,8 +384,11 @@ const previewVideoElement = (frame?: HTMLIFrameElement | null): HTMLVideoElement
  */
 const waitForSameOriginPlayer = async (frame: HTMLIFrameElement, bvid: string, timeout = SAME_ORIGIN_READY_TIMEOUT_MS): Promise<boolean> => {
     const deadline = Date.now() + timeout
+    const startedAt = Date.now()
     while (Date.now() < deadline) {
         const doc = frame.contentDocument
+        // 跨源（典型：搜索页/首页/空间页里的播放页）：contentDocument 恒 null，再等也是白等 —— 立刻交回调用方走外链播放器
+        if (!doc && Date.now() - startedAt >= CROSS_ORIGIN_PROBE_MS) return false
         // 刚设上 src 时 contentDocument 还是初始 about:blank 占位文档（同源，会被立刻替换）
         if (doc && doc.URL && doc.URL !== 'about:blank' && doc.URL.includes(bvid)) {
             const video = previewVideoElement(frame)
@@ -542,6 +557,11 @@ const openVideoPreview = async (bvid: string, title: string): Promise<void> => {
             frame.allowFullscreen = true
             frame.setAttribute('allow', 'autoplay; fullscreen; encrypted-media')
             frame.setAttribute('scrolling', 'no')
+            // ⚠️ 必须 sandbox 且**不含 allow-top-navigation**（2026-10-31 定位到的真因）：
+            //   B 站视频页带防嵌套逻辑，被塞进 iframe 后会 `top.location = 自己`，
+            //   表现为「点预览弹窗打开了，同时原视频页也被打开（顶页被顶走）」。
+            //   沙箱默认禁止顶层导航，同时保留脚本/同源（Cookie 与播放必需）与弹窗/下载。
+            frame.setAttribute('sandbox', 'allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-presentation')
             // 预览标记：子框架里的脚本据此跳过「屏幕模式」等页面级自动化，否则它会把我们刚进的
             // 网页全屏改成用户的默认模式（见 utils/preview-frame）
             frame.setAttribute(PREVIEW_FRAME_ATTR, '')
@@ -574,7 +594,10 @@ const openVideoPreview = async (bvid: string, title: string): Promise<void> => {
     if (headerHalf > 0) dialog.root.style.setProperty('--adj-preview-header-half', `${headerHalf}px`)
     const frame = state.frame
     if (!frame) return
-    const primaryUrl = buildPreviewUrl(getTemplates.videoPreviewPlayerUrl, bvid)
+    const sameOriginAllowed = canUseSameOriginPlayer()
+    const primaryUrl = sameOriginAllowed
+        ? buildPreviewUrl(getTemplates.videoPreviewPlayerUrl, bvid)
+        : buildPreviewUrl(getTemplates.videoPreviewPlayerUrlFallback, bvid)
     const fallbackUrl = buildPreviewUrl(getTemplates.videoPreviewPlayerUrlFallback, bvid)
     // 已是同一地址（缓存复用）就不要重设 src：给 iframe.src 赋相同值也会触发重新加载，
     // 白白丢掉已缓冲的进度（UP主空间弹窗同款处理）
@@ -583,6 +606,16 @@ const openVideoPreview = async (bvid: string, title: string): Promise<void> => {
         setPreviewLoadingVisible(true)
         frame.src = primaryUrl
         state.pausedByHide = false
+    }
+    if (!sameOriginAllowed) {
+        // 跨源场景已直接挂上外链播放器：没有可读文档，也就没有「铺满」可等，揭开遮罩即可
+        state.usingFallback = true
+        state.loading = false
+        setPreviewLoadingVisible(false)
+        resumePreviewPlaybackIfPausedByHide()
+        if (titleEl) titleEl.textContent = ''
+        logger.debug(`视频预览丨当前页面与播放页跨源，使用外链播放器（${bvid}）`)
+        return
     }
     state.loading = true
     const ready = await waitForSameOriginPlayer(frame, bvid)

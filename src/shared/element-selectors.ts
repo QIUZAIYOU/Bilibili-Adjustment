@@ -34,6 +34,8 @@ const CSS_MAP: Record<string, string> = {
     playerContextMenu: '.bpx-player-contextmenu',
     // 视频
     video: '#bilibili-player video',
+    /** 视频画面承载层：旋转挂在这一层而不是 <video> 上（覆盖 canvas 渲染路径，且替换 video 元素不影响） */
+    playerVideoWrap: '#bilibili-player .bpx-player-video-wrap',
     videoTitle: '#viewbox_report h1',
     playerTitle: '#player-title',
     videoFloatNav: '.fixed-sidenav-storage',

@@ -60,6 +60,9 @@ interface VideoModuleContext {
     _videoRotateFullscreenHandler?: EventListener | null
     _videoRotateContextHandler?: EventListener | null
     _videoRotateVideo?: HTMLVideoElement | null
+    _videoRotateBound?: boolean
+    _videoRotateObserver?: MutationObserver | null
+    _videoRotateBaseTransform?: string
     _webfullWheelAttached?: boolean
     _lastSubtitleState?: string | null
     _subtitleUserClickHandler?: ((event: MouseEvent) => void) | null
@@ -206,7 +209,7 @@ export const buildVideoFeatureDefinitions = (ctx: VideoModuleContext): FeatureDe
         // ---- instant / player:ready ----
         { id: 'click-auto-locate', lane: 'instant', trigger: 'player:ready', when: () => on('click_player_auto_locate'), run: () => ctx.clickPlayerAutoLocate() },
         { id: 'cancel-mute', lane: 'instant', trigger: 'player:ready', when: () => on('auto_cancel_mute'), run: () => ctx.autoCancelMute() },
-        { id: 'video-rotate', lane: 'instant', trigger: 'features:ready', run: () => ctx.initVideoRotate() },
+        { id: 'video-rotate', lane: 'instant', trigger: 'player:ready', run: () => ctx.initVideoRotate() },
         { id: 'guard-episode-switch', lane: 'instant', trigger: 'features:ready', run: () => ctx.guardEpisodeSwitchClicks() },
         { id: 'hi-res', lane: 'instant', trigger: 'features:ready', when: () => on('is_vip') && on('auto_hi_res'), run: () => ctx.autoEnableHiResMode() },
         { id: 'highest-quality', lane: 'instant', trigger: 'features:ready', when: () => on('auto_select_video_highest_quality'), run: () => ctx.autoSelectVideoHighestQuality() },
