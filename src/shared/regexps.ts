@@ -362,6 +362,12 @@ export const regexps = {
     common: {
         /** 视频 id 校验（存储 key 里的 BV 号） */
         bvid: /^BV[0-9A-Za-z]+$/,
+        /** 严格的 BV 号（12 位）—— 参数来自 URL 时用它校验后再拼接口查询串 */
+        bvIdExact: /^BV[0-9A-Za-z]{10}$/,
+        /** 番剧 id（ep_id 纯数字，或 ss 前缀 season_id） */
+        bangumiId: /^(?:ep|ss)?\d+$/,
+        /** 纯数字 id（cid / aid / 分 P 序号共用） */
+        numericId: /^\d+$/,
         /** 纯数字 id（aid） */
         aid: /^\d+$/,
         /** 视频页路径片段 */

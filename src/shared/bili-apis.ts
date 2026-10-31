@@ -59,10 +59,12 @@ async function _processQueue (): Promise<void> {
 // ========== 带重试的请求 ==========
 /** 接口重试：首次间隔 1 秒，退避封顶 30 秒，总预算 3 分钟（**不按次数**） */
 const API_RETRY_INTERVAL_MS = 1000
-/** 合法的普通视频 id（BV 号 12 位）——审查 W2：参数来自 URL，未校验会拼进接口查询串 */
-const BV_ID_PATTERN = /^BV[0-9A-Za-z]{10}$/
-/** 合法的番剧 id（纯数字 ep_id，或 ss 前缀 season_id） */
-const BANGUMI_ID_PATTERN = /^(?:ep|ss)?\d+$/
+/**
+ * 审查 W2：参数来自 URL，未校验会拼进接口查询串。
+ * 正则统一走注册表（`regexps.common.*`），B 站改编号规则时改 hot-config 即可，不必发版。
+ */
+const BV_ID_PATTERN = (): RegExp => regexps.common.bvIdExact
+const BANGUMI_ID_PATTERN = (): RegExp => regexps.common.bangumiId
 /** 字幕正文只允许从 B 站域名取（含字幕 CDN .hdslb.com） */
 const SUBTITLE_HOST_SUFFIXES = ['.bilibili.com', '.bilivideo.com', '.hdslb.com', '.bilibili.tv']
 /**
@@ -73,7 +75,7 @@ const SUBTITLE_HOST_SUFFIXES = ['.bilibili.com', '.bilivideo.com', '.hdslb.com',
  * 也会把脏值带进缓存键。这里统一收口。
  */
 const isSafeVideoId = (videoId: string, pageType = 'video'): boolean =>
-    pageType === 'video' ? BV_ID_PATTERN.test(videoId) : BANGUMI_ID_PATTERN.test(videoId)
+    pageType === 'video' ? BV_ID_PATTERN().test(videoId) : BANGUMI_ID_PATTERN().test(videoId)
 const isSafeSubtitleUrl = (rawUrl: string): boolean => {
     try {
         const url = new URL(rawUrl)
@@ -130,7 +132,7 @@ export const biliApis = {
             if (fromPath) return fromPath
             const fromQuery = parsedUrl.searchParams.get('bvid')
             // 审查 W2：查询串里的 bvid 必须过格式校验再用
-            return fromQuery && BV_ID_PATTERN.test(fromQuery) ? fromQuery : 'error'
+            return fromQuery && BV_ID_PATTERN().test(fromQuery) ? fromQuery : 'error'
         } else if (isActivityVideoPage(pathname)) {
             // 活动视频页（如 /festival/xxx?bvid=BVxxx）：BV 号在**查询串**里，路径上没有
             // （2026-10-23 修：此前这里直接落到 'error'，导致活动页上的跳过广告、
@@ -219,7 +221,7 @@ export const biliApis = {
     },
     async getVideoSubtitles (bvid: string, cid: string | number): Promise<Array<BiliData> | null | undefined> {
         // 审查 W2：同上，bvid/cid 都要校验后再拼查询串
-        if (!BV_ID_PATTERN.test(String(bvid ?? '')) || !/^\d+$/.test(String(cid ?? ''))) {
+        if (!BV_ID_PATTERN().test(String(bvid ?? '')) || !regexps.common.numericId.test(String(cid ?? ''))) {
             logger.warn(`获取字幕列表丨非法的 bvid/cid，已拒绝请求: ${String(bvid ?? '')}/${String(cid ?? '')}`)
             return null
         }
