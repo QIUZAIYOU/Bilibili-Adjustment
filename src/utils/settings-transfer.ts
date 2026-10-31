@@ -11,6 +11,8 @@
  * 2. **导出与导入必须对称**：导出只写当前 schema 认识的键，导入端的白名单来自同一份 schema
  *    （ConfigService.DEFAULT_VALUES 由 settings-config 派生），保证「导出→导入」能完整回写。
  */
+/** 凭据类键名单（零依赖常量模块，见审查 C3） */
+import { SENSITIVE_CONFIG_KEYS } from '@/shared/sensitive-keys'
 /** 单条配置项（与 IndexedDB 里 {key, value} 的形态一致） */
 export interface SettingsTransferEntry {
     key: string
@@ -99,9 +101,15 @@ export const splitKnownEntries = (entries: SettingsTransferEntry[], knownKeys: I
  * 只导出当前 schema 认识的键 —— 与导入端的白名单对称，避免导出一堆无法回写的键。
  * 存值为 null/undefined 视为「没存过」而回落默认值，与 ConfigService.initializeDefaults 的口径一致。
  */
-export const buildSettingsExportPayload = (stored: Record<string, unknown> | null | undefined, defaults: Iterable<[string, unknown]>): Record<string, unknown> => {
+export const buildSettingsExportPayload = (stored: Record<string, unknown> | null | undefined, defaults: Iterable<[string, unknown]>, sensitiveKeys: ReadonlySet<string> = SENSITIVE_CONFIG_KEYS): Record<string, unknown> => {
     const payload: Record<string, unknown> = {}
     for (const [key, defaultValue] of defaults) {
+        // ⚠️ 2026-10-31 审查（C3）：凭据类键一律导出空串 —— 导出文件会被分享，
+        // 明文 Key 落盘 = 凭据外泄。导入端对空串同样跳过（不会把用户现有 Key 清掉）
+        if (sensitiveKeys.has(key)) {
+            payload[key] = ''
+            continue
+        }
         const storedValue = stored?.[key]
         payload[key] = storedValue === undefined || storedValue === null ? defaultValue : storedValue
     }

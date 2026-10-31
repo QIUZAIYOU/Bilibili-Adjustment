@@ -28,6 +28,8 @@ interface FishPondContext {
     userConfigs: Record<string, unknown>
     _cleanup: Array<() => void>
     _fishObservationCleanups?: Array<() => void>
+    /** 上一轮观察器登记的模块级兜底清理（重挂时先回收，避免 _cleanup 无界增长） */
+    _fishObservationCleanupEntry?: (() => void) | null
     _fishDebounceTimer?: ReturnType<typeof setTimeout> | null
     scheduleFishScan: () => void
     refreshFishPond: () => Promise<void>
@@ -45,11 +47,16 @@ export const fishPondFeatures = {
         this._fishObservationCleanups?.forEach(cleanup => cleanup())
         const cleanups: Array<() => void> = []
         this._fishObservationCleanups = cleanups
-        this._cleanup.push(() => {
+        // ⚠️ 每轮重挂都必须把上一轮登记到模块级 _cleanup 的那条兜底清掉（审查 W5）：
+        // 旧实现只 push 不回收，切几十个视频后 uninstall 要跑上百个空闭包
+        this._fishObservationCleanupEntry?.()
+        this._fishObservationCleanupEntry = () => {
             cleanups.forEach(cleanup => cleanup())
             cleanups.splice(0)
             this._fishObservationCleanups = []
-        })
+            this._fishObservationCleanupEntry = null
+        }
+        this._cleanup.push(() => this._fishObservationCleanupEntry?.())
         let replyWatchers = 0
         let stopFeedWatch: (() => void) | null = null
         let heartbeat: ReturnType<typeof setInterval> | null = null
@@ -97,13 +104,13 @@ export const fishPondFeatures = {
             if (!shadowDOMHelper.querySelector(shadowDomSelectors.commentRenderderContainer)) attachFeed()
             else this.scheduleFishScan()
         }, HEARTBEAT_MS)
-        cleanups.push(() => {
-            const onVisible = (): void => {
-                if (!document.hidden) this.scheduleFishScan()
-            }
-            document.addEventListener('visibilitychange', onVisible)
-            addCleanup(() => document.removeEventListener('visibilitychange', onVisible))
-        })
+        // 回到前台补扫一次（审查 W3：旧实现把注册写进了 cleanups 数组里 ——
+        // 那是「卸载时执行」的队列，等于装上就拆，回前台补扫从未生效）
+        const onVisible = (): void => {
+            if (!document.hidden) this.scheduleFishScan()
+        }
+        document.addEventListener('visibilitychange', onVisible)
+        cleanups.push(() => document.removeEventListener('visibilitychange', onVisible))
         const onConfigChanged = (...args: unknown[]): void => {
             const payload = (args[0] ?? {}) as { key?: string, value?: unknown }
             if (payload.key !== 'catch_fish') return

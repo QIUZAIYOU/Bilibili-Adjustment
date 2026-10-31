@@ -12,7 +12,7 @@
  *   afterCommit: async () => void  // 提交成功后复位识别状态并预识别（可空）
  * }
  */
-import { canUpdateCache } from './pure'
+import { canUpdateCache, sanitizeSegments } from './pure'
 import type { SkipSegment, SkipCacheEntry, SkipManagerEnv } from './types'
 /** loadCache 的装载结果 */
 export interface LoadCacheResult {
@@ -39,7 +39,8 @@ export const loadCache = async (env: SkipManagerEnv, bvid: string): Promise<Load
     const local = await storage.adCacheGet(bvid).catch(() => null)
     if (local && Array.isArray(local.segments)) {
         log?.info('跳过片段管理丨命中本地缓存')
-        return { cached: local, segments: [...(local.segments ?? [])], fromRemote: false }
+        // ⚠️ 缓存内容可能是被污染的（旧版本/远程写入/手改 IndexedDB），一律过白名单清洗
+        return { cached: local, segments: sanitizeSegments(local.segments), fromRemote: false }
     }
     let remote: SkipCacheEntry | null = null
     try {
@@ -56,7 +57,8 @@ export const loadCache = async (env: SkipManagerEnv, bvid: string): Promise<Load
     if (remote) {
         log?.info('跳过片段管理丨命中远程缓存')
         await storage.adCacheSet(bvid, remote).catch(() => {})
-        return { cached: remote, segments: [...(remote.segments ?? [])], fromRemote: true }
+        // 远程共享缓存来自其他用户，写库前先清洗（写入侧已过滤，读回侧再挡一层）
+        return { cached: remote, segments: sanitizeSegments(remote.segments ?? []), fromRemote: true }
     }
     return { cached: null, segments: [], fromRemote: false }
 }
@@ -65,7 +67,8 @@ export const loadEpisodesCache = async (env: SkipManagerEnv, episodeIds: string[
     const result = new Map<string, SkipCacheEntry | null>()
     await Promise.all(episodeIds.map(async id => {
         try {
-            result.set(id, await env.storage.adCacheGet(id))
+            const cached = await env.storage.adCacheGet(id)
+            result.set(id, cached && Array.isArray(cached.segments) ? { ...cached, segments: sanitizeSegments(cached.segments) } : cached)
         } catch {
             result.set(id, null)
         }
@@ -83,9 +86,11 @@ export const loadEpisodesCache = async (env: SkipManagerEnv, episodeIds: string[
                 if (!resp || !resp.ok) return
                 const payload = await resp.json()
                 const data = payload && payload.ok ? (payload.data as SkipCacheEntry) : null
-                if (data && Array.isArray(data.segments) && data.segments.length > 0) {
-                    await env.storage.adCacheSet(id, data).catch(() => {})
-                    result.set(id, data as SkipCacheEntry)
+                const safeSegments = data && Array.isArray(data.segments) ? sanitizeSegments(data.segments) : []
+                if (safeSegments.length > 0) {
+                    const safeEntry: SkipCacheEntry = { ...data!, segments: safeSegments }
+                    await env.storage.adCacheSet(id, safeEntry).catch(() => {})
+                    result.set(id, safeEntry)
                     env.log?.debug?.(`跳过片段管理丨剧集 ${id} 命中远程缓存`)
                 }
             } catch { /* 单集失败不影响其它剧集 */ }

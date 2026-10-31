@@ -26,6 +26,8 @@ export const FOLLOW_THEME = 'follow'
 const listeners = new Set<(id: string) => void>()
 let followObserver: MutationObserver | null = null
 let isFollowing = false
+/** CONFIG_CHANGED 订阅的取消函数（重复 init 时先解绑，避免监听叠加） */
+let detachConfigListener: (() => void) | null = null
 /** shared 分组 → CSS 变量前缀（--adj-<prefix>-<key>），两处生成逻辑共用 */
 const SHARED_PREFIX_MAP: Array<[string, keyof typeof night.shared]> = [
     ['space', 'spacing'],
@@ -154,7 +156,9 @@ export const ThemeManager: ThemeManagerApi = {
         style.textContent = generateThemeVariables()
         document.head.append(style)
         // 设置/跨标签页同步 theme 变更 → 即时应用（本地与远端均走同一事件）
-        eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
+        // 先解绑旧订阅：初始化可能被重复调用（模块重载/样式被移除后重建），否则一次事件触发 N 次
+        detachConfigListener?.()
+        detachConfigListener = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
             // eventBus 的 handler 形参是 rest，这里按原实现解构首个负载
             const { key, value } = (args[0] ?? {}) as { key?: string; value?: string }
             if (key === 'theme' && typeof value === 'string') this.setTheme(value)
@@ -172,6 +176,8 @@ export const ThemeManager: ThemeManagerApi = {
         if (value === FOLLOW_THEME || value === 'auto') {
             isFollowing = true
             startFollow()
+            // 审查 W8：follow 分支此前直接 return，订阅者永远收不到通知（跟随模式切主题后 UI 不刷新）
+            notify(FOLLOW_THEME)
             return true
         }
         if (!THEMES[value as ThemeId]) return false

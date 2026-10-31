@@ -83,5 +83,9 @@ export const initStylusNightFollowing = (): void => {
     // 清空 style 元素文本）时不会产生任何 DOM 变更记录，观察器无法感知，
     // 必须靠低频轮询才能可靠跟随开关。检测本身很轻（一次 querySelectorAll + includes），
     // 且 applyStateNow 内已有「状态未变化直接 return」的早退保护。
-    setInterval(applyState, 2000)
+    // 2026-10-31 审查（W9）：页面不可见时跳过采样，2s → 3s 降低常驻开销
+    setInterval(() => {
+        if (document.hidden) return
+        applyState()
+    }, 3000)
 }

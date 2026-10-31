@@ -52,12 +52,22 @@ export const getTemplates = new Proxy(templates, {
  * - 覆盖时要过契约校验 `checkTemplateOverride`：内置模板的 `[[占位符]]` 与 `id="..."` 必须全部保留
  *   （调用点按 id 取元素、按占位符替换，缺任何一个都会静默失效），并拦掉脚本/内联事件等可执行内容。
  */
+/**
+ * 内置模板快照（审查 W4）
+ *
+ * 契约校验必须始终以**内置**模板为基准：此前用 `templateMap[name]` 作基准，
+ * 而 `templateMap` 就是被就地改写的对象 —— 一旦某个 key 被覆盖过一次，
+ * 后续覆盖就对着「已被覆盖的版本」校验，占位符/id 契约会被逐步漂移掉。
+ * 这份快照只读，热更覆盖永不改写它。
+ * @type {Record<string, string>}
+ */
+const builtInTemplates = { ...templates }
 /** @type {Record<string, string>} 可用作「字符串键索引」的同一份模板表（热更覆盖就地改写它） */
 const templateMap = templates
 registerHotConfigTarget('templates', {
     keys: () => Object.keys(templateMap),
     apply: (name, value) => {
-        const reason = checkTemplateOverride(value, templateMap[name])
+        const reason = checkTemplateOverride(value, builtInTemplates[name])
         if (reason) throw new Error(reason)
         const html = String(value).trim()
         templateMap[name] = html

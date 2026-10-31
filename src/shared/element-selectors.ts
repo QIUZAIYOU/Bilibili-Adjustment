@@ -282,6 +282,16 @@ const checkNegative = (key: string, all: boolean): boolean => {
 /**
  * 清理最旧的缓存条目
  */
+/**
+ * 解析选择器名的生效 CSS 字符串（单一入口）
+ *
+ * 查询路径必须是 `CSS_MAP[key] || registry` —— **CSS_MAP 优先**：
+ * 热更覆盖（overrideSelector）会同时改两处，但内置值只在 CSS_MAP 里，
+ * 任何绕过这里自行读取的地方都会让覆盖静默失效（历史踩坑）。
+ * 审查 W5：原先这段表达式在 syncQuery / asyncWait / CSS() / batch() 里重复 4 份。
+ */
+const resolveSelector = (key: string): string | null =>
+    CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
 const trimCache = (): void => {
     if (elementCache.size <= CACHE_MAX_SIZE) return
     const entriesToDelete = elementCache.size - CACHE_MAX_SIZE
@@ -304,7 +314,7 @@ const trimCache = (): void => {
 function syncQuery (key: string, all: true): Element[]
 function syncQuery (key: string, all?: boolean): Element | null
 function syncQuery (key: string, all = false): Element | Element[] | null {
-    const selector = CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
+    const selector = resolveSelector(key)
     if (!selector) {
         logger.error(`未注册的选择器: "${key}"`)
         return all ? [] : null
@@ -346,7 +356,7 @@ function syncQuery (key: string, all = false): Element | Element[] | null {
 function asyncWait (key: string, timeout: number, all: true): Promise<Element[]>
 function asyncWait (key: string, timeout?: number, all?: boolean): Promise<Element | null>
 function asyncWait (key: string, timeout = 3000, all = false): Promise<Element | Element[] | null> {
-    const selector = CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
+    const selector = resolveSelector(key)
     if (!selector) {
         logger.error(`未注册的选择器: "${key}"`)
         return Promise.resolve(all ? [] : null)
@@ -499,7 +509,7 @@ export const elementSelectors: ElementSelectorsApi = {
      * @returns {string|null}
      */
     CSS (key) {
-        return CSS_MAP[key] || (hasSelector(key) ? getSelector(key) : null)
+        return resolveSelector(key)
     },
     /**
      * 批量查询多个选择器（一次 DOM 遍历）
@@ -508,7 +518,7 @@ export const elementSelectors: ElementSelectorsApi = {
      */
     async batch (keys) {
         const selectorStrings = keys
-            .map(k => CSS_MAP[k] || (hasSelector(k) ? getSelector(k) : null))
+            .map(k => resolveSelector(k))
             .filter((sel): sel is string => Boolean(sel))
         if (selectorStrings.length === 0) {
             logger.error('batch 查询失败: 所有选择器均未注册')

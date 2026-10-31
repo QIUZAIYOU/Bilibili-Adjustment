@@ -10,6 +10,7 @@ import { BUILD_SHA } from '@/shared/build-info'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
 import { formatPendingUpdateHint, isComparableBuildSha } from '@/utils/update-policy'
+import { maskConfigValueForKey } from '@/shared/sensitive-keys'
 import { parseSettingsPayload, splitKnownEntries, buildSettingsExportPayload, formatImportSummary, formatLocalDateStamp, MAX_IMPORT_ENTRIES } from '@/utils/settings-transfer'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
@@ -341,6 +342,8 @@ export class SettingsDialogHost {
         enhanceCustomSelects(popover)
         // 初始化 tooltip 并将 tooltip 元素插入 popover 内，避免被 popover 的顶层(top layer)遮挡
         // 说明：TooltipComponent 只消费 delay / container（hideDelay 从未被读取），故不再传入
+        // 审查 W7：单例 tooltip 在容器被销毁后必须重置（理由同动态页分支）
+        destroyTooltip()
         initTooltip({ delay: 300, container: popover as HTMLElement })
         requestAnimationFrame(() => {
             bindTooltipIcons()
@@ -349,9 +352,14 @@ export class SettingsDialogHost {
         this.fetchDynamicOptions().then(options => {
             if (!options?.ai_model) return
             // 就地合并到挂载时赋值的共享动态选项对象（面板已代理该对象；替换引用不会触发重渲染）
-            Object.assign(this._pendingModelOptions!, options)
+            // 审查 W6：不再用非空断言 —— 面板已卸载/重建时该对象可能不存在，静默跳过即可
+            if (!this._pendingModelOptions) return
+            Object.assign(this._pendingModelOptions, options)
             refreshCustomSelects(popover)
-        }).catch(() => {})
+        }).catch(error => {
+            // 审查 W6：原先 `.catch(() => {})` 会把模型列表接口的所有失败吞掉，日志里毫无线索
+            logger.warn('设置面板丨异步获取模型列表失败', error)
+        })
     }
     /**
      * 获取动态选项（如模型列表）
@@ -869,6 +877,9 @@ export class SettingsDialogHost {
         if (panel) {
             // 表单 DOM 就绪后应用自绘下拉与 tooltip 增强
             enhanceCustomSelects(popover)
+            // 审查 W7：tooltip 是单例，容器随弹窗销毁后必须重置，否则下一次打开会复用
+            // 指向已从文档移除的 container（提示不显示或漂到页面左上角）
+            destroyTooltip()
             initTooltip({ delay: 300, container: popover as HTMLElement })
             requestAnimationFrame(() => {
                 bindTooltipIcons()
@@ -918,7 +929,8 @@ export class SettingsDialogHost {
         } else {
             this.userConfigs[key] = value
         }
-        logger.debug(`配置已更新: ${key} = ${value}`)
+        // ⚠️ 2026-10-31 审查（C3）：凭据类键打码，调试日志不得留下明文 Key
+        logger.debug(`配置已更新: ${key} = ${maskConfigValueForKey(key, value)}`)
     }
     /**
      * 导出用户配置

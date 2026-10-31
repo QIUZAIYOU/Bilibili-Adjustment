@@ -5,8 +5,13 @@ const logger = new LoggerService('VideoModule', { notify: false })
 const DRIFT_TOLERANCE_PX = 24
 /** 守卫最长存活时间：兜底释放，任何异常情况下都不会长期接管页面滚动 */
 const MAX_HOLD_MS = 4000
-/** 用户主动滚动/操作的事件：一出现就释放守卫（绝不和用户抢滚动条） */
-const USER_INTENT_EVENTS = ['wheel', 'touchstart', 'keydown'] as const
+/** 用户主动滚动/操作的事件：一出现就释放守卫（绝不和用户抢滚动条）
+ *  ⚠️ 必须含 pointerdown/mousedown（审查 W5）：拖滚动条只会触发 mousedown/pointerdown，
+ *  旧列表只有 wheel/touchstart/keydown，于是「拖滚动条」被当成页面漂移，每帧被强拉回去 */
+const USER_INTENT_EVENTS = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+/** 打在补丁函数上的标记：用于取回「真正的原生 scrollTo」，避免多层包装叠罗汉 */
+const NATIVE_SCROLL_TO = Symbol('adjNativeScrollTo')
+type PatchedScrollTo = typeof window.scrollTo & { [NATIVE_SCROLL_TO]?: (...args: unknown[]) => void }
 /** 守卫句柄 */
 export interface ScrollGuardHandle {
     /** 更新锚定位置（定位流程算出最终目标后调用） */
@@ -61,7 +66,11 @@ export const holdScrollPosition = (targetY: number, options: { tolerance?: numbe
     activeGuard?.release()
     const tolerance = options.tolerance ?? DRIFT_TOLERANCE_PX
     const maxMs = options.maxMs ?? MAX_HOLD_MS
-    const nativeScrollTo = win.scrollTo.bind(win) as (...args: unknown[]) => void
+    // 取真正的原生 scrollTo：若当前 scrollTo 是我们自己装上去的补丁（上一轮 release 没还原成功），
+    // 直接从补丁上取原生引用，绝不在补丁上再包一层（审查 W5：旧实现每 hold 一次就叠一层闭包）
+    const currentScrollTo = win.scrollTo as PatchedScrollTo
+    const existingNative = currentScrollTo[NATIVE_SCROLL_TO]
+    const nativeScrollTo = (existingNative ?? win.scrollTo.bind(win)) as (...args: unknown[]) => void
     let target = targetY
     let released = false
     let rafId = 0
@@ -91,7 +100,9 @@ export const holdScrollPosition = (targetY: number, options: { tolerance?: numbe
         intercepted++
         logger.debug(`选集定位丨已接管页面滚动：${Math.round(requested)} → ${Math.round(target)}（保持在播放器位置）`)
         nativeScrollTo({ top: target, behavior: 'instant' })
-    } as typeof win.scrollTo
+    } as PatchedScrollTo
+    // 把原生引用挂在补丁上：下一轮 hold 可以直接取回，不会在补丁上再包一层
+    patchedScrollTo[NATIVE_SCROLL_TO] = nativeScrollTo
     const tick = (): void => {
         if (released) return
         if (Math.abs(win.scrollY - target) > tolerance) {

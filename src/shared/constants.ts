@@ -7,7 +7,6 @@ export const EVENT_NAMES = {
     LOGGER_SHOW: 'logger:show',
     VIDEO_CANPLAYTHROUGH: 'video:canplaythrough',
     VIDEO_PLAYER_MODE_SELECTED: 'video:playerModeSelected',
-    VIDEO_START_OTHER_FUNCTIONS: 'video:startOtherFunctions',
     VIDEO_WEBFULL_PLAYER_MODE_UNLOCK: 'video:webfullPlayerModeUnlock',
     MODULE_REGISTERED: 'module:registered',
     MODULE_UNLOADED: 'module:unloaded',

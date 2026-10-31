@@ -357,8 +357,10 @@ let originalPushState: typeof history.pushState
 let originalReplaceState: typeof history.replaceState
 const hrefListenerOptions = { passive: true, capture: true }
 const getFinalHref = (url: URL): string => {
-    const pParam = url.searchParams.get('p')
-    return `${url.href.split('?')[0].trim()}${pParam ? `?p=${pParam}` : ''}`.replace(/\/+$/, '')
+    // 保留全部查询参数（此前只留 p）：/festival/xxx?bvid=… 这类活动页换视频时
+    // 旧逻辑算出的 finalHref 不变 → handleHrefChanged 不触发，页面模块停在旧视频上
+    const search = url.searchParams.toString()
+    return `${url.origin}${url.pathname}${search ? `?${search}` : ''}`.replace(/\/+$/, '')
 }
 const notifyHrefChange = (): void => {
     const currentHref = location.href
@@ -532,7 +534,9 @@ export const initializeCheckbox = (elements: unknown, userConfigs: Record<string
         requestAnimationFrame(() => {
             element.checked = value
             element.toggleAttribute('checked', value)
-            element.dispatchEvent(new Event('change', { bubbles: true }))
+            // ⚠️ 不要在这里伪造 change 事件（审查 W2）：监听方会把「初始化/同步」误当成
+            // 用户点击去写库，且写的是构造期旧快照 —— 表现为每次进播放页都多一次写库，
+            // 甚至把用户刚改的值覆盖回去。需要同步通知就用各自的显式刷新入口。
         })
     })
 }

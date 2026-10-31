@@ -29,7 +29,7 @@ test('接口请求：连续 503 会重试并最终成功', { timeout: 20000 }, a
         return jsonResponse({ code: 0, data: { subtitle: { subtitles: [{ lan: 'zh-CN', subtitle_url: '//x/y.json' }]}}})
     }) as typeof fetch
     try {
-        const subtitles = await biliApis.getVideoSubtitles('BV1retry', 100)
+        const subtitles = await biliApis.getVideoSubtitles('BV1xx411c7mD', 100)
         assert.deepEqual(subtitles, [{ lan: 'zh-CN', subtitle_url: '//x/y.json' }], '重试成功后应拿到数据')
         assert.equal(calls, 3, '前两次 503 应被重试，第 3 次成功')
     } finally {
@@ -44,8 +44,26 @@ test('接口请求：确定性失败（404）不重试，直接抛出', { timeou
         return new Response('not found', { status: 404 })
     }) as typeof fetch
     try {
-        await assert.rejects(biliApis.getVideoSubtitles('BV1notfound', 1), /404/)
+        await assert.rejects(biliApis.getVideoSubtitles('BV1xx411c7mD', 1), /404/)
         assert.equal(calls, 1, '404 重试再久也没用，只尝试一次')
+    } finally {
+        globalThis.fetch = originalFetch
+    }
+})
+
+test('接口请求：非法 bvid 在校验阶段就被拒绝，不发请求（审查 W2）', { timeout: 20000 }, async () => {
+    const originalFetch = globalThis.fetch
+    let calls = 0
+    globalThis.fetch = (async () => {
+        calls++
+        return jsonResponse({ code: 0, data: { subtitle: { subtitles: [] }}})
+    }) as typeof fetch
+    try {
+        // 不是 12 位 BV 号（含查询串走私、注入字符）
+        for (const bad of ['BV1', 'BV1xx411c7mD%26cid%3D0', '../../x', '']) {
+            assert.equal(await biliApis.getVideoSubtitles(bad, 100), null, `应拒绝：${bad}`)
+        }
+        assert.equal(calls, 0, '非法 id 不应发出任何网络请求')
     } finally {
         globalThis.fetch = originalFetch
     }

@@ -511,19 +511,17 @@ export const videoSettingsConfig: SettingItemSchema[] = [
     }
 ]
 // 动态页设置配置
-export const dynamicSettingsConfig: SettingItemSchema[] = [
-    {
-        id: 'dynamic_section',
-        type: 'section',
-        label: '投稿视频',
-        items: [
-            {
-                id: 'dynamic_video_link',
-                type: 'input',
-                label: '「投稿视频」链接',
-                tips: '点击「投稿视频」选项后，填入当前浏览器地址栏链接，即可自动跳转至该链接',
-                defaultValue: 'https://t.bilibili.com/?tab=video'
-            }
-        ]
-    }
-]
+export const dynamicSettingsConfig: SettingItemSchema[] = [{
+    id: 'dynamic_section',
+    type: 'section',
+    label: '投稿视频',
+    items: [
+        {
+            id: 'dynamic_video_link',
+            type: 'input',
+            label: '「投稿视频」链接',
+            tips: '点击「投稿视频」选项后，填入当前浏览器地址栏链接，即可自动跳转至该链接',
+            defaultValue: 'https://t.bilibili.com/?tab=video'
+        }
+    ]
+}]

@@ -23,6 +23,8 @@ export interface PerfRecord {
     at: number
 }
 const started = new Map<string, number>()
+/** 环形上限（审查 W6）：长驻 SPA 会一直累计，旧实现 records 只增不减会慢慢吃内存 */
+const MAX_RECORDS = 200
 const records: PerfRecord[] = []
 /** 打一个瞬时 mark（不产生耗时记录） */
 export const perfMark = (name: string): void => {
@@ -47,6 +49,7 @@ export const perfEnd = (name: string, meta?: Record<string, unknown>): number | 
     started.delete(name)
     const duration = Math.round((now() - startAt) * 10) / 10
     records.push({ name, duration, meta: meta ?? null, at: Date.now() })
+    if (records.length > MAX_RECORDS) records.splice(0, records.length - MAX_RECORDS)
     if (canUsePerformance) {
         try {
             performance.mark(`${PREFIX}${name}:end`)

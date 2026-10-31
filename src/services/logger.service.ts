@@ -9,7 +9,8 @@ export interface LogLevelConfig {
     log_level_warn?: boolean
     log_level_debug?: boolean
 }
-const getPageTypePrefix = (): string => {
+let cachedPageTypePrefix: string | null = null
+const computePageTypePrefix = (): string => {
     const { host, pathname, origin } = window.location
     // 页型判据统一走 utils/page-type.ts（唯一实现），别在这里另写一份路径正则
     if (isNormalVideoPage(pathname) || isActivityVideoPage(pathname)) return '播放页调整'
@@ -17,6 +18,33 @@ const getPageTypePrefix = (): string => {
     if (host === 'www.bilibili.com' && pathname === '/') return '首页调整'
     if (origin === 'https://t.bilibili.com') return '动态页调整'
     return '其他页调整'
+}
+// 页型在单个页面生命周期内不会变（SPA 换页会重载脚本或改 href，但日志前缀只用于阅读），
+// 缓存一次即可：旧实现每条日志都跑一遍页型正则（审查 I12）
+const getPageTypePrefix = (): string => {
+    if (cachedPageTypePrefix === null) cachedPageTypePrefix = computePageTypePrefix()
+    return cachedPageTypePrefix
+}
+/** 测试/SPA 内部跳转后如需刷新前缀可调用 */
+export const resetPageTypePrefixCache = (): void => {
+    cachedPageTypePrefix = null
+}
+/**
+ * 通知文案的安全序列化（审查 W9）
+ *
+ * `JSON.stringify(new Error('x'))` 得到 `{}`，而带循环引用的对象会直接抛错 ——
+ * 日志路径上抛错会把「记录」变成「崩溃」。这里优先用 Error 的 message，
+ * 其余对象在抛错时回落到 String()。
+ */
+const stringifyForNotification = (value: unknown): string => {
+    if (typeof value === 'string') return value
+    if (value instanceof Error) return value.message || value.name
+    if (value === undefined || value === null) return String(value)
+    try {
+        return JSON.stringify(value) ?? String(value)
+    } catch {
+        return String(value)
+    }
 }
 export class LoggerService {
     static LEVELS = {
@@ -82,7 +110,9 @@ export class LoggerService {
             // notifyOverride === false 时按调用点静音（构造参数 notify=false 则是静态全静音）
             if (this.notify && notifyOverride !== false && (level === 'warn' || level === 'error')) {
                 const title = level === 'warn' ? '⚠️ 警告' : '❌ 错误'
-                const msg = args.map(a => typeof a === 'string' ? a : JSON.stringify(a)).join(' ')
+                // 审查 W9：JSON.stringify(Error) 会得到 {}、循环引用会直接抛在日志路径上，
+                // 统一走安全序列化
+                const msg = args.map(a => stringifyForNotification(a)).join(' ')
                 if (level === 'error') notification.error(`${title}丨${this.module}`, msg)
                 else notification.warn(`${title}丨${this.module}`, msg)
             }

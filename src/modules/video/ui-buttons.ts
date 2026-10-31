@@ -33,8 +33,21 @@ const insertInjectedButton = (key: string, target: Node, method: InsertionMethod
     // 模板键是字符串（调用方传入）：按"字符串键表"索引，仅类型层收窄
     const template = (getTemplates as Record<string, string>)[key]
     if (!template) return null
-    const element = createElementAndInsert(template, target, method) as HTMLElement | null
-    if (!element) return null
+    if (!target || typeof (target as Node).nodeType !== 'number') {
+        logger.warn(`侧边栏工具丨插入 ${key} 失败：目标节点无效（${String(target)}）`)
+        return null
+    }
+    let element: HTMLElement | null = null
+    try {
+        element = createElementAndInsert(template, target, method) as HTMLElement | null
+    } catch (error) {
+        logger.warn(`侧边栏工具丨插入 ${key} 抛错：${error instanceof Error ? error.message : String(error)}`)
+        return null
+    }
+    if (!element) {
+        logger.warn(`侧边栏工具丨插入 ${key} 返回空（target=${(target as Element).nodeName ?? '?'}）`)
+        return null
+    }
     if (options.className) element.classList.add(...options.className.split(/\s+/).filter(Boolean))
     if (options.style) element.setAttribute('style', options.style)
     if (options.dataV) element.setAttribute(options.dataV, '')
@@ -44,6 +57,8 @@ const insertInjectedButton = (key: string, target: Node, method: InsertionMethod
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface UiButtonsContext {
     userConfigs: Record<string, unknown>
+    /** 自身方法（有界重试会再次调用它；上下文由模块实例提供，运行时一定存在） */
+    insertSideFloatNavToolsButtons: () => Promise<void>
     settingsComponent: { openSettings: () => Promise<void> }
     _cachedMid?: string | number
     locateToPlayer: () => Promise<void>
@@ -116,6 +131,78 @@ const measureAvatarSize = (button: HTMLElement): number => {
     const width = button.getBoundingClientRect().width
     return resolveAvatarSize(width)
 }
+/**
+ * 侧栏按钮插入的有界重试（2026-10-31）
+ *
+ * 触发场景：功能在 canplaythrough 就派发，而 B 站的 `.fixed-sidenav-storage` 往往要等
+ * 播放器交互层渲染完才出现；一次性跳过会让侧栏功能整页缺失。这里每 700ms 重试一次，
+ * 最多 12 次（约 8.4s），超过则放弃并只留一条 warn，避免无限轮询。
+ */
+let floatNavRetryTimer: ReturnType<typeof setTimeout> | null = null
+let floatNavRetryCount = 0
+const FLOAT_NAV_RETRY_INTERVAL_MS = 700
+const FLOAT_NAV_RETRY_MAX = 12
+const cancelFloatNavInsertRetry = (): void => {
+    if (floatNavRetryTimer) {
+        clearTimeout(floatNavRetryTimer)
+        floatNavRetryTimer = null
+    }
+    floatNavRetryCount = 0
+}
+/**
+ * 侧栏按钮「被 B 站重渲染抹掉」的看护（2026-10-31）
+ *
+ * 实测：`.fixed-sidenav-storage` 的 children 会被 React 整段替换（水合完成、宽屏切换各一次），
+ * 我们插入的按钮随之消失，之后再也没人补回去 —— 用户看到的就是「侧边栏按钮没插入/功能不执行」。
+ * 这里挂一个 childList 观察器：只要导航栏重新出现且里面没有我们的定位按钮，就补插一次。
+ * 用计数上限自我限制，避免插入失败时无限重试。
+ */
+let floatNavObserver: MutationObserver | null = null
+let floatNavReinsertCount = 0
+let floatNavReinsertTimer: ReturnType<typeof setTimeout> | null = null
+const FLOAT_NAV_REINSERT_MAX = 20
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const stopFloatNavWatch = (): void => {
+    floatNavObserver?.disconnect()
+    floatNavObserver = null
+    if (floatNavReinsertTimer) {
+        clearTimeout(floatNavReinsertTimer)
+        floatNavReinsertTimer = null
+    }
+}
+const startFloatNavWatch = (ctx: UiButtonsContext): void => {
+    if (floatNavObserver || typeof MutationObserver === 'undefined') return
+    // 关键：B 站侧栏是 React 管理的列表，任何在其重渲染期间的子节点都会被整段替换掉
+    // （实测：插进 `.fixed-sidenav-storage` 的节点 500ms 内消失）。所以不在变更当下硬插，
+    // 而是等 DOM「安静」一段时间（连续 1200ms 没有 childList 变更）后再补插。
+    const scheduleQuietInsert = (): void => {
+        if (floatNavReinsertTimer || floatNavReinsertCount >= FLOAT_NAV_REINSERT_MAX) return
+        if (floatNavReinsertTimer) clearTimeout(floatNavReinsertTimer)
+        floatNavReinsertTimer = setTimeout(() => {
+            floatNavReinsertTimer = null
+            const nav = elementSelectors.get('videoFloatNav') as HTMLElement | null
+            if (!nav || nav.querySelector('.bili-adjustment-icon.locate')) return
+            floatNavReinsertCount += 1
+            logger.debug(`侧边栏工具丨页面已稳定，补插第 ${floatNavReinsertCount} 次`)
+            void ctx.insertSideFloatNavToolsButtons()
+        }, 1200)
+    }
+    floatNavObserver = new MutationObserver(scheduleQuietInsert)
+    if (document.body) floatNavObserver.observe(document.body, { childList: true, subtree: true })
+    scheduleQuietInsert()
+}
+const scheduleFloatNavInsertRetry = (ctx: UiButtonsContext): void => {
+    if (floatNavRetryTimer) return
+    if (floatNavRetryCount >= FLOAT_NAV_RETRY_MAX) {
+        logger.warn(`侧边栏工具丨重试 ${FLOAT_NAV_RETRY_MAX} 次仍未找到浮动导航栏，放弃插入`)
+        return
+    }
+    floatNavRetryCount += 1
+    floatNavRetryTimer = setTimeout(() => {
+        floatNavRetryTimer = null
+        void ctx.insertSideFloatNavToolsButtons()
+    }, FLOAT_NAV_RETRY_INTERVAL_MS)
+}
 export const uiButtonsFeatures = {
     /**
      * 定位按钮点击：新页面迷你播放器按钮隐藏不可用，开启小窗会触发 B站 滚动推荐列表并搅动布局，
@@ -144,9 +231,13 @@ export const uiButtonsFeatures = {
     async insertSideFloatNavToolsButtons (this: UiButtonsContext): Promise<void> {
         const floatNav = this.userConfigs.page_type === 'video' ? elementSelectors.get('videoFloatNav') : elementSelectors.get('bangumiFloatNav')
         if (!floatNav) {
-            logger.warn('侧边栏工具丨未找到浮动导航栏，跳过插入')
+            // 调度改成三车道后，本功能在 canplaythrough 就派发，此时 B 站侧栏常常还没渲染。
+            // 旧实现直接 return，按钮就再也不出现（用户看到的"侧边栏按钮没插入"）。这里做有界重试。
+            scheduleFloatNavInsertRetry(this)
             return
         }
+        cancelFloatNavInsertRetry()
+        startFloatNavWatch(this)
         const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild?.attributes?.[1]?.name || '' : ''
         // 检查是否已经存在定位按钮和设置按钮
         const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
@@ -212,7 +303,8 @@ export const uiButtonsFeatures = {
                 // 先量宽度：此刻按钮里只有那颗图标（与旧按钮内容完全一致），量到的就是**旧按钮的宽度**
                 avatarButton.style.setProperty('--adj-up-avatar-size', `${measureAvatarSize(avatarButton)}px`)
                 avatarButton.classList.add('adj-sidenav-up-avatar-ready')
-                await this.refreshUpAvatar()
+                // 头像补全要走网络（视频信息接口），不能挡住后面按钮的插入：后台补即可
+                void this.refreshUpAvatar()
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {

@@ -121,6 +121,7 @@ export class RetryQueue {
         const results: RetryResult[] = []
         const now = this._now()
         try {
+            const due: Array<[string, RetryTask]> = []
             for (const [id, task] of [...this._tasks]) {
                 // 退避未到点：本轮跳过，交给下一轮（外部 pump 提前调用也不会打断节奏）
                 if (task.nextAt > now) continue
@@ -131,20 +132,28 @@ export class RetryQueue {
                     results.push({ id, success: false, error: new Error('retry budget exhausted') })
                     continue
                 }
-                task.attempts++
-                // 每次尝试都打到 info：用户/排查时能在控制台看到"确实在重试"
-                logger.info(`重试任务 ${id}：第 ${task.attempts} 次尝试（已耗时 ${describeRetryElapsed(task.registeredAt)}，预算 ${describeRetryBudget(task.budgetMs)}）`)
-                try {
-                    await task.retryFn()
-                    logger.info(`重试任务 ${id}：第 ${task.attempts} 次成功`)
-                    this._tasks.delete(id)
-                    results.push({ id, success: true })
-                } catch (error) {
-                    const message = error instanceof Error ? error.message : String(error)
-                    task.nextAt = this._now() + retryBackoffDelay(task.attempts, this.intervalMs)
-                    logger.warn(`重试任务 ${id}：第 ${task.attempts} 次失败（${message}），下次间隔 ${Math.round((task.nextAt - this._now()) / 1000)} 秒`)
-                    results.push({ id, success: false, error: error instanceof Error ? error : new Error(String(error)) })
-                }
+                due.push([id, task])
+            }
+            // ⚠️ 并发执行（上限 3）而不是逐个 await（审查 W6）：
+            // 旧实现里一个慢任务（如「等按钮出现」2s）会把整队列后面所有到点任务一起拖住
+            const CONCURRENCY = 3
+            for (let i = 0; i < due.length; i += CONCURRENCY) {
+                await Promise.all(due.slice(i, i + CONCURRENCY).map(async ([id, task]) => {
+                    task.attempts++
+                    // 每次尝试都打到 info：用户/排查时能在控制台看到"确实在重试"
+                    logger.info(`重试任务 ${id}：第 ${task.attempts} 次尝试（已耗时 ${describeRetryElapsed(task.registeredAt)}，预算 ${describeRetryBudget(task.budgetMs)}）`)
+                    try {
+                        await task.retryFn()
+                        logger.info(`重试任务 ${id}：第 ${task.attempts} 次成功`)
+                        this._tasks.delete(id)
+                        results.push({ id, success: true })
+                    } catch (error) {
+                        const message = error instanceof Error ? error.message : String(error)
+                        task.nextAt = this._now() + retryBackoffDelay(task.attempts, this.intervalMs)
+                        logger.warn(`重试任务 ${id}：第 ${task.attempts} 次失败（${message}），下次间隔 ${Math.round((task.nextAt - this._now()) / 1000)} 秒`)
+                        results.push({ id, success: false, error: error instanceof Error ? error : new Error(String(error)) })
+                    }
+                }))
             }
         } finally {
             this._draining = false

@@ -380,8 +380,9 @@ export class ConfigService {
         this.#ensureSyncChannel()
         for (const { key, value } of normalizedRecords) {
             this.#cache.set(key, value)
-            // 主题等运行时即时生效项依赖该事件（与 setValue 保持一致）
-            if (key === 'theme') {
+            // 主题等运行时即时生效项依赖该事件（与 setValue 保持同一份白名单，审查 W4：
+            // 此前这里硬编码只认 theme，导入配置时 home_video_preview 不广播、界面不刷新）
+            if (LOCAL_EMIT_CONFIG_KEYS.has(key)) {
                 eventBus.emit(EVENT_NAMES.CONFIG_CHANGED, { key, value })
             }
             this.#syncChannel?.postMessage({ key, value })

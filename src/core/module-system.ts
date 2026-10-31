@@ -119,7 +119,10 @@ export class ModuleSystem {
             this.#logger.debug(`模块初始化成功: ${moduleName}`)
         } catch (error) {
             moduleMeta.status = 'error'
-            this.#handleError(error, 'critical', { module: moduleName, error })
+            // 初始化失败：必须置空实例，否则 getModule() 会把「装了一半」的对象交出去，
+            // 调用方以为模块可用（审查 W6）
+            moduleMeta.instance = null
+            this.#handleError(error, 'critical', { module: moduleName })
         } finally {
             perfEnd(`module:init:${moduleName}`)
         }
@@ -135,6 +138,13 @@ export class ModuleSystem {
             throw new Error('模块必须包含 name 属性')
         }
     }
+    /**
+     * 创建模块实例
+     *
+     * 说明（2026-10-31 评估过但**保留**绑定）：试过只 `Object.create(definition)`（省掉每个方法的 bind），
+     * 但模块里大量把方法当回调传出去（`executeFunctionsSequentially([this.foo])`、`eventBus.on(x, this.fn)`），
+     * 脱钩后 `this` 会丢 —— 绑定是必须的，不能省。这里只保留原来的语义。
+     */
     #createModuleInstance (moduleDef: ModuleDefinition): ModuleInstance {
         const instance = Object.create(moduleDef) as ModuleInstance
         Object.entries(moduleDef).forEach(([key, value]) => {
@@ -150,18 +160,10 @@ export class ModuleSystem {
         eventBus.on(EVENT_NAMES.NETWORK_OFFLINE, () => {
             this.#handleOfflineMode()
         })
-        eventBus.on(EVENT_NAMES.MODULE_ERROR, (_ctx, ...args: unknown[]) => {
-            const payload = (args[0] ?? {}) as { module?: string }
-            this.#tryFallback(payload.module as string)
-        })
-    }
-    #tryFallback (moduleName: string): void {
-        const fallbackModule = this.#modules.get(`${moduleName}-fallback`)
-        if (fallbackModule) {
-            // 注：原实现把「模块元数据」当作模块定义传入 register（既有行为），此处按原样断言
-            this.register(fallbackModule as unknown as ModuleDefinition)
-            eventBus.emit(EVENT_NAMES.MODULE_FALLBACK, { original: moduleName })
-        }
+        // 2026-10-31 审查（W5）：此前这里挂 #tryFallback，但全仓没有任何 `<name>-fallback`
+        // 模块注册者，且它把 ModuleMeta 当 ModuleDefinition 再 register（缺 name 必抛）——
+        // 是「永远走不到、走到就报错」的死代码，直接删掉。MODULE_ERROR 仍照常 emit，
+        // 供外部（控制台/排查脚本）观察。
     }
     #handleOfflineMode (): void {
         this.#modules.forEach(module => {
@@ -178,7 +180,14 @@ export class ModuleSystem {
         return target
     }
     #handleError (message: unknown, level = 'error', metadata: Record<string, unknown> = {}): void {
-        const error = new Error(String(message))
+        // warn 级别（重复注册、卸载失败）只记日志：不造 Error、不 emit MODULE_ERROR
+        if (level === 'warn') {
+            this.#logger.warn(String(message), metadata)
+            return
+        }
+        // ⚠️ 保留原始 Error 实例（审查 W6）：`new Error(String(err))` 会把 message 变成
+        // "Error: xxx" 且丢掉 stack，线上根本没法定位是哪一行炸的
+        const error = message instanceof Error ? message : new Error(String(message))
         const enhancedError = this.#enhanceError(error, 'operation')
         eventBus.emit(EVENT_NAMES.MODULE_ERROR, {
             error: enhancedError,

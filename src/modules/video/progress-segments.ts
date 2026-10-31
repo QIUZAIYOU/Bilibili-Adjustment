@@ -46,6 +46,12 @@ const resolveVideoId = (): string | null => {
 let started = false
 let currentId = ''
 let observer: MutationObserver | null = null
+/** 以下四项用于 uninstall 统一回收（审查 W8：此前 setTimeout/MutationObserver/video 监听永不解绑） */
+let waitBarObserver: MutationObserver | null = null
+let waitTimer: ReturnType<typeof setInterval> | null = null
+let detachConfigListener: (() => void) | null = null
+let detachVideoListeners: (() => void) | null = null
+let videoTintBound = false
 const ensureStyle = (): void => {
     if (document.getElementById(STYLE_ID)) return
     const style = document.createElement('style')
@@ -118,7 +124,8 @@ export const initProgressSegmentTint = (): void => {
     started = true
     ensureStyle()
     // 配置变更即时生效：关闭后立即清除已有染色
-    eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
+    detachConfigListener?.()
+    detachConfigListener = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
         const payload = args[0] as { key?: string } | undefined
         if (payload && payload.key === 'progress_segment_tint') refresh()
     })
@@ -129,32 +136,56 @@ export const initProgressSegmentTint = (): void => {
         observer = new MutationObserver(() => refresh())
         observer.observe(bar.parentElement || bar, { childList: true })
         const video = elementSelectors.get('video')
-        if (video) {
+        if (video && !videoTintBound) {
+            videoTintBound = true
             // options 提取为变量：'durationchange' 专用重载的 options 是 EventListenerOptions（不含 passive）
             const passiveOptions: AddEventListenerOptions = { passive: true }
             video.addEventListener('durationchange', refresh, passiveOptions)
             video.addEventListener('loadedmetadata', refresh, passiveOptions)
+            detachVideoListeners = () => {
+                video.removeEventListener('durationchange', refresh)
+                video.removeEventListener('loadedmetadata', refresh)
+                videoTintBound = false
+            }
         }
         refresh()
         return true
     }
     if (attach()) return
-    let timer: ReturnType<typeof setInterval> | null = null
     const waitBar = new MutationObserver(() => {
         if (attach()) {
-            clearTimeout(timer ?? undefined)
             waitBar.disconnect()
+            waitBarObserver = null
         }
     })
+    waitBarObserver = waitBar
     try {
         waitBar.observe(document.documentElement, { childList: true, subtree: true })
     } catch {
         // 观察器不可用时退化为轮询
     }
-    timer = setInterval(() => {
+    waitTimer = setInterval(() => {
         if (attach()) {
-            clearInterval(timer ?? undefined)
+            if (waitTimer) clearInterval(waitTimer)
+            waitTimer = null
             waitBar.disconnect()
+            waitBarObserver = null
         }
     }, 1000)
+}
+/** 卸载：断开所有观察器/定时器/监听，允许再次 init（审查 W8） */
+export const disposeProgressSegmentTint = (): void => {
+    started = false
+    detachConfigListener?.()
+    detachConfigListener = null
+    detachVideoListeners?.()
+    detachVideoListeners = null
+    waitBarObserver?.disconnect()
+    waitBarObserver = null
+    if (waitTimer) clearInterval(waitTimer)
+    waitTimer = null
+    observer?.disconnect()
+    observer = null
+    currentId = ''
+    removeTints()
 }

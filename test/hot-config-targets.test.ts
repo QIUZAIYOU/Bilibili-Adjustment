@@ -52,7 +52,8 @@ test('checkTemplateOverride：占位符与 id 是硬契约，脚本/事件一律
     assert.match(String(checkTemplateOverride('<div class="c">[[TEXT]]</div>', builtIn)), /缺少必需 id/)
     assert.match(String(checkTemplateOverride('<div id="box">[[TEXT]]<script>1</script></div>', builtIn)), /禁止的标签/)
     assert.match(String(checkTemplateOverride('<div id="box" onclick="x()">[[TEXT]]</div>', builtIn)), /内联事件/)
-    assert.match(String(checkTemplateOverride('<a id="box" href="javascript:1">[[TEXT]]</a>', builtIn)), /javascript:/)
+    // 审查 C1：危险协议的判定消息统一为「含危险协议」（归一化后不再回显原始串）
+    assert.match(String(checkTemplateOverride('<a id="box" href="javascript:1">[[TEXT]]</a>', builtIn)), /危险协议/)
     assert.equal(checkTemplateOverride('', builtIn), '空内容')
     assert.equal(checkTemplateOverride(null, builtIn), '不是字符串')
     assert.match(String(checkTemplateOverride(`<div id="box">[[TEXT]]${'x'.repeat(MAX_TEMPLATE_LENGTH)}</div>`, builtIn)), /长度超限/)
@@ -189,4 +190,18 @@ test('超长覆盖值被丢弃（长度上限是选择器/正则应共用的第�
     const report = setHotConfigEntries('selectors', { app: '#app' + 'x'.repeat(MAX_OVERRIDE_VALUE_LENGTH) }, 'remote')
     assert.deepEqual(report?.applied, [])
     assert.equal(elementSelectors.CSS_MAP.app, '#app')
+})
+
+test('checkTemplateOverride：解析器规范化绕过也要挡住（审查 C1）', () => {
+    const builtIn = '<div id="box" class="c"><span>[[TEXT]]</span></div>'
+    const bypasses = [
+        '<div id="box"><img/onerror=alert(1)>[[TEXT]]</div>',
+        '<div id="box"><a href="&#106;avascript:alert(1)">[[TEXT]]</a></div>',
+        '<div id="box"><style>@import url(//evil)</style>[[TEXT]]</div>',
+        '<div id="box"><form action="//evil">[[TEXT]]</form></div>',
+        '<div id="box"><svg><use href="data:text/html,x" /></svg>[[TEXT]]</div>'
+    ]
+    for (const html of bypasses) {
+        assert.notEqual(checkTemplateOverride(html, builtIn), null, `应拒绝：${html}`)
+    }
 })

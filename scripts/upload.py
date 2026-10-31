@@ -70,15 +70,30 @@ def load_env(path):
     return env
 
 
-def build_ssh_cmd(ssh_key):
-    cmd = ['ssh', '-o', 'StrictHostKeyChecking=no']
+def host_key_options(env=None):
+    """SSH 主机密钥校验参数（2026-10-31 审查 C5）
+
+    此前两条通道都用 `StrictHostKeyChecking=no`：既无 known_hosts 也无指纹比对，
+    中间人可改写要分发给所有用户、带 @grant 权限的产物。现在改为：
+    - 默认 `accept-new`：首次连接记录主机指纹，之后指纹不匹配即失败（不再静默接受任意主机）；
+    - 若 .env 提供 `SERVER_KNOWN_HOSTS`，则固定只认那一份 known_hosts（更严格，推荐）。
+    """
+    options = ['-o', 'StrictHostKeyChecking=accept-new']
+    known_hosts = ((env or {}).get('SERVER_KNOWN_HOSTS') or '').strip()
+    if known_hosts:
+        options.extend(['-o', f'UserKnownHostsFile={known_hosts}'])
+    return options
+
+
+def build_ssh_cmd(ssh_key, env=None):
+    cmd = ['ssh'] + host_key_options(env)
     if ssh_key:
         cmd.extend(['-i', ssh_key])
     return cmd
 
 
-def build_scp_cmd(ssh_key):
-    cmd = ['scp', '-o', 'StrictHostKeyChecking=no']
+def build_scp_cmd(ssh_key, env=None):
+    cmd = ['scp'] + host_key_options(env)
     if ssh_key:
         cmd.extend(['-i', ssh_key])
     return cmd
@@ -242,15 +257,18 @@ def upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
                 ok = False
                 continue
         size = os.path.getsize(local_path)
+        local_hash = local_sha256(local_path)
         remote_path = f'{remote_hot_dir}/{name}'
         if not upload_file(scp_cmd, local_path, user, host, remote_path):
             ok = False
             continue
-        remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-        if remote_size == size:
-            print(f'OK {HOT_CONFIG_DIR}/{name} {size} bytes')
+        # ⚠️ 2026-10-31 审查（W31）：热更资产也必须比 sha256 —— 提示词/覆盖表恰恰是
+        # 「长度几乎不变、内容变了」的文本，按字节数比对会把改错静默判成 OK
+        remote_hash = get_remote_sha256(ssh_cmd, user, host, remote_path)
+        if remote_hash and remote_hash == local_hash:
+            print(f'OK {HOT_CONFIG_DIR}/{name} {size} bytes sha256 {local_hash[:12]}…')
         else:
-            print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={size} remote={remote_size}')
+            print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={local_hash[:12]}… remote={remote_hash[:12] or "无"}…')
             ok = False
     # 2) 人工维护的覆盖表（仓库 hot-config/ 原样上传）
     for name in HOT_CONFIG_REPO_FILES:
@@ -269,15 +287,18 @@ def upload_hot_config(scp_cmd, ssh_cmd, root, remote_dir, user, host):
             ok = False
             continue
         size = os.path.getsize(local_path)
+        local_hash = local_sha256(local_path)
         remote_path = f'{remote_hot_dir}/{name}'
         if not upload_file(scp_cmd, local_path, user, host, remote_path):
             ok = False
             continue
-        remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-        if remote_size == size:
-            print(f'OK {HOT_CONFIG_DIR}/{name} {size} bytes')
+        # ⚠️ 2026-10-31 审查（W31）：热更资产也必须比 sha256 —— 提示词/覆盖表恰恰是
+        # 「长度几乎不变、内容变了」的文本，按字节数比对会把改错静默判成 OK
+        remote_hash = get_remote_sha256(ssh_cmd, user, host, remote_path)
+        if remote_hash and remote_hash == local_hash:
+            print(f'OK {HOT_CONFIG_DIR}/{name} {size} bytes sha256 {local_hash[:12]}…')
         else:
-            print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={size} remote={remote_size}')
+            print(f'验证失败 {HOT_CONFIG_DIR}/{name} local={local_hash[:12]}… remote={remote_hash[:12] or "无"}…')
             ok = False
     return ok
 
@@ -408,8 +429,8 @@ def main():
     remote_www_dir = f'{remote_dir}/www'
     remote_api_dir = f'{remote_dir}/api'
 
-    scp_cmd = build_scp_cmd(ssh_key)
-    ssh_cmd = build_ssh_cmd(ssh_key)
+    scp_cmd = build_scp_cmd(ssh_key, env)
+    ssh_cmd = build_ssh_cmd(ssh_key, env)
 
     ok = True
 
@@ -470,12 +491,13 @@ def main():
         if not upload_file(scp_cmd, path, user, host, remote_path):
             ok = False
             continue
-        # 验证
-        remote_size = get_remote_size(ssh_cmd, user, host, remote_path)
-        if remote_size == size:
-            print(f'OK {name} {size} bytes')
+        # 验证（sha256 而非字节数：等长编辑按大小比对会静默漏更新）
+        remote_hash = get_remote_sha256(ssh_cmd, user, host, remote_path)
+        local_hash = local_sha256(path)
+        if remote_hash and remote_hash == local_hash:
+            print(f'OK {name} {size} bytes sha256 {local_hash[:12]}…')
         else:
-            print(f'验证失败 {name} local={size} remote={remote_size}')
+            print(f'验证失败 {name} local={local_hash[:12]}… remote={remote_hash[:12] or "无"}…')
             ok = False
 
     # ========== 生成并上传 version.json（供脚本端同版本覆盖发布兜底） ==========
@@ -488,12 +510,13 @@ def main():
     print(f"v{info['version']} sha={info['sha']} size={info['size']} sha256={info['sha256'][:12]}…")
     version_remote = f'{remote_dir}/version.json'
     if upload_file(scp_cmd, version_json_path, user, host, version_remote):
-        remote_size = get_remote_size(ssh_cmd, user, host, version_remote)
+        remote_hash = get_remote_sha256(ssh_cmd, user, host, version_remote)
+        local_hash = local_sha256(version_json_path)
         local_size = os.path.getsize(version_json_path)
-        if remote_size == local_size:
-            print(f'OK version.json {local_size} bytes')
+        if remote_hash and remote_hash == local_hash:
+            print(f'OK version.json {local_size} bytes sha256 {local_hash[:12]}…')
         else:
-            print(f'验证失败 version.json local={local_size} remote={remote_size}')
+            print(f'验证失败 version.json local={local_hash[:12]}… remote={remote_hash[:12] or "无"}…')
             ok = False
     else:
         ok = False

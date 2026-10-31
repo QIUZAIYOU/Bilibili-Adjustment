@@ -2,7 +2,6 @@ import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
-import { baseStyles } from '@/shared/styles/base'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
@@ -18,7 +17,11 @@ interface PlayerModeContext {
     _autoLocating?: boolean
     /** 原生选集入口的位置守卫是否已绑定（只绑一次） */
     _episodeSwitchGuardBound?: boolean
+    /** 播放器点击定位是否已绑定（只绑一次，审查 W2：此前 instant 车道每次 player:ready 都重复 addEventListener） */
+    _playerClickLocateBound?: boolean
     _retryQueue?: { register: (id: string, fn: () => Promise<void> | void, options?: { budgetMs?: number }) => void } | null
+    /** 模式切换失败时的兜底定位定时器（失败只发一次定位，避免"按旧几何定位一次、成功后又一次"） */
+    _modeFallbackTimer?: ReturnType<typeof setTimeout> | null
     hasPlayerTitle: () => Promise<boolean>
     isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
     locateToPlayer: (options?: { duration?: number }) => Promise<void>
@@ -191,6 +194,41 @@ const scheduleRelocateOnDocumentGrowth = (
         })
     }, interval)
 }
+/**
+ * 唤醒播放器控制条（2026-10-31）
+ *
+ * B 站播放器的底部控制条是「鼠标不动就隐藏」的组件：隐藏时浏览器模式按钮虽然存在于 DOM 里，
+ * 但盒子尺寸为 0，点击等于点空气 —— 实测首屏等待按钮最多要 6 秒才真正可点，
+ * 表现就是「视频早就播了，模式却迟迟不切」。
+ * 这里主动派发一次鼠标移动事件，B 站监听到后立刻展开控制条，按钮随即可用（通常 <200ms）。
+ */
+const wakePlayerControls = (): void => {
+    const target = (elementSelectors.get('playerContainer') ?? elementSelectors.get('video')) as HTMLElement | null
+    if (!target) return
+    const rect = target.getBoundingClientRect()
+    const clientX = rect.left + rect.width / 2
+    const clientY = rect.top + rect.height / 2
+    const init = { bubbles: true, cancelable: true, clientX, clientY, view: window } as MouseEventInit
+    try {
+        target.dispatchEvent(new MouseEvent('mousemove', init))
+        target.dispatchEvent(new MouseEvent('mouseover', init))
+        if (typeof PointerEvent === 'function') target.dispatchEvent(new PointerEvent('pointermove', { ...init, pointerType: 'mouse' } as PointerEventInit))
+    } catch {
+        // 派发失败不影响主流程：下面仍会按可见性轮询按钮
+    }
+}
+/** 等「可点击（盒子有尺寸）」的模式按钮：仅存在于 DOM 但隐藏时点击无效，所以必须判几何 */
+const waitForModeButton = async (key: string, timeoutMs = 2000): Promise<HTMLElement | null> => {
+    const deadline = Date.now() + timeoutMs
+    while (Date.now() < deadline) {
+        wakePlayerControls()
+        const button = elementSelectors.get(key) as HTMLElement | null
+        const rect = button?.getBoundingClientRect()
+        if (button && rect && rect.width > 0 && rect.height > 0) return button
+        await sleep(120)
+    }
+    return null
+}
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
         // 电影播放页若默认宽屏则跳过（电影页本身已宽屏，重复执行会退出宽屏）
@@ -234,14 +272,14 @@ export const playerModeFeatures = {
                 type: 'wide',
                 action: async () => {
                     // 宽屏按钮可能晚于视频可播放事件渲染：同步取不到时等待其出现，避免点击落空后走失败重试
-                    const playerModeWideEnterButton = await elementSelectors.wait('playerModeWideEnterButton', 2000) as HTMLElement | null
+                    const playerModeWideEnterButton = await waitForModeButton('playerModeWideEnterButton')
                     playerModeWideEnterButton?.click()
                 }
             },
             {
                 type: 'web',
                 action: async () => {
-                    const playerModeWebEnterButton = await elementSelectors.wait('playerModeWebEnterButton', 2000) as HTMLElement | null
+                    const playerModeWebEnterButton = await waitForModeButton('playerModeWebEnterButton')
                     playerModeWebEnterButton?.click()
                 }
             },
@@ -264,12 +302,25 @@ export const playerModeFeatures = {
                 sessionStorage.setItem(STORAGE_KEYS.SESSION_MODE_COOLDOWN, String(this._modeSwitchCooldown))
                 sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, String(this.userConfigs.selected_player_mode))
                 logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
+                // 切换**成功**才发事件：该事件是自动定位的唯一触发源。
+                if (this._modeFallbackTimer) {
+                    clearTimeout(this._modeFallbackTimer)
+                    this._modeFallbackTimer = null
+                }
+                eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
             } else {
                 logger.warn('屏幕模式丨切换失败，已加入重试队列（3 分钟内持续重试）')
                 this._retryQueue?.register('playerMode', () => this._retryPlayerMode())
+                // ⚠️ 失败时**不发**该事件：它是自动定位的唯一触发源，切换没生效就定位会按旧几何算一次，
+                // 等重试成功后再按新几何定位一次 —— 用户看到的就是"定位两次、先成功又上移"。
+                // 但也不能永远不发（重试可能一直失败），故 6s 后兜底发一次，保证定位至少执行一次。
+                if (this._modeFallbackTimer) clearTimeout(this._modeFallbackTimer)
+                this._modeFallbackTimer = setTimeout(() => {
+                    this._modeFallbackTimer = null
+                    logger.info('屏幕模式丨重试仍未成功，兜底触发一次定位')
+                    eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
+                }, 6000)
             }
-            // 无论切换成败都继续后续流程：页面初始滚动锁定依赖该事件解除，失败时不发会导致页面永远无法滚动
-            eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
         }
     },
     /**
@@ -287,7 +338,7 @@ export const playerModeFeatures = {
         const strategy: Record<string, string> = { wide: 'playerModeWideEnterButton', web: 'playerModeWebEnterButton' }
         const buttonKey = strategy[targetMode]
         if (!buttonKey) throw new Error(`未知的目标模式：${targetMode}`)
-        const btn = await elementSelectors.wait(buttonKey, 2000) as HTMLElement | null
+        const btn = await waitForModeButton(buttonKey, 3000)
         if (!btn) throw new Error('未找到模式切换按钮（可能尚未渲染）')
         btn.click()
         await sleep(350)
@@ -295,8 +346,15 @@ export const playerModeFeatures = {
         if (!success) throw new Error('点击后校验仍未切换到目标模式')
         this._modeSwitchCooldown = Date.now()
         logger.info(`屏幕模式丨${targetMode === 'wide' ? '宽屏' : '网页全屏'}丨重试切换成功`)
+        // 重试成功同样要发「模式已选定」：它是自动定位的唯一触发源。
+        // 缺了这句，首次切换失败的机器会出现「重试成功、但定位一次都没跑」。
+        if (this._modeFallbackTimer) {
+            clearTimeout(this._modeFallbackTimer)
+            this._modeFallbackTimer = null
+        }
+        eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
     },
-    async isPlayerModeSwitchSuccess (this: PlayerModeContext, selectedPlayerMode: string, videoElement: HTMLVideoElement | null): Promise<boolean> {
+    async isPlayerModeSwitchSuccess (this: PlayerModeContext, selectedPlayerMode: string, videoElement: HTMLVideoElement | null, timeoutMs = 1200): Promise<boolean> {
         const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return false
         const playerMode = playerContainer.getAttribute('data-screen')
@@ -317,7 +375,7 @@ export const playerModeFeatures = {
             const observer = videoElement ? isElementSizeChange(videoElement, () => {
                 if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
             }) : null
-            const timeoutId = setTimeout(() => finish(false), 3000)
+            const timeoutId = setTimeout(() => finish(false), timeoutMs)
             if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
         })
     },
@@ -367,12 +425,11 @@ export const playerModeFeatures = {
             // 播放器占满视口，定位锁定无意义且会阻止解锁所需的页面滚动。
             // 注意：这里此前误写为 page_type === 'web'（page_type 只可能是 video/bangumi/dynamic），恒不成立。
             if (this.userConfigs.webfull_unlock || this.userConfigs.selected_player_mode === 'web') {
-                eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                logger.info('自动定位丨当前为网页全屏模式（或已开启网页全屏解锁），播放器占满视口，跳过定位')
                 return
             }
             if (!this.userConfigs.auto_locate) {
                 logger.info('自动定位丨功能已关闭（设置项「自动定位至播放器」为关，可在播放页设置中开启）')
-                eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                 return
             }
             // 按页面类型检查子开关：两者全选或全不选时在所有页面执行，否则按勾选类型执行
@@ -380,31 +437,29 @@ export const playerModeFeatures = {
                 const isBangumi = this.userConfigs.page_type === 'bangumi'
                 if (isBangumi && !this.userConfigs.auto_locate_bangumi) {
                     logger.info('自动定位丨当前为番剧页且番剧自动定位已关闭，跳过')
-                    eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                     return
                 }
                 if (!isBangumi && !this.userConfigs.auto_locate_video) {
                     logger.info('自动定位丨当前为普通视频页且普通视频自动定位已关闭，跳过')
-                    eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
                     return
                 }
             }
             // 先判断当前页面是否已经定位到了播放器位置
             const playerContainer = elementSelectors.get('playerContainer')
             if (!playerContainer) {
-                eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                logger.info('自动定位丨未找到播放器容器，跳过定位')
                 return
             }
             const playerMode = playerContainer.getAttribute('data-screen')
             // 网页全屏模式不执行定位锁定：播放器占满视口，定位无意义，且锁定会阻止解锁功能所需的页面滚动
             if (playerMode === 'web') {
-                eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                logger.info('自动定位丨播放器处于网页全屏态，跳过定位')
                 return
             }
-            // 先等布局稳定再测量目标：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
-            await waitForStablePlayerOffset()
-            // 再等文档高度稳定：刷新后评论/推荐还没渲染完时文档矮，可滚动范围会被压成临时上限
-            await waitForStableDocumentHeight()
+            // 两件事互不依赖，并行等（串行最坏要 800+1500ms）：
+            // - 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
+            // - 文档高度稳定：刷新后评论/推荐还没渲染完时文档矮，可滚动范围会被压成临时上限
+            await Promise.all([waitForStablePlayerOffset(), waitForStableDocumentHeight()])
             const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
             const header = elementSelectors.get('headerMini')
             const headerComputedStyle: { position?: string; height?: string } = header
@@ -414,22 +469,35 @@ export const playerModeFeatures = {
             const playerOffsetTop = isHeaderOverlaying(headerComputedStyle.position) ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
             const targetOffset = playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)
             const currentScrollTop = window.scrollY
+            // ⚠️ TEMP-DIAG（2026-10-31 用户要求，定位收敛后删除）：
+            // 每次定位执行后打印「视频元素（播放器容器）距文档顶部」的真实距离，
+            // 用来判断是滚动没执行、还是执行了但目标算错（布局在定位后继续变化）。
+            const logPlayerOffset = (stage: string): void => {
+                const container = elementSelectors.get('playerContainer') as HTMLElement | null
+                if (!container) {
+                    logger.info(`定位诊断丨${stage}｜未找到播放器容器`)
+                    return
+                }
+                const rect = container.getBoundingClientRect()
+                logger.info(`定位诊断丨${stage}｜距文档顶=${Math.round(rect.top + window.scrollY)}｜视口内=${Math.round(rect.top)}｜scrollY=${Math.round(window.scrollY)}｜目标=${Math.round(targetOffset)}｜模式=${container.getAttribute('data-screen') ?? '-'}`)
+            }
             // 只有已经精确停在目标位置（±8px）才跳过。
             // 这里过去用的是 50px 的粗容差，于是**冷启动**（刷新，或从首页/收藏/历史/动态点进来时页面在顶部）
             // 只要目标滚动量不到 50px 就会被误判成「已在播放器位置」而不做任何滚动 —— 用户表现就是
             // 「顶部偏移设到某个值以上，自动定位就失效」，且手动点播放器定位（不走这个分支）正常。
             // 分界点 ≈ 播放器自然位置 - 吸顶头部高度 - 50（issue #39：偏移 ≤57 正常、≥58 失效）。
             if (isLocatedAtPlayer(Number(this.userConfigs.offset_top) || 0)) {
-                logger.debug(`自动定位丨当前已在播放器位置（${currentScrollTop} ≈ ${targetOffset}），跳过定位`)
-                eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
+                logger.info(`自动定位丨已在播放器位置（当前 ${Math.round(currentScrollTop)}，目标 ${Math.round(targetOffset)}），无需滚动`)
                 return
             }
             // 定位期间锁定页面滚动（overflow hidden 不影响程序化 scrollTo），避免用户滚动干扰定位；
             // 结束后无论成败都恢复
-            insertStyleToDocument({ 'BodyOverflowHiddenStyle': baseStyles.BodyOverflowHidden })
+            // 2026-10-31：不再给 body 加 overflow:hidden —— 锁滚动会让 B 站头部/评论区在锁定期内
+            // 停在水合前的空白态，定位期间页面表现为"导航变空、功能像被打断"，且解锁依赖事件时序。
             try {
                 await sleep(300)
                 await this.locateToPlayer()
+                logPlayerOffset('首次定位后')
                 // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
                 const maxRetry = this.userConfigs.page_type === 'bangumi' ? 3 : 2
                 let retried = 0
@@ -473,9 +541,10 @@ export const playerModeFeatures = {
                     logger.debug(`自动定位丨第 ${attempt + 1} 次验证未到位（当前 ${window.scrollY}，目标 ${freshOffsetTop - freshTargetViewportTop}）${documentGrowing ? '，文档仍在长高' : ''}，重试`)
                     await sleep(500 * Math.min(retried, 3))
                     await this.locateToPlayer()
+                    logPlayerOffset(`第 ${retried} 次校正后`)
                 }
             } finally {
-                insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
+                // 锁已移除，这里无需解锁（保留空实现位置便于回归时定位）
             }
             // 收尾：目标被文档高度 clamp 过（刷新初期布局还矮，issue #39「定位固定上限变成57」），
             // 就等文档长高后补一次定位，否则会一直停在那个临时上限
@@ -484,8 +553,8 @@ export const playerModeFeatures = {
                 logger.debug(`自动定位丨被文档高度限制（可滚 ${settled.offset} < 期望 ${settled.desiredOffset}），等文档长高后补定位`)
                 scheduleRelocateOnDocumentGrowth(readDocumentHeight(), () => this.locateToPlayer({ duration: 0 }))
             }
+            logPlayerOffset('完成')
             logger.info('自动定位丨成功')
-            eventBus.emit(EVENT_NAMES.VIDEO_START_OTHER_FUNCTIONS)
         } finally {
             this._autoLocating = false
         }
@@ -616,13 +685,24 @@ export const playerModeFeatures = {
         logger.debug('选集定位丨已监听原生选集入口（分P列表/合集/番剧选集/播完推荐）')
     },
     async clickPlayerAutoLocate (this: PlayerModeContext): Promise<void> {
-        addEventListenerToElement(elementSelectors.get('playerContainer'), 'click', async (e: Event) => {
+        // 只绑一次：此前每次 player:ready 都会 addEventListener 且没人移除，切几次视频就叠几个监听
+        if (this._playerClickLocateBound) return
+        const container = elementSelectors.get('playerContainer')
+        if (!container) {
+            logger.debug('播放器点击定位丨播放器容器尚未渲染，本次跳过')
+            return
+        }
+        this._playerClickLocateBound = true
+        addEventListenerToElement(container, 'click', async (e: Event) => {
+            if (!this.userConfigs.auto_locate) return
             const target = e.target as Element | null
             const controlTop = elementSelectors.CSS('playerControlTop')
             const controlBottom = elementSelectors.CSS('playerControlBottom')
             if ((controlBottom && target?.closest(controlBottom)) || (controlTop && target?.closest(controlTop))) {
                 return
             }
+            // 与事件驱动的定位共用合并闸门，避免用户连点叠出多次滚动
+            if (this._autoLocating) return
             await this.locateToPlayer()
         })
     }

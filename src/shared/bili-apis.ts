@@ -59,6 +59,30 @@ async function _processQueue (): Promise<void> {
 // ========== 带重试的请求 ==========
 /** 接口重试：首次间隔 1 秒，退避封顶 30 秒，总预算 3 分钟（**不按次数**） */
 const API_RETRY_INTERVAL_MS = 1000
+/** 合法的普通视频 id（BV 号 12 位）——审查 W2：参数来自 URL，未校验会拼进接口查询串 */
+const BV_ID_PATTERN = /^BV[0-9A-Za-z]{10}$/
+/** 合法的番剧 id（纯数字 ep_id，或 ss 前缀 season_id） */
+const BANGUMI_ID_PATTERN = /^(?:ep|ss)?\d+$/
+/** 字幕正文只允许从 B 站域名取（含字幕 CDN .hdslb.com） */
+const SUBTITLE_HOST_SUFFIXES = ['.bilibili.com', '.bilivideo.com', '.hdslb.com', '.bilibili.tv']
+/**
+ * 校验「当前视频 id」或调用方传入的 id 是否形如合法 BV / 番剧 id
+ *
+ * 审查 W2：`getCurrentVideoID` 的兜底分支直接取 `?bvid=` 原始值，
+ * 未校验就拼进 `?bvid=...&cid=...`，构造出 `?bvid=x%26cid=0` 既能参数走私、
+ * 也会把脏值带进缓存键。这里统一收口。
+ */
+const isSafeVideoId = (videoId: string, pageType = 'video'): boolean =>
+    pageType === 'video' ? BV_ID_PATTERN.test(videoId) : BANGUMI_ID_PATTERN.test(videoId)
+const isSafeSubtitleUrl = (rawUrl: string): boolean => {
+    try {
+        const url = new URL(rawUrl)
+        if (url.protocol !== 'https:') return false
+        return SUBTITLE_HOST_SUFFIXES.some(suffix => url.hostname === suffix.slice(1) || url.hostname.endsWith(suffix))
+    } catch {
+        return false
+    }
+}
 const API_RETRY_BUDGET_MS = DEFAULT_RETRY_BUDGET_MS
 /**
  * 发起一次接口请求，失败按「时间预算 + 递增退避」重试。
@@ -102,7 +126,11 @@ export const biliApis = {
         const { pathname } = parsedUrl
         if (isNormalVideoPage(pathname) || isListPage(pathname)) {
             const match = pathname.match(regexps.common.bvidInUrl)
-            return match?.[1] || parsedUrl.searchParams.get('bvid') || 'error'
+            const fromPath = match?.[1]
+            if (fromPath) return fromPath
+            const fromQuery = parsedUrl.searchParams.get('bvid')
+            // 审查 W2：查询串里的 bvid 必须过格式校验再用
+            return fromQuery && BV_ID_PATTERN.test(fromQuery) ? fromQuery : 'error'
         } else if (isActivityVideoPage(pathname)) {
             // 活动视频页（如 /festival/xxx?bvid=BVxxx）：BV 号在**查询串**里，路径上没有
             // （2026-10-23 修：此前这里直接落到 'error'，导致活动页上的跳过广告、
@@ -156,14 +184,19 @@ export const biliApis = {
         return promise
     },
     async _fetchVideoInformation (pageType: string, videoId: string): Promise<BiliData | undefined> {
+        // 审查 W2：id 来自 URL 或调用方，拼查询串前先校验（见 isSafeVideoId）
+        if (!isSafeVideoId(String(videoId ?? ''), pageType)) {
+            logger.warn(`获取视频基本信息丨非法的视频 id，已拒绝请求: ${String(videoId ?? '')}`)
+            return undefined
+        }
         let url: string
         if (pageType === 'video') {
-            url = `https://api.bilibili.com/x/web-interface/view?bvid=${videoId}`
+            url = `https://api.bilibili.com/x/web-interface/view?bvid=${encodeURIComponent(videoId)}`
         } else {
             // bangumi：纯数字视为 ep_id；带 ss 前缀视为 season_id（/bangumi/play/ss 链接）
             const isSeason = typeof videoId === 'string' && videoId.startsWith('ss')
             const id = isSeason ? videoId.slice(2) : videoId
-            url = `https://api.bilibili.com/pgc/view/web/season?${isSeason ? 'season_id' : 'ep_id'}=${id}`
+            url = `https://api.bilibili.com/pgc/view/web/season?${isSeason ? 'season_id' : 'ep_id'}=${encodeURIComponent(id)}`
         }
         if (pageType === 'video') {
             const res = await _apiRequest<{ code?: number | string; data?: BiliData }>(url)
@@ -185,7 +218,12 @@ export const biliApis = {
         }
     },
     async getVideoSubtitles (bvid: string, cid: string | number): Promise<Array<BiliData> | null | undefined> {
-        const url = `https://api.bilibili.com/x/player/wbi/v2?bvid=${bvid}&cid=${cid}`
+        // 审查 W2：同上，bvid/cid 都要校验后再拼查询串
+        if (!BV_ID_PATTERN.test(String(bvid ?? '')) || !/^\d+$/.test(String(cid ?? ''))) {
+            logger.warn(`获取字幕列表丨非法的 bvid/cid，已拒绝请求: ${String(bvid ?? '')}/${String(cid ?? '')}`)
+            return null
+        }
+        const url = `https://api.bilibili.com/x/player/wbi/v2?bvid=${encodeURIComponent(bvid)}&cid=${encodeURIComponent(String(cid))}`
         const res = await _apiRequest<{ code?: number | string; data?: { subtitle?: { subtitles?: Array<BiliData> }}}>(url)
         const { code, data } = res.data
         if (code === 0) return data?.subtitle?.subtitles
@@ -194,6 +232,11 @@ export const biliApis = {
     async getSubtitleContent (subtitleUrl: string): Promise<BiliData[]> {
         // 补全协议头
         const fullUrl = subtitleUrl.startsWith('//') ? `https:${subtitleUrl}` : subtitleUrl
+        // 审查 W2：subtitle_url 来自接口响应，但接口也可能被劫持/被覆盖 —— 只允许 B 站域名
+        if (!isSafeSubtitleUrl(fullUrl)) {
+            logger.warn(`获取字幕内容丨非法的字幕地址，已拒绝请求: ${fullUrl.slice(0, 120)}`)
+            return []
+        }
         try {
             // 使用 httpGet 而非 _apiRequest，避免 withCredentials 导致 CORS 问题；
             // 裸 fetch 没有超时，字幕 CDN 挂起会永久卡住广告识别流程（2026-10-23 审查发现）

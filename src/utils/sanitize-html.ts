@@ -22,7 +22,12 @@ import { escapeHtml } from '@/utils/text'
 const ALLOWED_INLINE_TAGS = new Set(['br', 'a'])
 /** 从标签属性串里取指定属性（只认双引号/单引号/无引号三种写法） */
 const extractAttribute = (attrText: string, name: string): string => {
-    const re = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i')
+    // ⚠️ 不能用  前缀： 在 data-href 的 - 与 h 之间也成立，
+    // 于是 data-href="http://evil" 会被当成 href 取走（审查 W11）。
+    // 属性名前必须是空白或标签名结束，故用 (?:^|[\s/])。
+    // 注意：这是模板字符串再交给 RegExp，反斜杠要写两个 —— 单个 `\s` 在模板字符串里会退化成
+    // 普通字母 s（2026-10-31 写这段时踩过，会让 `href =` 之外的 `hsref` 之类误判）
+    const re = new RegExp(`(?:^|[\\s/])${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s"'>]+))`, 'i')
     const matched = attrText.match(re)
     if (!matched) return ''
     return matched[1] ?? matched[2] ?? matched[3] ?? ''

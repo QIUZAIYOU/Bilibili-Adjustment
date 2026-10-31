@@ -113,14 +113,33 @@ export const extractTemplateFields = (html: string): string[] =>
  * 契约 = 内置模板的**占位符**、**id**、**填充钩子** 必须全部保留；
  * 另外拦掉脚本/事件处理器等可执行内容
  */
+/**
+ * 危险内容扫描前的规范化：去掉控制字符、还原数字实体、转小写。
+ *
+ * ⚠️ 2026-10-31 审查（C2）：原先直接对原文做黑名单匹配，可被解析器规范化绕过 ——
+ * `<img/onerror=…>`（斜杠作属性分隔符）、`&#106;avascript:`、`java\tscript:` 都能过。
+ * 规范化后统一按「解码后的文本」判定，黑名单才与浏览器实际解析口径对齐。
+ */
+const normalizeForDangerScan = (html: string): string => html
+    // eslint-disable-next-line no-control-regex -- 就是要匹配控制字符（不可见字符/实体绕过）
+    .replace(/[\u0000-\u001f\u007f]/g, ' ')
+    .replace(/&#x([0-9a-f]+);?/gi, (_match, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_match, dec: string) => String.fromCharCode(Number(dec)))
+    .toLowerCase()
 export const checkTemplateOverride = (html: unknown, builtIn: string): string | null => {
     if (typeof html !== 'string') return '不是字符串'
     const trimmed = html.trim()
     if (!trimmed) return '空内容'
     if (trimmed.length > MAX_TEMPLATE_LENGTH) return `长度超限（>${MAX_TEMPLATE_LENGTH}）`
-    if (/<\s*(script|iframe|object|embed|link|meta|base)\b/i.test(trimmed)) return '含被禁止的标签'
-    if (/\son[a-z]+\s*=/i.test(trimmed)) return '含内联事件处理器'
-    if (/javascript:/i.test(trimmed)) return '含 javascript: 协议'
+    const scanned = normalizeForDangerScan(trimmed)
+    // 标签前允许空白；`<(style|form|…)` 同样能执行（@import / 表单提交）
+    if (/<\s*(script|iframe|object|embed|link|meta|base|style|form)\b/.test(scanned)) return '含被禁止的标签'
+    // 属性前的分隔符可能是空白、`/`、引号或标签起点，不能只认 `\s`
+    if (/(?:^|[\s/"'])on[a-z]+\s*=/.test(scanned)) return '含内联事件处理器'
+    if (/(?:javascript|vbscript)\s*:/.test(scanned)) return '含危险协议'
+    if (/data\s*:\s*text\/html/.test(scanned)) return '含 data:text/html'
+    if (/\b(?:srcdoc|formaction)\s*=/.test(scanned)) return '含危险属性'
+    if (/expression\s*\(/.test(scanned)) return '含 CSS expression'
     const missingPlaceholders = extractTemplatePlaceholders(builtIn).filter(token => !trimmed.includes(token))
     if (missingPlaceholders.length) return `缺少占位符 ${missingPlaceholders.join(' ')}`
     const missingIds = extractTemplateIds(builtIn).filter(id => !trimmed.includes(`id="${id}"`))

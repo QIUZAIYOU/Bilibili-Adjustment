@@ -141,6 +141,12 @@ const DIALOG_CSS = `
         flex-shrink: 0;
     }
     .adjustment-dialog-close {
+        /* 审查 W2：改为 <button> 后抹掉 UA 默认外观，保持原视觉 */
+        appearance: none;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        font-family: inherit;
         margin-left: auto;
         flex-shrink: 0;
         cursor: pointer;
@@ -268,7 +274,10 @@ export const openAdjustmentDialog = (options: AdjustmentDialogOptions = {}): Adj
     if (actions.length > 0) {
         footer.className = 'adjustment-dialog-footer'
         actions.forEach(action => {
-            const btn = document.createElement('div')
+            // 审查 W2：底栏按钮此前是 div，键盘不可达（Tab 不会停、回车不触发）。
+            // 样式类名保持不变，只把元素换成 button 并去掉浏览器默认外观。
+            const btn = document.createElement('button')
+            btn.type = 'button'
             btn.className = 'adjustment-button ' + (action.type || 'secondary') + (action.className ? ' ' + action.className : '')
             btn.textContent = action.text
             btn.addEventListener('click', () => {
@@ -285,9 +294,9 @@ export const openAdjustmentDialog = (options: AdjustmentDialogOptions = {}): Adj
         else header.insertAdjacentHTML('beforeend', String(headerExtra))
     }
     if (closable) {
-        const closeEl = document.createElement('div')
+        const closeEl = document.createElement('button')
+        closeEl.type = 'button'
         closeEl.className = 'adjustment-dialog-close'
-        closeEl.setAttribute('role', 'button')
         closeEl.setAttribute('aria-label', '关闭')
         closeEl.textContent = '✕'
         closeEl.addEventListener('click', () => {

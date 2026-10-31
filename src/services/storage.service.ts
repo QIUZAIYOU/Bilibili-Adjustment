@@ -16,6 +16,8 @@ import { gmStorageService } from '@/services/gm-storage.service'
  * 迁移说明：配置从 IndexedDB 迁到 GM 存储后，IndexedDB 里那份**保留不删**（回滚源），
  * 读写切换由 `gmStorageService.available` 决定，legacyUser* 系列方法专供迁移使用。
  */
+/** 是否具备可用的 IndexedDB —— 只看 `window.indexedDB` 是否存在不够：测试桩/半实现里它可能是空对象 */
+const hasIndexedDB = (): boolean => typeof (window.indexedDB as { open?: unknown } | undefined)?.open === 'function'
 export class StorageService {
     static #instance: StorageService | undefined
     #dbs!: Map<string, IndexedDBService>
@@ -67,20 +69,31 @@ export class StorageService {
         }
     }
     constructor () {
-        if (!window.indexedDB) {
-            throw new Error('浏览器不支持 IndexedDB')
+        // ⚠️ 不在构造期抛错（审查 W2）：本单例在模块顶层就被 new 出来，一旦抛错，
+        // 整个脚本在加载阶段就挂掉 —— 连「配置存 GM 存储」这条完全不依赖 IndexedDB 的链路也没了。
+        // 这里只记录警告并降级：依赖 IndexedDB 的功能（首页历史、广告识别缓存）自行失败。
+        if (!hasIndexedDB()) {
+            // 注意：这里 #logger 还没赋值，不能用它
+            console.warn('[StorageService] 当前环境不支持 IndexedDB，首页历史与广告识别缓存将不可用')
         }
         if (StorageService.#instance) {
             return StorageService.#instance
         }
         this.#logger = new LoggerService('StorageService')
         this.#dbs = new Map()
-        Object.entries(this.#dbConfig).forEach(([name, config]) => {
-            this.#dbs.set(name, createIndexedDBService(config))
-        })
+        if (hasIndexedDB()) {
+            Object.entries(this.#dbConfig).forEach(([name, config]) => {
+                this.#dbs.set(name, createIndexedDBService(config))
+            })
+        }
         StorageService.#instance = this
     }
     async init (): Promise<void> {
+        if (!hasIndexedDB()) {
+            // 降级路径：没有 IndexedDB 就没有这些库，直接跳过而不是抛错拖垮启动
+            this.#logger.warn('数据库集群初始化丨跳过（当前环境不支持 IndexedDB）')
+            return
+        }
         try {
             for (const [name, db] of this.#dbs) {
                 await db.connect()

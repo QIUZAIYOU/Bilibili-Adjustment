@@ -154,8 +154,26 @@ export const httpPost = (url: string, body: string | object | null, options: Htt
  * @returns {typeof fetch} 带超时的 fetch
  */
 export const withFetchTimeout = (fetchImpl: typeof fetch, timeout = DEFAULT_TIMEOUT): typeof fetch => ((input: RequestInfo | URL, init?: RequestInit) => {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), timeout)
-    const merged: RequestInit = { ...(init || {}), signal: controller.signal }
+    const timeoutController = new AbortController()
+    const timer = setTimeout(() => timeoutController.abort(), timeout)
+    // ⚠️ 不能直接覆盖 init.signal（审查 W3）：调用方的取消信号必须继续生效，
+    // 否则「用户切走页面 / 组件销毁」时的取消会被吞掉，请求照跑到超时
+    const callerSignal = init?.signal ?? null
+    let signal: AbortSignal = timeoutController.signal
+    if (callerSignal) {
+        if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+            signal = AbortSignal.any([callerSignal, timeoutController.signal])
+        } else {
+            const combined = new AbortController()
+            const onAbort = (): void => { combined.abort() }
+            if (callerSignal.aborted || timeoutController.signal.aborted) combined.abort()
+            else {
+                callerSignal.addEventListener('abort', onAbort, { once: true })
+                timeoutController.signal.addEventListener('abort', onAbort, { once: true })
+            }
+            signal = combined.signal
+        }
+    }
+    const merged: RequestInit = { ...(init || {}), signal }
     return fetchImpl(input, merged).finally(() => clearTimeout(timer))
 }) as typeof fetch

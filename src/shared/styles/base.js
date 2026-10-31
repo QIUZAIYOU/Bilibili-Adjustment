@@ -772,6 +772,10 @@ function generateBilibiliAdjustmentStyle () {
             justify-content: center;
             box-sizing: border-box;
             margin: 0;
+            /* 审查 W2：底栏按钮已改为 <button> 以支持键盘操作，这里抹掉 UA 默认外观 */
+            background: transparent;
+            color: inherit;
+            font-family: inherit;
             padding: 8px 16px;
             outline: none;
             border: 1px solid transparent;

@@ -24,19 +24,21 @@ export const qualityFeatures = {
                 return {
                     value: Number(el.dataset.value),
                     element: el,
-                    isVIP: el.children.length < 2
+                    // 审查 I12：B 站给非会员可用档位只渲染一个文本节点，会员档会多带一个
+                    // 「VIP」角标子元素。字段原名 isVIP 与语义相反（true = 非会员也能用），
+                    // 改为 guestPlayable，避免后续误读
+                    guestPlayable: el.children.length < 2
                 }
             })
             .sort((a, b) => b.value - a.value)
         const availableQualities = qualityList.filter(q =>
-            this.userConfigs.is_vip ? true : q.isVIP)
+            this.userConfigs.is_vip ? true : q.guestPlayable)
         const targetQuality = availableQualities.find(q => {
             if (!this.userConfigs.is_vip) return true
             if (this.userConfigs.contain_quality8k && q.value === 127) return true
             if (this.userConfigs.contain_quality4k && q.value === 120) return true
             return q.value < 120
         })
-        // logger.debug(qualityList, availableQualities, targetQuality)
         if (targetQuality) {
             targetQuality.element.click()
             logger.info(`最高画质｜${this.userConfigs.is_vip ? 'VIP' : '非VIP'}｜${qualityMap[targetQuality.value] || targetQuality.value

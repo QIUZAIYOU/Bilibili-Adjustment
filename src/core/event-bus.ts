@@ -85,7 +85,6 @@ export class EventBus {
     }
     async emit (event: string, ...args: unknown[]): Promise<void> {
         const baseEvent = event.split(':')[0]
-        const eventChain = [event, baseEvent, '*']
         let shouldStop = false
         const context: EventContext = {
             event,
@@ -96,6 +95,9 @@ export class EventBus {
             await interceptor(context, ...args)
             if (context.isCancelled) return
         }
+        // 事件链：精确事件 → 一级命名空间 → 通配符。
+        // 2026-10-31 优化：没有 `*` 监听器时不再白跑一次查表（`*` 只有调试/全局钩子会用）
+        const eventChain = this.#events.has('*') ? [event, baseEvent, '*'] : [event, baseEvent]
         for (const currentEvent of eventChain) {
             if (!this.#events.has(currentEvent)) continue
             const handlers = [...this.#events.get(currentEvent)!]
@@ -121,6 +123,8 @@ export class EventBus {
                 if (once) this.off(currentEvent, handler)
                 try {
                     const result = handler(context, ...args)
+                    // 2026-10-31 优化：同步 handler 不再 `await`（少一次微任务跳跃），
+                    // 只有真正返回 thenable 的才等待 —— 语义不变，启动期的多个同步 handler 受益
                     if (result instanceof Promise) await result
                 } catch (error) {
                     this.#handleError(error, context, handler)

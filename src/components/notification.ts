@@ -167,7 +167,14 @@ export const notification = {
         const icon = _levelIcons[level] || ''
         const el = document.createElement('div')
         el.className = `ba-notification ba-notification--${level}`
-        el.innerHTML = `<span class="ba-notification__icon">${icon}</span><div class="ba-notification__group"><p class="ba-notification__title">${title}</p><div class="ba-notification__content">${message}</div></div><button class="ba-notification__close">×</button><div class="ba-notification__progress" style="width:100%"></div>`
+        // ⚠️ 2026-10-31 审查（C1）：`title`/`message` 来自 logger，可能承载远端响应体
+        // （`ai.service` 把 `httpErr.response.data` 塞进 logger.error），因此**绝不能拼进 innerHTML**。
+        // 骨架与内置 icon 是常量，其余文本一律 textContent。
+        el.innerHTML = `<span class="ba-notification__icon">${icon}</span><div class="ba-notification__group"><p class="ba-notification__title"></p><div class="ba-notification__content"></div></div><button class="ba-notification__close">×</button><div class="ba-notification__progress" style="width:100%"></div>`
+        const titleEl = el.querySelector('.ba-notification__title')
+        if (titleEl) titleEl.textContent = title
+        const contentEl = el.querySelector('.ba-notification__content')
+        if (contentEl) contentEl.textContent = message
         el.querySelector('.ba-notification__close')!.addEventListener('click', e => {
             e.stopPropagation()
             _dismiss(el)

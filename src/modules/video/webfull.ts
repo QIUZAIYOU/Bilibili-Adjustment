@@ -11,6 +11,8 @@ interface WebfullContext {
     userConfigs: Record<string, unknown>
     _cleanup: Array<() => void>
     _webfullWheelAttached?: boolean
+    /** 模式按钮监听是否已绑定（只绑一次：此前每次解锁都会再 push 一批监听，切几次就叠几层） */
+    _webfullButtonsBound?: boolean
     _fullscreenHandler?: EventListener | null
     webfullPlayerModeUnlock: () => Promise<void>
     enableWheelScrollInWebfull: () => void
@@ -42,21 +44,25 @@ export const webfullFeatures = {
         // 移除小窗模式按钮（解锁后小窗模式会破坏布局）
         elementSelectors.queryAll('miniPlayerWindows').forEach(el => el.remove())
         // 监听模式切换按钮（排除全屏按钮，避免干扰 B 站全屏操作）
-        const [wideEnterButton, wideLeaveButton, webLeaveButton] = await elementSelectors.batch([
-            'playerModeWideEnterButton',
-            'playerModeWideLeaveButton',
-            'playerModeWebLeaveButton'
-        ])
-        this._cleanup.push(addEventListenerToElement([wideEnterButton, wideLeaveButton, webLeaveButton], 'click', async () => {
-            await sleep(100)
-            await this.resetPlayerLayout()
-        }))
-        // 监听网页全屏进入按钮
-        const webEnterBtn = elementSelectors.get('playerModeWebEnterButton')
-        if (webEnterBtn) {
-            this._cleanup.push(addEventListenerToElement(webEnterBtn, 'click', async () => {
-                await this.webfullPlayerModeUnlock()
+        // 只绑一次：否则每次进入网页全屏都再叠一层，最终一次点击触发 N 次重排
+        if (!this._webfullButtonsBound) {
+            this._webfullButtonsBound = true
+            const [wideEnterButton, wideLeaveButton, webLeaveButton] = await elementSelectors.batch([
+                'playerModeWideEnterButton',
+                'playerModeWideLeaveButton',
+                'playerModeWebLeaveButton'
+            ])
+            this._cleanup.push(addEventListenerToElement([wideEnterButton, wideLeaveButton, webLeaveButton], 'click', async () => {
+                await sleep(100)
+                await this.resetPlayerLayout()
             }))
+            // 监听网页全屏进入按钮
+            const webEnterBtn = elementSelectors.get('playerModeWebEnterButton')
+            if (webEnterBtn) {
+                this._cleanup.push(addEventListenerToElement(webEnterBtn, 'click', async () => {
+                    await this.webfullPlayerModeUnlock()
+                }))
+            }
         }
         this.enableWheelScrollInWebfull()
         logger.info('网页全屏丨已解锁')
