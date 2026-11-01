@@ -62,6 +62,7 @@ const CSS_MAP: Record<string, string> = {
     highResButton: '.bpx-player-ctrl-flac',
     // 弹幕/字幕
     switchSubtitleButton: '[aria-label="字幕"]',
+    playerSubtitleCtrl: '.bpx-player-ctrl-subtitle',
     subtitleLanguageChineseAI: '[data-lan="ai-zh"]',
     // 迷你播放器
     miniPlayer: '#mirror-vdcon .mini-player-window.fixed-sidenav-storage-item',

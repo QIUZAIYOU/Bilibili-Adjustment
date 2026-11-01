@@ -3,6 +3,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { baseStyles } from '@/shared/styles/base'
 import { videoStyles } from '@/shared/styles/video-page'
 import { biliApis } from '@/shared/bili-apis'
+import { SubtitleAvailabilityCache } from '@/shared/subtitle-availability'
 import { STORAGE_KEYS } from '@/shared/constants'
 import { getTemplates } from '@/shared/templates'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
@@ -75,7 +76,32 @@ interface UiButtonsContext {
     openFishPond: () => void
     /** 「鱼塘」按钮按需显示（仅在本页命中大肥鱼评论时出现） */
     syncFishPondButton: (visible: boolean) => void
+    /** 「片段」按钮按需显示（仅在本视频有字幕时出现） */
+    syncSkipSegmentButton: (floatNav: HTMLElement, dataV: string) => Promise<void>
 }
+/**
+ * 「片段」按钮只在**有字幕**的视频上出现：字幕是片段识别与自动跳过的前提，
+ * 没字幕的视频点进管理面板什么也做不了，白占侧栏一格。
+ *
+ * probe 走 biliApis（视频信息拿 cid + 字幕轨道列表），结果按 bvid 缓存在会话内；
+ * 判定与缓存逻辑在 `src/shared/subtitle-availability.ts`（纯类，可单测）。
+ */
+const subtitleAvailability = new SubtitleAvailabilityCache(async (bvid: string): Promise<boolean> => {
+    const info = await biliApis.getVideoInformation('video', bvid) as { cid?: string | number } | null | undefined
+    const cid = info?.cid
+    if (!cid) return false
+    const tracks = await biliApis.getVideoSubtitles(bvid, cid)
+    return Array.isArray(tracks) && tracks.length > 0
+})
+/**
+ * 播放器上有没有字幕入口（B 站自己的字幕按钮 / 控制条字幕项）。
+ *
+ * 选它当首选判据的原因：B 站只在视频确实有字幕（含 AI 字幕）时才渲染这个控件，
+ * 是**页面自己给出的结论**，比我们再打一次接口更准、也不花请求。
+ */
+const playerShowsSubtitleControl = (): boolean => Boolean(
+    elementSelectors.get('switchSubtitleButton') || elementSelectors.get('playerSubtitleCtrl')
+)
 /** 侧栏「UP主空间」按钮（作者头像）的类名 —— 脚本自己的 DOM */
 const UP_AVATAR_SELECTOR = '.bili-adjustment-icon.up'
 /**
@@ -251,8 +277,10 @@ export const uiButtonsFeatures = {
             existingFishPondButton.remove()
             logger.debug('侧边栏工具丨捞鱼已关闭，移除「鱼塘」按钮')
         }
-        if (existingLocateButton && existingSettingsButton && existingUpButton && existingSkipButton) {
+        if (existingLocateButton && existingSettingsButton && existingUpButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
+            // 「片段」按钮是随视频变的（换集/换视频后字幕情况不同）：上面三个都在也要重新核对一次
+            if (this.userConfigs.page_type === 'video') void this.syncSkipSegmentButton(floatNav as HTMLElement, dataV)
             return
         }
         let locateButton: HTMLElement | null = null
@@ -276,19 +304,9 @@ export const uiButtonsFeatures = {
                     await this.settingsComponent.openSettings()
                 })
             }
-            // 插入跳过片段管理按钮（与开关解耦：用于维护手动/共享片段数据，随时可用）
-            if (!existingSkipButton) {
-                const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav.lastElementChild as Node, 'prepend', {
-                    dataV,
-                    text: '片段'
-                })
-                addEventListenerToElement(skipButton, 'click', async () => {
-                    const bvid = biliApis.getCurrentVideoID(window.location.href)
-                    if (bvid && bvid !== 'error') {
-                        await this.showSkipSegmentManager(bvid)
-                    }
-                })
-            }
+            // 「片段」按钮按需出现：先问字幕（异步、按 bvid 缓存），确认有字幕才插；没字幕就把残留移除。
+            // 不 await：它要发网络请求，不能挡住定位/设置/头像三个按钮的插入。
+            void this.syncSkipSegmentButton(floatNav, dataV)
             // 「鱼塘」按钮**不在这里插**：只有扫描命中大肥鱼评论时才出现（`syncFishPondButton`），
             // 平时不占位，避免侧栏常年挂一个空入口
             // ⚠️ 「UP主空间」（作者头像）按钮**最后插入**：
@@ -347,6 +365,49 @@ export const uiButtonsFeatures = {
      * 插入位置：紧跟「UP主空间」头像下方（侧栏是 prepend 语义，直接 prepend 会跑到头像上面）。
      * @param visible 当前是否命中至少 1 条大肥鱼评论
      */
+    /**
+     * 「片段」按钮的按需插入 / 移除。
+     *
+     * 判定：当前视频是否有字幕（biliApis 视频信息 + 字幕轨道）。判不出来（请求失败）时**不插**——
+     * 宁可这次没有入口，也不要在没字幕的视频上放一个点了没用、还容易让人以为是坏了的按钮。
+     */
+    async syncSkipSegmentButton (this: UiButtonsContext, floatNav: HTMLElement, dataV: string): Promise<void> {
+        const bvid = biliApis.getCurrentVideoID(window.location.href)
+        if (!bvid || bvid === 'error') return
+        // B 站自己的字幕控件是**最可信**的信号：它只在视频真有字幕（含 AI 字幕）时才出现，
+        // 且不用发请求。控件还没渲染出来时再退回接口探测（接口按 bvid 缓存）。
+        let hasSubtitles = playerShowsSubtitleControl()
+        if (!hasSubtitles) {
+            try {
+                hasSubtitles = await subtitleAvailability.resolve(bvid)
+            } catch (error) {
+                // 探测失败说明「没问出来」，不是「没有字幕」—— 失败放行，别把用户本来能用的入口藏掉
+                logger.debug('侧边栏工具丨字幕探测失败，保留「片段」按钮', error)
+                hasSubtitles = true
+            }
+        }
+        // 等结果的这几百毫秒里可能换了视频、或者侧栏被 B 站重建：这类情况下别再动 DOM
+        if (!floatNav.isConnected || biliApis.getCurrentVideoID(window.location.href) !== bvid) return
+        const existing = floatNav.querySelector('.bili-adjustment-icon.skip') as HTMLElement | null
+        if (!hasSubtitles) {
+            if (existing) {
+                existing.remove()
+                logger.debug(`侧边栏工具丨当前视频没有字幕，隐藏「片段」按钮（${bvid}）`)
+            }
+            return
+        }
+        if (existing) return
+        const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav.lastElementChild as Node, 'prepend', {
+            dataV,
+            text: '片段'
+        })
+        addEventListenerToElement(skipButton, 'click', async () => {
+            const current = biliApis.getCurrentVideoID(window.location.href)
+            if (current && current !== 'error') {
+                await this.showSkipSegmentManager(current)
+            }
+        })
+    },
     syncFishPondButton (this: UiButtonsContext, visible: boolean): void {
         const floatNav = this.userConfigs.page_type === 'video' ? elementSelectors.get('videoFloatNav') : null
         const existing = floatNav?.querySelector('.bili-adjustment-icon.fishpond') ?? null
