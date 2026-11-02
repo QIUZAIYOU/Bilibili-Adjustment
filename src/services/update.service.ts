@@ -10,6 +10,34 @@ import { isFeatureLevelUpdate, isSameVersionRepublish, parseScriptMetaInfo, pars
 import type { UpdateItem } from '@/utils/update-items'
 const logger = new LoggerService('UpdateService', { notify: false }) // 接口/网络瞬时失败：只进控制台，不弹通知条
 /**
+ * 设置弹窗开着时，更新提示不再叠一个全尺寸模态，而是从版本号**向下展开一张小卡片**
+ * （450px 见方的模态盖在同宽的设置弹窗上，看起来就是两层一样的窗叠在一起）。
+ * 卡片本身也是 top-layer popover（`popover=manual`），所以能压在设置弹窗之上、
+ * 又只占右上角一小块，点空白/Esc/关闭都收起。
+ */
+const UPDATE_CARD_CLASS = 'adj-update-card'
+let anchoredUpdateCard: { root: HTMLElement; cleanup: () => void } | null = null
+const closeAnchoredUpdateCard = (): void => {
+    if (!anchoredUpdateCard) return
+    const { root, cleanup } = anchoredUpdateCard
+    anchoredUpdateCard = null
+    cleanup()
+    root.remove()
+}
+/** 找「当前打开着」的设置弹窗（播放页/动态页各一个 id） */
+const findOpenSettingsPopover = (): HTMLElement | null => {
+    for (const id of ['VideoSettingsPopover', 'DynamicSettingsPopover']) {
+        const el = document.getElementById(id)
+        if (el && el.matches(':popover-open')) return el as HTMLElement
+    }
+    return null
+}
+const readUiZoom = (): number => {
+    const raw = getComputedStyle(document.documentElement).getPropertyValue('--adj-ui-zoom')
+    const zoom = Number.parseFloat(raw)
+    return Number.isFinite(zoom) && zoom > 0 ? zoom : 1
+}
+/**
  * 更新检查源（**不再使用任何 CORS 代理**，全部直连）。
  *
  * 三个源都经过真实浏览器实测（页面内 fetch）：
@@ -134,6 +162,12 @@ export class UpdateService {
     #showUpdatePopover (currentVersion: string, latestVersion: string, updateItems: UpdateItem[], options: { rebuilt?: boolean } = {}): void {
         // rebuilt：版本号未变、但线上内容已更新（同版本覆盖发布）——只能重新安装，没有更新日志
         const rebuilt = options.rebuilt === true
+        // 设置弹窗开着就用「贴版本号的小卡片」：避免两个同尺寸模态叠在一起
+        const settingsPopover = findOpenSettingsPopover()
+        if (settingsPopover) {
+            this.#showAnchoredUpdateCard(settingsPopover, currentVersion, latestVersion, updateItems, rebuilt)
+            return
+        }
         openAdjustmentDialog({
             key: 'update-notice',
             title: rebuilt ? '哔哩哔哩调整 · 内容已更新' : '哔哩哔哩调整 · 有新版本',
@@ -174,6 +208,141 @@ export class UpdateService {
                 }
             ]
         })
+    }
+    /**
+     * 贴着版本号展开的更新卡片（设置弹窗打开时走这条路径）
+     *
+     * 为什么不是第二个模态：更新提示是「点版本号看详情」的轻量提示，做成同尺寸模态就会和
+     * 设置弹窗几乎完全重合（都是 550px 居中），视觉上像两扇窗叠着。这里改成卡片：
+     * top-layer popover 保证压在设置弹窗之上，宽度按版本号右对齐、竖直方向贴在徽章下方，
+     * 点空白处 / Esc / 「关闭」都收起，收起后焦点还回版本号。
+     */
+    #showAnchoredUpdateCard (settingsPopover: HTMLElement, currentVersion: string, latestVersion: string, updateItems: UpdateItem[], rebuilt: boolean): void {
+        closeAnchoredUpdateCard()
+        // 水平方向对齐版本号右边缘，竖直方向从**头部条**下方开始：头部条是固定高度，
+        // 版本号下方那条「检查更新中…/发现新版本」状态行是异步出现的，用版本号做竖锚会被它顶住
+        const anchor = (settingsPopover.querySelector('.adjustment-popover-version-wrap') as HTMLElement | null) ?? settingsPopover
+        const headerBottom = (): number => {
+            const header = settingsPopover.querySelector('.adjustment-popover-header') as HTMLElement | null
+            return header ? header.getBoundingClientRect().bottom : anchor.getBoundingClientRect().bottom
+        }
+        const root = document.createElement('div')
+        root.className = `${UPDATE_CARD_CLASS} update-dialog`
+        root.setAttribute('popover', 'manual')
+        root.setAttribute('role', 'dialog')
+        root.setAttribute('aria-label', rebuilt ? '哔哩哔哩调整 · 内容已更新' : `哔哩哔哩调整 · 发现新版本 v${latestVersion}`)
+        const inner = document.createElement('div')
+        inner.className = 'adj-update-card-inner'
+        const header = document.createElement('div')
+        header.className = 'adj-update-card-header'
+        const title = document.createElement('div')
+        title.className = 'adj-update-card-title'
+        title.textContent = rebuilt ? '内容已更新' : `发现新版本 v${latestVersion}`
+        const subtitle = document.createElement('div')
+        subtitle.className = 'adj-update-card-sub'
+        subtitle.textContent = rebuilt ? `版本号未变（v${currentVersion}），服务器内容有更新` : `当前版本 v${currentVersion}`
+        header.append(title, subtitle)
+        const body = document.createElement('div')
+        body.className = 'adj-update-card-body'
+        const actions = document.createElement('div')
+        actions.className = 'adj-update-card-actions'
+        const closeButton = document.createElement('button')
+        closeButton.type = 'button'
+        closeButton.className = 'adjustment-button'
+        closeButton.textContent = '关闭'
+        const updateButton = document.createElement('button')
+        updateButton.type = 'button'
+        updateButton.className = 'adjustment-button primary'
+        updateButton.textContent = rebuilt ? '重新安装' : '去更新'
+        actions.append(closeButton, updateButton)
+        inner.append(header, body, actions)
+        root.append(inner)
+        let handle: Awaited<ReturnType<typeof mountUpdateNoticePanel>> | null = null
+        let disposed = false
+        // 面板懒加载：与模态路径同一套组件，加载完成前先占位，避免卡片高度从 0 跳到最终值
+        mountUpdateNoticePanel(body, { currentVersion, latestVersion, items: updateItems })
+            .then(created => {
+                if (disposed) created.unmount()
+                else handle = created
+            })
+            .catch(error => {
+                logger.error('更新提示｜面板加载失败', error)
+            })
+        const place = (): void => {
+            const rect = anchor.getBoundingClientRect()
+            const gap = 8 * readUiZoom()
+            const margin = 12
+            root.style.top = `${Math.round(headerBottom() + gap)}px`
+            // 卡片默认与版本号右边缘对齐（靠右、靠上都是视觉锚点），并防止贴出屏幕
+            const cardWidth = root.getBoundingClientRect().width || 360 * readUiZoom()
+            const right = Math.min(
+                Math.max(margin, window.innerWidth - rect.right),
+                Math.max(margin, window.innerWidth - cardWidth - margin)
+            )
+            root.style.right = `${Math.round(right)}px`
+        }
+        const close = (restoreFocus = true): void => {
+            if (!anchoredUpdateCard || anchoredUpdateCard.root !== root) return
+            disposed = true
+            handle?.unmount()
+            handle = null
+            closeAnchoredUpdateCard()
+            // 焦点还给版本号：它是可点击的 div，没有 tabindex，先补一个再聚焦
+            if (restoreFocus) {
+                const versionEl = settingsPopover.querySelector('.adjustment-popover-version') as HTMLElement | null
+                if (versionEl) {
+                    versionEl.setAttribute('tabindex', '-1')
+                    versionEl.focus({ preventScroll: true })
+                }
+            }
+        }
+        const onPointerDown = (event: PointerEvent): void => {
+            const target = event.target as Node | null
+            if (!target || root.contains(target) || anchor.contains(target)) return
+            close(false)
+        }
+        const onKeyDown = (event: KeyboardEvent): void => {
+            if (event.key === 'Escape') {
+                event.stopPropagation()
+                close()
+            }
+        }
+        const onSettingsToggle = (): void => {
+            // 设置弹窗被关掉/切走时卡片跟着收起，否则会孤零零挂在页面上
+            if (!settingsPopover.matches(':popover-open')) close(false)
+        }
+        const onSettingsScroll = (): void => {
+            // 卡片是 fixed 定位的浮层，设置内容一滚就会脱离视觉锚点，直接收起更干净
+            close(false)
+        }
+        closeButton.addEventListener('click', () => close())
+        updateButton.addEventListener('click', () => {
+            window.open('//www.asifadeaway.com/UserScripts/bilibili/bilibili-adjustment.user.js', '_blank')
+            close()
+        })
+        document.addEventListener('pointerdown', onPointerDown, true)
+        document.addEventListener('keydown', onKeyDown, true)
+        window.addEventListener('resize', place)
+        settingsPopover.addEventListener('toggle', onSettingsToggle)
+        settingsPopover.addEventListener('scroll', onSettingsScroll, { passive: true })
+        document.body.append(root)
+        root.showPopover()
+        place()
+        anchoredUpdateCard = {
+            root,
+            cleanup: () => {
+                document.removeEventListener('pointerdown', onPointerDown, true)
+                document.removeEventListener('keydown', onKeyDown, true)
+                window.removeEventListener('resize', place)
+                settingsPopover.removeEventListener('toggle', onSettingsToggle)
+                settingsPopover.removeEventListener('scroll', onSettingsScroll)
+                disposed = true
+                handle?.unmount()
+                handle = null
+            }
+        }
+        // 焦点落到「去更新」上：键盘用户 Tab 一次就能操作，Esc 可回退到版本号
+        window.setTimeout(() => updateButton.focus(), 0)
     }
     /**
      * 获取最新版本信息：按 ① 自有 meta.js → ② GitHub raw → ③ Gitee API 顺序取第一个可用源。

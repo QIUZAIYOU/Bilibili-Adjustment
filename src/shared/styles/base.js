@@ -895,6 +895,76 @@ function generateBilibiliAdjustmentStyle () {
             word-break: break-word;
         }
 
+        /* 设置弹窗开着时点版本号：更新提示改为贴着版本号的小卡片（而不是再开一个同尺寸模态叠上去）。
+           外壳只负责定位（固定定位 + 宽度跟缩放走），视觉卡片放在内层并应用 zoom，
+           这样卡片内部字号/间距与弹窗同一套比例，4K 下不会显得过小。 */
+        .adj-update-card {
+            position: fixed;
+            inset: auto;
+            margin: 0;
+            padding: 0;
+            border: 0;
+            background: transparent;
+            overflow: visible;
+            width: calc(360px * var(--adj-ui-zoom, 1));
+        }
+
+        .adj-update-card::backdrop {
+            background: transparent;
+        }
+
+        .adj-update-card-inner {
+            zoom: var(--adj-ui-zoom, 1);
+            box-sizing: border-box;
+            width: 360px;
+            max-height: calc(62vh * var(--adj-ui-zoom-inv, 1));
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 14px 16px 12px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: 14px;
+            background: var(--adj-bg-page);
+            color: var(--adj-text-primary);
+            box-shadow: var(--adj-shadow-dialog);
+            animation: adjustment-popover-in 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        .adj-update-card-header {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .adj-update-card-title {
+            font-size: 15px;
+            font-weight: 600;
+            line-height: 1.5;
+            color: var(--adj-text-strong);
+        }
+
+        .adj-update-card-sub {
+            font-size: 12px;
+            line-height: 1.5;
+            color: var(--adj-text-soft);
+        }
+
+        .adj-update-card-body {
+            min-width: 0;
+        }
+
+        .adj-update-card-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            padding-top: 2px;
+        }
+
+        .adj-update-card .adjustment-update-contents {
+            max-height: 38vh;
+        }
+
         /* ========== 自定义确认弹窗 ========== */
         .adjustment-confirm-overlay {
             position: fixed;
