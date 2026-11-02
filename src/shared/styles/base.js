@@ -920,7 +920,7 @@ function generateBilibiliAdjustmentStyle () {
             box-sizing: border-box;
             width: 360px;
             max-height: calc(62vh * var(--adj-ui-zoom-inv, 1));
-            overflow-y: auto;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
             gap: 10px;
@@ -953,14 +953,18 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adj-update-card-body {
+            flex: 1 1 auto;
             min-width: 0;
+            min-height: 0;
+            overflow-y: auto;
         }
 
         .adj-update-card-actions {
+            flex: none;
             display: flex;
             justify-content: flex-end;
             gap: 8px;
-            padding-top: 2px;
+            padding-top: 10px;
         }
 
         /* 面板根节点是 .adjustment-form（设置弹窗里靠它提供 28px 侧内距），卡片自身已有内距，
@@ -984,7 +988,7 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adj-update-card .adjustment-update-contents {
-            max-height: 38vh;
+            max-height: 26vh;
             margin: 8px 0 0;
         }
 
