@@ -492,8 +492,7 @@ function generateBilibiliAdjustmentStyle () {
             position: fixed;
             /* top 由脚本按弹窗头部下边框实测对齐（这里只是脚本未接手时的兜底值） */
             top: 16vh;
-            /* 275px = 弹窗基础宽 550/2；弹窗宽度随 zoom 放大（4K 下 1100），这里必须同倍放大，
-               否则导航会钻进弹窗内部。导航本身挂在 body 上、不被 zoom，故用 zoom 而非倒数 */
+            /* 275px = 弹窗基础宽 550/2，需随 zoom 同比放大（导航挂在 body、不被 zoom） */
             right: calc(50% + (275px * var(--adj-ui-zoom, 1)) + 10px);
             display: flex;
             flex-direction: column;
@@ -853,7 +852,7 @@ function generateBilibiliAdjustmentStyle () {
             display: flex;
             flex-direction: column;
             gap: 8px;
-            /* 弹窗根带 zoom（见 .adjustment-dialog[popover]），视口上限必须乘回倒数 */
+            /* 弹窗根带 zoom，视口上限乘回倒数 */
             max-height: calc(46vh * var(--adj-ui-zoom-inv, 1));
             overflow-y: auto;
         }

@@ -14,8 +14,7 @@ export const homePageStyles = {
             border-radius: var(--adj-radius-sm);
             color: var(--adj-text-soft);
             padding: var(--adj-space-lg);
-            /* 弹窗根同时带 .adjustment-popover 的 zoom：视口上限必须乘回倒数，
-               否则 4K（zoom=2）下 80vh 会被渲染成 160vh，弹窗撑出屏幕、标题被顶到视口之上 */
+            /* 弹窗根带 zoom：上限必须乘回倒数，否则 4K 下 80vh 会渲染成 160vh */
             max-height: calc(80vh * var(--adj-ui-zoom-inv, 1));
             overflow: hidden;
         }
