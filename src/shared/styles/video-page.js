@@ -143,7 +143,10 @@ export const videoPageStyles = {
     popoverOverrides: `
         #VideoSettingsPopover {
             width: 550px;
-            max-height: 90vh;
+            /* 这条比 .adjustment-popover 优先级高，必须一起做缩放换算：
+               zoom 会把 CSS 尺寸连同 max-height 一起放大，所以视口上限要乘回倒数，
+               否则 4K 下 90vh 会被放大成 180vh（弹窗上下都被裁掉）。 */
+            max-height: calc(90vh * var(--adj-ui-zoom-inv, 1));
         }
 
         #OffsetTop {

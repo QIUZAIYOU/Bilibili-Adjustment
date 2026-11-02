@@ -106,7 +106,10 @@ const DIALOG_CSS = `
         margin: auto;
         inset: 0;
         width: 550px;
-        max-width: 92vw;
+        /* 与 .adjustment-popover 同一套等比缩放：4K 下整体放大，视觉占比与 1080p 一致 */
+        zoom: var(--adj-ui-zoom, 1);
+        max-width: calc(92vw * var(--adj-ui-zoom-inv, 1));
+        max-height: calc(88vh * var(--adj-ui-zoom-inv, 1));
     }
     .adjustment-dialog-header {
         display: flex;

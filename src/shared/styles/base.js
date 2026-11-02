@@ -21,6 +21,12 @@ export const baseStyles = {
 }
 function generateBilibiliAdjustmentStyle () {
     return `
+        /* 弹窗等比缩放系数（JS 写入，见 src/shared/ui-scale.ts）：
+           1920 宽 = 1，4K 放大到 2；inv 是倒数，供 92vw/88vh 这类视口上限换算回去 */
+        :root {
+            --adj-ui-zoom: 1;
+            --adj-ui-zoom-inv: 1;
+        }
         /* ========== 滚动条 ========== */
         /* 悬停加宽由 JS 驱动（scrollbar-hover.js）：目标元素打 data 属性后逐帧重写宽度规则（伪元素不支持自定义属性与 transition） */
         ::-webkit-scrollbar {
@@ -59,7 +65,10 @@ function generateBilibiliAdjustmentStyle () {
             box-sizing: border-box;
             padding: 0;
             width: 550px;
-            max-height: 88vh;
+            /* 整窗等比放大：内部全是写死的 px，zoom 一次性把字号/内距/图标一起放大，
+               4K 下与 1080p 的视觉占比一致（max-height 要乘回倒数，否则 88vh 会被放大溢出） */
+            zoom: var(--adj-ui-zoom, 1);
+            max-height: calc(88vh * var(--adj-ui-zoom-inv, 1));
             border: none;
             border-radius: 16px;
             font-size: 14px;
@@ -915,6 +924,8 @@ function generateBilibiliAdjustmentStyle () {
         }
 
         .adjustment-confirm-dialog {
+            /* 确认框同样跟随弹窗缩放（覆盖层不缩放，否则遮罩边缘会露白） */
+            zoom: var(--adj-ui-zoom, 1);
             background: var(--adj-bg-surface);
             border: 1px solid var(--adj-border-strong);
             border-radius: 12px;

@@ -9,6 +9,7 @@ import { updateService } from '@/services/update.service'
 import { applyCachedHotConfig, refreshHotConfig } from '@/services/hot-config.service'
 import { baseStyles } from '@/shared/styles/base'
 import { ThemeManager } from '@/shared/theme'
+import { installUiZoom } from '@/shared/ui-scale'
 import { initStylusNightFollowing } from '@/shared/theme/stylus-night'
 import { debounce } from '@/utils/lodash-lite'
 import { perfStart, perfEnd, perfMark } from '@/shared/perf'
@@ -201,6 +202,8 @@ if (window.self !== window.top && location.search.includes(UP_SPACE_POPUP_FLAG))
 }
 // 主题变量先于一切样式注入（样式字符串引用 var(--adj-*)），默认 night 兜底
 ThemeManager.init()
+// 弹窗等比缩放：1920 宽为 1.0 基准，4K 下整体放大，视觉比例与 1080p 一致
+installUiZoom()
 // Stylus 夜间哔哩样式检测：开启时强制界面主题 night 并锁定内容文字色（实时跟随增删）
 initStylusNightFollowing()
 insertStyleToDocument({ 'BilibiliAdjustmentStyle': baseStyles.BilibiliAdjustment })
