@@ -336,6 +336,17 @@ def check_www_version(root):
     return result.returncode == 0
 
 
+def check_dialog_units(root):
+    """上传前拦住「弹窗里的 vh/vw 忘乘 zoom 倒数」：4K 下会被放大一倍，弹窗直接撑出屏幕"""
+    print('--- 校验弹窗视口单位已按 UI 缩放换算 ---')
+    result = subprocess.run(
+        ['node', os.path.join('scripts', 'check-dialog-units.mjs')],
+        cwd=root, capture_output=True, text=True, timeout=60,
+        encoding='utf-8', errors='replace')
+    print((result.stdout or '').strip() or (result.stderr or '').strip())
+    return result.returncode == 0
+
+
 def check_build_stats(root):
     """上传前跑体积门禁：相对基线增长超 +4KB gzip 或 +5% 即失败
 
@@ -447,6 +458,10 @@ def main():
     # ========== 主题色值门禁：样式里出现字面色值即失败（项目红线） ==========
     if not check_theme_colors(root):
         sys.exit('存在字面色值，已中止（未上传任何文件）')
+
+    # ========== 视口单位门禁：弹窗里的 vh/vw 必须乘回 zoom 倒数（否则 4K 下弹窗撑出屏幕） ==========
+    if not check_dialog_units(root):
+        sys.exit('弹窗视口单位未按 UI 缩放换算，已中止（未上传任何文件）')
 
     # ========== 提示词热更模式：只生成并上传提示词，不动脚本产物 ==========
     # 用途：改了提示词但不想让用户更新脚本（也就不会触发「同版本内容已更新」的重新安装提示）

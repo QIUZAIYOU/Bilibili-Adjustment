@@ -87,7 +87,9 @@ const DIALOG_CSS = `
         font-size: 14px;
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         overflow: hidden;
-        max-height: 88vh;
+        /* 视口上限一律乘回 zoom 的倒数：本级虽不带 zoom，但同一元素的 [popover] 规则会带，
+           写死 88vh 会在 4K（zoom=2）下被渲染成 176vh —— 与下方 [popover] 规则保持同口径最稳 */
+        max-height: calc(88vh * var(--adj-ui-zoom-inv, 1));
         display: flex;
         flex-direction: column;
         animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
