@@ -306,7 +306,7 @@ export const uiButtonsFeatures = {
             }
             // 「片段」按钮按需出现：先问字幕（异步、按 bvid 缓存），确认有字幕才插；没字幕就把残留移除。
             // 不 await：它要发网络请求，不能挡住定位/设置/头像三个按钮的插入。
-            void this.syncSkipSegmentButton(floatNav, dataV)
+            void this.syncSkipSegmentButton(floatNav as HTMLElement, dataV)
             // 「鱼塘」按钮**不在这里插**：只有扫描命中大肥鱼评论时才出现（`syncFishPondButton`），
             // 平时不占位，避免侧栏常年挂一个空入口
             // ⚠️ 「UP主空间」（作者头像）按钮**最后插入**：
