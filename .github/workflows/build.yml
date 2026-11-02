@@ -3,6 +3,10 @@ name: Build CI
 on:
   pull_request:
     branches: [ main ]
+  # 合并后 main 上也要跑一遍：dependabot 合并走的是 merge commit，PR 那轮 CI 验的是分支内容，
+  # 合并结果（尤其 package-lock 冲突重算）没人验证过
+  push:
+    branches: [ main ]
 
 jobs:
   build:
