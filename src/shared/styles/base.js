@@ -219,14 +219,16 @@ function generateBilibiliAdjustmentStyle () {
         .adjustment-popover-version-status.has-update {
             color: var(--adj-success);
             font-weight: 500;
-            width: 100%;
             text-align: center;
         }
 
         .adjustment-popover-version-status {
             position: absolute;
             top: 100%;
-            right: 0;
+            /* 以版本号（wrap 的唯一宽来源）中心为基准居中：右边缘贴 50% 再回移半宽，
+               否则文字比徽章宽时会整段向左溢出、看着像没对齐 */
+            right: 50%;
+            transform: translateX(50%);
             margin-top: 4px;
             white-space: nowrap;
             font-size: 11px;
@@ -961,8 +963,29 @@ function generateBilibiliAdjustmentStyle () {
             padding-top: 2px;
         }
 
+        /* 面板根节点是 .adjustment-form（设置弹窗里靠它提供 28px 侧内距），卡片自身已有内距，
+           再叠一层会让「当前版本 / 更新项」比标题多缩进 28px —— 这里清零，与标题左对齐 */
+        .adj-update-card .adjustment-form {
+            padding: 0;
+            gap: 10px;
+        }
+
+        .adj-update-card .adjustment-form-item {
+            padding: 0;
+        }
+
+        .adj-update-card .adjustment-version {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            font-size: 12px;
+            line-height: 1.6;
+            color: var(--adj-text-secondary);
+        }
+
         .adj-update-card .adjustment-update-contents {
             max-height: 38vh;
+            margin: 8px 0 0;
         }
 
         /* ========== 自定义确认弹窗 ========== */

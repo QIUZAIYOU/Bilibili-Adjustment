@@ -238,10 +238,8 @@ export class UpdateService {
         const title = document.createElement('div')
         title.className = 'adj-update-card-title'
         title.textContent = rebuilt ? '内容已更新' : `发现新版本 v${latestVersion}`
-        const subtitle = document.createElement('div')
-        subtitle.className = 'adj-update-card-sub'
-        subtitle.textContent = rebuilt ? `版本号未变（v${currentVersion}），服务器内容有更新` : `当前版本 v${currentVersion}`
-        header.append(title, subtitle)
+        // 不再自带「当前版本 vX」副标题：面板里已经列了当前/最新版本，重复一遍反而啰嗦
+        header.append(title)
         const body = document.createElement('div')
         body.className = 'adj-update-card-body'
         const actions = document.createElement('div')
