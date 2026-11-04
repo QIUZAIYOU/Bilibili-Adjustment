@@ -9,7 +9,10 @@ export const fishPondTemplates = {
     fishPondDialog: `<div class="adj-fish-pond" bilibili-adjustment-element>
         <div class="adj-fish-pond-toolbar">
             <span class="adj-fish-pond-count" data-adj-field="count">正在扫描…</span>
-            <button type="button" class="adj-fish-pond-rescan" data-adj-field="rescan">重新扫描</button>
+            <span class="adj-fish-pond-tools">
+                <span class="adj-fish-pond-updated" data-adj-field="updated" role="status" aria-live="polite" hidden></span>
+                <button type="button" class="adj-fish-pond-rescan" data-adj-field="rescan">重新扫描</button>
+            </span>
         </div>
         <div class="adj-fish-pond-list" data-adj-field="list"></div>
         <div class="adj-fish-pond-empty" data-adj-field="empty" hidden>这片鱼塘很干净，没发现大肥鱼。</div>

@@ -1104,6 +1104,47 @@ export const videoPageStyles = {
             border-color: var(--adj-brand);
         }
 
+        /* 扫描中禁用（重复点击不再叠加扫描），并保留可辨认的视觉态 */
+        .adj-fish-pond-rescan:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+
+        .adj-fish-pond-rescan:disabled:hover {
+            color: var(--adj-text-soft);
+            border-color: var(--adj-border-strong);
+        }
+
+        .adj-fish-pond-tools {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex: none;
+        }
+
+        /* 「已刷新 时:分:秒」：重扫结果常常和上次完全一样，
+           这条提示是用户唯一能确认「确实扫过一次」的可见凭据 */
+        .adj-fish-pond-updated {
+            font-size: 12px;
+            color: var(--adj-success);
+            white-space: nowrap;
+        }
+
+        .adj-fish-pond-updated.is-visible {
+            animation: adj-fish-pond-updated-in 0.2s ease-out;
+        }
+
+        @keyframes adj-fish-pond-updated-in {
+            from {
+                opacity: 0;
+                transform: translateY(-2px);
+            }
+            to {
+                opacity: 1;
+                transform: none;
+            }
+        }
+
         .adj-fish-pond-list {
             display: flex;
             flex-direction: column;
