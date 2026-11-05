@@ -11,6 +11,8 @@ import { sleep, createElementAndInsert, addEventListenerToElement, insertStyleTo
 import type { InsertionMethod } from '@/utils/common'
 import { normalizeUpOwner, resolveAvatarSize, resolveAvatarTip } from './up-avatar-pure'
 import type { UpOwnerInfo } from './up-avatar-pure'
+import { SIDENAV_KEYS, SIDENAV_KEY_SELECTORS, SIDENAV_MIRROR_SELECTOR, planSidenavDedupe } from './sidenav-dedupe'
+import type { SidenavButtonKey } from './sidenav-dedupe'
 const logger = new LoggerService('VideoModule')
 /** 注入按钮的补全项：模板只描述结构，这些运行时值一律用 DOM API 补（不往 HTML 里拼字符串） */
 interface InjectedButtonOptions {
@@ -77,7 +79,7 @@ interface UiButtonsContext {
     /** 「鱼塘」按钮按需显示（仅在本页命中大肥鱼评论时出现） */
     syncFishPondButton: (visible: boolean) => void
     /** 「片段」按钮按需显示（仅在本视频有字幕时出现） */
-    syncSkipSegmentButton: (floatNav: HTMLElement, dataV: string) => Promise<void>
+    syncSkipSegmentButton: () => Promise<void>
 }
 /**
  * 「片段」按钮只在**有字幕**的视频上出现：字幕是片段识别与自动跳过的前提，
@@ -102,8 +104,6 @@ const subtitleAvailability = new SubtitleAvailabilityCache(async (bvid: string):
 const playerShowsSubtitleControl = (): boolean => Boolean(
     elementSelectors.get('switchSubtitleButton') || elementSelectors.get('playerSubtitleCtrl')
 )
-/** 侧栏「UP主空间」按钮（作者头像）的类名 —— 脚本自己的 DOM */
-const UP_AVATAR_SELECTOR = '.bili-adjustment-icon.up'
 /**
  * 读 sessionStorage 里 B 站写的当前视频信息（取 UP 主 mid/昵称/头像，零网络开销）
  *
@@ -206,10 +206,21 @@ const startFloatNavWatch = (ctx: UiButtonsContext): void => {
         if (floatNavReinsertTimer) clearTimeout(floatNavReinsertTimer)
         floatNavReinsertTimer = setTimeout(() => {
             floatNavReinsertTimer = null
-            const nav = elementSelectors.get('videoFloatNav') as HTMLElement | null
-            if (!nav || nav.querySelector('.bili-adjustment-icon.locate')) return
+            // 先做全文档去重：按钮若只是被 B 站搬出了容器，这一步就能把它找回来（并清掉多余副本），
+            // 不需要再插一组。只有真的一个都不剩才补插。
+            const snapshot = dedupeSidenavButtons(ctx.userConfigs.page_type)
+            const nav = snapshot.primary
+            if (!nav) return
+            if (snapshot.present.locate) {
+                // 按钮还在但 scope 可能丢了（旧版本插入的）：顺手校正，别让错误的扁平样式一直留着
+                if (ctx.userConfigs.page_type === 'video') {
+                    applySidenavDataV(resolveSidenavDataV(nav), Object.values(snapshot.present))
+                }
+                return
+            }
+            if (!nav.isConnected || nav.getClientRects().length === 0) return
             floatNavReinsertCount += 1
-            logger.debug(`侧边栏工具丨页面已稳定，补插第 ${floatNavReinsertCount} 次`)
+            logger.debug('侧边栏工具丨页面已稳定，补插第 ' + floatNavReinsertCount + ' 次')
             void ctx.insertSideFloatNavToolsButtons()
         }, 1200)
     }
@@ -228,6 +239,83 @@ const scheduleFloatNavInsertRetry = (ctx: UiButtonsContext): void => {
         floatNavRetryTimer = null
         void ctx.insertSideFloatNavToolsButtons()
     }, FLOAT_NAV_RETRY_INTERVAL_MS)
+}
+/**
+ * 当前页对应的侧栏容器选择器键：视频页与番剧页是两个不同的容器
+ */
+const resolveFloatNavKey = (pageType: unknown): string => pageType === 'video' ? 'videoFloatNav' : 'bangumiFloatNav'
+/** 网页全屏镜像容器里的按钮是播放器复制的，不算重复 */
+const isInSidenavMirror = (element: Element): boolean => Boolean(element.closest(SIDENAV_MIRROR_SELECTOR))
+const collectSidenavCandidates = (): Partial<Record<SidenavButtonKey, Element[]>> => {
+    const candidates: Partial<Record<SidenavButtonKey, Element[]>> = {}
+    for (const key of SIDENAV_KEYS) candidates[key] = Array.from(document.querySelectorAll(SIDENAV_KEY_SELECTORS[key]))
+    return candidates
+}
+interface SidenavSnapshot {
+    primary: Element | null
+    present: Partial<Record<SidenavButtonKey, Element>>
+}
+/**
+ * 全文档去重：留下主容器内那一组，删掉被 B 站搬到别处的副本
+ *
+ * 必须在**插入之前**跑：原先的判据只看当前容器，副本被搬走后容器里查不到按钮，
+ * 看护定时器就当成「还没插」再插一组 —— 重复堆叠正是这么来的。
+ */
+const dedupeSidenavButtons = (pageType: unknown): SidenavSnapshot => {
+    const plan = planSidenavDedupe({
+        navs: elementSelectors.queryAll(resolveFloatNavKey(pageType)),
+        candidates: collectSidenavCandidates(),
+        isInMirror: isInSidenavMirror
+    })
+    if (plan.staleCopies.length > 0) {
+        for (const copy of plan.staleCopies) copy.remove()
+        logger.warn('侧边栏工具丨清理 ' + plan.staleCopies.length + ' 个脱离容器的副本（疑似 B 站重渲染搬移）')
+    }
+    return { primary: plan.primary, present: plan.present }
+}
+/** 读元素上所有 data-v-* 作用域属性名（CSS 的 `[data-v-]` 不是前缀通配，取不到这些属性） */
+const readDataVAttributes = (element: Element): string[] => element.getAttributeNames().filter(name => name.startsWith('data-v-'))
+/**
+ * 从侧栏里抄 B 站作用域属性（data-v-xxxx）
+ *
+ * 只抄「容器与真实按钮共有」的那一个：侧栏容器的 data-v 不止一个（组件自身 scope + 页面布局 scope），
+ * 而影响卡片样式的规则绑定的是**按钮所在组件**的 scope。容器与真实按钮的交集正好就是它；
+ * 后代子组件自己的 data-v 不能抄，抄错了 B 站规则同样不命中。
+ */
+const resolveSidenavDataV = (nav: Element): string => {
+    const navScopes = readDataVAttributes(nav)
+    const sample = Array.from(nav.querySelectorAll('.fixed-sidenav-storage-item')).find(element => !element.classList.contains('bili-adjustment-icon'))
+    const sampleScopes = sample ? readDataVAttributes(sample) : []
+    const shared = navScopes.filter(scope => sampleScopes.includes(scope))
+    return shared[0] ?? navScopes[0] ?? ''
+}
+/**
+ * 把作用域属性校正到注入按钮上（自愈）
+ *
+ * 历史版本可能已经插过没有 scope（或 scope 抄错）的按钮；「已存在就跳过插入」的分支如果不补这一下，
+ * 用户刷新多少次都恢复不了样式。这里统一：先摘掉其它 data-v-*，缺目标 scope 就补上。
+ */
+const applySidenavDataV = (dataV: string, buttons: Array<Element | null | undefined>): void => {
+    if (!dataV) return
+    for (const button of buttons) {
+        if (!button) continue
+        for (const name of readDataVAttributes(button)) {
+            if (name !== dataV) button.removeAttribute(name)
+        }
+        if (!button.hasAttribute(dataV)) button.setAttribute(dataV, '')
+    }
+}
+/**
+ * 插入目标必须真的在容器内
+ *
+ * lastElementChild 有时会是我们自己的按钮（插入过的），此时再 prepend 就成了嵌套按钮；
+ * 也可能被 B 站换成别的节点。这类情况下退回容器本身（prepend 到容器顶部，与原来的视觉位置一致）。
+ */
+const resolveSidenavInsertionTarget = (nav: Element): Node => {
+    const last = nav.lastElementChild
+    if (!last) return nav
+    if (last.classList.contains('bili-adjustment-icon')) return nav
+    return last.querySelector('.fixed-sidenav-storage-item') ? last : nav
 }
 export const uiButtonsFeatures = {
     /**
@@ -255,7 +343,9 @@ export const uiButtonsFeatures = {
             })
     },
     async insertSideFloatNavToolsButtons (this: UiButtonsContext): Promise<void> {
-        const floatNav = this.userConfigs.page_type === 'video' ? elementSelectors.get('videoFloatNav') : elementSelectors.get('bangumiFloatNav')
+        // 先做全文档去重：按钮被 B 站搬到容器外时，这里会清掉副本，避免看护再插一组
+        const snapshot = dedupeSidenavButtons(this.userConfigs.page_type)
+        const floatNav = snapshot.primary
         if (!floatNav) {
             // 调度改成三车道后，本功能在 canplaythrough 就派发，此时 B 站侧栏常常还没渲染。
             // 旧实现直接 return，按钮就再也不出现（用户看到的"侧边栏按钮没插入"）。这里做有界重试。
@@ -264,13 +354,21 @@ export const uiButtonsFeatures = {
         }
         cancelFloatNavInsertRetry()
         startFloatNavWatch(this)
-        const dataV = this.userConfigs.page_type === 'video' ? floatNav.lastElementChild?.attributes?.[1]?.name || '' : ''
-        // 检查是否已经存在定位按钮和设置按钮
-        const existingLocateButton = floatNav.querySelector('.bili-adjustment-icon.locate')
-        const existingSettingsButton = floatNav.querySelector('.bili-adjustment-icon.settings')
-        const existingUpButton = floatNav.querySelector('.bili-adjustment-icon.up')
-        const existingSkipButton = floatNav.querySelector('.bili-adjustment-icon.skip')
-        const existingFishPondButton = floatNav.querySelector('.bili-adjustment-icon.fishpond')
+        const isVideoPage = this.userConfigs.page_type === 'video'
+        const dataV = isVideoPage ? resolveSidenavDataV(floatNav) : ''
+        const insertTarget: Node = isVideoPage ? resolveSidenavInsertionTarget(floatNav) : floatNav
+        const {
+            locate: existingLocateButton,
+            settings: existingSettingsButton,
+            up: existingUpButton,
+            skip: existingSkipButton,
+            fishpond: existingFishPondButton
+        } = snapshot.present
+        // 自愈：旧版本（或首次插入时侧栏还没渲染出真实按钮）插的按钮可能没带 scope，
+        // 走「已存在就跳过」分支时补一次，用户刷新/看护触发即可恢复卡片样式
+        if (isVideoPage) {
+            applySidenavDataV(dataV, [existingLocateButton, existingSettingsButton, existingUpButton, existingSkipButton, existingFishPondButton])
+        }
         // 「鱼塘」按钮是**按需出现**的：只有扫描真的命中大肥鱼评论才插入（见 syncFishPondButton），
         // 所以这里只在功能被关掉时清残留，且不把它当作「已插齐」的判据
         if (!this.userConfigs.catch_fish && existingFishPondButton) {
@@ -280,15 +378,15 @@ export const uiButtonsFeatures = {
         if (existingLocateButton && existingSettingsButton && existingUpButton) {
             logger.debug('侧边栏工具丨已存在，跳过插入')
             // 「片段」按钮是随视频变的（换集/换视频后字幕情况不同）：上面三个都在也要重新核对一次
-            if (this.userConfigs.page_type === 'video') void this.syncSkipSegmentButton(floatNav as HTMLElement, dataV)
+            if (isVideoPage) void this.syncSkipSegmentButton()
             return
         }
         let locateButton: HTMLElement | null = null
         let videoSettingsOpenButton: HTMLElement | null = null
         let upButton: HTMLElement | null = null
-        if (this.userConfigs.page_type === 'video') {
+        if (isVideoPage) {
             if (!existingLocateButton) {
-                locateButton = insertInjectedButton('locateButton', floatNav.lastElementChild as Node, 'prepend', {
+                locateButton = insertInjectedButton('locateButton', insertTarget, 'prepend', {
                     className: 'fixed-sidenav-storage-item bili-adjustment-icon locate',
                     dataV,
                     text: '定位'
@@ -296,7 +394,7 @@ export const uiButtonsFeatures = {
                 addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
-                videoSettingsOpenButton = insertInjectedButton('videoSettingsOpenButton', floatNav.lastElementChild as Node, 'prepend', {
+                videoSettingsOpenButton = insertInjectedButton('videoSettingsOpenButton', insertTarget, 'prepend', {
                     dataV,
                     text: '设置'
                 })
@@ -306,14 +404,14 @@ export const uiButtonsFeatures = {
             }
             // 「片段」按钮按需出现：先问字幕（异步、按 bvid 缓存），确认有字幕才插；没字幕就把残留移除。
             // 不 await：它要发网络请求，不能挡住定位/设置/头像三个按钮的插入。
-            void this.syncSkipSegmentButton(floatNav as HTMLElement, dataV)
+            void this.syncSkipSegmentButton()
             // 「鱼塘」按钮**不在这里插**：只有扫描命中大肥鱼评论时才出现（`syncFishPondButton`），
             // 平时不占位，避免侧栏常年挂一个空入口
             // ⚠️ 「UP主空间」（作者头像）按钮**最后插入**：
             //    侧栏是纵向排列、插入方式又是 prepend（插到最前面），于是**最后插入的反而排在最上面** ——
             //    这样它就是侧栏的第一项（在「片段」按钮上方）。
             if (!existingUpButton) {
-                upButton = insertInjectedButton('upButton', floatNav.lastElementChild as Node, 'prepend', { dataV })
+                upButton = insertInjectedButton('upButton', insertTarget, 'prepend', { dataV })
                 addEventListenerToElement(upButton, 'click', () => { this.openUpSpaceByAvatar(upButton) })
             }
             const avatarButton = (existingUpButton ?? upButton) as HTMLElement | null
@@ -326,12 +424,13 @@ export const uiButtonsFeatures = {
             }
         }
         if (this.userConfigs.page_type === 'bangumi') {
-            if (!existingLocateButton) { locateButton = insertInjectedButton('locateButton', floatNav, 'append', {
-                className: 'bili-adjustment-icon locate',
-                style: baseStyles.videoSettingsOpenButton,
-                text: '定位'
-            })
-            addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
+            if (!existingLocateButton) {
+                locateButton = insertInjectedButton('locateButton', floatNav, 'append', {
+                    className: 'bili-adjustment-icon locate',
+                    style: baseStyles.videoSettingsOpenButton,
+                    text: '定位'
+                })
+                addEventListenerToElement(locateButton, 'click', () => this.locateButtonClick())
             }
             if (!existingSettingsButton) {
                 videoSettingsOpenButton = insertInjectedButton('videoSettingsOpenButton', floatNav, 'append', {
@@ -356,6 +455,12 @@ export const uiButtonsFeatures = {
                 })
             }
         }
+        // 自检：不假设插入一定落在预期位置，直接数一遍文档 —— 还有重复就再清一轮，
+        // 绝不让副本留到下一轮看护被当成「没有按钮」而重复插入
+        if (document.querySelectorAll(SIDENAV_KEY_SELECTORS.locate).length > 1) {
+            logger.warn('侧边栏工具丨检测到重复的定位按钮，执行去重')
+            dedupeSidenavButtons(this.userConfigs.page_type)
+        }
         logger.debug('侧边栏工具丨插入成功')
     },
     /**
@@ -371,7 +476,7 @@ export const uiButtonsFeatures = {
      * 判定：当前视频是否有字幕（biliApis 视频信息 + 字幕轨道）。判不出来（请求失败）时**不插**——
      * 宁可这次没有入口，也不要在没字幕的视频上放一个点了没用、还容易让人以为是坏了的按钮。
      */
-    async syncSkipSegmentButton (this: UiButtonsContext, floatNav: HTMLElement, dataV: string): Promise<void> {
+    async syncSkipSegmentButton (this: UiButtonsContext): Promise<void> {
         const bvid = biliApis.getCurrentVideoID(window.location.href)
         if (!bvid || bvid === 'error') return
         // B 站自己的字幕控件是**最可信**的信号：它只在视频真有字幕（含 AI 字幕）时才出现，
@@ -386,9 +491,14 @@ export const uiButtonsFeatures = {
                 hasSubtitles = true
             }
         }
-        // 等结果的这几百毫秒里可能换了视频、或者侧栏被 B 站重建：这类情况下别再动 DOM
-        if (!floatNav.isConnected || biliApis.getCurrentVideoID(window.location.href) !== bvid) return
-        const existing = floatNav.querySelector('.bili-adjustment-icon.skip') as HTMLElement | null
+        // 等结果的这几百毫秒里可能换了视频、侧栏被 B 站重建、甚至按钮被搬到容器外：
+        // 重新做一次去重再取主容器与按钮，别对着已经失效的节点操作
+        if (biliApis.getCurrentVideoID(window.location.href) !== bvid) return
+        const snapshot = dedupeSidenavButtons(this.userConfigs.page_type)
+        const floatNav = snapshot.primary
+        if (!floatNav || !floatNav.isConnected) return
+        const existing = (snapshot.present.skip ?? null) as HTMLElement | null
+        if (existing && hasSubtitles) applySidenavDataV(resolveSidenavDataV(floatNav), [existing])
         if (!hasSubtitles) {
             if (existing) {
                 existing.remove()
@@ -397,8 +507,8 @@ export const uiButtonsFeatures = {
             return
         }
         if (existing) return
-        const skipButton = insertInjectedButton('skipSegmentManagerButton', floatNav.lastElementChild as Node, 'prepend', {
-            dataV,
+        const skipButton = insertInjectedButton('skipSegmentManagerButton', resolveSidenavInsertionTarget(floatNav), 'prepend', {
+            dataV: resolveSidenavDataV(floatNav),
             text: '片段'
         })
         addEventListenerToElement(skipButton, 'click', async () => {
@@ -409,8 +519,11 @@ export const uiButtonsFeatures = {
         })
     },
     syncFishPondButton (this: UiButtonsContext, visible: boolean): void {
-        const floatNav = this.userConfigs.page_type === 'video' ? elementSelectors.get('videoFloatNav') : null
-        const existing = floatNav?.querySelector('.bili-adjustment-icon.fishpond') ?? null
+        if (this.userConfigs.page_type !== 'video') return
+        // 和其它侧栏按钮一样先全文档去重：B 站把按钮搬出容器后，这里会清掉副本而不是再插一个
+        const snapshot = dedupeSidenavButtons(this.userConfigs.page_type)
+        const floatNav = snapshot.primary
+        const existing = snapshot.present.fishpond ?? null
         if (!visible) {
             if (existing) {
                 existing.remove()
@@ -418,15 +531,18 @@ export const uiButtonsFeatures = {
             }
             return
         }
-        if (!floatNav || existing) return
-        const dataV = floatNav.lastElementChild?.attributes?.[1]?.name || ''
-        const fishPondButton = insertInjectedButton('fishPondButton', floatNav.lastElementChild as Node, 'prepend', {
-            dataV,
+        if (!floatNav) return
+        if (existing) {
+            applySidenavDataV(resolveSidenavDataV(floatNav), [existing])
+            return
+        }
+        const fishPondButton = insertInjectedButton('fishPondButton', resolveSidenavInsertionTarget(floatNav), 'prepend', {
+            dataV: resolveSidenavDataV(floatNav),
             text: '鱼塘'
         })
         if (!fishPondButton) return
         addEventListenerToElement(fishPondButton, 'click', () => { this.openFishPond() })
-        const upButton = floatNav.querySelector(UP_AVATAR_SELECTOR)
+        const upButton = snapshot.present.up ?? null
         if (upButton) upButton.after(fishPondButton)
         logger.debug('侧边栏工具丨命中大肥鱼，插入「鱼塘」按钮')
     },
@@ -449,8 +565,10 @@ export const uiButtonsFeatures = {
      * sessionStorage 里可能还留着上一个视频的作者。
      */
     async refreshUpAvatar (this: UiButtonsContext): Promise<void> {
-        const floatNav = elementSelectors.get('videoFloatNav')
-        const button = floatNav?.querySelector(UP_AVATAR_SELECTOR) as HTMLElement | null
+        // 用去重后的「主容器里的那颗」：容器可能被重建、按钮可能被搬到别处，直接 querySelector
+        // 会刷到已经不在侧栏上的副本
+        const snapshot = dedupeSidenavButtons(this.userConfigs.page_type)
+        const button = (snapshot.present.up ?? null) as HTMLElement | null
         if (!button) return
         const sessionOwner = readSessionOwner()
         if (sessionOwner.mid) {
