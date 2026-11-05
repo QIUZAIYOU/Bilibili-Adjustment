@@ -9,7 +9,7 @@ import { SettingsShellRenderer } from '@/components/settings-shell-renderer'
 import { BUILD_SHA } from '@/shared/build-info'
 import { enhanceCustomSelects, refreshCustomSelects } from '@/components/custom-select'
 import { updateService } from '@/services/update.service'
-import { formatPendingUpdateHint, isComparableBuildSha } from '@/utils/update-policy'
+import { formatPendingUpdateHint } from '@/utils/update-policy'
 import { maskConfigValueForKey } from '@/shared/sensitive-keys'
 import { parseSettingsPayload, splitKnownEntries, buildSettingsExportPayload, formatImportSummary, formatLocalDateStamp, MAX_IMPORT_ENTRIES } from '@/utils/settings-transfer'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
@@ -40,12 +40,11 @@ type FeedbackButton = HTMLElement & {
 }
 const logger = new LoggerService('SettingsDialog')
 /**
- * 设置面板显示的版本号：`v3.34.4+a1b2c3d`（构建期注入的 git 短 SHA）。
- * 只有**可比较的干净构建标识**才拼进去 —— 本地开发、脏工作区（`-dirty`）、取不到标识时
- * 一律只显示版本号，不把 `v3.38.3+d39d7f1-dirty` 这种调试字串摆给用户；
- * 完整构建标识改由悬浮提示呈现（见 versionTitle，反馈问题时仍可读到）。
+ * 设置面板显示的版本号：只显示主版本号 `v3.44.3`，**不拼构建标识**。
+ * 干净构建与脏构建（`-dirty`）在用户眼里都是同一个版本号，避免"同版本在不同电脑上
+ * 有的带 +sha 有的不带"；完整构建标识只放在悬浮提示里（见 versionTitle，反馈问题时仍可读到）。
  */
-const versionLabel = (): string => (isComparableBuildSha(BUILD_SHA) ? `${pkg.version}+${BUILD_SHA}` : pkg.version)
+const versionLabel = (): string => pkg.version
 /** 版本号悬浮提示：干净/脏的构建标识都带出来（含 `-dirty`），排查「用户装的是哪一份」时用 */
 const versionTitle = (): string => (BUILD_SHA && BUILD_SHA !== 'unknown' ? `点击检查更新（构建标识 ${BUILD_SHA}）` : '点击检查更新')
 /**
@@ -322,7 +321,7 @@ export class SettingsDialogHost {
         const renderer = new SettingsShellRenderer()
         this._activeSchema = videoSettingsConfig
         const formContent = '<div class="adjustment-form" id="VideoSettingsFormMount"></div>'
-        // 生成完整弹窗（版本号带上构建标识：同版本覆盖发布时便于确认用户装的是哪一份）
+        // 生成完整弹窗（版本号只显示主版本，构建标识放悬浮提示）
         const popoverHtml = renderer.renderPopover(
             '哔哩哔哩播放页设置',
             versionLabel(),
