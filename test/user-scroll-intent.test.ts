@@ -1,15 +1,20 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
+    beginPointerDown,
+    endPointerDown,
     isInsideProgrammaticScroll,
     isOwnUiInteraction,
+    isPointerDown,
     isScrollIntentKey,
+    lastUserIntentKind,
     markProgrammaticScroll,
     noteUserIntent,
     lastUserIntentAt,
     clearUserIntent,
     resetUserScrollIntent,
     shouldIgnoreIntentEvent,
+    shouldNoteScrollIntent,
     shouldYieldNow,
     shouldYieldToUser,
     subscribeUserIntent,
@@ -100,4 +105,63 @@ test('markProgrammaticScroll：自己写的滚动窗口不认成用户操作', a
     markProgrammaticScroll(-100)
     assert.equal(isInsideProgrammaticScroll(), false)
     resetUserScrollIntent()
+})
+/**
+ * 单击 ≠ 滚动意图（2026-11-06 「点击播放器定位失效」回归）
+ *
+ * 点击画面的顺序是 pointerdown → click。旧实现把 pointerdown 直接记成滚动意图，
+ * 于是 click 里的定位一查 `shouldYieldNow()` 就为 true、当场 return —— 功能整体失效。
+ * 现在 pointerdown 只记「按下中」，真正算意图的是「按下期间发生的 scroll」（拖滚动条）。
+ */
+test('pointerdown 本身不算滚动意图，单击不会让自动定位短路', () => {
+    resetUserScrollIntent()
+    beginPointerDown({ tagName: 'DIV', closest: () => null })
+    assert.equal(isPointerDown(), true)
+    assert.equal(shouldYieldNow(), false)
+    assert.equal(lastUserIntentAt(), 0)
+    // 单击结束（pointerup）：状态清掉，仍然没有意图
+    endPointerDown()
+    assert.equal(isPointerDown(), false)
+    assert.equal(shouldYieldNow(), false)
+    resetUserScrollIntent()
+})
+test('按住拖动产生的 scroll 才算意图；抬起后的 scroll 不算', () => {
+    resetUserScrollIntent()
+    // 按下 + 滚动 → 拖动
+    beginPointerDown({ tagName: 'DIV', closest: () => null })
+    assert.equal(shouldNoteScrollIntent(), true)
+    noteUserIntent('drag')
+    assert.equal(shouldYieldNow(), true)
+    assert.equal(lastUserIntentKind(), 'drag')
+    // 抬起后页面自己滚（如 B 站 switchVideo 的 scrollTo(0,0)）不再算意图
+    clearUserIntent()
+    endPointerDown()
+    assert.equal(shouldNoteScrollIntent(), false)
+    assert.equal(shouldYieldNow(), false)
+    resetUserScrollIntent()
+})
+test('自己界面上的 pointerdown 不进入按下状态', () => {
+    resetUserScrollIntent()
+    beginPointerDown({ tagName: 'DIV', closest: () => ({}) })
+    assert.equal(isPointerDown(), false)
+    assert.equal(shouldNoteScrollIntent(), false)
+    resetUserScrollIntent()
+})
+test('我们自己写滚动的窗口内，拖动产生的 scroll 不记意图', () => {
+    resetUserScrollIntent()
+    beginPointerDown({ tagName: 'DIV', closest: () => null })
+    markProgrammaticScroll(30)
+    assert.equal(shouldNoteScrollIntent(), false)
+    markProgrammaticScroll(-1)
+    assert.equal(shouldNoteScrollIntent(), true)
+    endPointerDown()
+    resetUserScrollIntent()
+})
+test('reset 会连同按下状态与意图类型一起清掉', () => {
+    beginPointerDown({ tagName: 'DIV', closest: () => null })
+    noteUserIntent('wheel')
+    resetUserScrollIntent()
+    assert.equal(isPointerDown(), false)
+    assert.equal(lastUserIntentKind(), '')
+    assert.equal(lastUserIntentAt(), 0)
 })

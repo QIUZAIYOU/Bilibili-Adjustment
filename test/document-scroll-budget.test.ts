@@ -82,3 +82,18 @@ test('默认不让位：不带 yieldToUser 时行为与旧版一致', async () =
     assert.ok(counter.attempts() > 0, '用户刚滚过也必须照旧重试（显式定位等场景靠这条）')
     resetUserScrollIntent()
 })
+test('显式定位（yieldToUser:false）在意图窗口内也照常滚过去', async () => {
+    let attempts = 0
+    const win = globalThis.window as unknown as { scrollY: number, scrollTo: () => void }
+    win.scrollY = 0
+    win.scrollTo = () => {
+        attempts++
+        win.scrollY = 500
+    }
+    ;(globalThis as unknown as { requestAnimationFrame: (cb: (t: number) => void) => void }).requestAnimationFrame = cb => setTimeout(() => cb(Date.now()), 0)
+    resetUserScrollIntent()
+    noteUserIntent() // 刚滚动过（用户点了「定位」按钮/播放器画面）
+    await documentScrollTo(500, { retryBudgetMs: 300, retryDelay: 10, label: '显式定位' })
+    assert.equal(attempts, 1, '显式定位不受让位窗口影响')
+    resetUserScrollIntent()
+})

@@ -797,13 +797,11 @@ export const playerModeFeatures = {
             }
             // 与事件驱动的定位共用合并闸门，避免用户连点叠出多次滚动
             if (this._autoLocating) return
-            // 用户刚在自己滚（比如一边看评论一边点到了画面）：这次点击定位也不该把他拽回播放器
-            if (shouldYieldNow()) {
-                logger.debug('播放器点击定位丨用户刚滚动过，跳过本次自动定位')
-                return
-            }
+            // 点击画面 = 用户明确要定位：清掉刚才的滚动意图再强制定位
+            // （滚动意图在 wheel/拖动时记，点画面本身不该被它拦下）
+            clearUserIntent()
             const beforeY = Math.round(window.scrollY)
-            await this.locateToPlayer()
+            await this.locateToPlayer({ force: true })
             logger.info(`播放器点击定位丨已定位到播放器（${beforeY} → ${Math.round(window.scrollY)}）`)
         })
     }

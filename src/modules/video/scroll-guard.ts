@@ -7,9 +7,10 @@ const DRIFT_TOLERANCE_PX = 24
 /** 守卫最长存活时间：兜底释放，任何异常情况下都不会长期接管页面滚动 */
 const MAX_HOLD_MS = 4000
 /** 用户主动滚动/操作的事件：一出现就释放守卫（绝不和用户抢滚动条）
- *  ⚠️ 必须含 pointerdown/mousedown（审查 W5）：拖滚动条只会触发 mousedown/pointerdown，
- *  旧列表只有 wheel/touchstart/keydown，于是「拖滚动条」被当成页面漂移，每帧被强拉回去 */
-const USER_INTENT_EVENTS = ['wheel', 'touchstart', 'pointerdown', 'keydown'] as const
+ *  ⚠️ 不能放 pointerdown（2026-11-06 修）：单击画面要定位，pointerdown 先于 click 到达，
+ *  当场释放会让「点击播放器定位」失效；拖滚动条由 utils/user-scroll-intent 的 `drag` 意图
+ *  （指针按下期间的 scroll）在下一帧识别，`tick()` 里已经据此释放。 */
+const USER_INTENT_EVENTS = ['wheel', 'touchstart', 'keydown'] as const
 /** 打在补丁函数上的标记：用于取回「真正的原生 scrollTo」，避免多层包装叠罗汉 */
 const NATIVE_SCROLL_TO = Symbol('adjNativeScrollTo')
 type PatchedScrollTo = typeof window.scrollTo & { [NATIVE_SCROLL_TO]?: (...args: unknown[]) => void }
