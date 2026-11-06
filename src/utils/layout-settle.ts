@@ -74,3 +74,31 @@ export const isPositionedAtPlayer = (check: PositionCheck): boolean => {
  */
 export const resolveLocateDuration = (mode: unknown, animatedDuration = 300): number =>
     String(mode ?? '') === 'instant' ? 0 : animatedDuration
+/** 「文档长高后要不要补定位」的判定结果 */
+export type GrowthRelocateAction = 'relocate' | 'wait' | 'stop'
+export interface GrowthRelocateInput {
+    /** 文档高度这次采样是否明显长高（≥50px） */
+    grew: boolean
+    /** 用户在这期间有没有自己滚过页面 */
+    userInteracted: boolean
+    /** 是否已不能再定位（播放器进了全屏/网页全屏/小窗，或容器消失） */
+    blocked: boolean
+    /** 从开始盯梢到现在过去了多久（ms） */
+    elapsedMs: number
+    /** 盯梢最长时长（ms） */
+    maxWaitMs: number
+}
+/**
+ * 文档长高后补定位的判定（纯函数）
+ *
+ * 背景（issue #39「定位上限变成57」）：刷新后评论区/推荐还没渲染完，可滚动范围被压成临时值，
+ * 内容加载完文档长高就得补一次定位。但这条路径是**自动**滚动 —— 用户已经自己在滚时
+ * （2026-11-06 反馈「加载完了还跟我抢滚动」），必须直接收工，绝不能补一次把页面拽回播放器。
+ */
+export const resolveGrowthRelocateAction = (input: GrowthRelocateInput): GrowthRelocateAction => {
+    if (input.blocked) return 'stop'
+    // 到点就收：补定位是自动行为，等满预算还没长高就该交给用户，别再盯着
+    if (!Number.isFinite(input.elapsedMs) || input.elapsedMs >= input.maxWaitMs) return 'stop'
+    if (input.userInteracted) return 'stop'
+    return input.grew ? 'relocate' : 'wait'
+}

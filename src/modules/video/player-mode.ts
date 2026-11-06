@@ -5,10 +5,19 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
-import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
+import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
+import { clearUserIntent, lastUserIntentAt, shouldYieldNow } from '@/utils/user-scroll-intent'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
 const logger = new LoggerService('VideoModule', { notify: false })
+/**
+ * 自动定位「校正」阶段的硬时间预算
+ *
+ * 旧实现只靠「最多 8 轮 × 每轮 sleep(500·min(n,3))」隐式封顶（≈10s），刷新后布局慢时
+ * 会连续校正十几秒 —— 这段时间里用户在往评论区滚，页面就被一次次拽回去
+ * （2026-11-06 反馈）。改为显式 4s 预算 + 每轮开始前查用户意图。
+ */
+const LOCATE_CORRECTION_BUDGET_MS = 4000
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface PlayerModeContext {
     userConfigs: Record<string, unknown>
@@ -24,7 +33,7 @@ interface PlayerModeContext {
     _modeFallbackTimer?: ReturnType<typeof setTimeout> | null
     hasPlayerTitle: () => Promise<boolean>
     isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
-    locateToPlayer: (options?: { duration?: number }) => Promise<void>
+    locateToPlayer: (options?: { duration?: number, force?: boolean }) => Promise<void>
     _retryPlayerMode: () => Promise<void>
 }
 /** 读播放器容器的文档流偏移（读不到返回 -1） */
@@ -163,8 +172,11 @@ const isLocatedAtPlayer = (offsetTop: number): boolean => {
  * 背景（issue #39「播放器定位固定上限变成57」）：刷新视频页时播放器下方的评论/推荐还没渲染完，
  * 文档只比视口高一点点（用户实测可滚动范围只有 57px），定位只能停在这个临时上限；
  * 内容加载完、文档长高之后却没人再定位，于是表现成「定位固定在 57，切换分P 才恢复正常」。
- * 所以收尾时若发现离真实目标还差得远，就盯着文档高度，明显长高后补一次定位；
- * 用户自己滚动过、或播放器进了全屏/网页全屏/小窗就放弃（不和用户抢滚动）。
+ * 所以收尾时若发现离真实目标还差得远，就盯着文档高度，明显长高后补一次定位。
+ *
+ * 2026-11-06 追加（用户报「功能都加载完了还在跟我抢滚动」）：这条是**自动**滚动 ——
+ * 用户一旦自己滚过、或页面被别的流程挪走，就永久收工，绝不补一次把页面拽回播放器；
+ * 「为什么收工」改为 info 留一行（旧实现这里全程只有 debug，用户日志里什么都看不到）。
  */
 const scheduleRelocateOnDocumentGrowth = (
     startHeight: number,
@@ -172,23 +184,45 @@ const scheduleRelocateOnDocumentGrowth = (
     options: { interval?: number, maxWait?: number } = {}
 ): void => {
     const interval = options.interval ?? 500
-    const deadline = Date.now() + (options.maxWait ?? 12000)
+    const maxWait = options.maxWait ?? 6000
+    const startedAt = Date.now()
     const startScrollY = window.scrollY
+    // 记下当时的用户意图水位：只有「之后」用户自己滚了才算他打断了补定位
+    const intentBaseline = lastUserIntentAt()
     let previousHeight = startHeight
     let timerId = 0
-    const stop = (): void => window.clearInterval(timerId)
+    let reported = false
+    const stop = (reason: string): void => {
+        window.clearInterval(timerId)
+        if (reported) return
+        reported = true
+        logger.info(`自动定位丨补定位收工（${reason}）`)
+    }
     timerId = window.setInterval(() => {
         const playerContainer = elementSelectors.get('playerContainer')
-        if (!playerContainer || Date.now() > deadline) return stop()
-        const playerMode = playerContainer.getAttribute('data-screen')
-        if (playerMode === 'full' || playerMode === 'web' || playerMode === 'mini') return stop()
-        if (Math.abs(window.scrollY - startScrollY) > 8) return stop()
+        const playerMode = playerContainer?.getAttribute('data-screen') ?? null
+        const blocked = !playerContainer || playerMode === 'full' || playerMode === 'web' || playerMode === 'mini'
         const currentHeight = readDocumentHeight()
         const grew = currentHeight - previousHeight >= 50
         previousHeight = currentHeight
-        if (!grew) return
-        logger.debug(`自动定位丨文档高度已增长（${startHeight} → ${currentHeight}），补一次定位`)
-        stop()
+        const userInteracted = lastUserIntentAt() > intentBaseline
+        const drifted = Math.abs(window.scrollY - startScrollY) > 8
+        const action = resolveGrowthRelocateAction({ grew, userInteracted, blocked, elapsedMs: Date.now() - startedAt, maxWaitMs: maxWait })
+        if (action === 'stop') {
+            const reason = blocked
+                ? '播放器已进入全屏/网页全屏/小窗'
+                : userInteracted ? '用户自己在滚页面' : '等待超时'
+            stop(reason)
+            return
+        }
+        // 位置被别的流程改过（B 站自己换页/回顶）：不再补定位，否则就成了和页面互抢
+        if (drifted) {
+            stop('页面位置已被其他流程改变')
+            return
+        }
+        if (action !== 'relocate') return
+        logger.info(`自动定位丨文档高度已增长（${startHeight} → ${currentHeight}），补一次定位`)
+        stop('已补定位')
         void locate().catch(error => {
             logger.warn('自动定位丨补定位失败:', error instanceof Error ? error.message : String(error))
         })
@@ -456,6 +490,12 @@ export const playerModeFeatures = {
                 logger.info('自动定位丨播放器处于网页全屏态，跳过定位')
                 return
             }
+            // 用户已经开始自己滚页面：本轮定位直接不做了（连等待布局稳定都省掉），
+            // 否则「等功能都加载完就好」会变成永远好不了（2026-11-06 反馈）
+            if (shouldYieldNow()) {
+                logger.info('自动定位丨用户正在自己滚动页面，本轮跳过定位（不把页面拉回播放器）')
+                return
+            }
             // 两件事互不依赖，并行等（串行最坏要 800+1500ms）：
             // - 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
             // - 文档高度稳定：刷新后评论/推荐还没渲染完时文档矮，可滚动范围会被压成临时上限
@@ -501,8 +541,17 @@ export const playerModeFeatures = {
                 // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
                 const maxRetry = this.userConfigs.page_type === 'bangumi' ? 3 : 2
                 let retried = 0
+                const correctionDeadline = Date.now() + LOCATE_CORRECTION_BUDGET_MS
                 // 文档还在长高时（刷新后评论/推荐没渲染完）多给几次机会：那时的「已到底」只是临时上限
                 for (let attempt = 0; attempt < 8; attempt++) {
+                    if (shouldYieldNow()) {
+                        logger.info(`自动定位丨用户开始自己滚动，从第 ${attempt + 1} 轮起停止校正（已校正 ${retried} 次）`)
+                        break
+                    }
+                    if (Date.now() > correctionDeadline) {
+                        logger.info(`自动定位丨校正超过 ${LOCATE_CORRECTION_BUDGET_MS}ms 预算，停止本轮校正`)
+                        break
+                    }
                     const freshContainer = elementSelectors.get('playerContainer')
                     if (!freshContainer) break
                     const freshMode = freshContainer.getAttribute('data-screen')
@@ -550,8 +599,12 @@ export const playerModeFeatures = {
             // 就等文档长高后补一次定位，否则会一直停在那个临时上限
             const settled = resolvePlayerScrollTarget(Number(this.userConfigs.offset_top) || 0)
             if (settled && settled.offset < settled.desiredOffset) {
-                logger.debug(`自动定位丨被文档高度限制（可滚 ${settled.offset} < 期望 ${settled.desiredOffset}），等文档长高后补定位`)
-                scheduleRelocateOnDocumentGrowth(readDocumentHeight(), () => this.locateToPlayer({ duration: 0 }))
+                if (shouldYieldNow()) {
+                    logger.info('自动定位丨用户已在自己滚动，不再安排「文档长高后补定位」')
+                } else {
+                    logger.debug(`自动定位丨被文档高度限制（可滚 ${settled.offset} < 期望 ${settled.desiredOffset}），等文档长高后补定位`)
+                    scheduleRelocateOnDocumentGrowth(readDocumentHeight(), () => this.locateToPlayer({ duration: 0 }))
+                }
             }
             logPlayerOffset('完成')
             logger.info('自动定位丨成功')
@@ -559,15 +612,29 @@ export const playerModeFeatures = {
             this._autoLocating = false
         }
     },
-    async locateToPlayer (this: PlayerModeContext, options: { duration?: number } = {}): Promise<void> {
+    async locateToPlayer (this: PlayerModeContext, options: { duration?: number, force?: boolean } = {}): Promise<void> {
         // duration 缺省由「定位滚动动画」设置决定（平滑滚动 300ms / 直接到位 0）；
         // 选集切换后的纠正固定传 0：直接到位，避免"先滚到顶部再滚回来"这种可见的二次滚动
         const duration = options.duration ?? resolveLocateDuration(this.userConfigs.locate_scroll_animation)
+        // force：用户显式要定位（点侧栏「定位」/时间锚点/选集切换）。此时先清掉意图水位，
+        // 否则「刚滚过再点定位」会被自己的让位逻辑挡掉
+        const force = options.force === true
+        if (force) clearUserIntent()
         const playerContainer = elementSelectors.get('playerContainer')
         if (!playerContainer) return
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
         if (playerMode === 'full' || playerMode === 'web') return
+        // 用户自己在滚：本次自动定位整体放弃（不做动画、不做位置校验）
+        if (!force && shouldYieldNow()) {
+            logger.info('自动定位丨用户正在自己滚动，跳过本次定位')
+            return
+        }
+        /** 滚动过程中是否因用户滚动而中止（中止后不再做后续校正） */
+        let yielded = false
+        const markYielded = (): void => {
+            yielded = true
+        }
         const offsetTop = Number(this.userConfigs.offset_top) || 0
         // mini 模式（滚到评论区后小窗悬浮）量不到播放器在文档流里的位置，只能用实测的自然位置估一个目标。
         // 不能直接滚到自然位置：那会把播放器顶到视口最上面、藏在吸顶头部后面
@@ -576,9 +643,16 @@ export const playerModeFeatures = {
         if (playerMode === 'mini') {
             const naturalOffset = Number(this.userConfigs.player_offset_top) || 0
             const estimate = resolveScrollOffset(naturalOffset, resolveViewportTop(offsetTop), readMaxScroll())
-            await documentScrollTo(estimate.offset, { duration, behavior: 'instant' }).catch(error => {
+            await documentScrollTo(estimate.offset, {
+                duration,
+                behavior: 'instant',
+                yieldToUser: !force,
+                label: '小窗估算定位',
+                onAborted: markYielded
+            }).catch(error => {
                 logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
             })
+            if (yielded) return
             if (!(await waitForLeaveMiniMode())) {
                 logger.debug('自动定位丨仍处于小窗模式，本轮不做位置校验')
                 return
@@ -600,13 +674,25 @@ export const playerModeFeatures = {
             documentGrowing
         })
         let targetOffset = resolved.offset
-        await documentScrollTo(targetOffset, { duration, behavior: 'instant' }).catch(error => {
+        await documentScrollTo(targetOffset, {
+            duration,
+            behavior: 'instant',
+            yieldToUser: !force,
+            label: '自动定位',
+            onAborted: markYielded
+        }).catch(error => {
             logger.warn('自动定位丨滚动失败:', error instanceof Error ? error.message : String(error))
         })
+        if (yielded) return
         // 吸顶（scroll-sticky）解除与布局稳定存在延迟，滚动后按视口位置校验，最多尝试 6 次
         let lastDocumentHeight = readDocumentHeight()
         for (let attempt = 0; attempt < 6; attempt++) {
             await sleep(300)
+            // 校验期间用户开始自己滚：立刻收手，别在下一轮把页面拽回来
+            if (!force && shouldYieldNow()) {
+                logger.info('自动定位丨用户开始自己滚动，停止位置校验')
+                return
+            }
             const freshContainer = elementSelectors.get('playerContainer')
             if (!freshContainer || freshContainer.getAttribute('data-screen') === 'full' || freshContainer.getAttribute('data-screen') === 'web') return
             const currentDocumentHeight = readDocumentHeight()
@@ -621,9 +707,16 @@ export const playerModeFeatures = {
                 logger.debug(`自动定位丨重新定位: ${freshTarget}（当前位置 ${window.scrollY}）`)
             }
             targetOffset = freshTarget
-            await documentScrollTo(targetOffset, { duration, behavior: 'instant' }).catch(error => {
+            await documentScrollTo(targetOffset, {
+                duration,
+                behavior: 'instant',
+                yieldToUser: !force,
+                label: '自动定位校正',
+                onAborted: markYielded
+            }).catch(error => {
                 logger.warn('自动定位丨重新定位失败:', error instanceof Error ? error.message : String(error))
             })
+            if (yielded) return
         }
         logger.debug('自动定位丨多次尝试后仍未到位')
     },
@@ -650,7 +743,8 @@ export const playerModeFeatures = {
             logger.debug('选集定位丨未检测到切换（可能点的是当前集），直接定位一次')
         }
         await waitForStablePlayerOffset()
-        await this.locateToPlayer({ duration: 0 })
+        // 选集是用户主动点的，这次定位是「他要的」→ force 清掉意图水位，避免刚点完就被让位逻辑吃掉
+        await this.locateToPlayer({ duration: 0, force: true })
         if (guard) {
             // 只有"确实落在了播放器位置"才把锚点挪过去：中间态测出的离谱目标不该被固化，
             // 那种情况保持原锚点（用户仍在播放器上），交给后续 autoLocateToPlayer 收尾
@@ -703,7 +797,14 @@ export const playerModeFeatures = {
             }
             // 与事件驱动的定位共用合并闸门，避免用户连点叠出多次滚动
             if (this._autoLocating) return
+            // 用户刚在自己滚（比如一边看评论一边点到了画面）：这次点击定位也不该把他拽回播放器
+            if (shouldYieldNow()) {
+                logger.debug('播放器点击定位丨用户刚滚动过，跳过本次自动定位')
+                return
+            }
+            const beforeY = Math.round(window.scrollY)
             await this.locateToPlayer()
+            logger.info(`播放器点击定位丨已定位到播放器（${beforeY} → ${Math.round(window.scrollY)}）`)
         })
     }
 }

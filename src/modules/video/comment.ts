@@ -28,7 +28,7 @@ interface CommentContext {
     _descriptionFallbackTimer?: ReturnType<typeof setTimeout> | null
     _descriptionFeedWaitStop?: (() => void) | null
     _descriptionRunToken?: number
-    locateToPlayer: () => Promise<void>
+    locateToPlayer: (options?: { duration?: number, force?: boolean }) => Promise<void>
     handleJumpToVideoTime: (video: HTMLVideoElement, target: HTMLElement) => void
     activeDescriptionTimeSeek: () => Promise<void>
     activeTimeSeek: (host: Element, video: HTMLVideoElement | null) => Promise<void>
@@ -60,7 +60,8 @@ export const commentFeatures = {
         timeSeekElements.forEach(element => {
             addEventListenerToElement(element, 'click', async event => {
                 event.stopPropagation()
-                await this.locateToPlayer()
+                // 用户点时间锚点 = 显式要定位到播放器，force 掉让位逻辑
+                await this.locateToPlayer({ force: true })
                 this.handleJumpToVideoTime(video as HTMLVideoElement, element as HTMLElement)
             })
         })
@@ -88,7 +89,8 @@ export const commentFeatures = {
         seekElements.forEach(element => {
             addEventListenerToElement(element, 'click', async event => {
                 event.stopPropagation()
-                await this.locateToPlayer()
+                // 用户点时间锚点 = 显式要定位到播放器，force 掉让位逻辑
+                await this.locateToPlayer({ force: true })
                 this.handleJumpToVideoTime(video as HTMLVideoElement, element as HTMLElement)
             })
         })

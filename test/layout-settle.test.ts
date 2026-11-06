@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
+import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 /**
  * 「定位到位」判定回归（issue #39「播放器定位固定上限变成57」）
  *
@@ -118,4 +118,27 @@ test('resolveLocateDuration：instant 为 0，其余退回平滑滚动', () => {
     assert.equal(resolveLocateDuration(null), 300)
     assert.equal(resolveLocateDuration(''), 300)
     assert.equal(resolveLocateDuration('INSTANT'), 300)
+})
+/**
+ * 「文档长高后补定位」的收工判据（2026-11-06「定位还在跟用户抢滚动」）
+ *
+ * 旧实现只看时间窗和位置漂移：用户一边往评论区滚、新内容一边长高，
+ * 补定位就会反复把他拽回播放器。现在用户一动手就立刻收工，且这条判定必须是纯函数可测。
+ */
+test('resolveGrowthRelocateAction：用户自己滚过就收工', () => {
+    const base = { grew: true, userInteracted: false, blocked: false, elapsedMs: 500, maxWaitMs: 6000 }
+    assert.equal(resolveGrowthRelocateAction(base), 'relocate')
+    assert.equal(resolveGrowthRelocateAction({ ...base, userInteracted: true }), 'stop')
+})
+test('resolveGrowthRelocateAction：容器不可用/超时都收工', () => {
+    const idle = { grew: false, userInteracted: false, blocked: false, elapsedMs: 500, maxWaitMs: 6000 }
+    assert.equal(resolveGrowthRelocateAction(idle), 'wait')
+    assert.equal(resolveGrowthRelocateAction({ ...idle, blocked: true }), 'stop')
+    assert.equal(resolveGrowthRelocateAction({ ...idle, elapsedMs: 6000 }), 'stop')
+    assert.equal(resolveGrowthRelocateAction({ ...idle, elapsedMs: 9000 }), 'stop')
+})
+test('resolveGrowthRelocateAction：没长高但已超预算时不能无限等下去', () => {
+    const waiting = { grew: false, userInteracted: false, blocked: false, elapsedMs: 5999, maxWaitMs: 6000 }
+    assert.equal(resolveGrowthRelocateAction(waiting), 'wait')
+    assert.equal(resolveGrowthRelocateAction({ ...waiting, elapsedMs: 6000 }), 'stop')
 })

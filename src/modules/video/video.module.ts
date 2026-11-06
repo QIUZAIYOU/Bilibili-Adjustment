@@ -9,6 +9,7 @@ import { sleep, isTabActive, monitorHrefChange, insertStyleToDocument } from '@/
 import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
 import { isInsidePreviewFrame } from '@/utils/preview-frame'
+import { installUserScrollIntent } from '@/utils/user-scroll-intent'
 import { videoStyles } from '@/shared/styles/video-page'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { isBangumiPage } from '@/utils/page-type'
@@ -463,6 +464,9 @@ export default {
         void this.ensureFeatureScheduler().trigger('mode:selected')
     },
     async initEventListeners (this: VideoModuleContext): Promise<void> {
+        // 用户滚动意图监听：自动定位/滚动守卫据此「让位给用户」，不做任何抢占
+        // （纯监听、零副作用；重复调用幂等，见 utils/user-scroll-intent）
+        installUserScrollIntent()
         this._cleanup.push(eventBus.on(EVENT_NAMES.LOGGER_SHOW, (_ctx, ...args: unknown[]) => {
             const { type, message } = (args[0] ?? {}) as { type?: string; message?: string }
             const level = type as LogLevel | undefined

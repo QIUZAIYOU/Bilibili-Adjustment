@@ -2,6 +2,7 @@ import { LoggerService } from '@/services/logger.service'
 import { isRetryBudgetExhausted, retryBackoffDelay } from '@/utils/retry-policy'
 import { chunk as chunkArray, pick, reduce, snakeCase } from '@/utils/lodash-lite'
 import { isVideoModulePage } from '@/utils/page-type'
+import { markProgrammaticScroll, shouldYieldNow, subscribeUserIntent } from '@/utils/user-scroll-intent'
 const logger = new LoggerService('Common')
 /** 页面类型（决定加载哪个页面模块） */
 export type PageType = 'video' | 'home' | 'dynamic' | 'other'
@@ -70,6 +71,17 @@ export interface DocumentScrollToOptions {
     behavior?: ScrollBehavior
     /** 动画时长（ms，> 0 时用 rAF 逐帧驱动） */
     duration?: number
+    /**
+     * 用户一滚就停手（默认 false）
+     *
+     * 只有「用户没要求过、是我们自己决定要滚」的调用点该开（自动定位、定位校正、补定位）；
+     * 用户点按钮/时间锚点触发的滚动是用户要的，保持 false 一路滚到位。
+     */
+    yieldToUser?: boolean
+    /** 日志里的调用来源（自动定位 / 选集定位 / 评论区跳转…），便于从控制台回溯是谁滚的 */
+    label?: string
+    /** 让位回调（调用点据此记录「本轮定位放弃」） */
+    onAborted?: (reason: 'user-scroll') => void
 }
 export const documentScrollTo = (offset: number, options: DocumentScrollToOptions = {}): Promise<void> => {
     const {
@@ -77,13 +89,83 @@ export const documentScrollTo = (offset: number, options: DocumentScrollToOption
         retryDelay = 300,
         tolerance = 2,
         behavior = 'auto',
-        duration = 0
+        duration = 0,
+        yieldToUser = false,
+        label = '滚动',
+        onAborted
     } = options
+    // 收口口径从「最多 3 次」改为「预算内一直重试」（2026-09-24）：滚动没落位多是
+    // 页面滚动锁未解除/布局还在动，网络差时页面就绪更慢，按次数收口会过早放弃。
+    // 2026-11-06：再加「用户一滚就让位」—— 旧实现只会把页面反复拽回去，而且一句日志都没有
+    const startedAt = Date.now()
     return new Promise<void>((resolve, reject) => {
         let attempts = 0
-        // 收口口径从「最多 3 次」改为「预算内一直重试」（2026-09-24）：滚动没落位多是
-        // 页面滚动锁未解除/布局还在动，网络差时页面就绪更慢，按次数收口会过早放弃
-        const startedAt = Date.now()
+        let settled = false
+        let rafId = 0
+        let retryTimer: ReturnType<typeof setTimeout> | null = null
+        let unsubscribeIntent: () => void = () => {}
+        const actualScroll = (): number => Math.round(window.scrollY)
+        const stopAnimation = (): void => {
+            if (rafId) {
+                const pending = rafId
+                rafId = 0
+                // 某些桩环境（单测/老浏览器）没有 cancelAnimationFrame，缺了也只是多跑一帧
+                if (typeof cancelAnimationFrame === 'function') cancelAnimationFrame(pending)
+            }
+            if (retryTimer !== null) {
+                clearTimeout(retryTimer)
+                retryTimer = null
+            }
+        }
+        const settle = (outcome: 'done' | 'aborted' | 'failed', error?: Error): void => {
+            if (settled) return
+            settled = true
+            stopAnimation()
+            unsubscribeIntent()
+            const elapsed = Date.now() - startedAt
+            const target = Math.round(offset)
+            // ⚠️ 日志不能影响控制流：warn 会触发通知条，在单测/无 GM 环境下会抛错，
+            // 一旦它把 settle 打断，Promise 就永远不落定（调用点会一直 await 住）
+            try {
+                if (outcome === 'done') {
+                    logger.info(`定位滚动丨${label}：已到位（目标 ${target}，实际 ${actualScroll()}，耗时 ${elapsed}ms）`)
+                } else if (outcome === 'aborted') {
+                    // 让位必须留痕（2026-11-06 用户报「就看着页面被拉回去，日志什么都没有」）
+                    logger.info(`定位滚动丨${label}：让位给用户滚动（目标 ${target}，实际 ${actualScroll()}，已重试 ${attempts} 次）`)
+                } else {
+                    logger.warn(`定位滚动丨${label}：未到位（目标 ${target}，实际 ${actualScroll()}，已重试 ${attempts} 次，耗时 ${elapsed}ms）`, { notify: false })
+                }
+            } catch {
+                // 记录失败不影响「什么时候结束」这个语义
+            }
+            if (outcome === 'failed') {
+                reject(error ?? new Error(`滚动未到位（已重试 ${attempts} 次，耗时 ${Math.round(elapsed / 1000)} 秒）`))
+            } else {
+                resolve()
+            }
+        }
+        const abortForUser = (): void => {
+            if (settled) return
+            try {
+                onAborted?.('user-scroll')
+            } catch (error) {
+                logger.debug('定位滚动丨让位回调异常', error)
+            }
+            settle('aborted')
+        }
+        if (yieldToUser) {
+            // 订阅意图是为了**动画中途**也能立刻停手（只靠帧内检查会多滚几帧）
+            unsubscribeIntent = subscribeUserIntent(abortForUser)
+            if (shouldYieldNow()) {
+                abortForUser()
+                return
+            }
+        }
+        /** 我们自己写滚动：先标记窗口，避免 scroll 事件被记账成用户意图 */
+        const writeScroll = (top: number, scrollBehavior: ScrollBehavior): void => {
+            markProgrammaticScroll()
+            window.scrollTo({ top, behavior: scrollBehavior })
+        }
         const checkPosition = (): boolean => {
             const currentY = window.scrollY
             return currentY === offset ||
@@ -92,46 +174,69 @@ export const documentScrollTo = (offset: number, options: DocumentScrollToOption
         }
         // duration > 0 时用 rAF 逐帧驱动滚动以精确控制时长；每帧强制 instant，
         // 避免页面 CSS 的 scroll-behavior:smooth 叠加出缓慢的浏览器平滑滚动
-        const animateScroll = (targetY: number, durationMs: number): Promise<void> => {
+        const animateScroll = (targetY: number, durationMs: number): Promise<boolean> => {
             if (durationMs <= 0) {
-                window.scrollTo({ top: targetY, behavior })
-                return Promise.resolve()
+                writeScroll(targetY, behavior)
+                return Promise.resolve(true)
             }
             const startY = window.scrollY
             const distance = targetY - startY
-            if (Math.abs(distance) <= tolerance) return Promise.resolve()
+            if (Math.abs(distance) <= tolerance) return Promise.resolve(true)
             const startTime = performance.now()
-            return new Promise(resolveAnimation => {
+            return new Promise<boolean>(resolveAnimation => {
                 const ease = (progress: number): number => 1 - Math.pow(1 - progress, 3)
                 const step = (now: number): void => {
+                    // 让位/失败后不再写滚动（守卫在 settle 里停帧，这里再兜一层）
+                    if (settled) {
+                        resolveAnimation(false)
+                        return
+                    }
                     const progress = Math.min(1, (now - startTime) / durationMs)
-                    window.scrollTo({ top: startY + distance * ease(progress), behavior: 'instant' })
+                    writeScroll(startY + distance * ease(progress), 'instant')
                     if (progress < 1) {
-                        requestAnimationFrame(step)
+                        rafId = requestAnimationFrame(step)
                     } else {
-                        resolveAnimation()
+                        rafId = 0
+                        resolveAnimation(true)
                     }
                 }
-                requestAnimationFrame(step)
+                rafId = requestAnimationFrame(step)
             })
         }
         const attemptScroll = async (): Promise<void> => {
             try {
-                await animateScroll(offset, duration)
-                await new Promise(r => requestAnimationFrame(r))
-                if (checkPosition()) {
-                    resolve()
-                } else if (retryBudgetMs > 0 && !isRetryBudgetExhausted(startedAt, retryBudgetMs)) {
-                    attempts++
-                    setTimeout(attemptScroll, retryBackoffDelay(attempts, retryDelay, 1500))
-                } else {
-                    reject(new Error(`滚动未到位（已重试 ${attempts} 次，耗时 ${Math.round((Date.now() - startedAt) / 1000)} 秒）`))
+                if (settled) return
+                if (yieldToUser && shouldYieldNow()) {
+                    abortForUser()
+                    return
                 }
+                const animated = await animateScroll(offset, duration)
+                if (settled || !animated) return
+                await new Promise(r => requestAnimationFrame(r))
+                if (settled) return
+                if (checkPosition()) {
+                    settle('done')
+                    return
+                }
+                // 每次重试前都重新问一次：用户可能在第 N 次校正的间隙里开始自己滚
+                if (yieldToUser && shouldYieldNow()) {
+                    abortForUser()
+                    return
+                }
+                if (retryBudgetMs > 0 && !isRetryBudgetExhausted(startedAt, retryBudgetMs)) {
+                    attempts++
+                    retryTimer = setTimeout(() => {
+                        retryTimer = null
+                        void attemptScroll()
+                    }, retryBackoffDelay(attempts, retryDelay, 1500))
+                    return
+                }
+                settle('failed')
             } catch (error) {
-                reject(error)
+                settle('failed', error instanceof Error ? error : new Error(String(error)))
             }
         }
-        attemptScroll()
+        void attemptScroll()
     })
 }
 export const getElementOffsetToDocument = (element: HTMLElement): { top: number; left: number } => {

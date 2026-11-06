@@ -1,5 +1,6 @@
 import { LoggerService } from '@/services/logger.service'
 import { insertStyleToDocument } from '@/utils/common'
+import { isInsideProgrammaticScroll, lastUserIntentAt, shouldYieldToUser } from '@/utils/user-scroll-intent'
 const logger = new LoggerService('VideoModule', { notify: false })
 /** 判定「偏离目标位置」的容差：小于它的漂移不纠正，避免与定位流程互相拉扯 */
 const DRIFT_TOLERANCE_PX = 24
@@ -87,7 +88,10 @@ export const holdScrollPosition = (targetY: number, options: { tolerance?: numbe
         insertStyleToDocument({ AdjScrollGuardStyle: '' })
         for (const type of USER_INTENT_EVENTS) win.removeEventListener(type, onUserIntent, true)
         if (activeGuard === handle) activeGuard = null
-        logger.debug(`选集定位丨位置守卫已释放（${reason}）：拦截页面滚动 ${intercepted} 次、纠正漂移 ${corrected} 次`)
+        const detail = `拦截页面滚动 ${intercepted} 次、纠正漂移 ${corrected} 次`
+        // 真拦过/纠正过才升到 info：用户回报「页面被拽」时需要能在控制台看到这一行
+        if (intercepted + corrected > 0) logger.info(`选集定位丨位置守卫已释放（${reason}）：${detail}`)
+        else logger.debug(`选集定位丨位置守卫已释放（${reason}）：${detail}`)
     }
     const onUserIntent = (): void => release('用户主动滚动')
     const patchedScrollTo = function (...args: unknown[]): void {
@@ -105,9 +109,18 @@ export const holdScrollPosition = (targetY: number, options: { tolerance?: numbe
     patchedScrollTo[NATIVE_SCROLL_TO] = nativeScrollTo
     const tick = (): void => {
         if (released) return
+        // 用户已经开始自己滚（wheel/触摸/方向键，见 utils/user-scroll-intent）：立刻交还滚动权，
+        // 绝不在下一帧再纠一次 —— 否则用户每拖一下滚动条就被拽回播放器（2026-11-06 反馈）
+        if (shouldYieldToUser(Date.now(), lastUserIntentAt())) {
+            release('用户滚动')
+            return
+        }
         if (Math.abs(win.scrollY - target) > tolerance) {
-            corrected++
-            nativeScrollTo({ top: target, behavior: 'instant' })
+            // 这帧的纠偏是我们自己写的滚动：标记窗口，避免被 scroll 事件当成用户操作
+            if (!isInsideProgrammaticScroll()) {
+                corrected++
+                nativeScrollTo({ top: target, behavior: 'instant' })
+            }
         }
         rafId = win.requestAnimationFrame(tick)
     }

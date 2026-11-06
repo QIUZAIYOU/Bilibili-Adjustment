@@ -2,6 +2,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
 import { documentScrollTo } from '@/utils/common'
+import { noteUserIntent, resetUserScrollIntent } from '@/utils/user-scroll-intent'
 /**
  * documentScrollTo 的重试口径回归（2026-09-24 改）
  *
@@ -36,4 +37,48 @@ test('预算 ≤ 0 时不重试（只尝试一次就放弃）', async () => {
     const counter = installStubs()
     await assert.rejects(documentScrollTo(500, { retryBudgetMs: 0 }), /滚动未到位/)
     assert.equal(counter.attempts(), 1)
+})
+/**
+ * 让位给用户（2026-11-06「定位还在跟用户抢滚动」）
+ *
+ * 自动滚动必须在用户开口滚动的**那一刻**停手：动画立刻停帧、重试立刻放弃，
+ * 并且以 resolve（而不是 reject）收尾 —— 让位不是失败，调用点不该打 warn。
+ */
+test('yieldToUser：滚动中途用户动手 → 立刻让位并 resolve', async () => {
+    const counter = installStubs()
+    resetUserScrollIntent()
+    let abortedWith: string | null = null
+    const scrolling = documentScrollTo(500, {
+        retryBudgetMs: 1000,
+        retryDelay: 20,
+        yieldToUser: true,
+        label: '自动定位',
+        onAborted: reason => {
+            abortedWith = reason
+        }
+    })
+    await new Promise(resolve => setTimeout(resolve, 60))
+    noteUserIntent()
+    await scrolling
+    const attemptsAtAbort = counter.attempts()
+    await new Promise(resolve => setTimeout(resolve, 150))
+    assert.equal(counter.attempts(), attemptsAtAbort, '让位后不许再写滚动')
+    assert.equal(abortedWith, 'user-scroll')
+    resetUserScrollIntent()
+})
+test('yieldToUser：用户已经滚动过时一次都不滚', async () => {
+    const counter = installStubs()
+    resetUserScrollIntent()
+    noteUserIntent()
+    await documentScrollTo(500, { retryBudgetMs: 1000, retryDelay: 20, yieldToUser: true })
+    assert.equal(counter.attempts(), 0)
+    resetUserScrollIntent()
+})
+test('默认不让位：不带 yieldToUser 时行为与旧版一致', async () => {
+    const counter = installStubs()
+    resetUserScrollIntent()
+    noteUserIntent()
+    await assert.rejects(documentScrollTo(500, { retryBudgetMs: 100 }), /滚动未到位/)
+    assert.ok(counter.attempts() > 0, '用户刚滚过也必须照旧重试（显式定位等场景靠这条）')
+    resetUserScrollIntent()
 })

@@ -64,7 +64,7 @@ interface UiButtonsContext {
     insertSideFloatNavToolsButtons: () => Promise<void>
     settingsComponent: { openSettings: () => Promise<void> }
     _cachedMid?: string | number
-    locateToPlayer: () => Promise<void>
+    locateToPlayer: (options?: { duration?: number, force?: boolean }) => Promise<void>
     /** 选集切换后的定位（等切换+布局稳定后一次性直达，见 player-mode） */
     locateToPlayerAfterEpisodeSwitch: () => Promise<void>
     locateButtonClick: () => Promise<void>
@@ -327,7 +327,8 @@ export const uiButtonsFeatures = {
         const miniCloseBtn = elementSelectors.get('miniPlayerClose')
         // 时序用 Promise 链表达（而非连续 await）：TS 6.0.3 在本文件里会把「await 相邻行」误判为不可调用
         const wait = (ms: number): Promise<void> => sleep(ms)
-        const locate = (): Promise<void> => this.locateToPlayer()
+        // 用户点的按钮 = 显式要定位：force 掉「刚滚过就让位」的判断
+        const locate = (): Promise<void> => this.locateToPlayer({ force: true })
         if (!miniOpenBtn || miniCloseBtn || getComputedStyle(miniOpenBtn).display === 'none') {
             return wait(100).then(locate)
         }
@@ -613,7 +614,8 @@ export const uiButtonsFeatures = {
         const locateToCommentButton = createElementAndInsert(getTemplates.locateToCommentBtn, playerControllerBottomRight)
         addEventListenerToElement(locateToCommentButton, 'click', async event => {
             event.stopPropagation()
-            documentScrollTo((await getElementOffsetToDocument(videoComment as HTMLElement)).top - 10)
+            // 用户点「前往评论」= 显式要跳到评论区：不设 yieldToUser（他要的就是滚过去）
+            documentScrollTo((await getElementOffsetToDocument(videoComment as HTMLElement)).top - 10, { label: '前往评论区' })
         })
         // 插入前往UP主空间按钮
         const mid = this._cachedMid
