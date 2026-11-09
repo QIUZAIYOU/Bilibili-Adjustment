@@ -3,7 +3,7 @@ import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
-import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument } from '@/utils/common'
+import { sleep, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
 import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, isTargetNearDocumentEnd, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 import { clearUserIntent, lastUserIntentAt, shouldYieldNow } from '@/utils/user-scroll-intent'
@@ -27,25 +27,30 @@ const MODE_SELECTION_MAX_PASSES = 2
 /** data-screen 连续这么久不再变化才算可信（B 站水合会先渲染上次的模式再重置） */
 const MODE_STABLE_MS = 600
 const MODE_STABLE_MAX_WAIT_MS = 2500
-/** 本页是否已经确认过页面水合完成（确认一次后不再重复等待） */
-let pageSettledOnce = false
+/** 本页的「页面水合完成」等待：只跑一次，之后复用同一个 Promise */
+let pageSettlePromise: Promise<boolean> | null = null
 /**
- * 滚动前等页面水合完成
+ * 滚动前等页面水合完成（记忆化）
  *
  * 刷新时视频命中缓存，`canplaythrough` 远早于 B 站头部水合；此时强制滚动会把头部/
  * 评论区停在水合前的空白态（2026-11-09 用户反馈「刷新后导航栏空白 + 定位失效」）。
+ * 由 `autoSelectPlayerMode` 提前起跑，与模式切换并行；定位入口只 await 结果，不再串行等待
+ *（2026-11-09「切换完到定位间隔长」）。
  */
-const ensurePageSettled = async (): Promise<void> => {
-    if (pageSettledOnce) return
-    const startedAt = Date.now()
-    const settled = await waitForPageSettled(() => {
-        const bar = elementSelectors.get('headerMini')
-        return Boolean(bar && bar.childElementCount > 0)
-    })
-    pageSettledOnce = settled
-    const elapsed = Date.now() - startedAt
-    if (!settled) logger.info(`自动定位丨等待页面水合超时（${elapsed}ms），继续定位`)
-    else if (elapsed >= 120) logger.info(`自动定位丨已等待页面水合完成（${elapsed}ms）`)
+const ensurePageSettled = (): Promise<boolean> => {
+    if (!pageSettlePromise) {
+        const startedAt = Date.now()
+        pageSettlePromise = waitForPageSettled(() => {
+            const bar = elementSelectors.get('headerMini')
+            return Boolean(bar && bar.childElementCount > 0)
+        }).then(settled => {
+            const elapsed = Date.now() - startedAt
+            if (!settled) logger.info(`自动定位丨等待页面水合超时（${elapsed}ms），继续定位`)
+            else if (elapsed >= 120) logger.info(`自动定位丨已等待页面水合完成（${elapsed}ms）`)
+            return settled
+        })
+    }
+    return pageSettlePromise
 }
 export type ModeSelectedReason = ModeDecisionReason | 'switch-success' | 'switch-retry' | 'switch-timeout' | 'unstable'
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
@@ -69,7 +74,6 @@ interface PlayerModeContext {
     /** 模式切换失败时的兜底定位定时器（失败只发一次定位，避免"按旧几何定位一次、成功后又一次"） */
     _modeFallbackTimer?: ReturnType<typeof setTimeout> | null
     hasPlayerTitle: () => Promise<boolean>
-    isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
     locateToPlayer: (options?: { duration?: number, force?: boolean }) => Promise<void>
     autoLocateToPlayer: () => Promise<void>
     _retryPlayerMode: () => Promise<void>
@@ -164,7 +168,13 @@ const resolveViewportTop = (offsetTop: number): number => {
         ? getElementComputedStyle(header, ['position', 'height']) as { position?: string, height?: string }
         : {}
     const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
-    return isHeaderOverlaying(headerComputedStyle.position) ? headerHeight + offsetTop : offsetTop
+    // ⚠️ 页面加载完成后，B 站头部条会从 absolute 变成 fixed；变之前按「不吸顶」算会少扣 64px，
+    // 定位先落到 +64 的位置，几秒后再被“位置校验”拉回 —— 用户看到的就是「定位后过一会儿又跳一下」。
+    // 页面已 complete 时把 absolute 也当作吸顶（B 站正常态的最终值就是 fixed），
+    // relative 仍按不吸顶处理（夜间哔哩会把它改成 relative，那时确实不压内容）。
+    const overlaying = isHeaderOverlaying(headerComputedStyle.position)
+        || (headerComputedStyle.position === 'absolute' && document.readyState === 'complete')
+    return overlaying ? headerHeight + offsetTop : offsetTop
 }
 /** 当前可滚动范围 */
 const readMaxScroll = (): number => {
@@ -319,6 +329,31 @@ const waitForStableScreenMode = async (container: Element | null, stableMs = MOD
     }
     return container.getAttribute('data-screen')
 }
+/**
+ * 等 data-screen 变成期望值
+ *
+ * 三点讲究（2026-11-09 踩过）：
+ * 1. 必须在**点击之前**开始等：B 站点下去 1ms 内就改属性，先点后等会漏掉这次变化；
+ * 2. 监听 document 子树而不是容器节点：切换时 B 站可能整个替换播放器容器，绑在旧节点上永远等不到；
+ * 3. 不轮询、不依赖定时器：切换动画期间 setTimeout 会被推迟到 1s 级。
+ */
+const waitForScreenMode = (expected: string, timeoutMs = 2000): Promise<boolean> => {
+    const read = (): string | null => elementSelectors.get('playerContainer')?.getAttribute('data-screen') ?? null
+    if (read() === expected) return Promise.resolve(true)
+    return new Promise(resolve => {
+        const done = (ok: boolean): void => {
+            observer.disconnect()
+            clearTimeout(timer)
+            resolve(ok)
+        }
+        const observer = new MutationObserver(() => {
+            if (read() === expected) done(true)
+        })
+        observer.observe(document.documentElement, { attributes: true, subtree: true, attributeFilter: ['data-screen']})
+        // 超时只作兜底：定时器本身可能被推迟，resolve 前再查一次
+        const timer = setTimeout(() => done(read() === expected), timeoutMs)
+    })
+}
 /** 「模式已选定」的唯一出口：先记一行原因，排查「谁触发了定位」时靠它 */
 const emitModeSelected = (reason: ModeSelectedReason, mode: string | null): void => {
     logger.info(`屏幕模式丨已确认（原因=${reason}，当前=${mode ?? '-'}）`)
@@ -327,9 +362,11 @@ const emitModeSelected = (reason: ModeSelectedReason, mode: string | null): void
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
         const targetMode = String(this.userConfigs.selected_player_mode ?? 'normal')
+        // 水合等待与模式切换并行起跑：等水合的最坏 3s 不能追加在「切换成功」之后
+        void ensurePageSettled()
         // 这些「不用切换」的判定全建立在 data-screen 上，而水合期间 B 站会先渲染上次的模式再重置：
         // 不等稳定就 emit，会先按旧几何定位一次、真正切换后按新几何再定位一次（用户 2026-11-09 反馈）
-        const confirmModeDecision = async (reason: ModeDecisionReason | 'switch-success', expected: string | null): Promise<boolean> => {
+        const confirmModeDecision = async (reason: ModeDecisionReason, expected: string | null): Promise<boolean> => {
             const container = elementSelectors.get('playerContainer')
             if (!container || !expected) {
                 emitModeSelected(reason, container?.getAttribute('data-screen') ?? null)
@@ -348,10 +385,10 @@ export const playerModeFeatures = {
                 wide: async () => { (await waitForModeButton('playerModeWideEnterButton'))?.click() },
                 web: async () => { (await waitForModeButton('playerModeWebEnterButton'))?.click() }
             }
+            // 等待必须在点击之前起跑，否则点下去那一刻的属性变化会被漏掉（见 waitForScreenMode 注释）
+            const switched = waitForScreenMode(targetMode)
             await strategies[targetMode]?.()
-            await sleep(350)
-            const video = elementSelectors.get('video') as HTMLVideoElement | null
-            if (!await this.isPlayerModeSwitchSuccess(targetMode, video)) {
+            if (!await switched) {
                 logger.warn('屏幕模式丨切换失败，已加入重试队列（3 分钟内持续重试）')
                 this._retryQueue?.register('playerMode', () => this._retryPlayerMode())
                 // ⚠️ 失败时不发事件：它是定位的唯一触发源，按旧几何定位会「定位两次」。
@@ -409,7 +446,11 @@ export const playerModeFeatures = {
                 continue
             }
             if (!await switchPlayerMode()) return
-            if (await confirmModeDecision('switch-success', targetMode)) return
+            // 切换成功的信号已经足够强：waitForScreenMode 等到了 data-screen 等于目标，
+            // 再等 600ms 稳定窗口只是白等（2026-11-09「能不能切换成功就立马定位」）。
+            // 稳定窗口保留给「没有真的切换」的分支，那里读到的可能还是水合中的瞬时值。
+            emitModeSelected('switch-success', elementSelectors.get('playerContainer')?.getAttribute('data-screen') ?? null)
+            return
         }
         logger.warn('屏幕模式丨两轮判定后模式仍不稳定，按当前状态触发一次定位')
         emitModeSelected('unstable', elementSelectors.get('playerContainer')?.getAttribute('data-screen') ?? null)
@@ -431,10 +472,9 @@ export const playerModeFeatures = {
         if (!buttonKey) throw new Error(`未知的目标模式：${targetMode}`)
         const btn = await waitForModeButton(buttonKey, 3000)
         if (!btn) throw new Error('未找到模式切换按钮（可能尚未渲染）')
+        const switched = waitForScreenMode(targetMode)
         btn.click()
-        await sleep(350)
-        const success = await this.isPlayerModeSwitchSuccess(targetMode, elementSelectors.get('video') as HTMLVideoElement | null)
-        if (!success) throw new Error('点击后校验仍未切换到目标模式')
+        if (!await switched) throw new Error('点击后校验仍未切换到目标模式')
         this._modeSwitchCooldown = Date.now()
         logger.info(`屏幕模式丨${targetMode === 'wide' ? '宽屏' : '网页全屏'}丨重试切换成功`)
         // 重试成功同样要发「模式已选定」：它是自动定位的唯一触发源。
@@ -443,33 +483,8 @@ export const playerModeFeatures = {
             clearTimeout(this._modeFallbackTimer)
             this._modeFallbackTimer = null
         }
-        await waitForStableScreenMode(playerContainer)
-        emitModeSelected('switch-retry', targetMode)
-    },
-    async isPlayerModeSwitchSuccess (this: PlayerModeContext, selectedPlayerMode: string, videoElement: HTMLVideoElement | null, timeoutMs = 1200): Promise<boolean> {
-        const playerContainer = elementSelectors.get('playerContainer')
-        if (!playerContainer) return false
-        const playerMode = playerContainer.getAttribute('data-screen')
-        // `player_offset_top`（播放器自然位置）的写入统一由 recordNaturalPlayerOffset 负责：
-        // 它在 load 之后测一次并复测，是全流程唯一写入点。这里过去用「切换后立刻读一次」的值，
-        // 会把切换动画/布局中间态的半截值记下来（曾把设置提示里的数字记成 57 这类值）。
-        logger.debug(`屏幕模式丨当前模式：${playerMode}，目标模式：${selectedPlayerMode}`)
-        if (playerMode === selectedPlayerMode) return true
-        return new Promise<boolean>(resolve => {
-            let settled = false
-            const finish = (success: boolean): void => {
-                if (settled) return
-                settled = true
-                observer?.disconnect()
-                clearTimeout(timeoutId)
-                resolve(success)
-            }
-            const observer = videoElement ? isElementSizeChange(videoElement, () => {
-                if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
-            }) : null
-            const timeoutId = setTimeout(() => finish(false), timeoutMs)
-            if (playerContainer.getAttribute('data-screen') === selectedPlayerMode) finish(true)
-        })
+        // 与首次切换一致：data-screen 稳定到目标就是成功信号，立即发事件
+        emitModeSelected('switch-retry', playerContainer.getAttribute('data-screen') ?? targetMode)
     },
     /**
      * 记录「播放器自然位置」到 `player_offset_top`
@@ -566,8 +581,13 @@ export const playerModeFeatures = {
                 return
             }
             logger.info(`自动定位丨开始（来源=${this._locateReason || 'unknown'}，模式=${effectiveMode ?? '-'}，scrollY=${Math.round(window.scrollY)}）`)
-            // 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
-            await waitForStablePlayerOffset(100, 500)
+            // 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置；
+            // 刚切换成功的路径已等到 data-screen 变化，布局不会整体再挪一次，别再多等一段采样
+            const afterModeSwitch = this._locateReason === 'switch-success' || this._locateReason === 'switch-retry'
+            if (!afterModeSwitch) await waitForStablePlayerOffset()
+            // 刚切换成功时不再等帧/等采样：data-screen 一变播放器顶边就已经落位，宽高的过渡动画
+            // 不影响目标值，而切换期间 rAF 一帧能拖到 200-400ms（实测两帧 617ms）。
+            // 万一目标取早了几像素，后面的位置校验会在 300ms 内纠正（2026-11-09「切换成功就立马定位」）
             const resolveTargetOffset = async (): Promise<number> => {
                 const playerContainerOffsetTop = effectiveMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
                 const header = elementSelectors.get('headerMini')
@@ -613,7 +633,9 @@ export const playerModeFeatures = {
             // 2026-10-31：不再给 body 加 overflow:hidden —— 锁滚动会让 B 站头部/评论区在锁定期内
             // 停在水合前的空白态，定位期间页面表现为"导航变空、功能像被打断"，且解锁依赖事件时序。
             try {
-                await sleep(80)
+                // 定时器在 B 站切换动画期间会被推迟到 1s 级（实测 sleep(80) 跑了 1119ms）：
+                // 刚切换成功的路径不再等，直接定位（2026-11-09「切换成功就立马定位」）
+                if (!afterModeSwitch) await sleep(80)
                 await this.locateToPlayer()
                 logPlayerOffset('首次定位后')
                 // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
@@ -711,8 +733,11 @@ export const playerModeFeatures = {
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
         if (playerMode === 'full' || playerMode === 'web') return
-        // B 站水合完成前不滚页面：刷新时 canplaythrough 早于头部渲染，抢滚动会把头部打成空白态
-        await ensurePageSettled()
+        // B 站水合完成前不滚页面：刷新时 canplaythrough 早于头部渲染，抢滚动会把头部打成空白态。
+        // 但「切换模式成功」这条路径已经等了几秒（切换本身就在等 B 站渲染），再串行等水合纯属加延迟，
+        // 且用户明确要求「切换成功立马定位」——这条路径跳过，水合等待已随模式判定并行起跑
+        const modeSwitchDriven = this._locateReason === 'switch-success' || this._locateReason === 'switch-retry'
+        if (!modeSwitchDriven) await ensurePageSettled()
         // 用户自己在滚：本次自动定位整体放弃（不做动画、不做位置校验）
         if (!force && shouldYieldNow()) {
             logger.info('自动定位丨用户正在自己滚动，跳过本次定位')
