@@ -10,6 +10,7 @@ import { debounce } from '@/utils/lodash-lite'
 import { retryQueue } from '@/utils/retry-queue'
 import { isInsidePreviewFrame } from '@/utils/preview-frame'
 import { installUserScrollIntent } from '@/utils/user-scroll-intent'
+import { shouldDispatchPlayerReady, type PlayerReadyDispatch } from '@/utils/player-ready-dispatch'
 import { videoStyles } from '@/shared/styles/video-page'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { isBangumiPage } from '@/utils/page-type'
@@ -105,6 +106,9 @@ interface VideoModuleContext {
     /** 点头像进 UP 主空间 */
     openUpSpaceByAvatar: (button: HTMLElement | null) => void
     clickPlayerAutoLocate: () => Promise<void>
+    /** 点击定位的 document 级监听（卸载时要移除，否则 SPA 换页会重复绑定） */
+    _playerClickLocateHandler?: ((event: Event) => void) | null
+    _playerClickLocateBound?: boolean
     initVideoRotate: () => Promise<void>
     applyVideoRotation: (degrees: number) => void
     unlockEpisodeSelector: () => Promise<void>
@@ -137,11 +141,18 @@ interface VideoModuleContext {
     /** 最近一次真正执行过定位的调度代次与播放器模式（用于「同代次同模式只定位一次」） */
     _locateGeneration?: number
     _locateMode?: string
+    /** 本次定位由哪种模式判定触发（autoLocate 的「来源=」日志用） */
+    _locateReason?: string
+    /** 定位进行中又收到定位请求：本轮结束后补跑一次 */
+    _locatePendingRerun?: boolean
+    _locateRerunCount?: number
+    /** 上一次「视频可播放」派发的元素与 src（同一视频重复派发只认第一次） */
+    _lastPlayerReadyDispatch?: PlayerReadyDispatch | null
     /** 其余功能是否已在本代次启动（模式+定位完成后启动一次） */
     _featuresStarted?: boolean
     ensureFeatureScheduler: () => FeatureScheduler
     handlePlayerReady: () => void
-    handleModeSelected: () => void
+    handleModeSelected: (payload?: { reason?: string }) => void
 }
 /**
  * 播放页功能声明表 —— 统一调度的唯一入口（2026-10-31）
@@ -293,6 +304,12 @@ export default {
         document.body.classList.remove('webscreen-fix')
         destroyTooltip()
         document.querySelectorAll('[bilibili-adjustment-element]').forEach(element => element.remove())
+        // 点击定位是 document 级委托：不移除的话 SPA 换页后会绑第二份、每次点击叠出多次定位
+        if (this._playerClickLocateHandler) {
+            document.removeEventListener('click', this._playerClickLocateHandler, true)
+            this._playerClickLocateHandler = null
+        }
+        this._playerClickLocateBound = false
         this._modeObservers?.forEach(observer => observer.disconnect())
         this._modeObservers = []
         this._fullscreenHandler && document.removeEventListener('fullscreenchange', this._fullscreenHandler)
@@ -442,6 +459,10 @@ export default {
         scheduler.bumpGeneration()
         // 新代次：其余功能还没启动（等「模式 + 定位」都完成后再由 startRemainingFeatures 放行）
         this._featuresStarted = false
+        // 新代次重置定位来源与补跑计数（一集只允许补跑一次，防止互相触发死循环）
+        this._locateReason = ''
+        this._locatePendingRerun = false
+        this._locateRerunCount = 0
         void scheduler.trigger('player:ready').then(summary => {
             logger.info(`功能调度丨就绪阶段 即时 ${summary.instant.ok}/${summary.instant.total} 交互 ${summary.interactive.total} 后台 ${summary.backgroundQueued}（${summary.ms}ms）`)
         })
@@ -456,7 +477,9 @@ export default {
         }, 8000)
     },
     /** 播放器模式已选定：触发「模式选中」阶段（定位） */
-    handleModeSelected (this: VideoModuleContext): void {
+    handleModeSelected (this: VideoModuleContext, payload?: { reason?: string }): void {
+        // 记录本次定位的来源，定位入口会把它打进一行 info（排查「谁触发的第一次定位」）
+        this._locateReason = payload?.reason ?? 'unknown'
         if (this._modeFallbackTimer) {
             clearTimeout(this._modeFallbackTimer)
             this._modeFallbackTimer = null
@@ -473,7 +496,7 @@ export default {
             if (level && typeof logger[level] === 'function') logger[level](message as string)
         }))
         this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_CANPLAYTHROUGH, debounce(() => this.handlePlayerReady(), 0, { 'leading': true, 'trailing': false })))
-        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, debounce(() => this.handleModeSelected(), 0, { 'leading': true, 'trailing': false })))
+        this._cleanup.push(eventBus.on(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, debounce((_ctx: unknown, payload?: unknown) => this.handleModeSelected(payload as { reason?: string } | undefined), 0, { 'leading': true, 'trailing': false })))
         this._cleanup.push(eventBus.once(EVENT_NAMES.VIDEO_WEBFULL_PLAYER_MODE_UNLOCK, debounce(this.insertLocateToCommentButton, 500, { 'leading': true, 'trailing': false })))
         this.autoReapplyUnlockOnFullscreenExit()
         // 监听播放器模式变化，记录用户手动切换的模式
@@ -575,6 +598,14 @@ export default {
         // 无论是否等到就绪都要派发：该事件是功能调度唯一的启动开关，等不到就绪时若不发，
         // 整条功能链就会永远不执行（2026-10-31：改为「超时也派发」，由各功能自己容错等元素）
         if (emit) {
+            const src = videoElement?.currentSrc || videoElement?.getAttribute('src') || ''
+            const next: PlayerReadyDispatch = { video: videoElement, src, at: Date.now() }
+            // B 站清理 URL / 重赋 src 时会连发 canplaythrough，每发一次就开新代次、模式和定位重跑一遍
+            if (!shouldDispatchPlayerReady(this._lastPlayerReadyDispatch, next)) {
+                logger.debug('视频资源丨同一视频重复派发已跳过')
+                return canplaythrough
+            }
+            this._lastPlayerReadyDispatch = next
             eventBus.emit(EVENT_NAMES.VIDEO_CANPLAYTHROUGH)
             if (canplaythrough) logger.info('视频资源｜可以播放')
             else logger.warn('视频资源丨等待可播放超时（5s），仍派发功能（各功能自行等待元素）')
@@ -650,6 +681,8 @@ export default {
         this.userConfigs.page_type === 'bangumi' && await sleep(50)
         // 切换视频时重置画面旋转
         this._playerTitleCache = undefined
+        // 换视频了，重复派发去重窗口立即失效
+        this._lastPlayerReadyDispatch = null
         this.advertisementIdentified = false
         this._skipCacheApplied = false
         if (this._adVideo && this._adTimeUpdateHandler) {

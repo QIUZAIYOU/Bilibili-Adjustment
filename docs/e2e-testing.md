@@ -112,6 +112,23 @@ ADJ_E2E_HEADLESS=1 node test/e2e/locate-vs-user-scroll.mjs [视频页 URL]
 
 退出码 0 = 通过。这条探针守的是「用户意图优先」这条产品红线，修复前它必然失败（脚本会连续重写滚动，且日志为 debug 级别、控制台一片空白）。
 
+## 定位顺序：模式确认之后才允许定位（2026-11-09 新增）
+
+```bash
+npm run build
+ADJ_E2E_HEADLESS=1 node test/e2e/locate-order.mjs [视频页 URL]
+```
+
+复现用户回报「切换播放模式之前先定位一次、切完又定位一次」：水合期 `data-screen` 还没稳定时，`autoSelectPlayerMode` 的「无需切换」分支（已等目标 / 冷却 / preserve）会按旧几何直接发 `VIDEO_PLAYER_MODE_SELECTED`，而它是自动定位**唯一**的触发源。现在这些分支都先等 `waitForStableScreenMode()`（600ms 稳定窗，最多 2.5s）并复核，定位入口再等一次，且 `player:ready` 对同一视频 5s 内的重复派发被 `shouldDispatchPlayerReady()` 挡掉。
+
+断言（控制台日志）：
+
+- 至少 1 条 `自动定位丨开始`；
+- 第一条 `自动定位丨开始` 必须晚于 `屏幕模式丨已确认`；
+- 整次加载只有 1 条 `自动定位丨开始`。
+
+退出码 0 = 通过。失败时会打印 `屏幕模式丨…` / `自动定位丨…` / `视频资源丨…` 的日志摘录，先看 `自动定位丨开始（来源=…）` 里的来源是不是 `already-target` / `cooldown` 这类「没真切换」的原因。
+
 ## 跨源共享与跨源实时生效（3.41.0 新增）
 
 ```bash

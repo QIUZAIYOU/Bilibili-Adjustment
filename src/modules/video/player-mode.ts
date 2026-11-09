@@ -3,12 +3,16 @@ import { LoggerService } from '@/services/logger.service'
 import { storageService } from '@/services/storage.service'
 import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
-import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument, addEventListenerToElement } from '@/utils/common'
+import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
 import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 import { clearUserIntent, lastUserIntentAt, shouldYieldNow } from '@/utils/user-scroll-intent'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
+import { isStableValue } from '@/utils/stable-value'
+import { resolveModeDecision, type ModeDecisionReason } from '@/utils/player-mode-decision'
+import { waitForPageSettled } from '@/utils/page-settle'
+import { shouldAcceptPlayerLocateClick } from '@/utils/player-click'
 const logger = new LoggerService('VideoModule', { notify: false })
 /**
  * 自动定位「校正」阶段的硬时间预算
@@ -18,22 +22,56 @@ const logger = new LoggerService('VideoModule', { notify: false })
  * （2026-11-06 反馈）。改为显式 4s 预算 + 每轮开始前查用户意图。
  */
 const LOCATE_CORRECTION_BUDGET_MS = 4000
+/** 模式判定最多重来一次：两轮还不稳定就按现状派发，保证定位至少执行一次 */
+const MODE_SELECTION_MAX_PASSES = 2
+/** data-screen 连续这么久不再变化才算可信（B 站水合会先渲染上次的模式再重置） */
+const MODE_STABLE_MS = 600
+const MODE_STABLE_MAX_WAIT_MS = 2500
+/** 本页是否已经确认过页面水合完成（确认一次后不再重复等待） */
+let pageSettledOnce = false
+/**
+ * 滚动前等页面水合完成
+ *
+ * 刷新时视频命中缓存，`canplaythrough` 远早于 B 站头部水合；此时强制滚动会把头部/
+ * 评论区停在水合前的空白态（2026-11-09 用户反馈「刷新后导航栏空白 + 定位失效」）。
+ */
+const ensurePageSettled = async (): Promise<void> => {
+    if (pageSettledOnce) return
+    const startedAt = Date.now()
+    const settled = await waitForPageSettled(() => {
+        const bar = elementSelectors.get('headerMini')
+        return Boolean(bar && bar.childElementCount > 0)
+    })
+    pageSettledOnce = settled
+    const elapsed = Date.now() - startedAt
+    if (!settled) logger.info(`自动定位丨等待页面水合超时（${elapsed}ms），继续定位`)
+    else if (elapsed >= 120) logger.info(`自动定位丨已等待页面水合完成（${elapsed}ms）`)
+}
+export type ModeSelectedReason = ModeDecisionReason | 'switch-success' | 'switch-retry' | 'switch-timeout' | 'unstable'
 /** 视频模块特性上下文（由 video.module 的模块实例混入） */
 interface PlayerModeContext {
     userConfigs: Record<string, unknown>
     _lastPlayerMode?: string
     _modeSwitchCooldown?: number
     _autoLocating?: boolean
+    /** 本次定位由哪种模式判定触发（排查「谁触发了第一次定位」用） */
+    _locateReason?: string
+    /** 定位进行中又被要求定位：本轮结束后补跑一次 */
+    _locatePendingRerun?: boolean
+    _locateRerunCount?: number
     /** 原生选集入口的位置守卫是否已绑定（只绑一次） */
     _episodeSwitchGuardBound?: boolean
     /** 播放器点击定位是否已绑定（只绑一次，审查 W2：此前 instant 车道每次 player:ready 都重复 addEventListener） */
     _playerClickLocateBound?: boolean
+    /** 点击定位的 document 级监听（委托；卸载时必须移除，否则 SPA 换页后会重复绑定） */
+    _playerClickLocateHandler?: ((event: Event) => void) | null
     _retryQueue?: { register: (id: string, fn: () => Promise<void> | void, options?: { budgetMs?: number }) => void } | null
     /** 模式切换失败时的兜底定位定时器（失败只发一次定位，避免"按旧几何定位一次、成功后又一次"） */
     _modeFallbackTimer?: ReturnType<typeof setTimeout> | null
     hasPlayerTitle: () => Promise<boolean>
     isPlayerModeSwitchSuccess: (mode: string, video: HTMLVideoElement | null) => Promise<boolean>
     locateToPlayer: (options?: { duration?: number, force?: boolean }) => Promise<void>
+    autoLocateToPlayer: () => Promise<void>
     _retryPlayerMode: () => Promise<void>
 }
 /** 读播放器容器的文档流偏移（读不到返回 -1） */
@@ -263,99 +301,118 @@ const waitForModeButton = async (key: string, timeoutMs = 2000): Promise<HTMLEle
     }
     return null
 }
+/** 等 data-screen 稳定：连续 MODE_STABLE_MS 不再变化才算数，最多等 maxWait */
+const waitForStableScreenMode = async (container: Element | null, stableMs = MODE_STABLE_MS, maxWaitMs = MODE_STABLE_MAX_WAIT_MS): Promise<string | null> => {
+    if (!container) return null
+    const deadline = Date.now() + maxWaitMs
+    let previous = container.getAttribute('data-screen')
+    let sinceChangeAt = Date.now()
+    while (Date.now() < deadline) {
+        await sleep(100)
+        const current = container.getAttribute('data-screen')
+        if (current !== previous) {
+            previous = current
+            sinceChangeAt = Date.now()
+            continue
+        }
+        if (isStableValue(previous, current, sinceChangeAt, Date.now(), stableMs)) return current
+    }
+    return container.getAttribute('data-screen')
+}
+/** 「模式已选定」的唯一出口：先记一行原因，排查「谁触发了定位」时靠它 */
+const emitModeSelected = (reason: ModeSelectedReason, mode: string | null): void => {
+    logger.info(`屏幕模式丨已确认（原因=${reason}，当前=${mode ?? '-'}）`)
+    eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED, { reason, mode })
+}
 export const playerModeFeatures = {
     async autoSelectPlayerMode (this: PlayerModeContext): Promise<void> {
-        // 电影播放页若默认宽屏则跳过（电影页本身已宽屏，重复执行会退出宽屏）
-        if (await this.hasPlayerTitle() && this.userConfigs.selected_player_mode === 'wide') {
-            logger.debug('屏幕模式丨电影播放页且默认宽屏，跳过切换')
-            eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-            return
-        }
-        // 若用户手动切换过播放器模式且开启了保持功能，跳过切换
-        if (this.userConfigs.preserve_player_mode && this._lastPlayerMode && this._lastPlayerMode !== this.userConfigs.selected_player_mode) {
-            const enabledModes: string[] = []
-            if (this.userConfigs.preserve_mode_wide) enabledModes.push('wide')
-            if (this.userConfigs.preserve_mode_web) enabledModes.push('web')
-            if (this.userConfigs.preserve_mode_full) enabledModes.push('full')
-            if (enabledModes.includes(this._lastPlayerMode)) {
-                logger.debug(`屏幕模式丨${this._lastPlayerMode}模式已保持`)
-                eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-                return
+        const targetMode = String(this.userConfigs.selected_player_mode ?? 'normal')
+        // 这些「不用切换」的判定全建立在 data-screen 上，而水合期间 B 站会先渲染上次的模式再重置：
+        // 不等稳定就 emit，会先按旧几何定位一次、真正切换后按新几何再定位一次（用户 2026-11-09 反馈）
+        const confirmModeDecision = async (reason: ModeDecisionReason | 'switch-success', expected: string | null): Promise<boolean> => {
+            const container = elementSelectors.get('playerContainer')
+            if (!container || !expected) {
+                emitModeSelected(reason, container?.getAttribute('data-screen') ?? null)
+                return true
             }
-        }
-        // 切换冷却期：3秒内不重复切换，防止 B 站 player 重初始化重复触发
-        if (this._modeSwitchCooldown && Date.now() - this._modeSwitchCooldown < 3000) {
-            logger.debug('屏幕模式丨切换冷却中，跳过')
-            eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-            return
-        }
-        // 先判断当前播放器模式是否已经是用户设置的模式
-        const playerContainer = elementSelectors.get('playerContainer')
-        if (!playerContainer) {
-            eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-            return
-        }
-        const currentPlayerMode = playerContainer.getAttribute('data-screen')
-        if (currentPlayerMode === this.userConfigs.selected_player_mode) {
-            logger.debug(`屏幕模式丨当前已是${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : this.userConfigs.selected_player_mode === 'web' ? '网页全屏' : '正常'}模式，跳过切换`)
-            eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-            return
-        }
-        const selectPlayerModeStrategies = [
-            {
-                type: 'wide',
-                action: async () => {
-                    // 宽屏按钮可能晚于视频可播放事件渲染：同步取不到时等待其出现，避免点击落空后走失败重试
-                    const playerModeWideEnterButton = await waitForModeButton('playerModeWideEnterButton')
-                    playerModeWideEnterButton?.click()
-                }
-            },
-            {
-                type: 'web',
-                action: async () => {
-                    const playerModeWebEnterButton = await waitForModeButton('playerModeWebEnterButton')
-                    playerModeWebEnterButton?.click()
-                }
-            },
-            {
-                type: 'normal',
-                action: async () => {
-                    logger.info('屏幕模式丨功能已关闭')
-                    eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-                }
+            const stable = await waitForStableScreenMode(container)
+            if (stable === expected) {
+                emitModeSelected(reason, stable)
+                return true
             }
-        ]
-        // 等待切换动作完成（按钮出现并点击）后再校验结果，避免校验先于点击导致误报失败
-        await selectPlayerModeStrategies.find(strategy => strategy.type === this.userConfigs.selected_player_mode)?.action()
-        await sleep(350)
-        if (this.userConfigs.selected_player_mode !== 'normal') {
+            logger.info(`屏幕模式丨判定后模式仍在变化（期望 ${expected}，实际 ${stable ?? '-'}），重新判定`)
+            return false
+        }
+        const switchPlayerMode = async (): Promise<boolean> => {
+            const strategies: Record<string, () => Promise<void>> = {
+                wide: async () => { (await waitForModeButton('playerModeWideEnterButton'))?.click() },
+                web: async () => { (await waitForModeButton('playerModeWebEnterButton'))?.click() }
+            }
+            await strategies[targetMode]?.()
+            await sleep(350)
             const video = elementSelectors.get('video') as HTMLVideoElement | null
-            const success = await this.isPlayerModeSwitchSuccess(String(this.userConfigs.selected_player_mode), video)
-            if (success) {
-                this._modeSwitchCooldown = Date.now()
-                sessionStorage.setItem(STORAGE_KEYS.SESSION_MODE_COOLDOWN, String(this._modeSwitchCooldown))
-                sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, String(this.userConfigs.selected_player_mode))
-                logger.info(`屏幕模式丨${this.userConfigs.selected_player_mode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
-                // 切换**成功**才发事件：该事件是自动定位的唯一触发源。
-                if (this._modeFallbackTimer) {
-                    clearTimeout(this._modeFallbackTimer)
-                    this._modeFallbackTimer = null
-                }
-                eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
-            } else {
+            if (!await this.isPlayerModeSwitchSuccess(targetMode, video)) {
                 logger.warn('屏幕模式丨切换失败，已加入重试队列（3 分钟内持续重试）')
                 this._retryQueue?.register('playerMode', () => this._retryPlayerMode())
-                // ⚠️ 失败时**不发**该事件：它是自动定位的唯一触发源，切换没生效就定位会按旧几何算一次，
-                // 等重试成功后再按新几何定位一次 —— 用户看到的就是"定位两次、先成功又上移"。
-                // 但也不能永远不发（重试可能一直失败），故 6s 后兜底发一次，保证定位至少执行一次。
+                // ⚠️ 失败时不发事件：它是定位的唯一触发源，按旧几何定位会「定位两次」。
+                // 但重试可能一直失败，6s 后兜底发一次，保证定位至少执行一次。
                 if (this._modeFallbackTimer) clearTimeout(this._modeFallbackTimer)
                 this._modeFallbackTimer = setTimeout(() => {
                     this._modeFallbackTimer = null
                     logger.info('屏幕模式丨重试仍未成功，兜底触发一次定位')
-                    eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
+                    emitModeSelected('switch-timeout', null)
                 }, 6000)
+                return false
             }
+            this._modeSwitchCooldown = Date.now()
+            sessionStorage.setItem(STORAGE_KEYS.SESSION_MODE_COOLDOWN, String(this._modeSwitchCooldown))
+            sessionStorage.setItem(STORAGE_KEYS.SESSION_LAST_PLAYER_MODE, targetMode)
+            logger.info(`屏幕模式丨${targetMode === 'wide' ? '宽屏' : '网页全屏'}丨切换成功`)
+            if (this._modeFallbackTimer) {
+                clearTimeout(this._modeFallbackTimer)
+                this._modeFallbackTimer = null
+            }
+            return true
         }
+        for (let pass = 0; pass < MODE_SELECTION_MAX_PASSES; pass++) {
+            const playerContainer = elementSelectors.get('playerContainer')
+            const currentMode = playerContainer?.getAttribute('data-screen') ?? null
+            const preserveMode = String(this._lastPlayerMode ?? '')
+            const enabledPreserveModes: string[] = []
+            if (this.userConfigs.preserve_mode_wide) enabledPreserveModes.push('wide')
+            if (this.userConfigs.preserve_mode_web) enabledPreserveModes.push('web')
+            if (this.userConfigs.preserve_mode_full) enabledPreserveModes.push('full')
+            const decision = resolveModeDecision({
+                hasContainer: Boolean(playerContainer),
+                currentMode,
+                targetMode,
+                movieWide: targetMode === 'wide' && await this.hasPlayerTitle(),
+                preserveActive: Boolean(this.userConfigs.preserve_player_mode && preserveMode && preserveMode !== targetMode && enabledPreserveModes.includes(preserveMode)),
+                cooldownActive: Boolean(this._modeSwitchCooldown && Date.now() - this._modeSwitchCooldown < 3000)
+            })
+            if (decision.action === 'emit') {
+                if (decision.reason === 'movie-wide') {
+                    logger.debug('屏幕模式丨电影播放页且默认宽屏，跳过切换')
+                    emitModeSelected('movie-wide', currentMode)
+                    return
+                }
+                if (decision.reason === 'preserve') {
+                    logger.debug(`屏幕模式丨${preserveMode}模式已保持`)
+                    emitModeSelected('preserve', currentMode)
+                    return
+                }
+                if (decision.reason === 'no-container') {
+                    emitModeSelected('no-container', null)
+                    return
+                }
+                if (await confirmModeDecision(decision.reason, decision.reason === 'target-normal' ? 'normal' : targetMode)) return
+                continue
+            }
+            if (!await switchPlayerMode()) return
+            if (await confirmModeDecision('switch-success', targetMode)) return
+        }
+        logger.warn('屏幕模式丨两轮判定后模式仍不稳定，按当前状态触发一次定位')
+        emitModeSelected('unstable', elementSelectors.get('playerContainer')?.getAttribute('data-screen') ?? null)
     },
     /**
      * 重试切换播放器模式（由重试队列调用）
@@ -386,7 +443,8 @@ export const playerModeFeatures = {
             clearTimeout(this._modeFallbackTimer)
             this._modeFallbackTimer = null
         }
-        eventBus.emit(EVENT_NAMES.VIDEO_PLAYER_MODE_SELECTED)
+        await waitForStableScreenMode(playerContainer)
+        emitModeSelected('switch-retry', targetMode)
     },
     async isPlayerModeSwitchSuccess (this: PlayerModeContext, selectedPlayerMode: string, videoElement: HTMLVideoElement | null, timeoutMs = 1200): Promise<boolean> {
         const playerContainer = elementSelectors.get('playerContainer')
@@ -450,8 +508,12 @@ export const playerModeFeatures = {
         }
     },
     async autoLocateToPlayer (this: PlayerModeContext): Promise<void> {
-        // 重复触发（播放器模式选定事件与 SPA 可播放校验可能重叠）时合并为一次定位
-        if (this._autoLocating) return
+        // 重复触发（播放器模式选定事件与 SPA 可播放校验可能重叠）时合并为一次定位；
+        // 本轮结束后若有新请求，补跑一次（否则「后到的模式」永远等不到定位）
+        if (this._autoLocating) {
+            this._locatePendingRerun = true
+            return
+        }
         this._autoLocating = true
         try {
             insertStyleToDocument({ 'BodyOverflowHiddenStyle': '' })
@@ -496,11 +558,20 @@ export const playerModeFeatures = {
                 logger.info('自动定位丨用户正在自己滚动页面，本轮跳过定位（不把页面拉回播放器）')
                 return
             }
+            // 等 data-screen 稳定再动手：模式还在切换时按旧几何算目标，滚过去再被改一次，
+            // 就是用户反馈的「切换前定位一次、切换后又定位一次」
+            const stableMode = await waitForStableScreenMode(playerContainer)
+            const effectiveMode = stableMode ?? playerMode
+            if (effectiveMode === 'web' || effectiveMode === 'full') {
+                logger.info(`自动定位丨播放器处于${effectiveMode === 'web' ? '网页全屏' : '全屏'}态，跳过定位`)
+                return
+            }
+            logger.info(`自动定位丨开始（来源=${this._locateReason || 'unknown'}，模式=${effectiveMode ?? '-'}，scrollY=${Math.round(window.scrollY)}）`)
             // 两件事互不依赖，并行等（串行最坏要 800+1500ms）：
             // - 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
             // - 文档高度稳定：刷新后评论/推荐还没渲染完时文档矮，可滚动范围会被压成临时上限
             await Promise.all([waitForStablePlayerOffset(), waitForStableDocumentHeight()])
-            const playerContainerOffsetTop = playerMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
+            const playerContainerOffsetTop = effectiveMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
             const header = elementSelectors.get('headerMini')
             const headerComputedStyle: { position?: string; height?: string } = header
                 ? getElementComputedStyle(header, ['position', 'height']) as { position?: string; height?: string }
@@ -607,9 +678,17 @@ export const playerModeFeatures = {
                 }
             }
             logPlayerOffset('完成')
-            logger.info('自动定位丨成功')
+            logger.info(`自动定位丨成功（来源=${this._locateReason || 'unknown'}）`)
         } finally {
             this._autoLocating = false
+            if (this._locatePendingRerun) {
+                this._locatePendingRerun = false
+                if ((this._locateRerunCount ?? 0) < 1) {
+                    this._locateRerunCount = (this._locateRerunCount ?? 0) + 1
+                    logger.info('自动定位丨本轮期间又收到定位请求，补跑一次')
+                    void this.autoLocateToPlayer()
+                }
+            }
         }
     },
     async locateToPlayer (this: PlayerModeContext, options: { duration?: number, force?: boolean } = {}): Promise<void> {
@@ -625,6 +704,8 @@ export const playerModeFeatures = {
         const playerMode = playerContainer.getAttribute('data-screen')
         // 全屏模式与网页全屏模式下播放器占满视口，滚动无效，直接跳过
         if (playerMode === 'full' || playerMode === 'web') return
+        // B 站水合完成前不滚页面：刷新时 canplaythrough 早于头部渲染，抢滚动会把头部打成空白态
+        await ensurePageSettled()
         // 用户自己在滚：本次自动定位整体放弃（不做动画、不做位置校验）
         if (!force && shouldYieldNow()) {
             logger.info('自动定位丨用户正在自己滚动，跳过本次定位')
@@ -781,18 +862,20 @@ export const playerModeFeatures = {
     async clickPlayerAutoLocate (this: PlayerModeContext): Promise<void> {
         // 只绑一次：此前每次 player:ready 都会 addEventListener 且没人移除，切几次视频就叠几个监听
         if (this._playerClickLocateBound) return
-        const container = elementSelectors.get('playerContainer')
-        if (!container) {
-            logger.debug('播放器点击定位丨播放器容器尚未渲染，本次跳过')
-            return
-        }
         this._playerClickLocateBound = true
-        addEventListenerToElement(container, 'click', async (e: Event) => {
+        const containerSelector = elementSelectors.CSS('playerContainer')
+        // 委托到 document，而不是绑在当时那个容器实例上：B 站水合后可能替换播放器容器，
+        // 旧写法（容器上的监听）会随旧节点一起失效，表现为「刷新后点击播放器定位不动了」
+        const handler = async (event: Event): Promise<void> => {
             if (!this.userConfigs.auto_locate) return
-            const target = e.target as Element | null
+            const target = event.target as Element | null
+            if (!containerSelector || !target?.closest(containerSelector)) return
             const controlTop = elementSelectors.CSS('playerControlTop')
             const controlBottom = elementSelectors.CSS('playerControlBottom')
-            if ((controlBottom && target?.closest(controlBottom)) || (controlTop && target?.closest(controlTop))) {
+            const insideControls = Boolean((controlBottom && target.closest(controlBottom)) || (controlTop && target.closest(controlTop)))
+            if (!shouldAcceptPlayerLocateClick({ isTrusted: event.isTrusted, insideControls })) {
+                // 脚本自己点「宽屏/静音/清晰度」也是 click，且落在播放器里：不能当成用户点画面
+                if (!event.isTrusted) logger.debug('播放器点击定位丨忽略脚本合成的点击')
                 return
             }
             // 与事件驱动的定位共用合并闸门，避免用户连点叠出多次滚动
@@ -803,6 +886,8 @@ export const playerModeFeatures = {
             const beforeY = Math.round(window.scrollY)
             await this.locateToPlayer({ force: true })
             logger.info(`播放器点击定位丨已定位到播放器（${beforeY} → ${Math.round(window.scrollY)}）`)
-        })
+        }
+        this._playerClickLocateHandler = handler
+        document.addEventListener('click', handler, true)
     }
 }
