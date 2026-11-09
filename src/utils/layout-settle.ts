@@ -102,3 +102,14 @@ export const resolveGrowthRelocateAction = (input: GrowthRelocateInput): GrowthR
     if (input.userInteracted) return 'stop'
     return input.grew ? 'relocate' : 'wait'
 }
+/**
+ * 目标位置是否贴近文档底部（存在被可滚动范围钳住的风险）
+ *
+ * 只有这种情况才值得等「文档高度稳定」：B 站推荐流在冷加载后会持续长高，等稳定经常要烧满预算
+ * （实测 1500ms），而目标离底部很远时（例如 99 / 3000）文档怎么长都不影响定位结果
+ * （2026-11-09 用户反馈「切换模式到开始定位间隔太长」）。
+ */
+export const isTargetNearDocumentEnd = (target: number, maxScroll: number, margin = 200): boolean => {
+    if (!Number.isFinite(target) || !Number.isFinite(maxScroll)) return false
+    return target >= maxScroll - margin
+}

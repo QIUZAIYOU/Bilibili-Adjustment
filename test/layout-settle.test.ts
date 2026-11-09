@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
+import { isAtScrollEnd, isDocumentGrowing, isPlausibleNaturalOffset, isPositionedAtPlayer, isTargetNearDocumentEnd, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 /**
  * 「定位到位」判定回归（issue #39「播放器定位固定上限变成57」）
  *
@@ -141,4 +141,23 @@ test('resolveGrowthRelocateAction：没长高但已超预算时不能无限等�
     const waiting = { grew: false, userInteracted: false, blocked: false, elapsedMs: 5999, maxWaitMs: 6000 }
     assert.equal(resolveGrowthRelocateAction(waiting), 'wait')
     assert.equal(resolveGrowthRelocateAction({ ...waiting, elapsedMs: 6000 }), 'stop')
+})
+/**
+ * 目标是否贴近文档底部（2026-11-09「切换模式到定位间隔太长」）
+ *
+ * 只有贴底的目标才可能被可滚动范围钳住，才值得等「文档高度稳定」；
+ * 目标是 99 / 可滚动 3000 这种情形等下去纯属白烧 1.5s。
+ */
+test('isTargetNearDocumentEnd：离底部很远时不需要等高度稳定', () => {
+    assert.equal(isTargetNearDocumentEnd(99, 3000), false)
+    assert.equal(isTargetNearDocumentEnd(2799, 3000), false)
+})
+test('isTargetNearDocumentEnd：贴底（含 200px 余量）时才需要等', () => {
+    assert.equal(isTargetNearDocumentEnd(2800, 3000), true)
+    assert.equal(isTargetNearDocumentEnd(2999, 3000), true)
+    assert.equal(isTargetNearDocumentEnd(2699, 3000, 300), false)
+})
+test('isTargetNearDocumentEnd：非法数字一律当作「不需要等」', () => {
+    assert.equal(isTargetNearDocumentEnd(Number.NaN, 3000), false)
+    assert.equal(isTargetNearDocumentEnd(99, Number.POSITIVE_INFINITY), false)
 })

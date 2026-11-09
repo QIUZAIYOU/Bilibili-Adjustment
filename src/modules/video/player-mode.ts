@@ -5,7 +5,7 @@ import { elementSelectors } from '@/shared/element-selectors'
 import { EVENT_NAMES, STORAGE_KEYS } from '@/shared/constants'
 import { sleep, isElementSizeChange, documentScrollTo, getElementOffsetToDocument, getElementComputedStyle, insertStyleToDocument } from '@/utils/common'
 import { isHeaderOverlaying } from '@/utils/header-offset'
-import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
+import { isDocumentGrowing, isPositionedAtPlayer, isPlausibleNaturalOffset, isTargetNearDocumentEnd, resolveGrowthRelocateAction, resolveLocateDuration, resolveScrollOffset } from '@/utils/layout-settle'
 import { clearUserIntent, lastUserIntentAt, shouldYieldNow } from '@/utils/user-scroll-intent'
 import { holdScrollPosition } from '@/modules/video/scroll-guard'
 import { isScrollToTopEntry } from '@/utils/scroll-top-entry'
@@ -558,27 +558,34 @@ export const playerModeFeatures = {
                 logger.info('自动定位丨用户正在自己滚动页面，本轮跳过定位（不把页面拉回播放器）')
                 return
             }
-            // 等 data-screen 稳定再动手：模式还在切换时按旧几何算目标，滚过去再被改一次，
-            // 就是用户反馈的「切换前定位一次、切换后又定位一次」
-            const stableMode = await waitForStableScreenMode(playerContainer)
-            const effectiveMode = stableMode ?? playerMode
+            // 模式已在 emit 之前由 confirmModeDecision 等过稳定窗口，这里不再重等 ——
+            // 同一个 600ms 窗口等两遍纯属白等（实测多花 659ms，2026-11-09 反馈「切换完到定位间隔长」）
+            const effectiveMode = playerMode
             if (effectiveMode === 'web' || effectiveMode === 'full') {
                 logger.info(`自动定位丨播放器处于${effectiveMode === 'web' ? '网页全屏' : '全屏'}态，跳过定位`)
                 return
             }
             logger.info(`自动定位丨开始（来源=${this._locateReason || 'unknown'}，模式=${effectiveMode ?? '-'}，scrollY=${Math.round(window.scrollY)}）`)
-            // 两件事互不依赖，并行等（串行最坏要 800+1500ms）：
-            // - 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
-            // - 文档高度稳定：刷新后评论/推荐还没渲染完时文档矮，可滚动范围会被压成临时上限
-            await Promise.all([waitForStablePlayerOffset(), waitForStableDocumentHeight()])
-            const playerContainerOffsetTop = effectiveMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
-            const header = elementSelectors.get('headerMini')
-            const headerComputedStyle: { position?: string; height?: string } = header
-                ? getElementComputedStyle(header, ['position', 'height']) as { position?: string; height?: string }
-                : {}
-            const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
-            const playerOffsetTop = isHeaderOverlaying(headerComputedStyle.position) ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
-            const targetOffset = playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)
+            // 播放器偏移稳定：选集/SPA 切换期间读到的是中间态偏移，按它滚动会滚错位置
+            await waitForStablePlayerOffset(100, 500)
+            const resolveTargetOffset = async (): Promise<number> => {
+                const playerContainerOffsetTop = effectiveMode !== 'mini' ? await getElementOffsetToDocument(playerContainer as HTMLElement).top : (this.userConfigs.player_offset_top as number)
+                const header = elementSelectors.get('headerMini')
+                const headerComputedStyle: { position?: string; height?: string } = header
+                    ? getElementComputedStyle(header, ['position', 'height']) as { position?: string; height?: string }
+                    : {}
+                const headerHeight = parseInt(headerComputedStyle.height ?? '', 10) || 0
+                const playerOffsetTop = isHeaderOverlaying(headerComputedStyle.position) ? playerContainerOffsetTop - headerHeight : playerContainerOffsetTop
+                return playerOffsetTop - (Number(this.userConfigs.offset_top) || 0)
+            }
+            let targetOffset = await resolveTargetOffset()
+            // 文档高度只在目标贴着底部时才等：B 站推荐流冷加载后会持续长高，等稳定经常烧满 1.5s 预算，
+            // 目标离底部很远时高度怎么变都不影响定位结果（2026-11-09「切换模式到定位间隔太长」）
+            const scroller = document.scrollingElement || document.documentElement
+            if (isTargetNearDocumentEnd(targetOffset, scroller.scrollHeight - window.innerHeight)) {
+                await waitForStableDocumentHeight(100, 500)
+                targetOffset = await resolveTargetOffset()
+            }
             const currentScrollTop = window.scrollY
             // ⚠️ TEMP-DIAG（2026-10-31 用户要求，定位收敛后删除）：
             // 每次定位执行后打印「视频元素（播放器容器）距文档顶部」的真实距离，
@@ -606,7 +613,7 @@ export const playerModeFeatures = {
             // 2026-10-31：不再给 body 加 overflow:hidden —— 锁滚动会让 B 站头部/评论区在锁定期内
             // 停在水合前的空白态，定位期间页面表现为"导航变空、功能像被打断"，且解锁依赖事件时序。
             try {
-                await sleep(300)
+                await sleep(80)
                 await this.locateToPlayer()
                 logPlayerOffset('首次定位后')
                 // 定位后验证是否到达目标位置，未到达则重试（番剧页布局延迟较大）
