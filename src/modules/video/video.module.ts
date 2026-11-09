@@ -29,6 +29,8 @@ import { videoRotateFeatures } from './video-rotate'
 import { initProgressSegmentTint, disposeProgressSegmentTint } from './progress-segments'
 import { FeatureScheduler, type FeatureDefinition } from '@/shared/feature-scheduler'
 const logger = new LoggerService('VideoModule')
+/** 等待视频「可播放」的上限：慢网/大文件冷启动时 5s 常常不够，超时仍会派发，各功能自行等元素 */
+const VIDEO_READY_TIMEOUT_MS = 10000
 const settingsComponent = new SettingsDialogHost()
 /**
  * 视频模块实例契约：本对象的字段 + 展开的各 feature 提供的字段/方法。
@@ -585,12 +587,12 @@ export default {
                     resolve(true)
                 }
             }, 200)
-            // 超时兜底：5 秒后仍未就绪则放弃
+            // 超时兜底：10 秒后仍未就绪则放弃
             setTimeout(() => {
                 ac.abort()
                 clearInterval(pollInterval)
                 resolve(videoElement.readyState >= HTMLMediaElement.HAVE_ENOUGH_DATA)
-            }, 5000)
+            }, VIDEO_READY_TIMEOUT_MS)
         })
     },
     async checkVideoCanplaythrough (this: VideoModuleContext, videoElement: HTMLVideoElement | null, emit = true): Promise<boolean | undefined> {
@@ -608,7 +610,7 @@ export default {
             this._lastPlayerReadyDispatch = next
             eventBus.emit(EVENT_NAMES.VIDEO_CANPLAYTHROUGH)
             if (canplaythrough) logger.info('视频资源｜可以播放')
-            else logger.warn('视频资源丨等待可播放超时（5s），仍派发功能（各功能自行等待元素）')
+            else logger.warn(`视频资源丨等待可播放超时（${VIDEO_READY_TIMEOUT_MS / 1000}s），仍派发功能（各功能自行等待元素）`)
         }
         return canplaythrough
     },
