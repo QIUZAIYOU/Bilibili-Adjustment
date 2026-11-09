@@ -85,6 +85,13 @@ function markVisible (element: Element): void {
         value: () => [{ width: 10, height: 10 }]
     })
 }
+/** 本脚本按钮的类名后缀（用来把元素还原成 key） */
+const SIDENAV_KEY_ORDER = ['up', 'skip', 'fishpond', 'settings', 'locate']
+/** 侧栏里本脚本按钮的文档顺序（纵向排列，第一个就是最上面那个） */
+function ourButtonKeys (): string[] {
+    return Array.from(document.querySelectorAll('.fixed-sidenav-storage .bili-adjustment-icon'))
+        .map(button => SIDENAV_KEY_ORDER.find(key => button.classList.contains(key)) ?? '?')
+}
 const sleep = (ms: number): Promise<void> => new Promise(resolve => setTimeout(resolve, ms))
 test('同一侧栏连续插入三次也只保留一组按钮', async () => {
     document.body.innerHTML = ''
@@ -161,4 +168,31 @@ test('两个侧栏容器同时存在时只往可见的那个里插', async () =>
     assert.equal(hidden.nav.querySelectorAll('.bili-adjustment-icon').length, 0)
     assert.equal(visible.nav.querySelectorAll('.bili-adjustment-icon').length, 3)
     assert.equal(document.querySelectorAll('.bili-adjustment-icon').length, 3)
+})
+test('异步插到头像上方的「片段」按钮，下一次插入会把头像挪回第一位', async () => {
+    document.body.innerHTML = ''
+    const { wrap } = makeSidenav()
+    const context = makeContext()
+    await context.insertSideFloatNavToolsButtons()
+    assert.deepEqual(ourButtonKeys(), ['up', 'settings', 'locate'], '正常情况下头像就是第一位')
+    // 模拟 syncSkipSegmentButton 等字幕探测返回后才插入：prepend 会落到头像上面
+    const skip = document.createElement('div')
+    skip.className = 'fixed-sidenav-storage-item bili-adjustment-icon skip'
+    wrap.prepend(skip)
+    assert.deepEqual(ourButtonKeys(), ['skip', 'up', 'settings', 'locate'], '前置条件：片段确实跑到了头像上方')
+    await context.insertSideFloatNavToolsButtons()
+    assert.deepEqual(ourButtonKeys(), ['up', 'skip', 'settings', 'locate'], '头像必须回到第一位（其余按钮相对顺序不变）')
+})
+test('旧版本留下的错序头像，在「已存在就跳过插入」分支里自愈', async () => {
+    document.body.innerHTML = ''
+    const { wrap } = makeSidenav()
+    const context = makeContext()
+    await context.insertSideFloatNavToolsButtons()
+    const skip = document.createElement('div')
+    skip.className = 'fixed-sidenav-storage-item bili-adjustment-icon skip'
+    wrap.prepend(skip)
+    // 三个固定按钮都在 → 不重插，但顺序仍要校正
+    await context.insertSideFloatNavToolsButtons()
+    assert.equal(ourButtonKeys()[0], 'up')
+    for (const key of ['locate', 'settings', 'up', 'skip']) assert.equal(countButtons(key), 1, key + ' 不应重复')
 })

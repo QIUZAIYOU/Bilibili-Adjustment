@@ -246,6 +246,20 @@ const scheduleFloatNavInsertRetry = (ctx: UiButtonsContext): void => {
 const resolveFloatNavKey = (pageType: unknown): string => pageType === 'video' ? 'videoFloatNav' : 'bangumiFloatNav'
 /** 网页全屏镜像容器里的按钮是播放器复制的，不算重复 */
 const isInSidenavMirror = (element: Element): boolean => Boolean(element.closest(SIDENAV_MIRROR_SELECTOR))
+/**
+ * 保证「UP主空间」头像排在脚本自己按钮的第一位
+ *
+ * 侧栏是纵向排列、插入又用 prepend（后插的在上），而「片段」要等字幕探测（异步）、
+ * 「鱼塘」在头像还没插时也会 prepend —— 它们会偶尔落到头像上面。这里只校正顺序：
+ * 把头像挪到脚本按钮的最前面，不碰 B 站自己的按钮。
+ */
+const enforceUpButtonFirst = (nav: Element): void => {
+    const up = nav.querySelector(SIDENAV_KEY_SELECTORS.up)
+    if (!up || !up.parentNode) return
+    const first = nav.querySelector(SIDENAV_KEYS.map(key => SIDENAV_KEY_SELECTORS[key]).join(','))
+    if (!first || first === up) return
+    first.parentNode?.insertBefore(up, first)
+}
 const collectSidenavCandidates = (): Partial<Record<SidenavButtonKey, Element[]>> => {
     const candidates: Partial<Record<SidenavButtonKey, Element[]>> = {}
     for (const key of SIDENAV_KEYS) candidates[key] = Array.from(document.querySelectorAll(SIDENAV_KEY_SELECTORS[key]))
@@ -271,6 +285,8 @@ const dedupeSidenavButtons = (pageType: unknown): SidenavSnapshot => {
         for (const copy of plan.staleCopies) copy.remove()
         logger.warn('侧边栏工具丨清理 ' + plan.staleCopies.length + ' 个脱离容器的副本（疑似 B 站重渲染搬移）')
     }
+    // 每次规范化都顺手校正一次顺序：旧版本留下的错序、「片段」异步插入后都能自愈
+    if (plan.primary) enforceUpButtonFirst(plan.primary)
     return { primary: plan.primary, present: plan.present }
 }
 /** 读元素上所有 data-v-* 作用域属性名（CSS 的 `[data-v-]` 不是前缀通配，取不到这些属性） */
@@ -456,6 +472,8 @@ export const uiButtonsFeatures = {
                 })
             }
         }
+        // 头像虽然最后插入，但异步的「片段」/「鱼塘」可能已经插到它上面：插完再校正一次顺序
+        if (isVideoPage) enforceUpButtonFirst(floatNav)
         // 自检：不假设插入一定落在预期位置，直接数一遍文档 —— 还有重复就再清一轮，
         // 绝不让副本留到下一轮看护被当成「没有按钮」而重复插入
         if (document.querySelectorAll(SIDENAV_KEY_SELECTORS.locate).length > 1) {
@@ -518,6 +536,8 @@ export const uiButtonsFeatures = {
                 await this.showSkipSegmentManager(current)
             }
         })
+        // prepend 会把它放到头像上方，插完立刻把头像挪回第一位
+        enforceUpButtonFirst(floatNav)
     },
     syncFishPondButton (this: UiButtonsContext, visible: boolean): void {
         if (this.userConfigs.page_type !== 'video') return
@@ -545,6 +565,8 @@ export const uiButtonsFeatures = {
         addEventListenerToElement(fishPondButton, 'click', () => { this.openFishPond() })
         const upButton = snapshot.present.up ?? null
         if (upButton) upButton.after(fishPondButton)
+        // 头像还没插时「鱼塘」会落到最上面：插完校正一次，头像永远第一位
+        enforceUpButtonFirst(floatNav)
         logger.debug('侧边栏工具丨命中大肥鱼，插入「鱼塘」按钮')
     },
     /**
