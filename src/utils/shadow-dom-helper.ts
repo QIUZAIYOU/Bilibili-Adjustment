@@ -147,6 +147,9 @@ function observeInsertionInternal (selector: string, callback: (el: Element) => 
         if (observedRoots.has(target)) return
         observedRoots.add(target)
         observer.observe(target as Node, { childList: true, subtree: true })
+        // 嵌套 ShadowRoot 也要观察：楼中楼的回复挂在 thread → replies 两层 shadow 里，
+        // 只观察第一层会漏掉展开后新插入的回复（评论 IP 属地不显示）
+        for (const shadowRoot of collectShadowRoots(target)) observeRoot(shadowRoot)
     }
     const drain = async (): Promise<void> => {
         if (draining || cancelled) return
@@ -183,7 +186,6 @@ function observeInsertionInternal (selector: string, callback: (el: Element) => 
     observeRoot(root)
     const rootShadowRoot = (root as Element).shadowRoot
     if (rootShadowRoot) observeRoot(rootShadowRoot)
-    for (const shadowRoot of collectShadowRoots(root)) observeRoot(shadowRoot)
     queue.push(root)
     scheduleIdle(() => {
         if (!cancelled) drain().catch(error => logger.error('插入队列处理失败:', error))

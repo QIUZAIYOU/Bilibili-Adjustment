@@ -105,6 +105,30 @@ test('observeInsertion 能收到新插入子树内部 ShadowRoot 里的元素（
     stop()
     assert.deepEqual(seen.sort(), ['inner-shadow', 'inner-shadow-2'])
 })
+test('observeInsertion 能收到既有嵌套 ShadowRoot 里新插入的元素（楼中楼展开回归）', async () => {
+    document.body.innerHTML = ''
+    // 现实结构：feed > thread(host) > replies(host) > 回复。
+    // 「展开楼中楼」前 replies 的 shadow 就已存在，新回复是之后插入进去的。
+    const feed = document.createElement('div')
+    const thread = createHost()
+    const replies = createHost()
+    const oldReply = document.createElement('bili-comment-reply-renderer')
+    oldReply.textContent = 'old'
+    replies.shadow.append(oldReply)
+    thread.shadow.append(replies.host)
+    feed.append(thread.host)
+    document.body.append(feed)
+    const seen: string[] = []
+    const stop = helper.observeInsertion('bili-comment-reply-renderer', el => seen.push(el.textContent ?? ''), feed)
+    await waitFor(() => seen.length === 1)
+    // 监听开始后才插入的回复
+    const fresh = document.createElement('bili-comment-reply-renderer')
+    fresh.textContent = 'fresh'
+    replies.shadow.append(fresh)
+    await waitFor(() => seen.length === 2)
+    stop()
+    assert.deepEqual(seen, ['old', 'fresh'])
+})
 test('stop() 之后不再回调，且可以重复调用', async () => {
     document.body.innerHTML = ''
     const seen: string[] = []
