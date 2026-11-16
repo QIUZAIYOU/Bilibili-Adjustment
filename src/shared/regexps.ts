@@ -574,7 +574,116 @@ export const formatVideoCommentDescription = (text: string, desc_v2?: MentionDes
     })
     return processedElement.innerHTML
 }
+/** 跨节点合并 URL 时视为换行边界的块级标签 */
+const LINE_BOUNDARY_TAGS = new Set(['BR', 'P', 'DIV', 'LI', 'UL', 'OL', 'BLOCKQUOTE', 'SECTION', 'ARTICLE', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'TABLE', 'TR', 'TD', 'TH', 'PRE'])
+interface FlatTextSegment {
+    node: Text
+    start: number
+    end: number
+}
+/**
+ * 把文本按文档顺序摊平，块级标签两侧补 `\n` 当边界
+ *
+ * B 站会把评论里的关键词做成搜索链接，一段 URL 被拆进多个 span/a，逐节点正则拼不出来
+ *（2026-11-16 用户反馈）。补换行是防止把两行文字拼成假链接。
+ */
+const flattenTextSegments = (root: Element): { text: string, segments: FlatTextSegment[] } => {
+    const segments: FlatTextSegment[] = []
+    let text = ''
+    const walk = (node: Node): void => {
+        node.childNodes.forEach(child => {
+            if (child.nodeType === Node.TEXT_NODE) {
+                const textNode = child as Text
+                segments.push({ node: textNode, start: text.length, end: text.length + textNode.data.length })
+                text += textNode.data
+                return
+            }
+            if (child.nodeType !== Node.ELEMENT_NODE) return
+            const element = child as Element
+            if (element.tagName === 'SCRIPT' || element.tagName === 'STYLE') return
+            const boundary = LINE_BOUNDARY_TAGS.has(element.tagName)
+            if (boundary) text += '\n'
+            walk(element)
+            if (boundary) text += '\n'
+        })
+    }
+    walk(root)
+    return { text, segments }
+}
+const locateSegment = (segments: FlatTextSegment[], index: number): { segment: FlatTextSegment, offset: number } | null => {
+    for (const segment of segments) {
+        if (index >= segment.start && index < segment.end) return { segment, offset: index - segment.start }
+    }
+    return null
+}
+/** 命中区间里有表情图等媒体时不合并（B 站搜索链接自带的图标豁免） */
+const rangeHasBlockingMedia = (root: Element, range: Range): boolean => {
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT)
+    let node = walker.nextNode()
+    while (node) {
+        const element = node as Element
+        if ((element.tagName === 'IMG' || element.tagName === 'SVG' || element.tagName === 'VIDEO' || element.tagName === 'CANVAS')
+            && range.intersectsNode(element) && !element.closest('a[data-type]')) return true
+        node = walker.nextNode()
+    }
+    return false
+}
+/** 把一段跨节点 URL 合并成一个锚点（DOM API 构建，不做 HTML 拼接） */
+const applyCrossNodeUrl = (root: Element, segments: FlatTextSegment[], start: number, end: number, url: string): void => {
+    const startHit = locateSegment(segments, start)
+    const endHit = locateSegment(segments, end - 1)
+    if (!startHit || !endHit) return
+    const range = document.createRange()
+    range.setStart(startHit.segment.node, startHit.offset)
+    range.setEnd(endHit.segment.node, endHit.offset + 1)
+    if (rangeHasBlockingMedia(root, range)) return
+    // 被 URL 覆盖的 B 站搜索链接：合并后若被清空就整块删掉（连带搜索图标）
+    const swallowed = Array.from(root.querySelectorAll('a[data-type]')).filter(anchor => range.intersectsNode(anchor))
+    const startAnchor = startHit.segment.node.parentElement?.closest('a') ?? null
+    range.deleteContents()
+    const link = document.createElement('a')
+    link.setAttribute('href', (url.includes('http') ? '' : 'https://') + url)
+    link.setAttribute('target', '_blank')
+    link.setAttribute('bilibili-adjustment-element', '')
+    link.textContent = url
+    if (startAnchor?.parentNode) {
+        startAnchor.parentNode.insertBefore(link, startAnchor.nextSibling)
+    } else {
+        const insertion = document.createRange()
+        insertion.setStart(startHit.segment.node, Math.min(startHit.offset, startHit.segment.node.data.length))
+        insertion.collapse(true)
+        insertion.insertNode(link)
+    }
+    for (const anchor of swallowed) if (anchor.parentNode && !anchor.textContent?.trim()) anchor.remove()
+}
+/** 只合并跨节点的 URL；单节点 / 已链接的原样交给逐节点链接化。无 Range 的测试桩跳过 */
+const linkifyCrossNodeUrls = (root: Element): void => {
+    if (typeof document === 'undefined' || typeof document.createRange !== 'function') return
+    const source = regexps.video.url
+    const matcher = new RegExp(source.source, source.flags.includes('g') ? source.flags : source.flags + 'g')
+    const { text, segments } = flattenTextSegments(root)
+    if (segments.length < 2) return
+    const hits: Array<{ start: number, end: number, url: string }> = []
+    matcher.lastIndex = 0
+    let match: RegExpExecArray | null
+    while ((match = matcher.exec(text))) {
+        if (!match[0]) {
+            matcher.lastIndex += 1
+            continue
+        }
+        const end = match.index + match[0].length
+        const startHit = locateSegment(segments, match.index)
+        const endHit = locateSegment(segments, end - 1)
+        if (!startHit || !endHit || startHit.segment === endHit.segment) continue
+        hits.push({ start: match.index, end, url: match[0] })
+    }
+    for (let index = hits.length - 1; index >= 0; index--) {
+        applyCrossNodeUrl(root, segments, hits[index].start, hits[index].end, hits[index].url)
+    }
+}
 export const formatVideoCommentContents = (element: Element): string => {
     const tokens = buildCommentTokens()
-    return processTextNodes(element, content => linkifyTokens(content, tokens)).innerHTML
+    const cloned = element.cloneNode(true) as Element
+    linkifyCrossNodeUrls(cloned)
+    return processTextNodes(cloned, content => linkifyTokens(content, tokens)).innerHTML
 }
