@@ -16,7 +16,7 @@ import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-co
 import { fetchModels, clearModelCache, validateApiKey } from '@/services/ai.service'
 import { initTooltip, destroyTooltip, bindTooltipIcons } from '@/components/tooltip-component'
 import { mountVueSettingsPanel } from '@/ui/settings'
-import { pickActiveSection } from '@/ui/settings/nav-scroll-spy'
+import { pickActiveSection, computeNavScrollDelta } from '@/ui/settings/nav-scroll-spy'
 import type { NavSectionPosition } from '@/ui/settings/nav-scroll-spy'
 import pkg from '../../package.json'
 import type { SettingItemSchema } from '@/config/settings-config'
@@ -455,7 +455,13 @@ export class SettingsDialogHost {
                 if (!(target instanceof HTMLElement)) return
                 // 不用 scrollIntoView：它无法补偿高度不定的 sticky 头部（会盖住分类标题一半），
                 // 这里按「标题正好落在头部下边框下方 12px」计算实际滚动量
-                const delta = target.getBoundingClientRect().top - headerBottom() - 12
+                // 弹窗根带 zoom：rect 是视觉像素、scrollTop 是布局像素，必须按缩放换算
+                const zoom = parseFloat(window.getComputedStyle(popover).zoom) || 1
+                const delta = computeNavScrollDelta({
+                    targetTop: target.getBoundingClientRect().top,
+                    headerBottom: headerBottom(),
+                    zoom
+                })
                 popover.scrollTo({ top: popover.scrollTop + delta, behavior: 'smooth' })
             })
             nav.appendChild(btn)

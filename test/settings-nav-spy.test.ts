@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { pickActiveSection, NAV_ACTIVE_EDGE } from '../src/ui/settings/nav-scroll-spy'
+import { pickActiveSection, computeNavScrollDelta, NAV_ACTIVE_EDGE } from '../src/ui/settings/nav-scroll-spy'
 // 回归背景（2026-09 用户反馈）：点击导航「评论区」，右侧正确停靠到评论区设置项，
 // 但导航高亮却停在上一格「画质、音质与字幕」。根因是判定的基准用了弹窗顶边 + 固定阈值 100，
 // 而点击跳转把目标标题顶到了「头部下边框 + 12px」，中间差的整个 sticky 头部高度
@@ -105,4 +105,23 @@ test('容差大于跳转留白，避免因亚像素取整把高亮留在上一�
         position.id === 'quality' ? { ...position, top: headerBottomAt() + CLICK_GAP } : position
     ))
     assert.equal(pickActiveSection(positions, headerBottomAt(), false), 'quality')
+})
+// 回归背景（2026-11 用户反馈）：4K（弹窗 zoom=2）下点导航会多滚一倍，落点越过目标分组。
+// 根因是 rect（视觉像素）直接加到了 scrollTop（布局像素）上。
+test('点击跳转按 zoom 换算滚动量：zoom=1 保持原值', () => {
+    assert.equal(computeNavScrollDelta({ targetTop: 1000, headerBottom: 240, zoom: 1 }), 748)
+})
+test('点击跳转按 zoom 换算滚动量：zoom=2 时滚动量减半、留白同比放大', () => {
+    const zoom = 2
+    const delta = computeNavScrollDelta({ targetTop: 1000, headerBottom: 240, zoom })
+    assert.equal(delta, 760 / 2 - 12)
+    // 滚动 delta 布局像素后，内容在视觉上移动 delta*zoom，落点留白应等于 12*zoom
+    const visualTopAfterScroll = 1000 - delta * zoom
+    assert.equal(visualTopAfterScroll - 240, 12 * zoom)
+})
+test('点击跳转按 zoom 换算滚动量：小数缩放与非法 zoom', () => {
+    const fractional = computeNavScrollDelta({ targetTop: 1000, headerBottom: 240, zoom: 1.333 })
+    assert.ok(Math.abs(fractional - ((1000 - 240) / 1.333 - 12)) < 1e-9)
+    assert.equal(computeNavScrollDelta({ targetTop: 1000, headerBottom: 240, zoom: Number.NaN }), 748)
+    assert.equal(computeNavScrollDelta({ targetTop: 1000, headerBottom: 240, zoom: 0 }), 748)
 })

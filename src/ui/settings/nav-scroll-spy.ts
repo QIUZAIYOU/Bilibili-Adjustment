@@ -16,6 +16,26 @@ export interface NavSectionPosition {
 }
 /** 点击跳转会在头部下边框下方留 12px 空白，容差需略大于它，且远小于相邻分组的间距 */
 export const NAV_ACTIVE_EDGE = 16
+/** 点击跳转的视觉留白（弹窗像素） */
+export const NAV_SCROLL_GAP = 12
+/**
+ * 计算点击导航要滚动的距离（**布局像素**）。
+ *
+ * 弹窗根带 zoom（4K 下为 2），`getBoundingClientRect` 给的是视觉像素，而 `scrollTop` 是
+ * 布局像素；直接相加会把滚动量放大 zoom 倍，落点越过目标分组（2026-11 用户反馈）。
+ */
+export const computeNavScrollDelta = (options: {
+    targetTop: number
+    headerBottom: number
+    zoom?: number
+    gap?: number
+}): number => {
+    const zoom = Number.isFinite(options.zoom) && (options.zoom as number) > 0 ? options.zoom as number : 1
+    const gap = Number.isFinite(options.gap) ? options.gap as number : NAV_SCROLL_GAP
+    // gap 是布局像素，先减后除会让留白缩水（zoom=2 时只剩 12 视觉像素）；
+    // 正确做法是先在视觉坐标里对齐顶边，再减去布局留白。
+    return (options.targetTop - options.headerBottom) / zoom - gap
+}
 /**
  * @param positions 按文档顺序排列的分组
  * @param headerBottom 头部下边框的视口坐标（弹窗关闭时为 0）

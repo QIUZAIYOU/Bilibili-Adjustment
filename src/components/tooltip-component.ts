@@ -3,6 +3,7 @@
  * 直接绑定到每个图标元素
  */
 import { sanitizeTooltipHtml } from '@/utils/sanitize-html'
+import { computeTooltipPosition } from '@/utils/tooltip-position'
 /** TooltipComponent 的构造选项 */
 export interface TooltipOptions {
     /** 悬停多久后显示（ms，默认 300） */
@@ -102,19 +103,17 @@ export class TooltipComponent {
         tooltip.style.opacity = '0'
         const rect = target.getBoundingClientRect()
         const tooltipRect = tooltip.getBoundingClientRect()
-        let left = rect.left + rect.width / 2 - tooltipRect.width / 2
-        let top = rect.bottom + 8
-        const viewportWidth = window.innerWidth
-        const viewportHeight = window.innerHeight
-        if (left < 8) left = 8
-        if (left + tooltipRect.width > viewportWidth - 8) {
-            left = viewportWidth - tooltipRect.width - 8
-        }
-        if (top + tooltipRect.height > viewportHeight - 8) {
-            top = rect.top - tooltipRect.height - 8
-        }
-        tooltip.style.left = `${left}px`
-        tooltip.style.top = `${top}px`
+        // 说明框挂在设置弹窗内部，弹窗根带 zoom：rect 是视觉像素，写回的 left/top 是布局像素。
+        // 不换算会在 4K（zoom=2）下被祖先再放大一次，位置一路向右下漂移。
+        const zoom = parseFloat(window.getComputedStyle(this.container).zoom) || 1
+        const position = computeTooltipPosition(
+            { top: rect.top, bottom: rect.bottom, left: rect.left, width: rect.width },
+            { width: tooltipRect.width, height: tooltipRect.height },
+            { width: window.innerWidth, height: window.innerHeight },
+            zoom
+        )
+        tooltip.style.left = `${position.left}px`
+        tooltip.style.top = `${position.top}px`
         // 真正显示
         requestAnimationFrame(() => {
             tooltip.style.opacity = '1'
