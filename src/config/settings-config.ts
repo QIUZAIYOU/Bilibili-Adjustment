@@ -363,11 +363,11 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 type: 'radio',
                 label: '重排布局',
                 options: [
-                    { value: 'rails', label: '分区泳道' },
-                    { value: 'stream', label: '单列平铺' }
+                    { value: 'rails', label: '分类分区（每区 5 列）' },
+                    { value: 'stream', label: '平铺网格（每行 5 个）' }
                 ],
                 defaultValue: 'rails',
-                tips: '泳道：每个分区一行，横向滚动；平铺：所有视频在一个网格里',
+                tips: '桌面每行固定 5 个，与 B 站官方一致；窄屏依次降为 4、3、2 列。分区模式按内容分区分块，平铺模式把全部视频放进一个网格',
                 visible: configs => Boolean(configs.home_feed_enabled) && configs.home_feed_mode === 'redesign'
             },
             {

@@ -153,3 +153,18 @@ export const formatDuration = (seconds: number): string => {
     const pad = (n: number): string => String(n).padStart(2, '0')
     return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`
 }
+/** 发布时间 → 相对时间（YouTube 式次级信息）；脏值与未来时间分别返回空串与「刚刚」 */
+export const formatRelativeTime = (pubdateSeconds: number, now = Date.now()): string => {
+    const ts = Number(pubdateSeconds) * 1000
+    if (!Number.isFinite(ts) || ts <= 0) return ''
+    const diff = Math.max(0, now - ts)
+    const minute = 60 * 1000
+    const hour = 60 * minute
+    const day = 24 * hour
+    if (diff < minute) return '刚刚'
+    if (diff < hour) return `${Math.floor(diff / minute)} 分钟前`
+    if (diff < day) return `${Math.floor(diff / hour)} 小时前`
+    if (diff < 30 * day) return `${Math.floor(diff / day)} 天前`
+    if (diff < 365 * day) return `${Math.floor(diff / (30 * day))} 个月前`
+    return `${Math.floor(diff / (365 * day))} 年前`
+}

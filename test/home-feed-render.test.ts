@@ -28,13 +28,16 @@ const item = (overrides: Record<string, unknown> = {}) => ({
 })
 test('renderFeedView：泳道结构 + 卡片字段 + 屏蔽按钮', () => {
     const body = document.createElement('div')
-    renderFeedView(body, { layout: 'rails', rails: [{ name: '游戏', items: [item(), item({ bvid: 'BV1yy411c7mD' })] }], rest: [] })
+    renderFeedView(body, { layout: 'rails', rails: [{ name: '游戏', items: [item({ pubdate: Math.floor(Date.now() / 1000) - 3600 }), item({ bvid: 'BV1yy411c7mD' })] }], rest: [] })
     assert.equal(body.querySelectorAll('.adj-hf-rail').length, 1)
+    assert.equal(body.querySelectorAll('.adj-hf-grid').length, 1)
     assert.equal(body.querySelectorAll('.adj-hf-card').length, 2)
     const card = body.querySelector('.adj-hf-card') as HTMLElement
     assert.equal(card.dataset.uid, '12345')
     assert.equal(card.querySelector('.adj-hf-title')?.textContent, '正常标题')
     assert.equal(card.querySelector('.adj-hf-view')?.textContent, '1.2万 播放')
+    assert.equal(card.querySelector('.adj-hf-play')?.textContent, '▶')
+    assert.equal(card.querySelector('.adj-hf-time')?.textContent, '1 小时前')
     const link = card.querySelector('a') as HTMLAnchorElement
     assert.equal(link.getAttribute('href'), '//www.bilibili.com/video/BV1xx411c7mD')
     const block = card.querySelector('[data-action="block"]') as HTMLButtonElement

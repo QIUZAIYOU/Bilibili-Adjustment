@@ -3,7 +3,7 @@
  *
  * 所有来自接口的文本一律走 textContent，绝不做 HTML 拼接；图片与链接只接受 https。
  */
-import { formatCount, formatDuration } from './pure'
+import { formatCount, formatDuration, formatRelativeTime } from './pure'
 import type { HomeFeedItem, HomeFeedRail } from './pure'
 /** 渲染所需的视图状态 */
 export interface HomeFeedView {
@@ -38,6 +38,10 @@ const createCard = (item: HomeFeedItem): HTMLElement => {
     cover.decoding = 'async'
     link.appendChild(cover)
     if (item.duration > 0) link.appendChild(el('span', 'adj-hf-duration', formatDuration(item.duration)))
+    // 悬停播放示意：纯装饰，时长与标题已经承载全部信息
+    const play = el('span', 'adj-hf-play', '▶')
+    play.setAttribute('aria-hidden', 'true')
+    link.appendChild(play)
     const title = el('h3', 'adj-hf-title', item.title)
     const meta = el('div', 'adj-hf-meta')
     if (item.owner.face) {
@@ -49,6 +53,11 @@ const createCard = (item: HomeFeedItem): HTMLElement => {
     }
     meta.appendChild(el('span', 'adj-hf-owner', item.owner.name))
     meta.appendChild(el('span', 'adj-hf-view', `${formatCount(item.stat.view)} 播放`))
+    const relativeTime = formatRelativeTime(item.pubdate)
+    if (relativeTime) {
+        meta.appendChild(el('span', 'adj-hf-dot', '·'))
+        meta.appendChild(el('span', 'adj-hf-time', relativeTime))
+    }
     const block = el('button', 'adj-hf-block')
     block.type = 'button'
     block.textContent = '×'
@@ -64,14 +73,14 @@ const createRail = (rail: HomeFeedRail): HTMLElement => {
     const head = el('div', 'adj-hf-rail-head')
     head.appendChild(el('h2', 'adj-hf-rail-title', rail.name))
     head.appendChild(el('span', 'adj-hf-rail-count', String(rail.items.length)))
-    const track = el('div', 'adj-hf-track adj-hf-track-rail')
+    const track = el('div', 'adj-hf-grid')
     for (const item of rail.items) track.appendChild(createCard(item))
     section.append(head, track)
     return section
 }
 /** 单列铺排：自适应列宽 */
 const createStream = (items: HomeFeedItem[]): HTMLElement => {
-    const track = el('div', 'adj-hf-track adj-hf-track-stream')
+    const track = el('div', 'adj-hf-grid')
     for (const item of items) track.appendChild(createCard(item))
     return track
 }
@@ -123,7 +132,7 @@ export const renderFeedView = (body: HTMLElement, view: HomeFeedView): void => {
 /** 骨架屏：加载首屏时占位，避免空白 */
 export const renderSkeleton = (body: HTMLElement, count = 8): void => {
     body.textContent = ''
-    const grid = el('div', 'adj-hf-track adj-hf-track-stream')
+    const grid = el('div', 'adj-hf-grid')
     for (let i = 0; i < count; i++) {
         const card = el('div', 'adj-hf-card adj-hf-card-skeleton')
         card.append(el('div', 'adj-hf-skeleton-cover'), el('div', 'adj-hf-skeleton-line'), el('div', 'adj-hf-skeleton-line adj-hf-skeleton-line-short'))

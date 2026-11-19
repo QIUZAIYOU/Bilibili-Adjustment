@@ -47,6 +47,9 @@ export const homeFeedStyles = {
             margin-left: var(--adj-space-sm);
             padding: var(--adj-space-xs) var(--adj-space-md);
         }
+        #adj-home-feed .adj-hf-notice[hidden] {
+            display: none;
+        }
         #adj-home-feed .adj-hf-notice {
             display: flex;
             align-items: center;
@@ -79,22 +82,26 @@ export const homeFeedStyles = {
             font-size: var(--adj-font-xs);
             color: var(--adj-text-muted);
         }
-        #adj-home-feed .adj-hf-track {
+        /* 一行 5 个：与 B 站官方首页密度一致；窄屏按 4/3/2 降级 */
+        #adj-home-feed .adj-hf-grid {
             display: grid;
-            gap: var(--adj-space-lg);
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: var(--adj-space-lg) var(--adj-space-lg);
         }
-        #adj-home-feed .adj-hf-track-rail {
-            grid-auto-flow: column;
-            grid-auto-columns: minmax(200px, 1fr);
-            overflow-x: auto;
-            padding-bottom: var(--adj-space-sm);
-            scroll-snap-type: x proximity;
+        @media (max-width: 1200px) {
+            #adj-home-feed .adj-hf-grid {
+                grid-template-columns: repeat(4, minmax(0, 1fr));
+            }
         }
-        #adj-home-feed .adj-hf-track-stream {
-            grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        @media (max-width: 992px) {
+            #adj-home-feed .adj-hf-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+            }
         }
-        #adj-home-feed .adj-hf-track-rail .adj-hf-card {
-            scroll-snap-align: start;
+        @media (max-width: 768px) {
+            #adj-home-feed .adj-hf-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
         #adj-home-feed .adj-hf-card {
             position: relative;
@@ -102,10 +109,16 @@ export const homeFeedStyles = {
             flex-direction: column;
             gap: var(--adj-space-xs);
             min-width: 0;
+            transition: transform var(--adj-motion-fast);
+        }
+        #adj-home-feed .adj-hf-card:hover {
+            transform: translateY(-2px);
         }
         #adj-home-feed .adj-hf-link {
             position: relative;
             display: block;
+            overflow: hidden;
+            border-radius: var(--adj-radius-md);
             color: inherit;
             text-decoration: none;
         }
@@ -116,10 +129,34 @@ export const homeFeedStyles = {
             object-fit: cover;
             border-radius: var(--adj-radius-md);
             background: var(--adj-bg-surface);
-            transition: var(--adj-motion-fast);
+            transition: transform var(--adj-motion-fast);
         }
         #adj-home-feed .adj-hf-card:hover .adj-hf-cover {
-            filter: brightness(1.06);
+            transform: scale(1.03);
+        }
+        /* 悬停才出现的播放示意：圆形底 + 三角形，纯装饰不参与无障碍树 */
+        #adj-home-feed .adj-hf-play {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 44px;
+            height: 44px;
+            border-radius: var(--adj-radius-full);
+            background: var(--adj-bg-scrim-strong);
+            color: var(--adj-text-strong);
+            font-size: var(--adj-font-lg);
+            opacity: 0;
+            transform: translate(-50%, -50%) scale(0.9);
+            transition: var(--adj-motion-fast);
+            pointer-events: none;
+        }
+        #adj-home-feed .adj-hf-card:hover .adj-hf-play {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
         }
         #adj-home-feed .adj-hf-duration {
             position: absolute;
@@ -142,6 +179,7 @@ export const homeFeedStyles = {
             -webkit-line-clamp: 2;
             -webkit-box-orient: vertical;
             overflow: hidden;
+            min-height: calc(2 * 1.45em);
         }
         #adj-home-feed .adj-hf-meta {
             display: flex;
@@ -164,8 +202,15 @@ export const homeFeedStyles = {
             max-width: 46%;
         }
         #adj-home-feed .adj-hf-view {
-            margin-left: auto;
             flex: none;
+        }
+        #adj-home-feed .adj-hf-dot {
+            flex: none;
+            opacity: 0.7;
+        }
+        #adj-home-feed .adj-hf-time {
+            flex: none;
+            white-space: nowrap;
         }
         #adj-home-feed .adj-hf-block {
             position: absolute;

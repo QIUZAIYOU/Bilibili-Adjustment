@@ -52,6 +52,16 @@ try {
     check('自绘区没有广告外链', state.adLinks === 0, `adLinks=${state.adLinks}`)
     check('卡片有标题文本', Boolean(state.firstTitle), state.firstTitle.slice(0, 20))
 
+    // 官方密度：第一行必须正好 5 个（首行卡片 top 相同）
+    const row = await page.evaluate(() => {
+        const grid = document.querySelector('#adj-home-feed .adj-hf-grid')
+        const cards = grid ? Array.from(grid.querySelectorAll('.adj-hf-card')).slice(0, 8) : []
+        const tops = cards.map(card => Math.round(card.getBoundingClientRect().top))
+        const firstTop = tops[0]
+        return { tops, firstRow: tops.filter(top => Math.abs(top - firstTop) <= 1).length, columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0 }
+    })
+    check('一行 5 个（首行卡片同排）', row.firstRow === 5 && row.columns === 5, `firstRow=${row.firstRow} columns=${row.columns} tops=${row.tops.join(',')}`)
+
     const blocked = await page.evaluate(() => {
         const card = document.querySelector('#adj-home-feed .adj-hf-card')
         const uid = card?.dataset.uid || ''
@@ -67,7 +77,29 @@ try {
     check('点 × 后该 UP 卡片从页面消失', Boolean(blocked.uid), `uid=${blocked.uid}`)
     check('屏蔽 UID 写回配置', persisted)
 
-    // ---------- 3：默认关闭 ----------
+    // ---------- 3：1280 宽降为 4 列 ----------
+    const narrowPage = await openWithUserscript(browser, 'https://www.bilibili.com/', {
+        config: {
+            home_feed_enabled: true,
+            home_feed_mode: 'redesign',
+            home_feed_layout: 'rails',
+            home_feed_max_pages: 2
+        },
+        viewport: { width: 1100, height: 900 }
+    })
+    await waitFor(async () => narrowPage.evaluate(() => document.querySelectorAll('#adj-home-feed .adj-hf-card').length >= 12), { timeout: 40000, label: '1100 宽度卡片' })
+    const narrow = await narrowPage.evaluate(() => {
+        const root = document.querySelector('#adj-home-feed')
+        const grid = root?.querySelector('.adj-hf-grid')
+        return {
+            columns: grid ? getComputedStyle(grid).gridTemplateColumns.split(' ').length : 0,
+            overflow: root ? root.scrollWidth - root.clientWidth : 0
+        }
+    })
+    check('1100 宽降为 4 列', narrow.columns === 4, `columns=${narrow.columns}`)
+    check('1100 宽无横向溢出', narrow.overflow <= 1, `overflow=${narrow.overflow}px`)
+
+    // ---------- 4：默认关闭 ----------
     const offPage = await openWithUserscript(browser, 'https://www.bilibili.com/', { config: {}, viewport: { width: 1600, height: 1000 } })
     await sleep(3000)
     const offState = await offPage.evaluate(() => {
@@ -82,7 +114,7 @@ try {
     check('默认关闭：没有注入样式', !offState.hasStyle)
     check('默认关闭：官方容器可见', offState.nativeDisplay !== 'none', `display=${offState.nativeDisplay}`)
 
-    // ---------- 4：接口失败回退 ----------
+    // ---------- 5：接口失败回退 ----------
     const failPage = await browser.newPage()
     await failPage.setViewport({ width: 1600, height: 1000 })
     await failPage.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/156.0.0.0 Safari/537.36')

@@ -7,6 +7,7 @@ import {
     filterBlockedItems,
     formatCount,
     formatDuration,
+    formatRelativeTime,
     groupByCategory,
     isRiskControlCode,
     normalizeFeedItems,
@@ -93,4 +94,18 @@ test('clampMaxPages / isRiskControlCode / 格式化', () => {
     assert.equal(formatCount(0), '0')
     assert.equal(formatDuration(125), '2:05')
     assert.equal(formatDuration(3725), '1:02:05')
+})
+test('formatRelativeTime：分钟/小时/天/月/年与脏值', () => {
+    const now = Date.UTC(2026, 10, 20, 0, 0, 0)
+    const ago = (ms: number) => (now - ms) / 1000
+    assert.equal(formatRelativeTime(ago(10 * 1000), now), '刚刚')
+    assert.equal(formatRelativeTime(ago(5 * 60 * 1000), now), '5 分钟前')
+    assert.equal(formatRelativeTime(ago(3 * 3600 * 1000), now), '3 小时前')
+    assert.equal(formatRelativeTime(ago(4 * 86400 * 1000), now), '4 天前')
+    assert.equal(formatRelativeTime(ago(70 * 86400 * 1000), now), '2 个月前')
+    assert.equal(formatRelativeTime(ago(800 * 86400 * 1000), now), '2 年前')
+    assert.equal(formatRelativeTime(0, now), '')
+    assert.equal(formatRelativeTime(Number.NaN, now), '')
+    // 时钟偏差导致「未来时间」按刚刚处理，不出现负数
+    assert.equal(formatRelativeTime((now + 60000) / 1000, now), '刚刚')
 })
