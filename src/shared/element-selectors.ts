@@ -114,10 +114,9 @@ const CSS_MAP: Record<string, string> = {
     // 首页视频区重设计（2026-11-19 探针实测）：主推荐流整块在 .feed2 下，
     // 所有卡片（首屏 10 张 + 无限流）都在同一个 .recommended-container_floor-aside 容器里；
     // 广告卡没有专属类名，靠外链指向 cm.bilibili.com 识别。
-    homeFeedNativeParent: '.feed2',
-    homeFeedNativeContainer: '.recommended-container_floor-aside',
+    // UP 主黑名单：首页视频卡与卡片上的作者昵称（卡片 DOM 不暴露 UID，只能按昵称匹配）
     homeFeedNativeCard: '.bili-video-card',
-    homeFeedNativeAdLink: 'a[href*="cm.bilibili.com"]',
+    homeNativeCardAuthor: '.bili-video-card__info--author',
     // 播放器控制栏上下区域（点击播放器自动定位时用于排除控制栏）
     playerControlTop: '.bpx-player-ctrl-top',
     playerControlBottom: '.bpx-player-ctrl-bottom',
@@ -208,10 +207,8 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'indexRecommendAdCard',
         'indexRecommendCardLink',
         'indexRecommendCardTitle',
-        'homeFeedNativeParent',
-        'homeFeedNativeContainer',
         'homeFeedNativeCard',
-        'homeFeedNativeAdLink',
+        'homeNativeCardAuthor',
         'homePaletteButtonWrap'
     ]),
     dynamic: new Set([

@@ -334,59 +334,17 @@ export const videoSettingsConfig: SettingItemSchema[] = [
         ]
     },
     {
-        id: 'home_feed_section',
+        id: 'up_blocklist_section',
         type: 'section',
-        label: '首页视频区',
+        label: '黑名单',
         category: 'basic',
         items: [
             {
-                id: 'home_feed_enabled',
+                id: 'up_blocklist_enabled',
                 type: 'checkbox',
-                label: '首页视频区重设计',
-                tips: '开启后可以把首页推荐流换成「只有视频、按分区聚合、能屏蔽 UP」的样子。默认关闭，关闭时首页与官方完全一致；修改后刷新页面生效',
+                label: '启用 UP 主黑名单',
+                tips: '开启后首页推荐里不再显示名单内 UP 主的视频；首页右下角会出现盾牌按钮，点开可以添加或移除。默认关闭，修改后刷新页面生效',
                 defaultValue: false
-            },
-            {
-                id: 'home_feed_mode',
-                type: 'radio',
-                label: '模式',
-                options: [
-                    { value: 'filter', label: '只过滤（保留官方布局）' },
-                    { value: 'redesign', label: '重排（接管视频区）' }
-                ],
-                defaultValue: 'filter',
-                tips: '「只过滤」只隐藏广告卡，布局和交互都是官方的；「重排」会接管主推荐流，按分区列出视频。重排加载失败会自动回退到官方流',
-                visible: configs => Boolean(configs.home_feed_enabled)
-            },
-            {
-                id: 'home_feed_layout',
-                type: 'radio',
-                label: '重排布局',
-                options: [
-                    { value: 'rails', label: '分类分区（每区 5 列）' },
-                    { value: 'stream', label: '平铺网格（每行 5 个）' }
-                ],
-                defaultValue: 'rails',
-                tips: '桌面每行固定 5 个，与 B 站官方一致；窄屏依次降为 4、3、2 列。分区模式按内容分区分块，平铺模式把全部视频放进一个网格',
-                visible: configs => Boolean(configs.home_feed_enabled) && configs.home_feed_mode === 'redesign'
-            },
-            {
-                id: 'home_feed_max_pages',
-                type: 'input',
-                inputType: 'number',
-                label: '最多加载页数',
-                defaultValue: 8,
-                tips: '每页 30 条，滚到底自动加载；只接受 2 到 20',
-                visible: configs => Boolean(configs.home_feed_enabled) && configs.home_feed_mode === 'redesign'
-            },
-            {
-                id: 'home_feed_blocked_uids',
-                type: 'input',
-                label: '屏蔽的 UP 主 UID',
-                placeholder: '例如 12345,67890',
-                defaultValue: '',
-                tips: '逗号或空格分隔。视频卡右上角的 × 也能直接把当前 UP 加进来；修改后刷新页面生效',
-                visible: configs => Boolean(configs.home_feed_enabled)
             }
         ]
     },

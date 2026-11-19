@@ -240,6 +240,192 @@ export const homePageStyles = {
             width: 24px;
             height: 24px;
         }
+        /* 黑名单入口：与设置按钮同款，只换图标与类名 */
+        .adj-palette-blocklist-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-sizing: border-box;
+            width: 40px;
+            height: 40px;
+            margin: 0 0 6px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-sm);
+            background: var(--adj-bg-surface);
+            color: var(--adj-text-soft);
+            cursor: pointer;
+            user-select: none;
+            transition: var(--adj-motion-fast);
+        }
+        .adj-palette-blocklist-btn:hover {
+            background: var(--adj-bg-surface-hover);
+        }
+        .adj-palette-blocklist-btn svg {
+            display: block;
+            width: 24px;
+            height: 24px;
+        }
+        /* 黑名单弹窗：与设置弹窗同一套缩放口径（挂在 body、自带 zoom） */
+        .adj-blocklist-popover {
+            position: fixed;
+            inset: 0;
+            margin: auto;
+            box-sizing: border-box;
+            width: 520px;
+            max-height: calc(80vh * var(--adj-ui-zoom-inv, 1));
+            padding: 20px 22px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-lg);
+            background: var(--adj-bg-page);
+            color: var(--adj-text-primary);
+            zoom: var(--adj-ui-zoom, 1);
+            overflow: hidden;
+        }
+        .adj-blocklist-popover:popover-open {
+            display: flex;
+            flex-direction: column;
+        }
+        .adj-blocklist-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--adj-border);
+        }
+        .adj-blocklist-title {
+            margin: 0;
+            font-size: var(--adj-font-lg);
+            font-weight: 700;
+        }
+        .adj-blocklist-close {
+            border: none;
+            background: transparent;
+            color: var(--adj-text-soft);
+            font-size: var(--adj-font-xxl);
+            line-height: 1;
+            cursor: pointer;
+            padding: 0 4px;
+        }
+        .adj-blocklist-close:hover {
+            color: var(--adj-text-primary);
+        }
+        .adj-blocklist-add {
+            display: flex;
+            gap: 8px;
+            margin-top: 14px;
+        }
+        .adj-blocklist-input {
+            flex: 1;
+            min-width: 0;
+            box-sizing: border-box;
+            padding: 8px 10px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-sm);
+            background: var(--adj-bg-input);
+            color: var(--adj-text-primary);
+            font-size: var(--adj-font-base);
+        }
+        .adj-blocklist-input:focus {
+            outline: none;
+            border-color: var(--adj-brand);
+        }
+        .adj-blocklist-add-btn {
+            flex: none;
+            padding: 8px 16px;
+            border: 1px solid var(--adj-brand);
+            border-radius: var(--adj-radius-sm);
+            background: var(--adj-brand);
+            color: var(--adj-on-brand);
+            font-size: var(--adj-font-base);
+            cursor: pointer;
+        }
+        .adj-blocklist-add-btn:disabled {
+            opacity: 0.6;
+            cursor: default;
+        }
+        .adj-blocklist-hint {
+            margin: 10px 0 0;
+            font-size: var(--adj-font-xs);
+            line-height: 1.6;
+            color: var(--adj-text-soft);
+        }
+        .adj-blocklist-status {
+            margin-top: 8px;
+            font-size: var(--adj-font-sm);
+            color: var(--adj-brand);
+        }
+        .adj-blocklist-list {
+            flex: 1;
+            min-height: 0;
+            margin-top: 12px;
+            overflow-y: auto;
+        }
+        .adj-blocklist-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--adj-border);
+        }
+        .adj-blocklist-avatar {
+            flex: none;
+            width: 40px;
+            height: 40px;
+            border-radius: var(--adj-radius-full);
+            object-fit: cover;
+            background: var(--adj-bg-surface);
+        }
+        .adj-blocklist-avatar-empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--adj-text-soft);
+            font-size: var(--adj-font-lg);
+        }
+        .adj-blocklist-main {
+            flex: 1;
+            min-width: 0;
+        }
+        .adj-blocklist-name {
+            font-size: var(--adj-font-base);
+            font-weight: 600;
+            color: var(--adj-text-primary);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .adj-blocklist-meta {
+            margin-top: 2px;
+            font-size: var(--adj-font-xs);
+            color: var(--adj-text-soft);
+        }
+        .adj-blocklist-sign {
+            margin-top: 2px;
+            font-size: var(--adj-font-xs);
+            color: var(--adj-text-muted);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .adj-blocklist-remove {
+            flex: none;
+            padding: 4px 10px;
+            border: 1px solid var(--adj-border-strong);
+            border-radius: var(--adj-radius-sm);
+            background: transparent;
+            color: var(--adj-danger);
+            font-size: var(--adj-font-sm);
+            cursor: pointer;
+        }
+        .adj-blocklist-remove:hover {
+            background: rgba(var(--adj-danger-rgb), 0.1);
+        }
+        .adj-blocklist-empty {
+            padding: 32px 0;
+            text-align: center;
+            font-size: var(--adj-font-sm);
+            color: var(--adj-text-soft);
+        }
     `
 }
 /** homeStyles */
