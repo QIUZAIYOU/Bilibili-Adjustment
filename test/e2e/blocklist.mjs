@@ -103,10 +103,17 @@ try {
     await waitFor(async () => page.evaluate(name => {
         const cards = Array.from(document.querySelectorAll('.bili-video-card'))
         const matched = cards.filter(card => (card.querySelector('.bili-video-card__info--author')?.getAttribute('title') || '').trim() === name)
-        const targets = matched.map(card => card.closest('.feed-card, .bili-feed-card') || card)
-        return matched.length > 0 && targets.every(target => getComputedStyle(target).display === 'none')
+        if (!matched.length) return false
+        return matched.every(card => {
+            const outer = card.closest('.feed-card')
+            const inner = card.closest('.bili-feed-card')
+            const target = outer || inner || card
+            if (getComputedStyle(target).display !== 'none') return false
+            // 有 .feed-card 时必须连外层网格格子一起隐藏，不能只藏内层
+            return !outer || getComputedStyle(outer).display === 'none'
+        })
     }, author), { timeout: 30000, label: '黑名单卡片与外层占位被隐藏' })
-    check('同名作者卡片与外层占位被隐藏', true, author)
+    check('同名作者卡片与外层 .feed-card 占位均被隐藏', true, author)
 } finally {
     await browser.close()
 }

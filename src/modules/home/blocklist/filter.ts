@@ -22,13 +22,17 @@ const readAuthorName = (card: Element, selector: string): string => {
     return (author.getAttribute('title') || author.textContent || '').trim()
 }
 /**
- * 卡片的外层网格占位：B 站首页是 `.feed-card`（推荐格）/ `.bili-feed-card`（信息流）
- * 包着 `.bili-video-card`，只藏内层会留下一个空格子，所以优先藏外层。
+ * 隐藏目标：优先最外层网格占位（.feed-card），没有则退到 .bili-feed-card，
+ * 再没有就只藏卡片本身。只藏内层 .bili-feed-card 会留下 .feed-card 的格子。
  */
-const resolveHideTarget = (card: Element, wrapperSelector: string): Element => {
-    if (!wrapperSelector) return card
-    const wrapper = card.closest(wrapperSelector)
-    return wrapper && wrapper !== card ? wrapper : card
+const resolveHideTarget = (card: Element): HTMLElement => {
+    const outer = elementSelectors.CSS('homeFeedNativeCardWrapper') as string
+    const inner = elementSelectors.CSS('homeFeedNativeCardWrapperInner') as string
+    const outerEl = outer ? card.closest(outer) : null
+    if (outerEl instanceof HTMLElement && outerEl !== card) return outerEl
+    const innerEl = inner ? card.closest(inner) : null
+    if (innerEl instanceof HTMLElement && innerEl !== card) return innerEl
+    return card as HTMLElement
 }
 const setHidden = (target: Element, hidden: boolean): void => {
     const element = target as HTMLElement
@@ -50,13 +54,12 @@ export const createBlockedCardFilter = (getNames: () => Set<string>): CardFilter
         if (stopped) return
         const names = getNames()
         const authorSelector = elementSelectors.CSS('homeNativeCardAuthor') as string
-        const wrapperSelector = elementSelectors.CSS('homeFeedNativeCardWrapper') as string
         let hidden = 0
         for (const card of elementSelectors.queryAll('homeFeedNativeCard')) {
             const name = readAuthorName(card, authorSelector)
             const shouldHide = Boolean(name) && names.has(name)
             if (shouldHide) hidden += 1
-            setHidden(resolveHideTarget(card, wrapperSelector), shouldHide)
+            setHidden(resolveHideTarget(card), shouldHide)
         }
         if (hidden > 0) logger.debug(`UP 主黑名单丨已隐藏 ${hidden} 张卡片`)
     }
