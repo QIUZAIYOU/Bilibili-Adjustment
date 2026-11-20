@@ -249,8 +249,8 @@ export const upBlocklistStyles = `
         position: relative;
         z-index: 1;
         box-sizing: border-box;
-        width: min(380px, calc(78vw * var(--adj-ui-zoom-inv, 1)));
-        padding: 30px 26px 24px;
+        width: min(400px, calc(80vw * var(--adj-ui-zoom-inv, 1)));
+        padding: 34px 30px 28px;
         text-align: center;
         border: 1px solid var(--adj-jail-metal-light);
         border-radius: var(--adj-radius-md);
@@ -270,23 +270,25 @@ export const upBlocklistStyles = `
         display: flex;
         justify-content: center;
         color: var(--adj-jail-accent);
-        margin-bottom: 10px;
+        margin-bottom: 14px;
     }
     .adj-jail-title {
         margin: 0;
         font-size: var(--adj-font-xxl);
         font-weight: 700;
         letter-spacing: 2px;
+        line-height: 1.35;
         color: var(--adj-jail-text);
     }
     .adj-jail-desc {
-        margin: 8px 0 0;
+        margin: 10px 0 0;
         font-size: var(--adj-font-sm);
+        line-height: 1.6;
         color: var(--adj-jail-text-dim);
     }
     .adj-jail-temp {
-        margin-top: 18px;
-        padding: 6px 18px;
+        margin-top: 22px;
+        padding: 7px 20px;
         border: 1px solid var(--adj-jail-metal-light);
         border-radius: var(--adj-radius-full);
         background: transparent;
@@ -302,8 +304,17 @@ export const upBlocklistStyles = `
         color: var(--adj-jail-accent);
     }
     .adj-jail-hint {
-        margin: 12px 0 0;
+        margin: 22px 0 0;
+        padding-top: 14px;
+        border-top: 1px solid var(--adj-jail-metal);
         font-size: var(--adj-font-xs);
+        line-height: 1.7;
         color: var(--adj-jail-text-dim);
+    }
+    .adj-jail-hint-sub {
+        margin-top: 6px;
+        padding-top: 0;
+        border-top: none;
+        opacity: 0.78;
     }
 `

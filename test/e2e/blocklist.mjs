@@ -186,12 +186,14 @@ try {
         title: document.querySelector('.adj-jail-title')?.textContent || '',
         temp: document.querySelector('.adj-jail-temp')?.textContent || '',
         hint: document.querySelector('.adj-jail-hint')?.textContent || '',
+        hints: Array.from(document.querySelectorAll('.adj-jail-hint')).map(node => (node.textContent || '').trim()),
         appHidden: getComputedStyle(document.querySelector('#app') || document.body).visibility === 'hidden'
     }))
     check('空间页被监狱门遮住', jail.appHidden)
     check('文案正确', jail.title.includes('已被您拉黑'), jail.title)
     check('有「临时查看」入口', jail.temp.trim() === '临时查看')
     check('说明注明关闭标签页立即上锁', jail.hint.includes('关闭标签页会立即上锁'), jail.hint)
+    check('彻底解锁说明独占第二行', jail.hints.length === 2 && jail.hints[1].includes('彻底解除'), JSON.stringify(jail.hints))
     await spacePage.evaluate(() => document.querySelector('.adj-jail-temp')?.click())
     await waitFor(async () => spacePage.evaluate(() => !document.querySelector('.adj-jail')), { timeout: 5000, label: '临时查看解锁' })
     const unlocked = await spacePage.evaluate(() => getComputedStyle(document.querySelector('#app') || document.body).visibility !== 'hidden')
