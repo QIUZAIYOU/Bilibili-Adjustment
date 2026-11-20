@@ -117,6 +117,40 @@ export const upBlocklistStyles = `
         color: var(--adj-text-soft);
         flex: none;
     }
+    .adj-blocklist-state {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        flex: none;
+        margin-top: 10px;
+        padding: 8px 10px;
+        border: 1px solid var(--adj-warning);
+        border-radius: var(--adj-radius-sm);
+        background: var(--adj-bg-page);
+        font-size: var(--adj-font-xs);
+    }
+    .adj-blocklist-state[hidden] {
+        display: none;
+    }
+    .adj-blocklist-state-text {
+        color: var(--adj-text-soft);
+        line-height: 1.5;
+    }
+    .adj-blocklist-enable {
+        flex: none;
+        padding: 4px 10px;
+        border: 1px solid var(--adj-warning);
+        border-radius: var(--adj-radius-sm);
+        background: transparent;
+        color: var(--adj-warning);
+        font-size: var(--adj-font-xs);
+        cursor: pointer;
+    }
+    .adj-blocklist-enable:disabled {
+        opacity: 0.6;
+        cursor: default;
+    }
     .adj-blocklist-search {
         margin-top: 10px;
         flex: none;

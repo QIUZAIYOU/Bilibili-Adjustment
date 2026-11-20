@@ -57,7 +57,7 @@ export const openUpBlocklistPanel = (options: { onClose?: () => void, showOverla
     if (!panel) {
         panel = createBlocklistPanel({
             showOverlay: options.showOverlay,
-            onChange: () => { void reloadBlocked() },
+            onChange: () => reloadBlocked(),
             onClose: () => {
                 const callback = panelOnClose
                 panelOnClose = null
@@ -66,6 +66,8 @@ export const openUpBlocklistPanel = (options: { onClose?: () => void, showOverla
         })
     }
     panel.show()
+    // 面板打开时补一次对账：名单可能刚被其它标签页改过
+    void reloadBlocked()
 }
 /** 按配置启用/停用全站黑名单 */
 export const initUpBlocklistFeature = async (): Promise<void> => {

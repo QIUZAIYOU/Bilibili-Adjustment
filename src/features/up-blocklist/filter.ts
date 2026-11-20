@@ -68,7 +68,6 @@ export const createBlockedCardFilter = (getBlocked: () => BlockedLookup): CardFi
     const scan = (): void => {
         if (stopped) return
         const { uids, names } = getBlocked()
-        if (!uids.size && !names.size) return
         const uidSelector = elementSelectors.CSS('videoCardUidLink') as string
         const authorSelector = elementSelectors.CSS('videoCardAuthorAny') as string
         let hidden = 0

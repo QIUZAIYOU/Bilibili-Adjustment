@@ -6,13 +6,16 @@
  */
 import { enablePopoverLightDismiss } from '@/utils/common'
 import { LoggerService } from '@/services/logger.service'
+import { ConfigService } from '@/services/config.service'
+import { eventBus } from '@/core/event-bus'
+import { EVENT_NAMES } from '@/shared/constants'
 import { listBlockedUps, fetchUpCard, saveBlockedUp, removeBlockedUp } from './store'
 import { parseUidInput, formatFansCount } from './pure'
 import type { BlockedUp } from './pure'
 const logger = new LoggerService('UpBlocklist', { notify: false })
 export interface BlocklistPanelOptions {
     /** 名单变化（添加/移除）后回调：刷新过滤用的昵称集合并重新扫描 */
-    onChange: () => void
+    onChange: () => void | Promise<void>
     /** 弹窗关闭后回调（从设置页进入时用它恢复设置状态） */
     onClose?: () => void
     /** 是否自带遮罩：从设置进入时传 false，复用设置弹窗那层，避免遮罩闪烁 */
@@ -55,6 +58,13 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
     submit.type = 'submit'
     form.append(input, submit)
     const hint = el('p', 'adj-blocklist-hint', '开启黑名单后，首页推荐里不再显示这些 UP 主的视频。卡片按昵称匹配，添加时会自动读取昵称与头像。')
+    // 过滤总开关关闭时，加/删名单只会写库，页面不会变化 —— 这里明确提示并提供一键开启
+    const stateBar = el('div', 'adj-blocklist-state')
+    stateBar.hidden = true
+    const stateText = el('span', 'adj-blocklist-state-text', '过滤已关闭，名单只会保存，不会隐藏卡片')
+    const enableBtn = el('button', 'adj-blocklist-enable', '开启过滤')
+    enableBtn.type = 'button'
+    stateBar.append(stateText, enableBtn)
     const search = el('input', 'adj-blocklist-input adj-blocklist-search')
     search.type = 'search'
     search.placeholder = '按昵称或 UID 筛选'
@@ -63,13 +73,39 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
     const status = el('div', 'adj-blocklist-status')
     status.setAttribute('role', 'status')
     const list = el('div', 'adj-blocklist-list')
-    popover.append(header, form, hint, search, status, list)
+    popover.append(header, form, stateBar, hint, search, status, list)
     document.body.appendChild(popover)
     let lightDismissCleanup: (() => void) | null = null
     const setStatus = (text: string): void => {
         status.textContent = text
         status.hidden = !text
     }
+    /** 过滤总开关状态：关闭时显示提示条（加/删名单不生效） */
+    const syncFilterState = async (): Promise<void> => {
+        try {
+            stateBar.hidden = Boolean(await ConfigService.getValue('up_blocklist_enabled'))
+        } catch {
+            stateBar.hidden = true
+        }
+    }
+    const unsubscribeConfig = eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
+        const { key } = (args[0] ?? {}) as { key?: string }
+        if (key === 'up_blocklist_enabled') void syncFilterState()
+    })
+    enableBtn.addEventListener('click', () => {
+        enableBtn.disabled = true
+        void ConfigService.setValue('up_blocklist_enabled', true)
+            .then(async () => {
+                await syncFilterState()
+                await options.onChange()
+                setStatus('过滤已开启')
+            })
+            .catch(error => {
+                logger.warn('黑名单丨开启过滤失败', error)
+                setStatus('开启失败，请到设置里手动开启')
+            })
+            .finally(() => { enableBtn.disabled = false })
+    })
     const renderItem = (up: BlockedUp): HTMLElement => {
         const item = el('div', 'adj-blocklist-item')
         item.dataset.uid = up.uid
@@ -149,7 +185,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             input.value = ''
             setStatus(`已添加：${info.name}`)
             await refresh()
-            options.onChange()
+            await options.onChange()
         } catch (error) {
             logger.warn('黑名单丨添加失败', error)
             setStatus('添加失败，请稍后再试')
@@ -172,7 +208,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
         void removeBlockedUp(uid).then(async () => {
             setStatus('已移除')
             await refresh()
-            options.onChange()
+            await options.onChange()
         }).catch(error => {
             logger.warn('黑名单丨移除失败', error)
             setStatus('移除失败，请稍后再试')
@@ -193,10 +229,12 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
                 try { popover.showPopover() } catch { /* 浏览器不支持时退回普通显示 */ }
             }
             if (!lightDismissCleanup) lightDismissCleanup = enablePopoverLightDismiss(popover, { showOverlay: options.showOverlay })
+            void syncFilterState()
             void refresh()
         },
         destroy: (): void => {
             destroyed = true
+            unsubscribeConfig()
             lightDismissCleanup?.()
             lightDismissCleanup = null
             popover.remove()

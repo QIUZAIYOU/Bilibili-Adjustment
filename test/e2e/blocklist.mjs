@@ -173,7 +173,77 @@ try {
     check('点遮罩只关名单并回到设置', overlayState.settingsOpen && !overlayState.panelOpen, JSON.stringify(overlayState))
     await page.keyboard.press('Escape')
 
-    // ---------- 3. 空间页监狱门 ----------
+    // ---------- 3. 实时增删同步 ----------
+    const livePage = await openWithUserscript(browser, 'https://www.bilibili.com/', {
+        config: { up_blocklist_enabled: true },
+        viewport: { width: 1600, height: 1000 }
+    })
+    await waitFor(async () => livePage.evaluate(() => document.querySelectorAll('.bili-video-card').length > 5), { timeout: 40000, label: '实时增删页卡片' })
+    const liveCard = await livePage.evaluate(() => {
+        const card = Array.from(document.querySelectorAll('.bili-video-card')).find(item => item.querySelector('a[href*="space.bilibili.com/"]'))
+        const href = card?.querySelector('a[href*="space.bilibili.com/"]')?.getAttribute('href') || ''
+        return {
+            uid: href.match(/space\.bilibili\.com\/(\d+)/)?.[1] || '',
+            name: (card?.querySelector('.bili-video-card__info--author')?.getAttribute('title') || '').trim()
+        }
+    })
+    check('实时场景取到卡片 UID', Boolean(liveCard.uid), `${liveCard.name} / ${liveCard.uid}`)
+    const cardHidden = () => livePage.evaluate(uid => {
+        const link = document.querySelector(`a[href*="space.bilibili.com/${uid}"]`)
+        const card = link?.closest('.bili-video-card')
+        const target = card?.closest('.feed-card') || card?.closest('.bili-feed-card') || card
+        return Boolean(target) && getComputedStyle(target).display === 'none'
+    }, liveCard.uid)
+    await openSettings(livePage)
+    await openPanel(livePage)
+    await livePage.evaluate(({ uid, name }) => {
+        document.querySelector('.adj-blocklist-input').value = uid
+        const store = window.__gmStore
+        // 先直接把条目写进去并触发一次面板刷新（等价于之前添加过这位 UP）
+        store.values.set('adj.cfg.adj.blocklist.up.' + uid, {
+            v: { uid, name, face: '', fans: 0, sign: '', ts: Date.now() },
+            t: Date.now()
+        })
+        document.querySelector('.adj-blocklist-close')?.click()
+    }, liveCard)
+    await openPanel(livePage)
+    await waitFor(async () => livePage.evaluate(uid => Boolean(document.querySelector(`.adj-blocklist-item[data-uid="${uid}"]`)), liveCard.uid), { timeout: 8000, label: '实时场景名单条目' })
+    await waitFor(cardHidden, { timeout: 15000, label: '添加后卡片隐藏' })
+    check('添加后卡片立即隐藏', true, liveCard.name)
+    await livePage.evaluate(uid => {
+        document.querySelector(`.adj-blocklist-item[data-uid="${uid}"] [data-action="remove"]`)?.click()
+    }, liveCard.uid)
+    await waitFor(async () => !(await cardHidden()), { timeout: 15000, label: '移除后卡片恢复' })
+    check('移除后卡片立即恢复（最后一条）', true, liveCard.name)
+    // 再从面板添加一遍，验证实时添加链路
+    await livePage.evaluate(uid => {
+        document.querySelector('.adj-blocklist-input').value = uid
+        document.querySelector('.adj-blocklist-add')?.requestSubmit()
+    }, liveCard.uid)
+    await waitFor(async () => livePage.evaluate(uid => Boolean(document.querySelector(`.adj-blocklist-item[data-uid="${uid}"]`)), liveCard.uid), { timeout: 15000, label: '面板实时添加' })
+    await waitFor(cardHidden, { timeout: 15000, label: '实时添加后隐藏' })
+    check('面板添加后卡片立即隐藏', true)
+    await livePage.evaluate(uid => {
+        document.querySelector(`.adj-blocklist-item[data-uid="${uid}"] [data-action="remove"]`)?.click()
+    }, liveCard.uid)
+    await waitFor(async () => !(await cardHidden()), { timeout: 15000, label: '清理实时添加条目' })
+
+    // ---------- 3b. 过滤关闭提示 + 一键开启 ----------
+    const offLive = await openWithUserscript(browser, 'https://www.bilibili.com/', { config: {}, viewport: { width: 1600, height: 1000 } })
+    await waitFor(async () => offLive.evaluate(() => document.querySelectorAll('.bili-video-card').length > 5), { timeout: 40000, label: '关闭态卡片' })
+    await openSettings(offLive)
+    await openPanel(offLive)
+    const offBannerState = await offLive.evaluate(() => {
+        const bar = document.querySelector('.adj-blocklist-state')
+        return { hidden: bar?.hidden ?? true, text: bar?.textContent || '' }
+    })
+    check('过滤关闭时名单弹窗有提示', !offBannerState.hidden && offBannerState.text.includes('过滤已关闭'), offBannerState.text)
+    await offLive.evaluate(() => document.querySelector('.adj-blocklist-enable')?.click())
+    await waitFor(async () => offLive.evaluate(() => document.querySelector('.adj-blocklist-state')?.hidden === true), { timeout: 8000, label: '一键开启后提示消失' })
+    const enabledConfig = await offLive.evaluate(() => window.__gmStore.values.get('adj.cfg.up_blocklist_enabled')?.v)
+    check('一键开启写入配置', enabledConfig === true, String(enabledConfig))
+
+    // ---------- 4. 空间页监狱门 ----------
     const spacePage = await openWithUserscript(browser, 'https://space.bilibili.com/3493118980655263', {
         config: {
             up_blocklist_enabled: true,
