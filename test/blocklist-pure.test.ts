@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatFansCount, normalizeBlockedUp, parseUidInput } from '../src/features/up-blocklist/pure'
+import { formatFansCount, normalizeBlockedUp, parseUidInput, isSelfUid } from '../src/features/up-blocklist/pure'
 test('parseUidInput：纯 UID / 空间链接都能解析，其它返回空串', () => {
     assert.equal(parseUidInput('12345'), '12345')
     assert.equal(parseUidInput(' 12345 '), '12345')
@@ -16,8 +16,14 @@ test('parseUidInput：纯 UID / 空间链接都能解析，其它返回空串', 
     assert.equal(parseUidInput(''), '')
     assert.equal(parseUidInput(undefined), '')
 })
-test('formatFansCount：万/亿口径', () => {
-    assert.equal(formatFansCount(999), '999')
+test('isSelfUid：只有当前 UID 与目标一致才判为自己', () => {
+    assert.equal(isSelfUid('12345', '12345'), true)
+    assert.equal(isSelfUid(null, '12345'), false)
+    assert.equal(isSelfUid(undefined, '12345'), false)
+    assert.equal(isSelfUid('', '12345'), false)
+    assert.equal(isSelfUid('12345', '54321'), false)
+})
+test('formatFansCount：万/亿口径', () => {    assert.equal(formatFansCount(999), '999')
     assert.equal(formatFansCount(12345), '1.2万')
     assert.equal(formatFansCount(10000), '1万')
     assert.equal(formatFansCount(123456789), '1.2亿')

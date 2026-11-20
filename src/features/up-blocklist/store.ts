@@ -10,6 +10,7 @@ import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
 import { normalizeBlockedUp } from './pure'
 import type { BlockedUp } from './pure'
+import { regexps } from '@/shared/regexps'
 const logger = new LoggerService('UpBlocklist', { notify: false })
 const KEY_PREFIX = 'adj.blocklist.up.'
 const LEGACY_PREFIX = 'blocked-up:'
@@ -75,4 +76,28 @@ export const fetchUpCard = async (uid: string): Promise<BlockedUp | null> => {
     } catch {
         return null
     }
+}
+const NAV_API = 'https://api.bilibili.com/x/web-interface/nav'
+let selfUidPromise: Promise<string | null> | null = null
+/**
+ * 当前登录账号 UID（用于禁止拉黑自己）
+ *
+ * 每页只请求一次并缓存结果（失败也缓存 null）；未登录、超时、接口异常一律返回 null，
+ * 调用方按“无法判定”处理，不影响正常添加别人。
+ */
+export const fetchCurrentUid = (): Promise<string | null> => {
+    if (!selfUidPromise) {
+        selfUidPromise = (async (): Promise<string | null> => {
+            try {
+                const response = await httpGet(NAV_API, { credentials: 'include', timeout: 5000 })
+                const payload = response.data as { code?: number, data?: { mid?: unknown }} | null
+                if (!payload || payload.code !== 0) return null
+                const mid = String(payload.data?.mid ?? '')
+                return regexps.common.uid.test(mid) ? mid : null
+            } catch {
+                return null
+            }
+        })()
+    }
+    return selfUidPromise
 }

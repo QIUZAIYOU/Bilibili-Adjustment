@@ -26,8 +26,10 @@ export const parseUidInput = (raw: unknown): string => {
     const fromUrl = text.match(regexps.common.spaceUid)
     return fromUrl ? fromUrl[1] : ''
 }
-/** 粉丝数展示：与 B 站口径一致，过万保留一位小数 */
-export const formatFansCount = (value: unknown): string => {
+/** 当前登录账号不能被拉黑：两侧都有 UID 且相等才算命中 */
+export const isSelfUid = (currentUid: string | null | undefined, targetUid: string): boolean =>
+    Boolean(currentUid) && String(currentUid) === String(targetUid)
+/** 粉丝数展示：与 B 站口径一致，过万保留一位小数 */export const formatFansCount = (value: unknown): string => {
     const fans = Number(value)
     if (!Number.isFinite(fans) || fans <= 0) return '0'
     if (fans >= 100000000) return (fans / 100000000).toFixed(1).replace(/\.0$/, '') + '亿'

@@ -203,6 +203,17 @@ export const upBlocklistStyles = `
         text-overflow: ellipsis;
         white-space: nowrap;
     }
+    .adj-blocklist-self-badge {
+        display: inline-block;
+        margin-left: 6px;
+        padding: 0 6px;
+        border: 1px solid var(--adj-brand);
+        border-radius: var(--adj-radius-full);
+        color: var(--adj-brand);
+        font-size: var(--adj-font-xs);
+        font-weight: 500;
+        vertical-align: 1px;
+    }
     .adj-blocklist-meta {
         margin-top: 2px;
         font-size: var(--adj-font-xs);

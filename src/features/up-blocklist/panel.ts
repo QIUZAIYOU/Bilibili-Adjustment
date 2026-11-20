@@ -9,8 +9,8 @@ import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { EVENT_NAMES } from '@/shared/constants'
-import { listBlockedUps, fetchUpCard, saveBlockedUp, removeBlockedUp } from './store'
-import { parseUidInput, formatFansCount } from './pure'
+import { listBlockedUps, fetchUpCard, saveBlockedUp, removeBlockedUp, fetchCurrentUid } from './store'
+import { parseUidInput, formatFansCount, isSelfUid } from './pure'
 import type { BlockedUp } from './pure'
 const logger = new LoggerService('UpBlocklist', { notify: false })
 export interface BlocklistPanelOptions {
@@ -106,8 +106,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             })
             .finally(() => { enableBtn.disabled = false })
     })
-    const renderItem = (up: BlockedUp): HTMLElement => {
-        const item = el('div', 'adj-blocklist-item')
+    const renderItem = (up: BlockedUp): HTMLElement => { const item = el('div', 'adj-blocklist-item')
         item.dataset.uid = up.uid
         if (up.face) {
             const avatar = el('img', 'adj-blocklist-avatar')
@@ -119,7 +118,11 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             item.appendChild(el('div', 'adj-blocklist-avatar adj-blocklist-avatar-empty', up.name.slice(0, 1)))
         }
         const main = el('div', 'adj-blocklist-main')
-        main.appendChild(el('div', 'adj-blocklist-name', up.name))
+        const nameEl = el('div', 'adj-blocklist-name', up.name)
+        if (isSelfUid(selfUid, up.uid)) {
+            nameEl.appendChild(el('span', 'adj-blocklist-self-badge', '当前账号'))
+        }
+        main.appendChild(nameEl)
         const meta = el('div', 'adj-blocklist-meta')
         meta.textContent = `UID ${up.uid} · ${formatFansCount(up.fans)} 粉丝`
         main.appendChild(meta)
@@ -133,6 +136,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
         return item
     }
     let current: BlockedUp[] = []
+    let selfUid: string | null = null
     const paint = (): void => {
         const keyword = search.value.trim().toLowerCase()
         const visible = keyword
@@ -156,6 +160,11 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             search.hidden = current.length <= 8
             if (search.hidden) search.value = ''
             paint()
+            // 当前账号标签：不阻塞名单渲染，拿到后补一次重绘
+            void fetchCurrentUid().then(uid => {
+                selfUid = uid
+                paint()
+            })
         } catch (error) {
             logger.warn('黑名单丨读取名单失败', error)
             setStatus('读取名单失败，稍后重试')
@@ -165,6 +174,12 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
         const uid = parseUidInput(input.value)
         if (!uid) {
             setStatus('请输入有效的 UID 或 UP 主空间链接')
+            return
+        }
+        const currentUid = await fetchCurrentUid()
+        selfUid = currentUid
+        if (isSelfUid(currentUid, uid)) {
+            setStatus('这是当前登录的账号，不能加入黑名单')
             return
         }
         const existing = await listBlockedUps()

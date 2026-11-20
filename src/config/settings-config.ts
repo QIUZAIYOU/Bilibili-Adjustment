@@ -63,6 +63,23 @@ export const videoSettingsConfig: SettingItemSchema[] = [
         ]
     },
     {
+        id: 'up_blocklist_section',
+        type: 'section',
+        label: '黑名单',
+        category: 'basic',
+        items: [
+            {
+                id: 'up_blocklist_enabled',
+                type: 'checkbox',
+                label: '启用 UP 主黑名单',
+                tips: '开启后全站视频卡片不再显示名单内 UP 主的视频；命中名单的空间页会盖上监狱门遮罩。点「管理名单」添加或移除。默认关闭，修改后刷新页面生效',
+                hasActionButton: true,
+                actionButtonText: '管理名单',
+                defaultValue: false
+            }
+        ]
+    },
+    {
         id: 'player_section',
         type: 'section',
         label: '界面与播放器',
@@ -332,23 +349,6 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 label: '捞鱼',
                 tips: '自动识别播放页评论区里的 AI/机器人账号（如「大肥鱼」）并隐藏它们的评论；只有识别到这类账号时，侧栏才会出现「鱼塘」按钮，点开可查看命中的评论与判定依据',
                 category: 'basic',
-                defaultValue: false
-            }
-        ]
-    },
-    {
-        id: 'up_blocklist_section',
-        type: 'section',
-        label: '黑名单',
-        category: 'basic',
-        items: [
-            {
-                id: 'up_blocklist_enabled',
-                type: 'checkbox',
-                label: '启用 UP 主黑名单',
-                tips: '开启后全站视频卡片不再显示名单内 UP 主的视频；命中名单的空间页会盖上监狱门遮罩。点「管理名单」添加或移除。默认关闭，修改后刷新页面生效',
-                hasActionButton: true,
-                actionButtonText: '管理名单',
                 defaultValue: false
             }
         ]
