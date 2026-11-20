@@ -147,7 +147,7 @@ export class SettingsDialogHost {
                 onChange: (key, value) => this.handleVueConfigChange(key, value, popover),
                 onValidate: key => this.handleValidateClick(key, popover),
                 onRefresh: key => this.handleRefreshClick(key, popover),
-                onAction: key => { void this.handleActionClick(key) },
+                onAction: key => { void this.handleActionClick(key, popover) },
                 // 渲染期错误（如响应式/渲染函数异常）改为轻量提示，避免面板空白卡死
                 onError: error => this.showPanelLoadFailure(error)
             })
@@ -648,11 +648,18 @@ export class SettingsDialogHost {
     /**
      * 动作按钮（如黑名单「管理名单」）：只负责把对应面板打开，不碰配置
      */
-    async handleActionClick (targetId: string): Promise<void> {
+    async handleActionClick (targetId: string, popover: SettingsPopover | null = null): Promise<void> {
         if (targetId !== 'up_blocklist_enabled') return
         try {
             const { openUpBlocklistPanel } = await import('@/features/up-blocklist')
-            openUpBlocklistPanel()
+            // 先关设置再开名单：两个 popover 同时开着会叠层，且各自都挂了轻触关闭，
+            // 点一次遮罩会把两层一起关掉。名单关闭时再回设置，保持「从哪里来回哪里去」。
+            if (popover?.matches(':popover-open')) popover.hidePopover()
+            openUpBlocklistPanel({
+                onClose: () => {
+                    window.setTimeout(() => { void this.openSettings() }, 0)
+                }
+            })
         } catch (error) {
             logger.warn('设置弹窗丨黑名单面板打开失败', error instanceof Error ? error.message : error)
         }

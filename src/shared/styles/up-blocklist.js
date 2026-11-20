@@ -38,6 +38,26 @@ export const upBlocklistStyles = `
         font-size: var(--adj-font-lg);
         font-weight: 700;
     }
+    .adj-blocklist-title-wrap {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+    }
+    .adj-blocklist-back {
+        padding: 2px 8px;
+        border: 1px solid var(--adj-border-strong);
+        border-radius: var(--adj-radius-full);
+        background: transparent;
+        color: var(--adj-text-soft);
+        font-size: var(--adj-font-xs);
+        cursor: pointer;
+        white-space: nowrap;
+    }
+    .adj-blocklist-back:hover {
+        border-color: var(--adj-brand);
+        color: var(--adj-brand);
+    }
     .adj-blocklist-close {
         border: none;
         background: transparent;

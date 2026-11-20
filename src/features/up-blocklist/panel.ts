@@ -13,6 +13,8 @@ const logger = new LoggerService('UpBlocklist', { notify: false })
 export interface BlocklistPanelOptions {
     /** 名单变化（添加/移除）后回调：刷新过滤用的昵称集合并重新扫描 */
     onChange: () => void
+    /** 弹窗关闭后回调（从设置页进入时用它返回设置，避免两个弹窗叠在一起） */
+    onClose?: () => void
 }
 export interface BlocklistPanelHandle {
     show: () => void
@@ -29,8 +31,13 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
     popover.setAttribute('popover', '')
     popover.setAttribute('aria-label', 'UP 主黑名单')
     const header = el('div', 'adj-blocklist-header')
+    const titleWrap = el('div', 'adj-blocklist-title-wrap')
+    const back = el('button', 'adj-blocklist-back', '← 返回设置')
+    back.type = 'button'
+    back.addEventListener('click', () => popover.hidePopover())
     const title = el('h3', 'adj-blocklist-title', 'UP 主黑名单')
-    header.appendChild(title)
+    titleWrap.append(back, title)
+    header.appendChild(titleWrap)
     const close = el('button', 'adj-blocklist-close', '×')
     close.type = 'button'
     close.setAttribute('aria-label', '关闭黑名单弹窗')
@@ -168,8 +175,15 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
         })
     })
     close.addEventListener('click', () => popover.hidePopover())
+    let destroyed = false
+    popover.addEventListener('toggle', (event: Event) => {
+        if ((event as ToggleEvent).newState !== 'closed') return
+        if (destroyed) return
+        options.onClose?.()
+    })
     return {
         show: (): void => {
+            destroyed = false
             if (!popover.isConnected) document.body.appendChild(popover)
             if (!popover.matches(':popover-open')) {
                 try { popover.showPopover() } catch { /* 浏览器不支持时退回普通显示 */ }
@@ -178,6 +192,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             void refresh()
         },
         destroy: (): void => {
+            destroyed = true
             lightDismissCleanup?.()
             lightDismissCleanup = null
             popover.remove()

@@ -47,9 +47,24 @@ try {
     const authorUid = firstCard.uid
     check('取到首页卡片作者名', Boolean(author), `${author} / ${authorUid || '无空间链接'}`)
 
+    // index 库（首页推荐历史）应写入脚本存储命名空间 adj.idx.*
+    await waitFor(async () => page.evaluate(() => Array.from(window.__gmStore?.values?.keys?.() || []).some(key => key.startsWith('adj.cfg.adj.idx.'))), { timeout: 25000, label: 'index 库迁入脚本存储' })
+    const idxKeys = await page.evaluate(() => Array.from(window.__gmStore.values.keys()).filter(key => key.startsWith('adj.cfg.adj.idx.')).length)
+    check('index 库已走脚本存储（首页历史）', idxKeys > 0, `keys=${idxKeys}`)
+
     await openSettings(page)
     await openPanel(page)
-    check('设置页「管理名单」能打开弹窗', true)
+    const layers = await page.evaluate(() => ({
+        settingsOpen: Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open')),
+        panelOpen: Boolean(document.querySelector('.adj-blocklist-popover')?.matches(':popover-open')),
+        backVisible: !(document.querySelector('.adj-blocklist-back')?.hidden ?? true)
+    }))
+    check('打开名单时设置弹窗已收起（不重叠）', !layers.settingsOpen && layers.panelOpen, JSON.stringify(layers))
+    check('名单里有「返回设置」入口', layers.backVisible)
+    await page.evaluate(() => document.querySelector('.adj-blocklist-back')?.click())
+    await waitFor(async () => page.evaluate(() => Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open'))), { timeout: 8000, label: '返回设置' })
+    check('返回设置后名单已关闭', await page.evaluate(() => !document.querySelector('.adj-blocklist-popover')?.matches(':popover-open')))
+    await openPanel(page)
 
     await page.evaluate(() => {
         document.querySelector('.adj-blocklist-input').value = '3493118980655263'
@@ -118,6 +133,16 @@ try {
     check('筛选框能缩小名单', filtered > 0 && filtered < 50, `filtered=${filtered}`)
     await page.evaluate(() => { const s = document.querySelector('.adj-blocklist-search'); s.value = ''; s.dispatchEvent(new Event('input', { bubbles: true })) })
 
+    // 点遮罩：只应关闭名单，并回到设置页（两个弹窗不再叠层、不再连环关闭）
+    await page.evaluate(() => document.querySelector('.adjustment-popover-overlay')?.click())
+    await waitFor(async () => page.evaluate(() => Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open'))), { timeout: 5000, label: '遮罩关闭名单后回设置' })
+    const overlayState = await page.evaluate(() => ({
+        settingsOpen: Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open')),
+        panelOpen: Boolean(document.querySelector('.adj-blocklist-popover')?.matches(':popover-open'))
+    }))
+    check('点遮罩只关名单并回到设置', overlayState.settingsOpen && !overlayState.panelOpen, JSON.stringify(overlayState))
+    await page.keyboard.press('Escape')
+
     // ---------- 3. 空间页监狱门 ----------
     const spacePage = await openWithUserscript(browser, 'https://space.bilibili.com/3493118980655263', {
         config: {
@@ -130,11 +155,13 @@ try {
     const jail = await spacePage.evaluate(() => ({
         title: document.querySelector('.adj-jail-title')?.textContent || '',
         temp: document.querySelector('.adj-jail-temp')?.textContent || '',
+        hint: document.querySelector('.adj-jail-hint')?.textContent || '',
         appHidden: getComputedStyle(document.querySelector('#app') || document.body).visibility === 'hidden'
     }))
     check('空间页被监狱门遮住', jail.appHidden)
     check('文案正确', jail.title.includes('已被您拉黑'), jail.title)
     check('有「临时查看」入口', jail.temp.trim() === '临时查看')
+    check('说明注明关闭标签页立即上锁', jail.hint.includes('关闭标签页会立即上锁'), jail.hint)
     await spacePage.evaluate(() => document.querySelector('.adj-jail-temp')?.click())
     await waitFor(async () => spacePage.evaluate(() => !document.querySelector('.adj-jail')), { timeout: 5000, label: '临时查看解锁' })
     const unlocked = await spacePage.evaluate(() => getComputedStyle(document.querySelector('#app') || document.body).visibility !== 'hidden')

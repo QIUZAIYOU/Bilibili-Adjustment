@@ -69,7 +69,7 @@ export const showJail = (uid: string, onTempView: () => void): JailHandle => {
         onTempView()
     })
     plate.appendChild(temp)
-    plate.appendChild(el('p', 'adj-jail-hint', '临时解锁 30 分钟；想彻底解除，请到设置 → 黑名单里移除'))
+    plate.appendChild(el('p', 'adj-jail-hint', '临时解锁 30 分钟；关闭标签页会立即上锁；想彻底解除，请到设置 → 黑名单里移除'))
     door.appendChild(plate)
     root.appendChild(door)
     document.body.appendChild(root)
