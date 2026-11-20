@@ -101,12 +101,12 @@ export const buildUserConfigYaml = (schema = videoSettingsConfig) => {
         const body = items.map(item => describeItem(item, configs)).join('\n')
         groups.push(`${q(groupLabel)}:\n${body}`)
     }
-    return groups.join('\n---\n')
+    return groups.join('\n')
 }
 /** 带注释包裹的完整块，供 vite 注入到脚本头 */
 export const buildUserConfigBlock = () => {
-    const yaml = buildUserConfigYaml(videoSettingsConfig)
-    const dynamic = buildUserConfigYaml(dynamicSettingsConfig)
-    const body = dynamic ? `${yaml}\n---\n${dynamic}` : yaml
-    return `/* ==UserConfig==\n${body}\n==/UserConfig== */`
+    // ⚠️ 必须是**单个 YAML 文档**：ScriptCat 用 YAML.parse 只取第一个 document，
+    // 之前按 `---` 拆多文档时，只有第一组配置能显示（用户实测「设置项少了一大半、动态页没有」）。
+    const yaml = buildUserConfigYaml([...videoSettingsConfig, ...dynamicSettingsConfig])
+    return `/* ==UserConfig==\n${yaml}\n==/UserConfig== */`
 }
