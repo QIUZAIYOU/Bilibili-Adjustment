@@ -17,6 +17,7 @@ import { eventBus } from '@/core/event-bus'
 import { LoggerService } from '@/services/logger.service'
 import { EVENT_NAMES } from '@/shared/constants'
 import { videoSettingsConfig, dynamicSettingsConfig } from '@/config/settings-config'
+import { resolveUserConfigGroup } from '@/config/userconfig-groups'
 import type { SettingItemSchema } from '@/config/settings-config'
 import { toScriptCatValue, fromScriptCatValue } from '@/utils/scriptcat-config-map'
 const logger = new LoggerService('ScriptCatConfig', { notify: false })
@@ -47,7 +48,7 @@ const buildEntries = (): ScEntry[] => {
     for (const schema of [videoSettingsConfig, dynamicSettingsConfig]) {
         for (const section of schema) {
             if (!section || section.type !== 'section') continue
-            const group = String(section.label || section.id)
+            const group = resolveUserConfigGroup(String(section.id), String(section.label || section.id))
             for (const item of flattenItems(section.items, [])) {
                 entries.push({
                     key: `${group}.${item.id}`,

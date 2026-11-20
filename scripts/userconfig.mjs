@@ -7,6 +7,7 @@
  * 运行期由 scriptcat-config.service 负责 label ↔ 内部值互转。
  */
 import { dynamicSettingsConfig, videoSettingsConfig } from '../src/config/settings-config.ts'
+import { USERCONFIG_GROUP_ORDER, resolveUserConfigGroup } from '../src/config/userconfig-groups.ts'
 /** YAML 标量：统一用 JSON 双引号写法，YAML 1.2 与 JSON 兼容 */
 const q = (value) => JSON.stringify(String(value ?? ''))
 /** tips 是字符串或按 configs 计算的函数；这里用默认值求值，并去 HTML/换行 */
@@ -92,16 +93,22 @@ const describeItem = (item, configs) => {
 /** 生成 ==UserConfig== 内部 YAML（不含外层注释块） */
 export const buildUserConfigYaml = (schema = videoSettingsConfig) => {
     const configs = collectDefaults(schema)
-    const groups = []
+    // ScriptCat 的 tab 栏不能滚动：按 userconfig-groups 归并成 4 个短组，避免后面的 tab 点不到
+    const buckets = new Map(USERCONFIG_GROUP_ORDER.map(group => [group, []]))
     for (const section of schema) {
         if (!section || section.type !== 'section') continue
         const items = flattenItems(section.items || [], [])
         if (!items.length) continue
-        const groupLabel = String(section.label || section.id)
-        const body = items.map(item => describeItem(item, configs)).join('\n')
-        groups.push(`${q(groupLabel)}:\n${body}`)
+        const groupLabel = resolveUserConfigGroup(String(section.id), String(section.label || section.id))
+        if (!buckets.has(groupLabel)) buckets.set(groupLabel, [])
+        buckets.get(groupLabel).push(...items.map(item => describeItem(item, configs)))
     }
-    return groups.join('\n')
+    const lines = []
+    for (const [group, bodies] of buckets) {
+        if (!bodies.length) continue
+        lines.push(`${q(group)}:\n${bodies.join('\n')}`)
+    }
+    return lines.join('\n')
 }
 /** 带注释包裹的完整块，供 vite 注入到脚本头 */
 export const buildUserConfigBlock = () => {

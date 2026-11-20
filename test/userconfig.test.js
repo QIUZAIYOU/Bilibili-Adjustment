@@ -24,7 +24,10 @@ test('buildUserConfigYaml：单个 YAML 文档，覆盖全部设置项（含动�
     const expected = [...collectIds(videoSettingsConfig), ...collectIds(dynamicSettingsConfig)].sort()
     assert.deepEqual(yamlKeys(yaml).sort(), expected)
     assert.equal(yamlKeys(yaml).length, 48)
-    assert.match(yaml, /"投稿视频":/)
+    // ScriptCat tab 栏不可滚动：必须归并成 4 个短组
+    const groups = (yaml.match(/^"[^"]+":$/gm) || []).map(line => line.replace(/["":]/g, ''))
+    assert.deepEqual(groups, ['基础设置', '播放与评论', 'AI 识别', '更新与日志'])
+    assert.match(yaml, /dynamic_video_link:/)
 })
 test('buildUserConfigYaml：类型/选项/描述正确', () => {
     const yaml = buildUserConfigYaml(videoSettingsConfig)
@@ -41,6 +44,7 @@ test('buildUserConfigBlock：包裹注释块', () => {
     assert.ok(block.endsWith('==/UserConfig== */'))
     assert.match(block, /auto_locate_video:/)
     assert.match(block, /dynamic_video_link:/)
+    assert.match(block, /"基础设置":/)
 })
 test('脚本猫面板值 ↔ 内部值：label 互转、布尔、数字', () => {
     const theme = videoSettingsConfig

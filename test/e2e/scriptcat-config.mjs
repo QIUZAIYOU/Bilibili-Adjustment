@@ -17,7 +17,7 @@ const check = (label, ok, detail = '') => {
 }
 const source = await readFile(BUILD_PATH, 'utf8')
 check('产物包含 ==UserConfig== 块', source.includes('/* ==UserConfig==') && source.includes('==/UserConfig== */'))
-check('包含界面主题配置项', source.includes('"界面与播放器"') && source.includes('theme:'))
+check('包含界面主题配置项', source.includes('"基础设置"') && source.includes('theme:'))
 check('包含黑名单配置项', source.includes('up_blocklist_enabled:'))
 
 const browser = await launchBrowser()
@@ -28,14 +28,14 @@ try {
     await installGmStubs(page)
     await page.evaluate(() => {
         const store = window.__gmStore
-        store.values.set('界面与播放器.theme', '夜间哔哩')
+        store.values.set('基础设置.theme', '夜间哔哩')
     })
     await loadUserscript(page)
     await waitFor(async () => page.evaluate(() => window.__gmStore.values.get('adj.cfg.theme')?.v === 'night'), {
         timeout: 15000,
         label: '本机配置写入 night'
     })
-    await waitFor(async () => page.evaluate(() => window.__gmStore.values.has('界面与播放器.selected_player_mode')), {
+    await waitFor(async () => page.evaluate(() => window.__gmStore.values.has('基础设置.selected_player_mode')), {
         timeout: 15000,
         label: '默认值回写脚本猫'
     })
@@ -45,9 +45,9 @@ try {
         const configRecord = store.values.get('adj.cfg.theme')
         return {
             storedTheme: configRecord?.v ?? configRecord,
-            mirroredMode: store.values.get('界面与播放器.selected_player_mode'),
-            mirroredTheme: store.values.get('界面与播放器.theme'),
-            mirroredBlocklist: store.values.get('黑名单.up_blocklist_enabled')
+            mirroredMode: store.values.get('基础设置.selected_player_mode'),
+            mirroredTheme: store.values.get('基础设置.theme'),
+            mirroredBlocklist: store.values.get('播放与评论.up_blocklist_enabled')
         }
     })
     check('本机配置写入 theme=night', state.storedTheme === 'night', String(state.storedTheme))
@@ -58,9 +58,9 @@ try {
     // 脚本猫里把主题改回默认（跟随B站）：即便值等于默认值，也必须被采纳
     const applied = await page.evaluate(() => {
         const store = window.__gmStore
-        const handlers = store.listeners.get('界面与播放器.theme')
+        const handlers = store.listeners.get('基础设置.theme')
         if (!handlers || !handlers.size) return false
-        for (const handler of handlers.values()) handler('界面与播放器.theme', '夜间哔哩', '跟随B站', true)
+        for (const handler of handlers.values()) handler('基础设置.theme', '夜间哔哩', '跟随B站', true)
         return true
     })
     check('脚本猫变更监听器已注册', applied)
