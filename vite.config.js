@@ -6,6 +6,7 @@ import path from 'path'
 import url from 'url'
 import { execFileSync } from 'node:child_process'
 import VitePluginBundleObfuscator from 'vite-plugin-bundle-obfuscator'
+import { buildUserConfigBlock } from './scripts/userconfig.mjs'
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 /**
  * 构建标识：git 短 SHA（工作区有未提交改动时带 -dirty）。
@@ -116,7 +117,9 @@ export default defineConfig(({ mode }) => ({
                     if (mode === 'meta') {
                         return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==`)}`
                     }
-                    return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==`)}`
+                    // ScriptCat 用户配置：设置项在脚本猫面板里也能直接改（不打开 B 站页面）
+                    const userConfig = `\n${buildUserConfigBlock()}\n`
+                    return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==${userConfig}`)}`
                 }
             }
         }),

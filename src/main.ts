@@ -1,5 +1,6 @@
 import { eventBus } from '@/core/event-bus'
 import { ConfigService } from '@/services/config.service'
+import { syncConfigFromScriptCat } from '@/services/scriptcat-config.service'
 import { moduleSystem } from '@/core/module-system'
 import { LoggerService } from '@/services/logger.service'
 import { insertStyleToDocument, detectivePageType, monitorHrefChange } from '@/utils/common'
@@ -106,6 +107,8 @@ const initializeApp = async (): Promise<void> => {
     perfStart('app:init')
     try {
         await ConfigService.initialize()
+        // ScriptCat 用户配置（脚本头 ==UserConfig==）↔ 本机配置对账：脚本猫里改完刷新页面即生效
+        await syncConfigFromScriptCat()
         // config 就绪后按持久化主题切换（默认 night 已顶部注入，无闪烁）
         ThemeManager.setTheme((await ConfigService.getValue('theme')) as string)
         logger.debug('ConfigService 初始化完成')
