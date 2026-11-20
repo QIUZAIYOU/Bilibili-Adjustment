@@ -40,6 +40,9 @@ export interface SettingItemSchema {
     children?: SettingItemSchema[]
     hasValidateButton?: boolean
     hasRefreshButton?: boolean
+    /** 控件旁再挂一颗动作按钮（如「管理名单」），点击只回传 action 事件 */
+    hasActionButton?: boolean
+    actionButtonText?: string
     validateButtonText?: string
     refreshButtonText?: string
 }
@@ -343,7 +346,9 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 id: 'up_blocklist_enabled',
                 type: 'checkbox',
                 label: '启用 UP 主黑名单',
-                tips: '开启后首页推荐里不再显示名单内 UP 主的视频；首页右下角会出现盾牌按钮，点开可以添加或移除。默认关闭，修改后刷新页面生效',
+                tips: '开启后全站视频卡片不再显示名单内 UP 主的视频；命中名单的空间页会盖上监狱门遮罩。点「管理名单」添加或移除。默认关闭，修改后刷新页面生效',
+                hasActionButton: true,
+                actionButtonText: '管理名单',
                 defaultValue: false
             }
         ]

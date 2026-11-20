@@ -111,9 +111,11 @@ const CSS_MAP: Record<string, string> = {
     indexRecommendAdCard: '[class*="-ad"]',
     indexRecommendCardLink: 'a',
     indexRecommendCardTitle: 'h3',
-    // UP 主黑名单：首页视频卡与卡片上的作者昵称（卡片 DOM 不暴露 UID，只能按昵称匹配）
-    homeFeedNativeCard: '.bili-video-card',
-    homeNativeCardAuthor: '.bili-video-card__info--author',
+    // UP 主黑名单（全站）：卡片里的空间链接能拿到 UID；拿不到时退回昵称匹配
+    videoCardUidLink: 'a[href*="space.bilibili.com/"]',
+    videoCardAuthorAny: '.bili-video-card__info--author, .upname',
+    // 空间页内容根：命中黑名单时整体隐藏，换成监狱门遮罩
+    spaceAppContent: '#app',
     // 网格占位（2026-11-20 实测）：首屏是 .feed-card > .bili-feed-card > 卡片，
     // 无限流只有 .bili-feed-card；必须优先隐藏最外层 .feed-card，否则格子仍占位
     homeFeedNativeCardWrapper: '.feed-card',
@@ -208,10 +210,8 @@ const PAGE_TYPE_EXCLUSIVE: Record<Exclude<SelectorPageType, 'other'>, Set<string
         'indexRecommendAdCard',
         'indexRecommendCardLink',
         'indexRecommendCardTitle',
-        'homeFeedNativeCard',
         'homeFeedNativeCardWrapper',
         'homeFeedNativeCardWrapperInner',
-        'homeNativeCardAuthor',
         'homePaletteButtonWrap'
     ]),
     dynamic: new Set([

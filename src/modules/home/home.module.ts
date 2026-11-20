@@ -7,7 +7,6 @@ import { EVENT_NAMES } from '@/shared/constants'
 import { homeStyles } from '@/shared/styles/home-page'
 import { homeHistoryFeatures } from './history'
 import { homePaidMarkFeatures } from './paid-mark'
-import { upBlocklistFeatures } from './blocklist'
 import { insertHomeSettingsButton, removeHomeSettingsButton } from './settings-button'
 import { retryQueue } from '@/utils/retry-queue'
 import { SettingsDialogHost } from '@/components/settings-dialog'
@@ -29,17 +28,11 @@ interface HomeModuleContext {
     generatorIndexRecommendVideoHistoryContents: () => Promise<void>
     insertIndexRecommendVideoHistoryPopover: () => Promise<void>
     initSettingsEntry: () => Promise<void>
-    initUpBlocklist: () => Promise<void>
-    destroyUpBlocklist: () => void
-    _upBlocklistFilter?: unknown
-    _upBlocklistPanel?: unknown
-    _upBlocklistButton?: unknown
 }
 export default {
     name: 'home',
     ...homeHistoryFeatures,
     ...homePaidMarkFeatures,
-    ...upBlocklistFeatures,
     async install (this: HomeModuleContext): Promise<void> {
         this._cleanup = []
         this._cleanup.push(eventBus.on(EVENT_NAMES.APP_READY, async () => {
@@ -50,7 +43,6 @@ export default {
     async uninstall (this: HomeModuleContext): Promise<void> {
         this._cleanup?.forEach(cleanup => cleanup())
         this._cleanup = []
-        this.destroyUpBlocklist()
         // 设置弹窗宿主：释放 Vue 实例与 resize/nav 监听（2026-10-23 审查发现）
         settingsComponent.destroy()
         // 重试队列是模块级单例：卸载后必须清空，否则旧模块的闭包会在新页面继续写 DOM
@@ -112,8 +104,7 @@ export default {
             // 按钮插入提前并与其他功能并行，避免等记录完成才出现
             () => this.insertIndexRecommendVideoHistoryPopover(),
             () => this.setRecordRecommendVideoHistory(),
-            () => this.markRecommendVideoPaidStatus(),
-            () => this.initUpBlocklist()
+            () => this.markRecommendVideoPaidStatus()
         ]
         // 与播放页一致：每批结束后 drain 一次，让 register 的重试任务尽早获得机会
         executeFunctionsSequentially(functions, { concurrency: 3, onAfterChunk: () => retryQueue.drain() })

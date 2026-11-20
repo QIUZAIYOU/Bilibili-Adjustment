@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatFansCount, normalizeBlockedUp, parseUidInput } from '../src/modules/home/blocklist/pure'
+import { formatFansCount, normalizeBlockedUp, parseUidInput } from '../src/features/up-blocklist/pure'
 test('parseUidInput：纯 UID / 空间链接都能解析，其它返回空串', () => {
     assert.equal(parseUidInput('12345'), '12345')
     assert.equal(parseUidInput(' 12345 '), '12345')

@@ -25,6 +25,14 @@
                         :input-id="item.id"
                         @update:model-value="value => emit('change', item.id, value)"
                     />
+                    <div
+                        v-if="item.type === 'checkbox' && item.hasActionButton"
+                        :id="'Action' + pascalId"
+                        class="adjustment-button secondary"
+                        :style="sideButtonStyle"
+                        :data-action-for="item.id"
+                        @click="emit('action', item.id)"
+                    >{{ item.actionButtonText }}</div>
                     <!-- input：文本/数字输入 + 可选校验按钮（id = Validate + PascalCase(id)） -->
                     <template v-else-if="item.type === 'input'">
                         <input
@@ -112,6 +120,7 @@
                     @change="(key, value) => emit('change', key, value)"
                     @validate="key => emit('validate', key)"
                     @refresh="key => emit('refresh', key)"
+                    @action="key => emit('action', key)"
                 />
             </div>
         </div>
@@ -154,6 +163,7 @@ const emit = defineEmits<{
     change: [key: string, value: unknown]
     validate: [key: string]
     refresh: [key: string]
+    action: [key: string]
 }>()
 // 校验/刷新按钮样式（内联属性，避免引入未定义 class）
 const sideButtonStyle = 'padding:4px 12px;font-size:12px;white-space:nowrap;cursor:pointer;height:32px;'

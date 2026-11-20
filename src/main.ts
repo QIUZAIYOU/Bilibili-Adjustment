@@ -44,6 +44,17 @@ const enableVideoPreview = async (): Promise<void> => {
 const disableVideoPreview = (): void => {
     videoPreviewModule?.destroyVideoPreviewFeature()
 }
+/** 全站 UP 主黑名单：跨页特性，按开关懒加载；空间页命中时同步上锁 */
+let upBlocklistModule: typeof import('@/features/up-blocklist') | null = null
+const applyUpBlocklist = async (enabled: unknown): Promise<void> => {
+    try {
+        if (!upBlocklistModule) upBlocklistModule = await import('@/features/up-blocklist')
+        if (enabled) await upBlocklistModule.initUpBlocklistFeature()
+        else upBlocklistModule.destroyUpBlocklistFeature()
+    } catch (error) {
+        logger.warn('UP 主黑名单丨初始化失败（已忽略）', error instanceof Error ? error.message : error)
+    }
+}
 const detectAndLoadModule = async (): Promise<string | null> => {
     const newModuleType = await detectivePageType()
     logger.debug(`页面类型: ${newModuleType}`)
@@ -116,6 +127,12 @@ const initializeApp = async (): Promise<void> => {
             else disableVideoPreview()
         })
         if (await ConfigService.getValue('home_video_preview')) void enableVideoPreview()
+        eventBus.on(EVENT_NAMES.CONFIG_CHANGED, (_ctx, ...args: unknown[]) => {
+            const { key, value } = (args[0] ?? {}) as { key?: string, value?: unknown }
+            if (key !== 'up_blocklist_enabled') return
+            void applyUpBlocklist(value)
+        })
+        void applyUpBlocklist(await ConfigService.getValue('up_blocklist_enabled'))
         await detectAndLoadModule()
         if (currentModuleType === 'other') return
         await moduleSystem.init()

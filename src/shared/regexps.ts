@@ -372,6 +372,8 @@ export const regexps = {
         uid: /^\d{1,20}$/,
         /** UP 主空间链接里的 UID（/space.bilibili.com/12345）；末尾加 (?!\d) 防止把超长数字截成前 20 位 */
         spaceUid: /space\.bilibili\.com\/(\d{1,20})(?!\d)/,
+        /** 空间页路径里的 UID（host 为 space.bilibili.com 时匹配 pathname：/12345、/12345/upload） */
+        spacePageUid: /^\/(\d{1,20})(?:\/|$)/,
         /** 纯数字 id（aid） */
         aid: /^\d+$/,
         /** 视频页路径片段 */

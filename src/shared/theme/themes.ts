@@ -86,7 +86,15 @@ export const light: ThemeDefinition = {
         warning: '#FF7F24', // Or5_u（operate_orange）
         'warning-rgb': '255,127,36', // Or5_u_rgb
         danger: '#F85A54', // Re5_u（stress_red）
-        'danger-rgb': '248,90,84' // Re5_u_rgb
+        'danger-rgb': '248,90,84', // Re5_u_rgb
+        // 黑名单监狱门：三主题固定深色，保证「牢门」语义
+        'jail-bg': '#0b0c0e',
+        'jail-metal': '#23262c',
+        'jail-metal-dark': '#111318',
+        'jail-metal-light': '#3b4048',
+        'jail-text': '#e8eaed',
+        'jail-text-dim': '#9aa1a9',
+        'jail-accent': '#8fb4d9'
     },
     shadows: {
         // 阴影色通道一律取官方 shadow=Ba0_rgb(0,0,0)；alpha 为浅色观感值
@@ -152,7 +160,15 @@ export const dark: ThemeDefinition = {
         warning: '#D66011', // Or5
         'warning-rgb': '214,96,17', // Or5_rgb
         danger: '#D1403E', // Re5
-        'danger-rgb': '209,64,62' // Re5_rgb
+        'danger-rgb': '209,64,62', // Re5_rgb
+        // 黑名单监狱门：三主题固定深色，保证「牢门」语义
+        'jail-bg': '#0b0c0e',
+        'jail-metal': '#23262c',
+        'jail-metal-dark': '#111318',
+        'jail-metal-light': '#3b4048',
+        'jail-text': '#e8eaed',
+        'jail-text-dim': '#9aa1a9',
+        'jail-accent': '#8fb4d9'
     },
     shadows: {
         // 阴影色通道一律取官方 shadow=Ba0_rgb(0,0,0)；alpha 为深色观感值

@@ -15,6 +15,7 @@
                     @change="handleChange"
                     @validate="handleValidate"
                     @refresh="handleRefresh"
+                    @action="handleAction"
                 />
             </div>
         </div>
@@ -26,6 +27,7 @@
             @change="handleChange"
             @validate="handleValidate"
             @refresh="handleRefresh"
+            @action="handleAction"
         />
     </template>
 </template>
@@ -59,18 +61,22 @@ const props = withDefaults(defineProps<{
     onValidate?: ((key: string) => void) | null
     /** 刷新按钮回调（key） */
     onRefresh?: ((key: string) => void) | null
+    /** 动作按钮回调（key，如黑名单的「管理名单」） */
+    onAction?: ((key: string) => void) | null
 }>(), {
     schema: () => [],
     configs: () => ({}),
     dynamicOptions: () => ({}),
     onChange: null,
     onValidate: null,
-    onRefresh: null
+    onRefresh: null,
+    onAction: null
 })
 const emit = defineEmits<{
     change: [key: string, value: unknown]
     validate: [key: string]
     refresh: [key: string]
+    action: [key: string]
 }>()
 const handleChange = (key: string, value: unknown) => {
     if (typeof props.onChange === 'function') props.onChange(key, value)
@@ -83,6 +89,10 @@ const handleValidate = (key: string) => {
 const handleRefresh = (key: string) => {
     if (typeof props.onRefresh === 'function') props.onRefresh(key)
     else emit('refresh', key)
+}
+const handleAction = (key: string) => {
+    if (typeof props.onAction === 'function') props.onAction(key)
+    else emit('action', key)
 }
 /** section 也支持 visible：不可见时整块（含标题与全部子项）隐藏，避免只剩孤零零的标题 */
 const isItemVisible = (item: SettingItemSchema): boolean => {

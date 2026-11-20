@@ -46,6 +46,7 @@ export interface MountVueSettingsOptions {
     onChange?: (key: string, value: unknown) => void
     onValidate?: (key: string) => void
     onRefresh?: (key: string) => void
+    onAction?: (key: string) => void
     /** 渲染期错误回调（宿主据此在挂载点内显示失败提示） */
     onError?: (error: unknown) => void
 }
@@ -59,7 +60,7 @@ export interface VueSettingsPanelHandle {
     unmount: () => void
 }
 export const mountVueSettingsPanel = async (mountEl: HTMLElement | null, options: MountVueSettingsOptions = {}): Promise<VueSettingsPanelHandle> => {
-    const { schema, configs, dynamicOptions = {}, onChange, onValidate, onRefresh, onError } = options
+    const { schema, configs, dynamicOptions = {}, onChange, onValidate, onRefresh, onAction, onError } = options
     // 桥模块只被动态 import（懒加载红线）；它同时导出组件与**同源**的 Vue API
     const panelModule = await import('./lazy-panel')
     const { SettingsPanelComponent, createApp, reactive, markRaw } = panelModule || {}
@@ -84,7 +85,8 @@ export const mountVueSettingsPanel = async (mountEl: HTMLElement | null, options
         dynamicOptions: bridge.dynamicOptions,
         onChange: (key: string, value: unknown) => onChange?.(key, value),
         onValidate: (key: string) => onValidate?.(key),
-        onRefresh: (key: string) => onRefresh?.(key)
+        onRefresh: (key: string) => onRefresh?.(key),
+        onAction: (key: string) => onAction?.(key)
     })
     // 渲染期错误（含渲染函数/响应式异常）交回宿主，避免静默失败留下空白面板
     app.config.errorHandler = error => {

@@ -105,7 +105,15 @@ export const defaultColors = {
     warning: '#e6a23c',
     'warning-rgb': '230, 162, 60',
     danger: '#f56c6c', // 危险操作/删除/错误（原 #f56c6c/#ff4757/#e56b6b 归并）
-    'danger-rgb': '245, 108, 108'
+    'danger-rgb': '245, 108, 108',
+    // 黑名单空间「监狱门」：故意不随主题变亮（三主题同值），否则浅色主题下会像白墙
+    'jail-bg': '#0b0c0e',
+    'jail-metal': '#23262c',
+    'jail-metal-dark': '#111318',
+    'jail-metal-light': '#3b4048',
+    'jail-text': '#e8eaed',
+    'jail-text-dim': '#9aa1a9',
+    'jail-accent': '#8fb4d9'
 }
 /** 各主题阴影（浅色主题可降低黑色透明度；night 沿用现状） */
 export const defaultShadows = {
