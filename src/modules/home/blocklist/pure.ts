@@ -16,6 +16,7 @@ export interface BlockedUp {
 }
 /**
  * 解析用户输入：纯 UID 或 UP 主空间链接都接受，其它一律返回空串。
+ * UID 上限 20 位：B 站新账号已出现 16 位 mid，按 12 位截断会漏掉整批新 UP。
  * 空间链接常见形态：https://space.bilibili.com/12345、//space.bilibili.com/12345?x=1
  */
 export const parseUidInput = (raw: unknown): string => {

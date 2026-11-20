@@ -368,10 +368,10 @@ export const regexps = {
         bangumiId: /^(?:ep|ss)?\d+$/,
         /** 纯数字 id（cid / aid / 分 P 序号共用） */
         numericId: /^\d+$/,
-        /** UP 主 UID（1–12 位数字；黑名单输入框用） */
-        uid: /^\d{1,12}$/,
-        /** UP 主空间链接里的 UID（/space.bilibili.com/12345） */
-        spaceUid: /space\.bilibili\.com\/(\d{1,12})/,
+        /** UP 主 UID（1–20 位数字；2024 后新账号已出现 16 位 mid，不能再按 12 位截断） */
+        uid: /^\d{1,20}$/,
+        /** UP 主空间链接里的 UID（/space.bilibili.com/12345）；末尾加 (?!\d) 防止把超长数字截成前 20 位 */
+        spaceUid: /space\.bilibili\.com\/(\d{1,20})(?!\d)/,
         /** 纯数字 id（aid） */
         aid: /^\d+$/,
         /** 视频页路径片段 */

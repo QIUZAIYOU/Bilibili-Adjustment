@@ -9,7 +9,10 @@ test('parseUidInput：纯 UID / 空间链接都能解析，其它返回空串', 
     assert.equal(parseUidInput('space.bilibili.com/12345'), '12345')
     assert.equal(parseUidInput('https://space.bilibili.com/abc'), '')
     assert.equal(parseUidInput('uid=12345'), '')
-    assert.equal(parseUidInput('1234567890123'), '')
+    // 16 位新 UID（真实反馈：3493118980655263）与带追踪参数的空间链接都要认
+    assert.equal(parseUidInput('3493118980655263'), '3493118980655263')
+    assert.equal(parseUidInput('https://space.bilibili.com/3493118980655263?spm_id_from=333.788.upinfo.detail.click'), '3493118980655263')
+    assert.equal(parseUidInput('123456789012345678901'), '')
     assert.equal(parseUidInput(''), '')
     assert.equal(parseUidInput(undefined), '')
 })

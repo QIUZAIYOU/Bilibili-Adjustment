@@ -39,12 +39,16 @@ try {
 
     await page.evaluate(() => {
         const input = document.querySelector('.adj-blocklist-input')
-        input.value = '2'
+        // 16 位新 UID 是真实反馈的回归点（曾按 12 位截断导致添加失败）
+        input.value = '3493118980655263'
         document.querySelector('.adj-blocklist-add')?.requestSubmit()
     })
-    await waitFor(async () => page.evaluate(() => Array.from(document.querySelectorAll('.adj-blocklist-name')).some(el => el.textContent?.includes('碧诗'))), {
+    await waitFor(async () => page.evaluate(() => {
+        const meta = document.querySelector('.adj-blocklist-meta')?.textContent || ''
+        return meta.includes('3493118980655263')
+    }), {
         timeout: 15000,
-        label: '添加 UID 2 并拉到昵称'
+        label: '添加 16 位 UID 并拉到昵称'
     })
     const added = await page.evaluate(() => {
         const item = document.querySelector('.adj-blocklist-item')
@@ -53,8 +57,8 @@ try {
             meta: item?.querySelector('.adj-blocklist-meta')?.textContent || ''
         }
     })
-    check('添加后展示昵称', added.name.includes('碧诗'), added.name)
-    check('展示 UID 与粉丝数', added.meta.includes('UID 2') && added.meta.includes('粉丝'), added.meta)
+    check('添加后展示昵称', added.name.length > 0, added.name)
+    check('展示 UID 与粉丝数', added.meta.includes('UID 3493118980655263') && added.meta.includes('粉丝'), added.meta)
 
     await page.evaluate(() => document.querySelector('.adj-blocklist-remove')?.click())
     await waitFor(async () => page.evaluate(() => !document.querySelector('.adj-blocklist-item')), {
