@@ -39,8 +39,6 @@ type FeedbackButton = HTMLElement & {
     _feedbackResetTimer?: ReturnType<typeof setTimeout> | null
 }
 const logger = new LoggerService('SettingsDialog')
-/** 已挂载的设置宿主：供「从脚本猫菜单/URL 参数打开宽版设置」找到当前页面的那一份 */
-const SETTINGS_HOSTS = new Set<SettingsDialogHost>()
 /**
  * 设置面板显示的版本号：只显示主版本号 `v3.44.3`，**不拼构建标识**。
  * 干净构建与脏构建（`-dirty`）在用户眼里都是同一个版本号，避免"同版本在不同电脑上
@@ -84,7 +82,6 @@ export class SettingsDialogHost {
         this._vueConfigsProxy = null
         this._vueDynamicOptionsProxy = null
         this._activeSchema = null
-        SETTINGS_HOSTS.add(this)
     }
     /** 卸载 Vue 设置面板（幂等） */
     unmountVuePanel (): void {
@@ -112,7 +109,6 @@ export class SettingsDialogHost {
         this._configSyncUnsubscribe = null
         this._activeSchema = null
         this.pageType = null
-        SETTINGS_HOSTS.delete(this)
     }
     /**
      * 同步动态选项（模型列表等）到 Vue 面板
@@ -276,7 +272,7 @@ export class SettingsDialogHost {
      * 面板 DOM 与 Vue 实例都在**首次打开时**才创建（懒加载 Vue 运行时）；
      * 关闭时弹窗壳会被销毁（`closed` 事件），下次打开重新渲染。
      */
-    async openSettings (options: { wide?: boolean } = {}): Promise<void> {
+    async openSettings (): Promise<void> {
         if (!this.pageType) await this.init(this.userConfigs)
         // 打开前刷新一次配置：面板可能已经存在（缓存复用），外部来源（Stylus 夜间样式、其它标签页）
         // 在关闭期间改过存储，仅靠内存里的 userConfigs 会显示旧值
@@ -288,12 +284,7 @@ export class SettingsDialogHost {
             await this.render(this.pageType)
             popover = document.getElementById(popoverId)
         }
-        if (popover) {
-            const wide = Boolean(options.wide)
-            popover.classList.toggle('adjustment-popover-wide', wide)
-            document.querySelector('.adjustment-settings-nav')?.classList.toggle('is-wide', wide)
-            popover.showPopover()
-        }
+        if (popover) popover.showPopover()
     }
     async render (pageType: string | null): Promise<void> {
         try {
@@ -1052,15 +1043,4 @@ export class SettingsDialogHost {
             alert('导入设置失败: ' + (error instanceof Error ? error.message : String(error)))
         }
     }
-}
-/**
- * 打开当前页面的设置面板；wide=true 时切换成宽版（从脚本猫菜单/URL 参数进入）
- *
- * @returns 是否找到可用的宿主（space 等没有设置入口的页面返回 false）
- */
-export const openSettingsDialog = async (options: { wide?: boolean } = {}): Promise<boolean> => {
-    const host = [...SETTINGS_HOSTS].reverse().find(item => item.pageType)
-    if (!host) return false
-    await host.openSettings(options)
-    return true
 }

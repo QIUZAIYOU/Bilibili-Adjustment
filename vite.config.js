@@ -6,7 +6,6 @@ import path from 'path'
 import url from 'url'
 import { execFileSync } from 'node:child_process'
 import VitePluginBundleObfuscator from 'vite-plugin-bundle-obfuscator'
-import { buildUserConfigBlock } from './scripts/userconfig.mjs'
 const __dirname = path.dirname(url.fileURLToPath(import.meta.url))
 /**
  * 构建标识：git 短 SHA（工作区有未提交改动时带 -dirty）。
@@ -104,8 +103,7 @@ export default defineConfig(({ mode }) => ({
                     'GM_getValues',
                     'GM_setValues',
                     'GM_addValueChangeListener',
-                    'GM_removeValueChangeListener',
-                    'GM_registerMenuCommand'
+                    'GM_removeValueChangeListener'
                 ]
             },
             format: {
@@ -115,12 +113,7 @@ export default defineConfig(({ mode }) => ({
                     // 保证「线上发布的 sha」与「产物自身的 sha」不可能不一致
                     const buildShaLine = `// @build-sha    ${buildSha}\n`
                     const injected = `${buildShaLine}${updatesLine}`
-                    if (mode === 'meta') {
-                        return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==`)}`
-                    }
-                    // ScriptCat 用户配置：设置项在脚本猫面板里也能直接改（不打开 B 站页面）
-                    const userConfig = `\n${buildUserConfigBlock()}\n`
-                    return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==${userConfig}`)}`
+                    return `${userscript.replace('// ==/UserScript==', `${injected}// ==/UserScript==`)}`
                 }
             }
         }),

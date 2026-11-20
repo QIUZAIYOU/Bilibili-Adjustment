@@ -82,11 +82,6 @@ function generateBilibiliAdjustmentStyle () {
             animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
         }
 
-        /* 宽版设置弹窗（从脚本猫菜单/URL 参数打开）：给分组导航与表单更多横向空间 */
-        .adjustment-popover.adjustment-popover-wide {
-            width: 900px;
-        }
-
         /* 弹窗内不出现浏览器默认聚焦轮廓（深色底上呈白边）：
            脚本为建立焦点陷阱会主动 focus 弹窗容器（tabindex=-1），此时浏览器可能绘制
            默认 outline；统一去掉容器与内部可聚焦元素的 outline。
@@ -513,11 +508,6 @@ function generateBilibiliAdjustmentStyle () {
 
         .adjustment-settings-nav.is-closed {
             display: none;
-        }
-
-        /* 宽版：弹窗半宽从 275 变为 450 */
-        .adjustment-settings-nav.is-wide {
-            right: calc(50% + (450px * var(--adj-ui-zoom, 1)) + 10px);
         }
 
         .adjustment-settings-nav-item {
