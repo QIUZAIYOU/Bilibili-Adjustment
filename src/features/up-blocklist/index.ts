@@ -51,11 +51,12 @@ const applyJail = (): void => {
 }
 /** 设置页「管理名单」按钮调用；功能关闭时也可打开 */
 let panelOnClose: (() => void) | null = null
-export const openUpBlocklistPanel = (options: { onClose?: () => void } = {}): void => {
+export const openUpBlocklistPanel = (options: { onClose?: () => void, showOverlay?: boolean } = {}): void => {
     ensureStyles()
     panelOnClose = options.onClose ?? null
     if (!panel) {
         panel = createBlocklistPanel({
+            showOverlay: options.showOverlay,
             onChange: () => { void reloadBlocked() },
             onClose: () => {
                 const callback = panelOnClose

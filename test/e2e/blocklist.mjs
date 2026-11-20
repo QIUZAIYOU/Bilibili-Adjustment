@@ -53,17 +53,47 @@ try {
     check('index 库已走脚本存储（首页历史）', idxKeys > 0, `keys=${idxKeys}`)
 
     await openSettings(page)
+    // 把设置滚到黑名单分组，记录位置：子弹窗关闭后应原样停留在这里
+    const settingsBefore = await page.evaluate(() => {
+        const pop = document.querySelector('.adjustment-popover')
+        const section = pop.querySelector('.up_blocklist_section')
+        if (section) pop.scrollTop = section.offsetTop - 60
+        return { scrollTop: pop.scrollTop, sectionTop: section?.getBoundingClientRect().top ?? 0 }
+    })
     await openPanel(page)
     const layers = await page.evaluate(() => ({
         settingsOpen: Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open')),
+        settingsInert: Boolean(document.querySelector('.adjustment-popover')?.hasAttribute('inert')),
         panelOpen: Boolean(document.querySelector('.adj-blocklist-popover')?.matches(':popover-open')),
+        overlays: document.querySelectorAll('.adjustment-popover-overlay').length,
         backVisible: !(document.querySelector('.adj-blocklist-back')?.hidden ?? true)
     }))
-    check('打开名单时设置弹窗已收起（不重叠）', !layers.settingsOpen && layers.panelOpen, JSON.stringify(layers))
+    check('打开名单时设置保持打开且不可交互', layers.settingsOpen && layers.settingsInert && layers.panelOpen, JSON.stringify(layers))
+    check('子弹窗复用父级遮罩（页面上只有一层）', layers.overlays === 1, `overlays=${layers.overlays}`)
     check('名单里有「返回设置」入口', layers.backVisible)
+    // 点遮罩：只关最上层（名单），设置保持原状态
+    await page.evaluate(() => document.querySelector('.adjustment-popover-overlay')?.click())
+    await waitFor(async () => page.evaluate(() => !document.querySelector('.adj-blocklist-popover')?.matches(':popover-open')), { timeout: 8000, label: '遮罩关闭名单' })
+    const settingsAfter = await page.evaluate(() => {
+        const pop = document.querySelector('.adjustment-popover')
+        const section = pop.querySelector('.up_blocklist_section')
+        return {
+            settingsOpen: Boolean(pop?.matches(':popover-open')),
+            settingsInert: Boolean(pop?.hasAttribute('inert')),
+            scrollTop: pop.scrollTop,
+            sectionTop: section?.getBoundingClientRect().top ?? 0,
+            overlays: document.querySelectorAll('.adjustment-popover-overlay').length
+        }
+    })
+    check('点遮罩只关名单，设置未受影响', settingsAfter.settingsOpen && !settingsAfter.settingsInert, JSON.stringify(settingsAfter))
+    check('返回后设置滚动位置保持不变', Math.abs(settingsAfter.scrollTop - settingsBefore.scrollTop) <= 1, `before=${settingsBefore.scrollTop} after=${settingsAfter.scrollTop}`)
+    check('返回后停留在黑名单分组', Math.abs(settingsAfter.sectionTop - settingsBefore.sectionTop) <= 2, `before=${Math.round(settingsBefore.sectionTop)} after=${Math.round(settingsAfter.sectionTop)}`)
+    check('返回后遮罩仍只有一层', settingsAfter.overlays === 1, `overlays=${settingsAfter.overlays}`)
+    // 再用「返回设置」按钮走一遍
+    await openPanel(page)
     await page.evaluate(() => document.querySelector('.adj-blocklist-back')?.click())
-    await waitFor(async () => page.evaluate(() => Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open'))), { timeout: 8000, label: '返回设置' })
-    check('返回设置后名单已关闭', await page.evaluate(() => !document.querySelector('.adj-blocklist-popover')?.matches(':popover-open')))
+    await waitFor(async () => page.evaluate(() => !document.querySelector('.adj-blocklist-popover')?.matches(':popover-open')), { timeout: 8000, label: '返回设置' })
+    check('返回按钮同样恢复到设置', await page.evaluate(() => Boolean(document.querySelector('.adjustment-popover')?.matches(':popover-open')) && !document.querySelector('.adjustment-popover')?.hasAttribute('inert')))
     await openPanel(page)
 
     await page.evaluate(() => {

@@ -652,16 +652,25 @@ export class SettingsDialogHost {
         if (targetId !== 'up_blocklist_enabled') return
         try {
             const { openUpBlocklistPanel } = await import('@/features/up-blocklist')
-            // 先关设置再开名单：两个 popover 同时开着会叠层，且各自都挂了轻触关闭，
-            // 点一次遮罩会把两层一起关掉。名单关闭时再回设置，保持「从哪里来回哪里去」。
-            if (popover?.matches(':popover-open')) popover.hidePopover()
+            // 父弹窗保持打开、不销毁：关掉子弹窗后滚动位置/当前分组/输入草稿都还在。
+            // 遮罩由父弹窗那层共用（showOverlay:false），避免关闭子弹窗时遮罩闪一下。
+            if (popover?.matches(':popover-open')) {
+                popover.classList.add('is-subdialog-open')
+                popover.setAttribute('inert', '')
+            }
             openUpBlocklistPanel({
+                showOverlay: false,
                 onClose: () => {
-                    window.setTimeout(() => { void this.openSettings() }, 0)
+                    popover?.classList.remove('is-subdialog-open')
+                    popover?.removeAttribute('inert')
+                    const trigger = popover?.querySelector('[data-action-for="up_blocklist_enabled"]') as HTMLElement | null
+                    trigger?.focus()
                 }
             })
         } catch (error) {
             logger.warn('设置弹窗丨黑名单面板打开失败', error instanceof Error ? error.message : error)
+            popover?.classList.remove('is-subdialog-open')
+            popover?.removeAttribute('inert')
         }
     }
     async handleRefreshClick (targetId: string, popover: SettingsPopover | null, buttonEl: HTMLElement | null = null): Promise<void> {

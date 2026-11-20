@@ -5,6 +5,11 @@
  */
 export const upBlocklistStyles = `
     /* ===== 管理弹窗 ===== */
+    /* 子弹窗打开时父弹窗只做背景：压暗 + 禁止交互（inert 由脚本加） */
+    .adjustment-popover.is-subdialog-open {
+        opacity: 0.45;
+        transition: opacity 0.2s ease;
+    }
     .adj-blocklist-popover {
         position: fixed;
         inset: 0;

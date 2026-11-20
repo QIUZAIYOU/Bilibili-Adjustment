@@ -519,34 +519,102 @@ export const monitorHrefChange = (callback: HrefChangeCallback): (() => void) =>
 // 自定义"点击外部关闭"：用真实 DOM 遮罩替代 ::backdrop（UA 的 backdrop 不接收指针事件，导致穿透）
 // 同时原生 light dismiss 在"弹窗内按下、弹窗外松开"（如拖选文字）时也会误关，
 // 改为遮罩元素拦截所有弹窗外交互——点击遮罩即关闭，拖选不受影响
-export const enablePopoverLightDismiss = (popover: HTMLElement): (() => void) => {
+/** 弹窗轻触关闭选项：子弹窗可复用父弹窗的遮罩 */
+export interface PopoverDismissOptions {
+    /**
+     * 是否由本弹窗创建遮罩。默认 true；子弹窗（如设置里的「管理名单」）传 false，
+     * 沿用父弹窗已经铺好的那层遮罩，关闭时就不会出现「遮罩消失又出现」的闪烁。
+     * 也可在模板上写 `data-adj-overlay="false"` 达到同样效果。
+     */
+    showOverlay?: boolean
+}
+interface ModalStackEntry {
+    popover: HTMLElement
+    showOverlay: boolean
+}
+/** 打开中的弹窗栈：后进先出，决定遮罩点击 / Esc 关哪一层 */
+const modalStack: ModalStackEntry[] = []
+let sharedOverlay: HTMLElement | null = null
+let escBound = false
+const closeTopModal = (): void => {
+    const top = modalStack[modalStack.length - 1]
+    if (top) top.popover.hidePopover()
+}
+const ensureSharedOverlay = (): void => {
+    if (sharedOverlay?.isConnected) return
     const overlay = document.createElement('div')
     overlay.className = 'adjustment-popover-overlay'
-    overlay.addEventListener('click', e => {
-        e.preventDefault()
-        e.stopPropagation()
-        popover.hidePopover()
+    overlay.addEventListener('click', event => {
+        event.preventDefault()
+        event.stopPropagation()
+        closeTopModal()
     })
-    const onKeyDown = (e: KeyboardEvent) => {
-        if (e.key === 'Escape' && popover.matches(':popover-open')) {
-            popover.hidePopover()
-        }
+    document.body.appendChild(overlay)
+    sharedOverlay = overlay
+}
+/** 只要栈里还有弹窗就保留父级遮罩，避免父子交替时闪烁；全部关闭才移除 */
+const syncSharedOverlay = (): void => {
+    if (modalStack.length) ensureSharedOverlay()
+    else if (sharedOverlay) {
+        sharedOverlay.remove()
+        sharedOverlay = null
     }
-    const onToggle = (e: ToggleEvent) => {
-        if (e.newState === 'open') {
-            // 遮罩插入到弹窗前面（同级），z-index 低于弹窗
-            popover.parentElement?.insertBefore(overlay, popover)
-            document.addEventListener('keydown', onKeyDown)
-        } else {
-            overlay.remove()
-            document.removeEventListener('keydown', onKeyDown)
+}
+const onModalEsc = (event: KeyboardEvent): void => {
+    if (event.key !== 'Escape' || !modalStack.length) return
+    event.preventDefault()
+    closeTopModal()
+}
+const bindEsc = (): void => {
+    if (escBound) return
+    document.addEventListener('keydown', onModalEsc)
+    escBound = true
+}
+const unbindEsc = (): void => {
+    if (!escBound || modalStack.length) return
+    document.removeEventListener('keydown', onModalEsc)
+    escBound = false
+}
+/**
+ * popover 轻触关闭：点击遮罩 / 按 Esc 关闭**最上层**弹窗。
+ *
+ * 多层弹窗共用一个遮罩（挂在 body、位于 top-layer 弹窗之下）：
+ * - 父弹窗先开 → 铺遮罩；子弹窗传 `showOverlay:false` 沿用这层；
+ * - 关子弹窗时遮罩不销毁，回父弹窗零闪烁；
+ * - 点击遮罩永远只关最上层，不会一带二。
+ */
+export const enablePopoverLightDismiss = (popover: HTMLElement, options: PopoverDismissOptions = {}): (() => void) => {
+    const resolveShowOverlay = (): boolean => options.showOverlay
+        ?? popover.getAttribute('data-adj-overlay') !== 'false'
+    let entry: ModalStackEntry | null = null
+    const onToggle = (event: Event): void => {
+        const newState = (event as ToggleEvent).newState
+        if (newState === 'open') {
+            if (entry) return
+            entry = { popover, showOverlay: resolveShowOverlay() }
+            modalStack.push(entry)
+            bindEsc()
+            syncSharedOverlay()
+            return
         }
+        if (!entry) return
+        const index = modalStack.indexOf(entry)
+        if (index >= 0) modalStack.splice(index, 1)
+        entry = null
+        syncSharedOverlay()
+        unbindEsc()
     }
     popover.addEventListener('toggle', onToggle)
+    if (popover.matches(':popover-open')) onToggle({ newState: 'open' } as ToggleEvent)
     return () => {
-        overlay.remove()
-        document.removeEventListener('keydown', onKeyDown)
         popover.removeEventListener('toggle', onToggle)
+        if (entry) {
+            const index = modalStack.indexOf(entry)
+            if (index >= 0) modalStack.splice(index, 1)
+            entry = null
+            syncSharedOverlay()
+            unbindEsc()
+        }
     }
 }
 export const sanitizeHttpUrl = (value: unknown): string => {

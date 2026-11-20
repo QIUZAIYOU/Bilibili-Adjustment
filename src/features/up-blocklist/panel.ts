@@ -13,8 +13,10 @@ const logger = new LoggerService('UpBlocklist', { notify: false })
 export interface BlocklistPanelOptions {
     /** 名单变化（添加/移除）后回调：刷新过滤用的昵称集合并重新扫描 */
     onChange: () => void
-    /** 弹窗关闭后回调（从设置页进入时用它返回设置，避免两个弹窗叠在一起） */
+    /** 弹窗关闭后回调（从设置页进入时用它恢复设置状态） */
     onClose?: () => void
+    /** 是否自带遮罩：从设置进入时传 false，复用设置弹窗那层，避免遮罩闪烁 */
+    showOverlay?: boolean
 }
 export interface BlocklistPanelHandle {
     show: () => void
@@ -30,6 +32,8 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
     const popover = el('div', 'adj-blocklist-popover')
     popover.setAttribute('popover', '')
     popover.setAttribute('aria-label', 'UP 主黑名单')
+    // 模板级开关：data-adj-overlay="false" 时不自带遮罩（与 createBlocklistPanel 的 showOverlay 等价）
+    if (options.showOverlay === false) popover.setAttribute('data-adj-overlay', 'false')
     const header = el('div', 'adj-blocklist-header')
     const titleWrap = el('div', 'adj-blocklist-title-wrap')
     const back = el('button', 'adj-blocklist-back', '← 返回设置')
@@ -188,7 +192,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             if (!popover.matches(':popover-open')) {
                 try { popover.showPopover() } catch { /* 浏览器不支持时退回普通显示 */ }
             }
-            if (!lightDismissCleanup) lightDismissCleanup = enablePopoverLightDismiss(popover)
+            if (!lightDismissCleanup) lightDismissCleanup = enablePopoverLightDismiss(popover, { showOverlay: options.showOverlay })
             void refresh()
         },
         destroy: (): void => {
