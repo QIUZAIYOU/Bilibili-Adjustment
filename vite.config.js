@@ -104,7 +104,8 @@ export default defineConfig(({ mode }) => ({
                     'GM_getValues',
                     'GM_setValues',
                     'GM_addValueChangeListener',
-                    'GM_removeValueChangeListener'
+                    'GM_removeValueChangeListener',
+                    'GM_registerMenuCommand'
                 ]
             },
             format: {

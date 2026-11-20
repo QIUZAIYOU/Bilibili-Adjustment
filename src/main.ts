@@ -18,6 +18,20 @@ import { EVENT_NAMES, UP_SPACE_POPUP_FLAG } from '@/shared/constants'
 import type { ModuleDefinition } from '@/core/module-system'
 import pkg from '../package.json' with { type: 'json' }
 const logger = new LoggerService('Main')
+/**
+ * 脚本猫菜单入口：一键打开站点内的「宽版设置面板」
+ *
+ * ScriptCat 原生用户配置弹窗宽度固定、tab 不可滚动、不支持父子缩进与联动显隐，
+ * 这些在站点内设置面板里都支持，因此把「完整设置」作为主入口。
+ */
+const menuApi = globalThis as unknown as { GM_registerMenuCommand?: (name: string, handler: () => void) => void }
+if (typeof menuApi.GM_registerMenuCommand === 'function') {
+    menuApi.GM_registerMenuCommand('打开完整设置面板', () => {
+        const url = new URL('https://www.bilibili.com/')
+        url.searchParams.set('adj_open_settings', '1')
+        window.open(url.toString(), '_blank')
+    })
+}
 const moduleCache = new Map<string, ModuleDefinition>()
 let currentModuleType: string | null = null
 // 注意：显式 .js 扩展名不会回退到 .ts（vite 与 Node 行为一致），故这里省略扩展名
@@ -103,6 +117,21 @@ const scheduleUpdateCheck = (): void => {
         setTimeout(run, 3000)
     }
 }
+/** URL 参数 ?adj_open_settings=1：打开的页面自动弹出宽版设置（供脚本猫菜单跳转用） */
+const openSettingsFromUrl = async (): Promise<void> => {
+    try {
+        const params = new URLSearchParams(location.search)
+        if (params.get('adj_open_settings') !== '1') return
+        params.delete('adj_open_settings')
+        const query = params.toString()
+        history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + location.hash)
+        const { openSettingsDialog } = await import('@/components/settings-dialog')
+        const opened = await openSettingsDialog({ wide: true })
+        if (!opened) logger.warn('宽版设置丨当前页面没有可用的设置入口')
+    } catch (error) {
+        logger.warn('宽版设置丨打开失败', error instanceof Error ? error.message : error)
+    }
+}
 const initializeApp = async (): Promise<void> => {
     perfStart('app:init')
     try {
@@ -143,6 +172,7 @@ const initializeApp = async (): Promise<void> => {
         perfEnd('app:ready')
         await eventBus.emitMeasured(EVENT_NAMES.APP_READY)
         scheduleUpdateCheck()
+        void openSettingsFromUrl()
         let isProcessingUrlChange = false
         let lastUrl = location.href
         // 处理中发生的路由变化挂在这里，本轮结束后补跑（而不是丢弃）

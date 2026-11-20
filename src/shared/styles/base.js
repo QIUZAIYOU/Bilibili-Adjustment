@@ -64,8 +64,7 @@ function generateBilibiliAdjustmentStyle () {
             margin: auto;
             box-sizing: border-box;
             padding: 0;
-            width: 550px;
-            /* 整窗等比放大：内部全是写死的 px，zoom 一次性把字号/内距/图标一起放大，
+            width: 550px;            /* 整窗等比放大：内部全是写死的 px，zoom 一次性把字号/内距/图标一起放大，
                4K 下与 1080p 的视觉占比一致（max-height 要乘回倒数，否则 88vh 会被放大溢出） */
             zoom: var(--adj-ui-zoom, 1);
             max-height: calc(88vh * var(--adj-ui-zoom-inv, 1));
@@ -81,6 +80,11 @@ function generateBilibiliAdjustmentStyle () {
             border: 1px solid var(--adj-border);
             box-shadow: var(--adj-shadow-dialog);
             animation: adjustment-popover-in 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+
+        /* 宽版设置弹窗（从脚本猫菜单/URL 参数打开）：给分组导航与表单更多横向空间 */
+        .adjustment-popover.adjustment-popover-wide {
+            width: 900px;
         }
 
         /* 弹窗内不出现浏览器默认聚焦轮廓（深色底上呈白边）：
@@ -509,6 +513,11 @@ function generateBilibiliAdjustmentStyle () {
 
         .adjustment-settings-nav.is-closed {
             display: none;
+        }
+
+        /* 宽版：弹窗半宽从 275 变为 450 */
+        .adjustment-settings-nav.is-wide {
+            right: calc(50% + (450px * var(--adj-ui-zoom, 1)) + 10px);
         }
 
         .adjustment-settings-nav-item {
