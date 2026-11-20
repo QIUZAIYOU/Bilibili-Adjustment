@@ -114,6 +114,67 @@ try {
         })
     }, author), { timeout: 30000, label: '黑名单卡片与外层占位被隐藏' })
     check('同名作者卡片与外层 .feed-card 占位均被隐藏', true, author)
+
+    // ---------- 长名单：弹窗不超出视口，列表内部滚动并支持筛选 ----------
+    await page.evaluate(async () => {
+        const request = indexedDB.open('BilibiliAdjustmentIndexRecommendVideoHistory', 2)
+        const db = await new Promise((resolve, reject) => {
+            request.onupgradeneeded = () => {
+                const result = request.result
+                if (!result.objectStoreNames.contains('keyval')) result.createObjectStore('keyval', { keyPath: 'key' })
+            }
+            request.onsuccess = () => resolve(request.result)
+            request.onerror = () => reject(request.error)
+        })
+        await new Promise((resolve, reject) => {
+            const tx = db.transaction('keyval', 'readwrite')
+            const store = tx.objectStore('keyval')
+            for (let i = 0; i < 80; i++) {
+                const uid = `90000000${String(i).padStart(4, '0')}`
+                store.put({
+                    key: `blocked-up:${uid}`,
+                    value: { uid, name: `测试UP${i}`, face: '', fans: 0, sign: '', ts: Date.now() },
+                    timestamp: Date.now()
+                })
+            }
+            tx.oncomplete = () => resolve(undefined)
+            tx.onerror = () => reject(tx.error)
+        })
+    })
+    await page.evaluate(() => {
+        document.querySelector('.adj-blocklist-popover')?.hidePopover()
+        document.querySelector('.adj-palette-blocklist-btn')?.click()
+    })
+    await waitFor(async () => page.evaluate(() => document.querySelectorAll('.adj-blocklist-item').length >= 80), {
+        timeout: 8000,
+        label: '长名单渲染'
+    })
+    const layout = await page.evaluate(() => {
+        const pop = document.querySelector('.adj-blocklist-popover')
+        const rect = pop.getBoundingClientRect()
+        const list = pop.querySelector('.adj-blocklist-list')
+        const search = pop.querySelector('.adj-blocklist-search')
+        return {
+            height: Math.round(rect.height),
+            top: Math.round(rect.top),
+            bottom: Math.round(rect.bottom),
+            innerHeight: window.innerHeight,
+            scrollable: list.scrollHeight > list.clientHeight + 1,
+            rows: list.querySelectorAll('.adj-blocklist-item').length,
+            searchVisible: !search.hidden,
+            title: pop.querySelector('.adj-blocklist-title')?.textContent
+        }
+    })
+    check('长名单弹窗不超出视口', layout.top >= 0 && layout.bottom <= layout.innerHeight + 1 && layout.height <= layout.innerHeight * 0.86, JSON.stringify(layout))
+    check('长名单在弹窗内部滚动', layout.scrollable, `rows=${layout.rows}`)
+    check('长名单显示筛选框', layout.searchVisible, layout.title)
+    const filtered = await page.evaluate(() => {
+        const search = document.querySelector('.adj-blocklist-search')
+        search.value = '测试UP7'
+        search.dispatchEvent(new Event('input', { bubbles: true }))
+        return document.querySelectorAll('.adj-blocklist-item').length
+    })
+    check('筛选框能缩小名单', filtered > 0 && filtered < 50, `filtered=${filtered}`)
 } finally {
     await browser.close()
 }

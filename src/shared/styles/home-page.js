@@ -271,8 +271,9 @@ export const homePageStyles = {
             inset: 0;
             margin: auto;
             box-sizing: border-box;
-            width: 520px;
+            width: min(520px, calc(92vw * var(--adj-ui-zoom-inv, 1)));
             max-height: calc(80vh * var(--adj-ui-zoom-inv, 1));
+            height: auto;
             padding: 20px 22px;
             border: 1px solid var(--adj-border-strong);
             border-radius: var(--adj-radius-lg);
@@ -291,6 +292,7 @@ export const homePageStyles = {
             justify-content: space-between;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--adj-border);
+            flex: none;
         }
         .adj-blocklist-title {
             margin: 0;
@@ -313,6 +315,7 @@ export const homePageStyles = {
             display: flex;
             gap: 8px;
             margin-top: 14px;
+            flex: none;
         }
         .adj-blocklist-input {
             flex: 1;
@@ -348,17 +351,26 @@ export const homePageStyles = {
             font-size: var(--adj-font-xs);
             line-height: 1.6;
             color: var(--adj-text-soft);
+            flex: none;
+        }
+        .adj-blocklist-search {
+            margin-top: 10px;
+            flex: none;
         }
         .adj-blocklist-status {
             margin-top: 8px;
             font-size: var(--adj-font-sm);
             color: var(--adj-brand);
+            flex: none;
         }
         .adj-blocklist-list {
-            flex: 1;
+            flex: 1 1 auto;
             min-height: 0;
+            /* 名单再长也只占屏幕中间一段，剩下的交给滚动；46vh 与上面的 80vh 上限共同兜底 */
+            max-height: calc(46vh * var(--adj-ui-zoom-inv, 1));
             margin-top: 12px;
             overflow-y: auto;
+            overscroll-behavior: contain;
         }
         .adj-blocklist-item {
             display: flex;

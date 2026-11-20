@@ -29,7 +29,8 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
     popover.setAttribute('popover', '')
     popover.setAttribute('aria-label', 'UP 主黑名单')
     const header = el('div', 'adj-blocklist-header')
-    header.appendChild(el('h3', 'adj-blocklist-title', 'UP 主黑名单'))
+    const title = el('h3', 'adj-blocklist-title', 'UP 主黑名单')
+    header.appendChild(title)
     const close = el('button', 'adj-blocklist-close', '×')
     close.type = 'button'
     close.setAttribute('aria-label', '关闭黑名单弹窗')
@@ -43,10 +44,15 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
     submit.type = 'submit'
     form.append(input, submit)
     const hint = el('p', 'adj-blocklist-hint', '开启黑名单后，首页推荐里不再显示这些 UP 主的视频。卡片按昵称匹配，添加时会自动读取昵称与头像。')
+    const search = el('input', 'adj-blocklist-input adj-blocklist-search')
+    search.type = 'search'
+    search.placeholder = '按昵称或 UID 筛选'
+    search.setAttribute('aria-label', '筛选黑名单')
+    search.hidden = true
     const status = el('div', 'adj-blocklist-status')
     status.setAttribute('role', 'status')
     const list = el('div', 'adj-blocklist-list')
-    popover.append(header, form, hint, status, list)
+    popover.append(header, form, hint, search, status, list)
     document.body.appendChild(popover)
     let lightDismissCleanup: (() => void) | null = null
     const setStatus = (text: string): void => {
@@ -79,15 +85,30 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
         item.appendChild(remove)
         return item
     }
+    let current: BlockedUp[] = []
+    const paint = (): void => {
+        const keyword = search.value.trim().toLowerCase()
+        const visible = keyword
+            ? current.filter(up => up.name.toLowerCase().includes(keyword) || up.uid.includes(keyword))
+            : current
+        list.textContent = ''
+        if (!current.length) {
+            list.appendChild(el('div', 'adj-blocklist-empty', '名单是空的。粘贴 UP 主 UID 或空间链接，点「添加」。'))
+            return
+        }
+        if (!visible.length) {
+            list.appendChild(el('div', 'adj-blocklist-empty', '没有匹配的 UP 主'))
+            return
+        }
+        for (const up of visible) list.appendChild(renderItem(up))
+    }
     const refresh = async (): Promise<void> => {
         try {
-            const items = await listBlockedUps()
-            list.textContent = ''
-            if (!items.length) {
-                list.appendChild(el('div', 'adj-blocklist-empty', '名单是空的。粘贴 UP 主 UID 或空间链接，点「添加」。'))
-                return
-            }
-            for (const up of items) list.appendChild(renderItem(up))
+            current = await listBlockedUps()
+            title.textContent = current.length ? `UP 主黑名单（${current.length}）` : 'UP 主黑名单'
+            search.hidden = current.length <= 8
+            if (search.hidden) search.value = ''
+            paint()
         } catch (error) {
             logger.warn('黑名单丨读取名单失败', error)
             setStatus('读取名单失败，稍后重试')
@@ -130,6 +151,7 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
         event.preventDefault()
         void add()
     })
+    search.addEventListener('input', paint)
     list.addEventListener('click', (event: Event) => {
         const target = event.target as Element | null
         const button = target?.closest('[data-action="remove"]')
