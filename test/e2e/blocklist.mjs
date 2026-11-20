@@ -103,9 +103,10 @@ try {
     await waitFor(async () => page.evaluate(name => {
         const cards = Array.from(document.querySelectorAll('.bili-video-card'))
         const matched = cards.filter(card => (card.querySelector('.bili-video-card__info--author')?.getAttribute('title') || '').trim() === name)
-        return matched.length > 0 && matched.every(card => getComputedStyle(card).display === 'none')
-    }, author), { timeout: 30000, label: '黑名单卡片被隐藏' })
-    check('同名作者卡片被隐藏', true, author)
+        const targets = matched.map(card => card.closest('.feed-card, .bili-feed-card') || card)
+        return matched.length > 0 && targets.every(target => getComputedStyle(target).display === 'none')
+    }, author), { timeout: 30000, label: '黑名单卡片与外层占位被隐藏' })
+    check('同名作者卡片与外层占位被隐藏', true, author)
 } finally {
     await browser.close()
 }
