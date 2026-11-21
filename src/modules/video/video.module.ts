@@ -254,6 +254,7 @@ export const buildVideoFeatureDefinitions = (ctx: VideoModuleContext): FeatureDe
             }
         },
         // ---- background / player:ready（网络与 IO，谁都不等它） ----
+        { id: 'refresh-up-avatar', lane: 'background', trigger: 'features:ready', when: () => isVideo(), run: () => ctx.refreshUpAvatar() },
         { id: 'description-to-comment', lane: 'background', trigger: 'features:ready', when: () => on('insert_video_description_to_comment') && isVideo(), run: () => ctx.insertVideoDescriptionToComment() },
         { id: 'unlock-episode-selector', lane: 'background', trigger: 'features:ready', run: runUnlessPlayerTitle(() => ctx.unlockEpisodeSelector()) },
         { id: 'skip-cache-video', lane: 'background', trigger: 'features:ready', when: () => on('auto_skip') && isVideo(), run: runUnlessPlayerTitle(() => ctx.loadCachedSkipSegments()) },
@@ -705,6 +706,8 @@ export default {
             if (!container) return
             this.observePlayerScreenMode(container)
         })
+        // 换视频后 B 站会改 URL；侧栏按钮是复用的，必须显式刷新作者信息（否则一直是上一个视频的 UP）
+        void this.refreshUpAvatar()
         // 其余功能统一交给调度器：等新视频可播放后开新代次派发（不再串行 await 网络/定位）
         void this.checkVideoCanplaythrough(elementSelectors.get('video') as HTMLVideoElement | null, true)
     },

@@ -9,7 +9,7 @@ import { getTemplates } from '@/shared/templates'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { sleep, createElementAndInsert, addEventListenerToElement, insertStyleToDocument, documentScrollTo, getElementOffsetToDocument, sanitizeHttpUrl } from '@/utils/common'
 import type { InsertionMethod } from '@/utils/common'
-import { normalizeUpOwner, resolveAvatarSize, resolveAvatarTip } from './up-avatar-pure'
+import { normalizeUpOwner, resolveAvatarSize, resolveAvatarTip, chooseUpOwner } from './up-avatar-pure'
 import type { UpOwnerInfo } from './up-avatar-pure'
 import { SIDENAV_KEYS, SIDENAV_KEY_SELECTORS, SIDENAV_MIRROR_SELECTOR, planSidenavDedupe } from './sidenav-dedupe'
 import type { SidenavButtonKey } from './sidenav-dedupe'
@@ -588,25 +588,24 @@ export const uiButtonsFeatures = {
      * sessionStorage 里可能还留着上一个视频的作者。
      */
     async refreshUpAvatar (this: UiButtonsContext): Promise<void> {
-        // 用去重后的「主容器里的那颗」：容器可能被重建、按钮可能被搬到别处，直接 querySelector
-        // 会刷到已经不在侧栏上的副本
         const snapshot = dedupeSidenavButtons(this.userConfigs.page_type)
         const button = (snapshot.present.up ?? null) as HTMLElement | null
         if (!button) return
+        const videoId = biliApis.getCurrentVideoID()
+        if (!videoId || videoId === 'error') return
         const sessionOwner = readSessionOwner()
         if (sessionOwner.mid) {
             this._cachedMid = sessionOwner.mid
             applyUpOwner(button, sessionOwner)
         }
-        const videoId = biliApis.getCurrentVideoID()
-        if (!videoId || videoId === 'error') return
         try {
             const info = await biliApis.getVideoInformation('video', videoId) as { owner?: unknown } | null | undefined
             const owner = normalizeUpOwner(info?.owner)
             if (!owner.mid) return
+            // 快速连切时，旧请求可能在新视频之后返回：以当前 URL 为准丢弃过期结果
+            if (biliApis.getCurrentVideoID() !== videoId) return
             this._cachedMid = owner.mid
-            // 与 sessionStorage 不一致才重刷（避免无谓的 DOM 改动）
-            if (String(owner.mid) !== String(sessionOwner.mid ?? '')) applyUpOwner(button, owner)
+            applyUpOwner(button, chooseUpOwner(sessionOwner, owner))
         } catch {
             // 接口失败就沿用 sessionStorage 的结果
         }
@@ -646,7 +645,9 @@ export const uiButtonsFeatures = {
             const upBtn = createElementAndInsert(upHtml, playerControllerBottomRight)
             addEventListenerToElement(upBtn, 'click', e => {
                 e.stopPropagation()
-                this.openUpSpace(mid)
+                // 切视频后 _cachedMid 会刷新；点击时再取，避免闭包留下上一个作者
+                const currentMid = this._cachedMid || mid
+                if (currentMid) this.openUpSpace(currentMid)
             })
         }
     }

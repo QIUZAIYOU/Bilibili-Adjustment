@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
-import { normalizeUpOwner, resolveAvatarSize, resolveAvatarTip } from '@/modules/video/up-avatar-pure'
+import { normalizeUpOwner, resolveAvatarSize, resolveAvatarTip, chooseUpOwner } from '@/modules/video/up-avatar-pure'
 /**
  * 侧栏「UP主空间」头像按钮的纯逻辑回归（2026-10-24）
  *
@@ -29,6 +29,22 @@ test('非对象输入（null/undefined/字符串）不抛错，返回空对象',
     assert.deepEqual(normalizeUpOwner(undefined), {})
     assert.deepEqual(normalizeUpOwner('xxx'), {})
     assert.deepEqual(normalizeUpOwner(123), {})
+})
+test('切视频取值：接口作者优先，接口缺头像时回退 session', () => {
+    const session = { mid: '111', name: '旧作者', face: 'https://i0.hdslb.com/old.jpg' }
+    const api = { mid: '222', name: '新作者' }
+    assert.deepEqual(chooseUpOwner(session, api), {
+        mid: '222',
+        name: '新作者',
+        face: 'https://i0.hdslb.com/old.jpg'
+    })
+    // 接口没拿到 mid：整份沿用 session，不把按钮改空
+    assert.deepEqual(chooseUpOwner(session, {}), session)
+    assert.deepEqual(chooseUpOwner({}, { mid: '333', name: '只有接口' }), {
+        mid: '333',
+        name: '只有接口',
+        face: undefined
+    })
 })
 test('头像直径：量到的宽度原样用，量不到用兜底值，超范围夹紧', () => {
     // 量到的就是当前那颗按钮的宽度 → 头像与按钮等宽

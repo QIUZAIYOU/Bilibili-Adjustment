@@ -34,6 +34,20 @@ export const normalizeUpOwner = (raw: unknown): UpOwnerInfo => {
     }
 }
 /**
+ * 合并两处作者信息：接口结果优先，缺失字段回退到 sessionStorage
+ *
+ * 接口是权威源（切视频后 sessionStorage 可能还是上一个视频的作者），但它偶尔缺头像；
+ * 此时保留 session 的头像，避免头像被清空。
+ */
+export const chooseUpOwner = (session: UpOwnerInfo, api: UpOwnerInfo): UpOwnerInfo => {
+    if (!api.mid) return session
+    return {
+        mid: api.mid,
+        name: api.name ?? session.name,
+        face: api.face ?? session.face
+    }
+}
+/**
  * 头像直径：与**当前那颗按钮**等宽
  *
  * 侧栏按钮的宽度由 B 站自己的样式决定（同一套类名 → 同一个盒子），
