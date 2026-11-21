@@ -46,6 +46,23 @@ export const buildPreviewUrl = (template: string, bvid: string): string => {
 /** 视频标题兜底文案（卡片标题取不到时用） */
 export const FALLBACK_PREVIEW_TITLE = '视频预览'
 /**
+ * 暂停文档里**所有** video，返回原本是否有正在播放的
+ *
+ * B 站播放器可能同时挂多个媒体元素（主视频、广告、悬浮预览），只暂停第一个会漏。
+ * 关闭弹窗、关闭后复检都走这一处，保证「关了就必须静音」只有一个判据。
+ */
+export const pauseAllPreviewVideos = (doc: Document | null | undefined): boolean => {
+    if (!doc) return false
+    let wasPlaying = false
+    for (const video of Array.from(doc.querySelectorAll('video'))) {
+        if (!video.paused) wasPlaying = true
+        try {
+            video.pause()
+        } catch { /* 媒体状态异常不影响其余元素 */ }
+    }
+    return wasPlaying
+}
+/**
  * 卡片标题清洗：去掉多余空白与时长等尾部噪音（B 站标题节点里可能带空格换行）
  * @param raw 标题节点的 textContent
  */

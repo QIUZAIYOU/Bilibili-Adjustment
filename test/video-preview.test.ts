@@ -1,6 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import './browser-stubs.js'
+import { JSDOM } from 'jsdom'
 import {
     FALLBACK_PREVIEW_TITLE,
     PREVIEW_BVID_PLACEHOLDER,
@@ -9,7 +10,8 @@ import {
     PREVIEW_COVER_ATTR,
     buildPreviewUrl,
     extractPreviewBvid,
-    normalizePreviewTitle
+    normalizePreviewTitle,
+    pauseAllPreviewVideos
 } from '@/features/video-preview/video-preview-pure'
 import { getTemplates } from '@/shared/templates'
 import { videoPreviewStyles } from '@/shared/styles/video-preview'
@@ -18,6 +20,20 @@ import { videoPreviewStyles } from '@/shared/styles/video-preview'
  *
  * 这些判据决定了「哪些卡片能预览」「弹窗里加载哪个地址」，出错就是整个功能不工作，故单独钉住。
  */
+test('pauseAllPreviewVideos：暂停文档里所有 video，并报告原本是否有在播', () => {
+    const dom = new JSDOM('<!DOCTYPE html><body><video></video><video></video></body>')
+    const doc = dom.window.document
+    const videos = Array.from(doc.querySelectorAll('video'))
+    const paused = [false, true]
+    videos.forEach((video, index) => {
+        Object.defineProperty(video, 'paused', { get: () => paused[index], configurable: true })
+        video.pause = () => { paused[index] = true }
+    })
+    assert.equal(pauseAllPreviewVideos(doc), true, '应报告「原本有在播」')
+    assert.deepEqual(paused, [true, true], '所有 video 都要暂停，不能只暂停第一个')
+    assert.equal(pauseAllPreviewVideos(doc), false, '全部已暂停时应返回 false')
+    assert.equal(pauseAllPreviewVideos(null), false)
+})
 test('从卡片链接取 bvid：支持绝对/相对地址与查询串形式', () => {
     assert.equal(extractPreviewBvid('https://www.bilibili.com/video/BV1Qq7m6PEuA?trackid=xxx'), 'BV1Qq7m6PEuA')
     assert.equal(extractPreviewBvid('//www.bilibili.com/video/BV1Qq7m6PEuA'), 'BV1Qq7m6PEuA')

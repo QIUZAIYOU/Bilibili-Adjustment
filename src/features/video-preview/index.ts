@@ -17,7 +17,8 @@ import {
     FALLBACK_PREVIEW_TITLE,
     PREVIEW_BUTTON_CLASS,
     PREVIEW_COVER_CLASS,
-    PREVIEW_COVER_ATTR
+    PREVIEW_COVER_ATTR,
+    pauseAllPreviewVideos
 } from './video-preview-pure'
 const logger = new LoggerService('VideoPreview')
 /**
@@ -92,16 +93,18 @@ interface PreviewState {
     clickBound: boolean
     bvid: string
     usingFallback: boolean
-    /** 关闭弹窗时是否已绑定"停止播放"监听（只绑一次） */
-    hideBound: boolean
+    /** 已绑定关闭监听的弹窗 root（keepAlive 到期重建后要重新绑定） */
+    closeBoundRoot: HTMLElement | null
     /** 是否是"因为关闭弹窗而暂停"（用于下次打开同一视频时接着播） */
     pausedByHide: boolean
     /** 是否正在等待同源播放页就绪（加载中关弹窗只能卸载 iframe，暂停旧文档没用） */
     loading: boolean
     /** 已挂过「关闭后禁播」监听的 frame 文档（iframe 每次导航都换文档，故按文档比对避免重复挂） */
     playGuardDoc: Document | null
-    /** 「关闭后禁播」的 load 监听是否已挂（只挂一次，避免重复开弹窗累积监听） */
-    playGuardLoadBound: boolean
+    /** 已绑定 load 监听的 frame（弹窗重建会换 frame，必须重新绑） */
+    guardBoundFrame: HTMLIFrameElement | null
+    /** 关闭后复检播放状态的定时器（播放器可能自行恢复播放） */
+    pauseRecheckTimer: ReturnType<typeof setTimeout> | null
     /** 待处理的「新增节点」队列（增量扫描用） */
     pendingRoots: Set<Element>
     /** 合并窗口的定时器 */
@@ -117,11 +120,12 @@ const state: PreviewState = {
     clickBound: false,
     bvid: '',
     usingFallback: false,
-    hideBound: false,
+    closeBoundRoot: null,
     pausedByHide: false,
     loading: false,
     playGuardDoc: null,
-    playGuardLoadBound: false,
+    guardBoundFrame: null,
+    pauseRecheckTimer: null,
     pendingRoots: new Set<Element>(),
     flushTimer: null
 }
@@ -470,33 +474,68 @@ const setPreviewLoadingVisible = (visible: boolean): void => {
 }
 /** 预览弹窗当前是否处于打开状态 */
 const isPreviewDialogOpen = (): boolean => !!state.dialog?.root?.matches(':popover-open')
+const clearPauseRecheck = (): void => {
+    if (!state.pauseRecheckTimer) return
+    clearTimeout(state.pauseRecheckTimer)
+    state.pauseRecheckTimer = null
+}
+/** 关窗 400ms 后再看一次：播放器可能自己 `play()` 回来，事件没经过 guard 也不能出声 */
+const schedulePauseRecheck = (frame: HTMLIFrameElement): void => {
+    clearPauseRecheck()
+    state.pauseRecheckTimer = setTimeout(() => {
+        state.pauseRecheckTimer = null
+        if (isPreviewDialogOpen() || state.frame !== frame) return
+        const doc = frame.contentDocument
+        if (!doc) return
+        const stillPlaying = Array.from(doc.querySelectorAll('video')).some(video => !video.paused)
+        if (!stillPlaying) return
+        frame.src = 'about:blank'
+        logger.warn('视频预览丨关闭后播放器自行恢复，已强制卸载播放器')
+    }, 400)
+}
+const bindDialogClose = (root: HTMLElement): void => {
+    if (state.closeBoundRoot === root) return
+    state.closeBoundRoot = root
+    root.addEventListener('toggle', (event: Event) => {
+        if ((event as ToggleEvent).newState !== 'closed') return
+        pausePreviewPlayback()
+    })
+}
 /**
  * 关闭弹窗时停止播放。
  *
  * 弹窗按 keepAlive 缓存复用，关闭只是隐藏 —— 不处理的话 iframe 里的播放器会继续播、用户关了还听得见声音。
  * 三种情况分别处理：
- * - 播放页已就绪：直接 `pause()`（保留已加载页面，下次打开接着看）；
+ * - 播放页已就绪：**暂停文档里所有 video**（B 站可能同时挂多个媒体元素），保留页面供下次续播；
  * - **还在加载中**：暂停旧文档没有意义（新页面加载完会自己播起来），直接卸载成 `about:blank`；
  * - 兜底的官方外链播放器（跨源，父页面碰不到它内部）：同样卸载 iframe 来立刻静音。
  */
 const pausePreviewPlayback = (): void => {
     const frame = state.frame
     if (!frame) return
+    clearPauseRecheck()
     state.pausedByHide = false
     if (state.loading) {
         frame.src = 'about:blank'
         logger.debug('视频预览丨加载期间关闭弹窗，已卸载播放器')
         return
     }
-    const video = previewVideoElement(frame)
-    if (video) {
-        if (!video.paused) state.pausedByHide = true
-        video.pause()
-        logger.debug('视频预览丨弹窗已关闭，已暂停播放')
+    const doc = frame.contentDocument
+    if (!doc) {
+        frame.src = 'about:blank'
+        logger.debug('视频预览丨弹窗已关闭，已卸载跨源播放器')
         return
     }
-    frame.src = 'about:blank'
-    logger.debug('视频预览丨弹窗已关闭，已卸载跨源播放器')
+    const hadVideo = doc.querySelectorAll('video').length > 0
+    if (pauseAllPreviewVideos(doc)) state.pausedByHide = true
+    if (!hadVideo) {
+        frame.src = 'about:blank'
+        logger.debug('视频预览丨弹窗已关闭，已卸载空播放器')
+        return
+    }
+    logger.debug('视频预览丨弹窗已关闭，已暂停播放')
+    // 暂停后仍可能有播放器自行恢复：短窗口内复检一次，必要时硬卸载
+    schedulePauseRecheck(frame)
 }
 /**
  * 「关了就必须静音」兜底监听：iframe 里**任何来源**的播放（B 站播放器自己恢复、我们漏掉的关闭事件、
@@ -515,7 +554,7 @@ const guardPreviewPlaybackWhileHidden = (): void => {
         if (!doc || doc === state.playGuardDoc) return
         state.playGuardDoc = doc
         doc.addEventListener('play', (event: Event) => {
-            if (isPreviewDialogOpen()) return
+            if (state.frame !== frame || isPreviewDialogOpen()) return
             const media = event.target as HTMLMediaElement | null
             if (!media || typeof media.pause !== 'function') return
             state.pausedByHide = true
@@ -523,9 +562,10 @@ const guardPreviewPlaybackWhileHidden = (): void => {
             logger.debug('视频预览丨弹窗未开启，已拦下后台播放')
         }, true)
     }
-    // iframe 每次导航都会换文档，故 load 后重挂一次（同一文档重复挂由上面的文档比对挡住）
-    if (!state.playGuardLoadBound) {
-        state.playGuardLoadBound = true
+    // 弹窗重建会换 frame：每次重新给当前 frame 挂 load，再按文档去重
+    if (state.guardBoundFrame !== frame) {
+        state.guardBoundFrame = frame
+        state.playGuardDoc = null
         frame.addEventListener('load', bind)
     }
     bind()
@@ -534,6 +574,7 @@ const guardPreviewPlaybackWhileHidden = (): void => {
 const resumePreviewPlaybackIfPausedByHide = (): void => {
     if (!state.pausedByHide) return
     state.pausedByHide = false
+    clearPauseRecheck()
     if (!isPreviewDialogOpen()) return
     const video = previewVideoElement(state.frame)
     if (!video) return
@@ -542,6 +583,7 @@ const resumePreviewPlaybackIfPausedByHide = (): void => {
 /** 打开预览弹窗并播放指定视频 */
 const openVideoPreview = async (bvid: string, title: string): Promise<void> => {
     if (!bvid) return
+    clearPauseRecheck()
     state.bvid = bvid
     state.usingFallback = false
     const dialog = openAdjustmentDialog({
@@ -577,14 +619,8 @@ const openVideoPreview = async (bvid: string, title: string): Promise<void> => {
     })
     state.dialog = dialog
     // ⚠️ 弹窗按 `keepAliveMs` 缓存复用 —— 关闭只是**隐藏**，iframe 与里面的播放器会继续播（用户能听见声音）。
-    // 弹窗壳的 `onClosed` 只在真正销毁时触发，所以这里直接听 popover 的 toggle：关闭即停止播放。
-    if (!state.hideBound) {
-        state.hideBound = true
-        dialog.root.addEventListener('toggle', (event: Event) => {
-            if ((event as ToggleEvent).newState !== 'closed') return
-            pausePreviewPlayback()
-        })
-    }
+    // 弹窗壳的 `onClosed` 只在真正销毁时触发；而且缓存到期重建后 root 会换新，必须按 root 重新绑定。
+    bindDialogClose(dialog.root)
     // 复用已存在的弹窗时，标题与「新标签页打开」的目标要跟着换（同 key 单例不会重建 DOM）
     const titleEl = dialog.header.querySelector('.adjustment-dialog-title')
     if (titleEl) titleEl.textContent = title
@@ -708,10 +744,18 @@ export const destroyVideoPreviewFeature = (): void => {
         state.flushTimer = null
     }
     state.pendingRoots.clear()
+    pausePreviewPlayback()
     state.dialog?.destroy()
     state.dialog = null
     state.frame = null
     state.loadingEl = null
+    // 监听与定时器都跟着实例走：不清零的话，功能重开后新弹窗/新 frame 会被"已绑定"挡住
+    clearPauseRecheck()
+    state.closeBoundRoot = null
+    state.guardBoundFrame = null
+    state.playGuardDoc = null
+    state.loading = false
+    state.pausedByHide = false
     document.querySelectorAll(`.${PREVIEW_BUTTON_CLASS}`).forEach(el => el.remove())
     document.querySelectorAll(`.${PREVIEW_COVER_CLASS}`).forEach(el => el.classList.remove(PREVIEW_COVER_CLASS))
     document.querySelectorAll(`[${PREVIEW_COVER_ATTR}]`).forEach(el => el.removeAttribute(PREVIEW_COVER_ATTR))
