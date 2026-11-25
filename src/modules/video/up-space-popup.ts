@@ -1,12 +1,10 @@
 import { LoggerService } from '@/services/logger.service'
-import { ConfigService } from '@/services/config.service'
 import { openAdjustmentDialog } from '@/components/popover-dialog'
 import { getTemplates } from '@/shared/templates'
 import { buildUpSpaceUrl } from '@/shared/templates/video/up-space'
 import { LOADING_OVERLAY_HIDDEN_CLASS } from '@/shared/templates/loading'
 import { queryTemplateTextField } from '@/shared/templates/buttons'
 import { createElementAndInsert } from '@/utils/common'
-import { addBlockedUpByUid } from '@/features/up-blocklist/store'
 const logger = new LoggerService('VideoModule')
 // 关闭后保留弹窗的缓存时长：期间再次打开直接复用已加载的 iframe（不重新加载，
 // 且保留浏览位置）；超过此时长未再打开才销毁，避免重型空间页 iframe 常驻内存
@@ -14,44 +12,6 @@ const UP_SPACE_POPUP_CACHE_MS = 10 * 60 * 1000
 let upSpaceFrame: HTMLIFrameElement | null = null
 let upSpaceLoading: HTMLElement | null = null
 let upSpaceDialog: { body: HTMLElement, destroy: () => void } | null = null
-/** 当前空间弹窗展示的 UP mid（弹窗缓存复用，每次打开更新） */
-let currentUpSpaceMid = ''
-/** 标题栏的「加入黑名单（脚本）」按钮；成功/失败都直接显示在按钮上 */
-const buildUpSpaceHeaderExtra = (): HTMLElement => {
-    const wrap = document.createElement('div')
-    wrap.className = 'adj-up-space-header-extra'
-    const button = document.createElement('button')
-    button.type = 'button'
-    button.className = 'adj-up-space-block-btn'
-    button.textContent = '加入黑名单（脚本）'
-    button.addEventListener('click', () => {
-        const mid = currentUpSpaceMid
-        if (!mid || button.disabled) return
-        const original = '加入黑名单（脚本）'
-        button.disabled = true
-        button.textContent = '添加中…'
-        void (async () => {
-            try {
-                const syncOfficial = Boolean(await ConfigService.getValue('up_blocklist_official_sync'))
-                const result = await addBlockedUpByUid(mid, { syncOfficial })
-                button.textContent = result.ok ? '已加入黑名单' : result.message
-                window.setTimeout(() => {
-                    button.disabled = false
-                    if (!result.ok) button.textContent = original
-                }, result.ok ? 1200 : 2400)
-            } catch (error) {
-                logger.warn('UP主空间弹窗丨加入黑名单失败', error instanceof Error ? error.message : error)
-                button.textContent = '添加失败'
-                window.setTimeout(() => {
-                    button.disabled = false
-                    button.textContent = original
-                }, 2000)
-            }
-        })()
-    })
-    wrap.appendChild(button)
-    return wrap
-}
 const createUpSpaceFrame = (body: HTMLElement): void => {
     if (!upSpaceFrame) {
         upSpaceFrame = document.createElement('iframe')
@@ -82,14 +42,12 @@ const watchUpSpaceFrame = (frame: HTMLIFrameElement): void => {
 /** 弹出 UP 主空间弹窗（同 key 单例 + keepAlive：缓存期内再开直接复用已加载的 iframe） */
 const showUpSpacePopup = (mid: string | number): void => {
     if (!mid) return
-    currentUpSpaceMid = String(mid)
     const dialog = openAdjustmentDialog({
         key: 'up-space',
         keepAliveMs: UP_SPACE_POPUP_CACHE_MS,
         title: 'UP主空间',
         width: 'min(1100px, 94vw)',
         className: 'up-space-dialog',
-        headerExtra: buildUpSpaceHeaderExtra(),
         content: createUpSpaceFrame
     })
     upSpaceDialog = dialog

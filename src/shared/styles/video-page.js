@@ -10,35 +10,6 @@ export const videoPageStyles = {
             /* 空间页自带内边距，这里再去掉弹窗的内边距，让它铺满弹窗宽度（否则右侧会被裁掉一截） */
             padding: 0;
         }
-
-        .adj-up-space-header-extra {
-            display: flex;
-            align-items: center;
-            margin-right: 10px;
-        }
-
-        .adj-up-space-block-btn {
-            padding: 4px 12px;
-            border: 1px solid var(--adj-border-strong);
-            border-radius: var(--adj-radius-full);
-            background: transparent;
-            color: var(--adj-text-primary);
-            font-size: var(--adj-font-xs);
-            cursor: pointer;
-            transition: var(--adj-motion-fast);
-        }
-
-        .adj-up-space-block-btn:hover:not(:disabled),
-        .adj-up-space-block-btn:focus-visible:not(:disabled) {
-            outline: none;
-            border-color: var(--adj-brand);
-            color: var(--adj-brand);
-        }
-
-        .adj-up-space-block-btn:disabled {
-            opacity: 0.7;
-            cursor: default;
-        }
     `,
     /**
      * 侧栏「UP主空间」按钮：改成**作者圆形头像**（2026-10-24）

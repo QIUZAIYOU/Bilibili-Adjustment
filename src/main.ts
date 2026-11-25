@@ -102,6 +102,13 @@ const scheduleUpdateCheck = (): void => {
         setTimeout(run, 3000)
     }
 }
+/** 空间页原生菜单注入（跨页特性；弹窗 iframe 内同样运行） */
+const ensureSpaceMenuFeature = (): void => {
+    if (location.hostname !== 'space.bilibili.com') return
+    void import('@/features/up-blocklist/space-menu')
+        .then(module => module.initSpaceMenuFeature())
+        .catch(error => logger.warn('空间菜单丨初始化失败', error instanceof Error ? error.message : error))
+}
 const initializeApp = async (): Promise<void> => {
     perfStart('app:init')
     try {
@@ -134,7 +141,10 @@ const initializeApp = async (): Promise<void> => {
         })
         void applyUpBlocklist(await ConfigService.getValue('up_blocklist_enabled'))
         await detectAndLoadModule()
-        if (currentModuleType === 'other') return
+        if (currentModuleType === 'other') {
+            ensureSpaceMenuFeature()
+            return
+        }
         await moduleSystem.init()
         logger.info('应用初始化完成')
         perfEnd('app:ready')
