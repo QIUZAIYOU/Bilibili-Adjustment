@@ -8,6 +8,8 @@
  */
 import { insertStyleToDocument } from '@/utils/common'
 import { upBlocklistStyles } from '@/shared/styles/up-blocklist'
+import { eventBus } from '@/core/event-bus'
+import { EVENT_NAMES } from '@/shared/constants'
 import { listBlockedUps } from './store'
 import { createBlockedCardFilter } from './filter'
 import type { CardFilterHandle } from './filter'
@@ -23,6 +25,7 @@ interface BlocklistState {
 }
 let state: BlocklistState | null = null
 let panel: BlocklistPanelHandle | null = null
+let changedUnsubscribe: (() => void) | null = null
 let stylesInjected = false
 const ensureStyles = (): void => {
     if (stylesInjected) return
@@ -84,9 +87,14 @@ export const initUpBlocklistFeature = async (): Promise<void> => {
     state = next
     next.filter.rescan()
     applyJail()
+    // 其它入口（空间弹窗快捷按钮）加人后广播，列表立即重新过滤
+    changedUnsubscribe?.()
+    changedUnsubscribe = eventBus.on(EVENT_NAMES.UP_BLOCKLIST_CHANGED, () => { void reloadBlocked() })
 }
 export const destroyUpBlocklistFeature = (): void => {
     state?.filter.stop()
     state?.jail?.destroy()
     state = null
+    changedUnsubscribe?.()
+    changedUnsubscribe = null
 }

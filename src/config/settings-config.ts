@@ -76,6 +76,13 @@ export const videoSettingsConfig: SettingItemSchema[] = [
                 hasActionButton: true,
                 actionButtonText: '管理名单',
                 defaultValue: false
+            },
+            {
+                id: 'up_blocklist_official_sync',
+                type: 'checkbox',
+                label: '联动官方黑名单',
+                tips: '开启后，在脚本里添加黑名单时会同时调用 B 站官方拉黑接口（需要登录且 Cookie 含 bili_jct）。移除脚本名单不会自动取消官方拉黑；官方失败时脚本名单仍会保留。',
+                defaultValue: false
             }
         ]
     },

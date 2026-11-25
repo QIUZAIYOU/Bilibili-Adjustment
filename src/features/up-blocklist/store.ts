@@ -5,11 +5,13 @@
  * 首页/搜索在 www/search，IndexedDB 按源隔离 —— 存 IndexedDB 会导致「首页加的名单，空间页不认识」。
  * 键前缀 `adj.blocklist.up.<uid>`，与用户配置共用脚本存储；读取时兼容旧版 IndexedDB 键并自动迁移。
  */
-import { httpGet } from '@/utils/http'
+import { httpGet, httpPost } from '@/utils/http'
 import { storageService } from '@/services/storage.service'
 import { LoggerService } from '@/services/logger.service'
-import { normalizeBlockedUp } from './pure'
-import type { BlockedUp } from './pure'
+import { eventBus } from '@/core/event-bus'
+import { EVENT_NAMES } from '@/shared/constants'
+import { normalizeBlockedUp, isSelfUid, buildRelationModifyBody, parseRelationModifyResult } from './pure'
+import type { BlockedUp, RelationModifyResult } from './pure'
 import { regexps } from '@/shared/regexps'
 const logger = new LoggerService('UpBlocklist', { notify: false })
 const KEY_PREFIX = 'adj.blocklist.up.'
@@ -78,6 +80,7 @@ export const fetchUpCard = async (uid: string): Promise<BlockedUp | null> => {
     }
 }
 const NAV_API = 'https://api.bilibili.com/x/web-interface/nav'
+const RELATION_API = 'https://api.bilibili.com/x/relation/modify'
 let selfUidPromise: Promise<string | null> | null = null
 /**
  * 当前登录账号 UID（用于禁止拉黑自己）
@@ -100,4 +103,58 @@ export const fetchCurrentUid = (): Promise<string | null> => {
         })()
     }
     return selfUidPromise
+}
+/** 只读 Cookie（官方写接口需要 bili_jct） */
+const readCookie = (name: string): string => {
+    try {
+        const prefix = `${name}=`
+        const item = document.cookie.split(';').map(part => part.trim()).find(part => part.startsWith(prefix))
+        return item ? decodeURIComponent(item.slice(prefix.length)) : ''
+    } catch {
+        return ''
+    }
+}
+/** 调 B 站官方拉黑接口（act=5）；失败只返回原因，不影响脚本名单 */
+export const blockOfficialUser = async (uid: string): Promise<RelationModifyResult> => {
+    const csrf = readCookie('bili_jct')
+    if (!csrf) return { ok: false, alreadyBlocked: false, message: '未登录，未同步官方拉黑' }
+    try {
+        const response = await httpPost(RELATION_API, buildRelationModifyBody(uid, csrf), {
+            credentials: 'include',
+            timeout: 8000,
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+        })
+        const payload = response.data as { code?: unknown, message?: unknown } | null
+        return parseRelationModifyResult(payload?.code, payload?.message)
+    } catch (error) {
+        logger.warn('黑名单丨官方拉黑请求失败', error instanceof Error ? error.message : error)
+        return { ok: false, alreadyBlocked: false, message: '官方拉黑请求失败，请稍后重试' }
+    }
+}
+export interface AddBlockedUpResult {
+    ok: boolean
+    message: string
+    up?: BlockedUp
+}
+/**
+ * 把 UID 加入脚本黑名单（自己/重复/名片失败都会拒绝）
+ *
+ * 设置页弹窗与空间弹窗共用；`syncOfficial` 为真时同时调官方拉黑，官方失败不回滚脚本名单。
+ */
+export const addBlockedUpByUid = async (uid: string, options: { syncOfficial?: boolean } = {}): Promise<AddBlockedUpResult> => {
+    const currentUid = await fetchCurrentUid()
+    if (isSelfUid(currentUid, uid)) return { ok: false, message: '这是当前登录的账号，不能加入黑名单' }
+    const existing = await listBlockedUps()
+    if (existing.some(up => up.uid === uid)) return { ok: false, message: '这位 UP 已经在名单里了' }
+    const info = await fetchUpCard(uid)
+    if (!info) return { ok: false, message: '没查到这位 UP，检查 UID 是否正确' }
+    await saveBlockedUp(info)
+    eventBus.emit(EVENT_NAMES.UP_BLOCKLIST_CHANGED, { uid })
+    if (!options.syncOfficial) return { ok: true, message: `已添加：${info.name}`, up: info }
+    const official = await blockOfficialUser(uid)
+    return {
+        ok: true,
+        message: `已添加：${info.name}（${official.message}）`,
+        up: info
+    }
 }

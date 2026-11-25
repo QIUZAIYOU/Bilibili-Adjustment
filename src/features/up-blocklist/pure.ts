@@ -29,6 +29,25 @@ export const parseUidInput = (raw: unknown): string => {
 /** 当前登录账号不能被拉黑：两侧都有 UID 且相等才算命中 */
 export const isSelfUid = (currentUid: string | null | undefined, targetUid: string): boolean =>
     Boolean(currentUid) && String(currentUid) === String(targetUid)
+/** B 站官方拉黑接口的请求体（application/x-www-form-urlencoded，act=5 拉黑，re_src=11 空间来源） */
+export const buildRelationModifyBody = (uid: string, csrf: string): string =>
+    new URLSearchParams({ fid: String(uid), act: '5', re_src: '11', csrf: String(csrf) }).toString()
+export interface RelationModifyResult {
+    ok: boolean
+    alreadyBlocked: boolean
+    message: string
+}
+/** 归一化官方拉黑接口返回值：22003 视为已在黑名单（成功），其它 code 原样给失败原因 */
+export const parseRelationModifyResult = (code: unknown, message?: unknown): RelationModifyResult => {
+    const numeric = Number(code)
+    const serverMessage = typeof message === 'string' && message.trim() ? message.trim() : ''
+    if (numeric === 0) return { ok: true, alreadyBlocked: false, message: '已同步官方拉黑' }
+    if (numeric === 22003) return { ok: true, alreadyBlocked: true, message: '官方黑名单已包含该用户' }
+    if (numeric === -101) return { ok: false, alreadyBlocked: false, message: '未登录，未同步官方拉黑' }
+    if (numeric === -111) return { ok: false, alreadyBlocked: false, message: 'csrf 校验失败，请刷新页面重试' }
+    if (numeric === 22001) return { ok: false, alreadyBlocked: false, message: '不能把当前账号拉黑' }
+    return { ok: false, alreadyBlocked: false, message: serverMessage || `官方拉黑失败（code ${String(code ?? 'unknown')}）` }
+}
 /** 粉丝数展示：与 B 站口径一致，过万保留一位小数 */export const formatFansCount = (value: unknown): string => {
     const fans = Number(value)
     if (!Number.isFinite(fans) || fans <= 0) return '0'

@@ -69,6 +69,17 @@ try {
         backVisible: !(document.querySelector('.adj-blocklist-back')?.hidden ?? true)
     }))
     check('打开名单时设置保持打开且不可交互', layers.settingsOpen && layers.settingsInert && layers.panelOpen, JSON.stringify(layers))
+    const titleColor = await page.evaluate(() => {
+        const title = document.querySelector('.adj-blocklist-title')
+        const primary = getComputedStyle(document.documentElement).getPropertyValue('--adj-text-primary').trim()
+        const probe = document.createElement('div')
+        probe.style.color = primary
+        document.body.appendChild(probe)
+        const expected = getComputedStyle(probe).color
+        probe.remove()
+        return { actual: title ? getComputedStyle(title).color : '', expected }
+    })
+    check('名单标题颜色跟随主题', titleColor.actual === titleColor.expected && titleColor.actual !== 'rgb(0, 0, 0)', JSON.stringify(titleColor))
     check('子弹窗复用父级遮罩（页面上只有一层）', layers.overlays === 1, `overlays=${layers.overlays}`)
     check('名单里有「返回设置」入口', layers.backVisible)
     // 点遮罩：只关最上层（名单），设置保持原状态

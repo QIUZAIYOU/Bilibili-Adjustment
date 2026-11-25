@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { formatFansCount, normalizeBlockedUp, parseUidInput, isSelfUid } from '../src/features/up-blocklist/pure'
+import { formatFansCount, normalizeBlockedUp, parseUidInput, isSelfUid, buildRelationModifyBody, parseRelationModifyResult } from '../src/features/up-blocklist/pure'
 test('parseUidInput：纯 UID / 空间链接都能解析，其它返回空串', () => {
     assert.equal(parseUidInput('12345'), '12345')
     assert.equal(parseUidInput(' 12345 '), '12345')
@@ -23,6 +23,25 @@ test('isSelfUid：只有当前 UID 与目标一致才判为自己', () => {
     assert.equal(isSelfUid('', '12345'), false)
     assert.equal(isSelfUid('12345', '54321'), false)
 })
+test('官方拉黑：请求体 act=5 / re_src=11 / csrf 编码正确', () => {
+    const body = buildRelationModifyBody('12345', 'a&b=c')
+    const params = new URLSearchParams(body)
+    assert.equal(params.get('fid'), '12345')
+    assert.equal(params.get('act'), '5')
+    assert.equal(params.get('re_src'), '11')
+    assert.equal(params.get('csrf'), 'a&b=c')
+})
+test('官方拉黑：0 成功、22003 视为已拉黑、-101/-111/未知都失败', () => {
+    assert.deepEqual(parseRelationModifyResult(0), { ok: true, alreadyBlocked: false, message: '已同步官方拉黑' })
+    assert.deepEqual(parseRelationModifyResult(22003), { ok: true, alreadyBlocked: true, message: '官方黑名单已包含该用户' })
+    assert.equal(parseRelationModifyResult(-101).ok, false)
+    assert.equal(parseRelationModifyResult(-111).ok, false)
+    assert.equal(parseRelationModifyResult(22001).ok, false)
+    const unknown = parseRelationModifyResult(999, '服务异常')
+    assert.equal(unknown.ok, false)
+    assert.equal(unknown.message, '服务异常')
+})
+
 test('formatFansCount：万/亿口径', () => {    assert.equal(formatFansCount(999), '999')
     assert.equal(formatFansCount(12345), '1.2万')
     assert.equal(formatFansCount(10000), '1万')

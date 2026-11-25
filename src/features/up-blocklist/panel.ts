@@ -9,7 +9,7 @@ import { LoggerService } from '@/services/logger.service'
 import { ConfigService } from '@/services/config.service'
 import { eventBus } from '@/core/event-bus'
 import { EVENT_NAMES } from '@/shared/constants'
-import { listBlockedUps, fetchUpCard, saveBlockedUp, removeBlockedUp, fetchCurrentUid } from './store'
+import { listBlockedUps, removeBlockedUp, fetchCurrentUid, addBlockedUpByUid } from './store'
 import { parseUidInput, formatFansCount, isSelfUid } from './pure'
 import type { BlockedUp } from './pure'
 const logger = new LoggerService('UpBlocklist', { notify: false })
@@ -182,23 +182,18 @@ export const createBlocklistPanel = (options: BlocklistPanelOptions): BlocklistP
             setStatus('这是当前登录的账号，不能加入黑名单')
             return
         }
-        const existing = await listBlockedUps()
-        if (existing.some(up => up.uid === uid)) {
-            setStatus('这位 UP 已经在名单里了')
-            return
-        }
         submit.disabled = true
         submit.textContent = '添加中…'
         setStatus('正在读取 UP 主信息…')
         try {
-            const info = await fetchUpCard(uid)
-            if (!info) {
-                setStatus('没查到这位 UP，检查 UID 是否正确')
+            const syncOfficial = Boolean(await ConfigService.getValue('up_blocklist_official_sync'))
+            const result = await addBlockedUpByUid(uid, { syncOfficial })
+            if (!result.ok) {
+                setStatus(result.message)
                 return
             }
-            await saveBlockedUp(info)
             input.value = ''
-            setStatus(`已添加：${info.name}`)
+            setStatus(result.message)
             await refresh()
             await options.onChange()
         } catch (error) {

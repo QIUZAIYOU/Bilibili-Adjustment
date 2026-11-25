@@ -42,6 +42,7 @@ export const upBlocklistStyles = `
         margin: 0;
         font-size: var(--adj-font-lg);
         font-weight: 700;
+        color: var(--adj-text-primary);
     }
     .adj-blocklist-title-wrap {
         display: flex;

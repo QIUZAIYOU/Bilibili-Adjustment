@@ -6,6 +6,7 @@ export const EVENT_NAMES = {
     UPDATE_AVAILABLE: 'update:available',
     LOGGER_SHOW: 'logger:show',
     VIDEO_CANPLAYTHROUGH: 'video:canplaythrough',
+    UP_BLOCKLIST_CHANGED: 'up-blocklist:changed',
     VIDEO_PLAYER_MODE_SELECTED: 'video:playerModeSelected',
     VIDEO_WEBFULL_PLAYER_MODE_UNLOCK: 'video:webfullPlayerModeUnlock',
     MODULE_REGISTERED: 'module:registered',
